@@ -1,0 +1,49 @@
+Entendendo melhor a Nuvem 
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 27/07/2026 20:09
+ Navegação Interna
+Para que serve a nuvem?
+A nuvem na ADVBOX é utilizada para armazenar documentos e arquivos vinculados aos seus processos, tarefas e contatos. Assim, todas as informações ficam organizadas, seguras e acessíveis de qualquer lugar.
+Informações importantes sobre a nuvem
+1
+Plano Essencial : 50GB
+2
+Plano Banca Jurídica: 70GB
+3
+Plano Banca Max: 90GB
+4
+Elite: 100GB
+Importante:
+ Caso exceda o espaço disponível no seu plano contratado, terá um acréscimo de apenas R$0,50 mensais por cada 1GB excedente.
+Uploads permitidos: .pdf, .avi, .mp3, .word, .txt, .doc, .excel, .jpeg, .png , .zip. 
+Como funciona a nuvem nos processos compartilhados com parceiros na ADVBOX
+O escritório dono do processo tem acesso total a todos os documentos do processo, incluindo arquivos nas pastas públicas e privadas
+O escritório parceiro não tem acesso às pastas privadas do dono do processo
+Para os parceiros, o sistema cria automaticamente uma pasta compartilhada, onde é possível adicionar e visualizar documentos de forma colaborativa
+Tudo que for salvo dentro dessa pasta compartilhada fica visível tanto para o escritório dono quanto para o parceiro
+Arquivos salvos fora da pasta compartilhada, nas pastas privadas, ficam restritos e não são acessíveis ao parceiro
+Dica:
+ O armazenamento desses documentos na nuvem conta para o limite de cada escritório, tanto do dono quanto do parceiro, conforme os arquivos forem sendo adicionados dentro do que cada um envia. Cada escritório é responsável pela gestão do seu próprio espaço na nuvem, mesmo em processos compartilhados.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

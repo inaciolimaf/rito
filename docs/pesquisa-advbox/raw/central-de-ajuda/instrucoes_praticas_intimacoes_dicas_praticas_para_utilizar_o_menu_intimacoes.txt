@@ -1,0 +1,107 @@
+Dicas práticas para utilizar o Menu Intimações
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 10/07/2025 17:44
+ Navegação Interna
+Neste artigo, você vai aprender como abrir e tratar uma intimação judicial na ADVBOX, incluindo como vincular a um processo existente ou cadastrar um novo processo quando necessário.
+O que fazer ao receber uma Intimação Judicial na ADVBOX
+Abrindo a tarefa "Intimação Judicial"
+1
+Abra a Tarefa
+Clique sobre a tarefa com o título 
+"Intimação Judicial"
+.
+2
+Visualize o Conteúdo
+Ao abrir, você verá o 
+conteúdo completo da publicação
+ recebida.
+A partir dessa tela, você pode:
+Ler o conteúdo na íntegra
+Atribuir nova tarefa
+Encaminhar para outro colaborador
+Enviar por e-mail
+Concluir a tarefa
+Verifique se o processo já está cadastrado
+A ADVBOX tenta identificar automaticamente se a intimação pertence a um processo já existente. Se não houver processo vinculado, você terá duas opções:
+•
+Clicar em "Cadastrar novo processo"
+Preenchendo os dados principais.
+•
+Usar o botão "Vincular a processo existente"
+Caso ele já esteja na plataforma.
+Opção 1: Cadastrar um novo processo
+1
+Observe o Lado Direito
+Na tela da intimação, observe o lado direito.
+2
+Localize o Atalho
+Localize o atalho azul com o ícone de um quadrado e seta apontando para cima, acompanhado do texto 
+"Cadastrar"
+.
+3
+Abra o Formulário
+Clique neste atalho para abrir o formulário de cadastro de processo.
+4
+Preencha os Dados
+Preencha normalmente os campos obrigatórios.
+5
+Salve o Processo
+Após preencher, clique em 
+"Salvar"
+.
+6
+Vinculação Automática
+O sistema criará o processo e vinculará automaticamente a intimação a ele.
+Opção 2: Vincular a um processo já existente
+Se o processo já está cadastrado na plataforma, mas o sistema não o reconheceu automaticamente:
+1
+Clique em Vincular
+Clique na opção 
+"Vincular a um processo"
+, ao lado da mensagem "Processo não encontrado".
+2
+Campo de Pesquisa
+Um campo de pesquisa será exibido.
+3
+Digite o Processo
+Digite o número completo do processo ou o nome da pasta/caso.
+4
+Selecione o Processo
+Selecione o processo correto na lista exibida.
+5
+Confirme a Vinculação
+Clique em 
+"Prosseguir"
+ para confirmar.
+6
+Ações Liberadas
+A intimação será vinculada corretamente ao processo e liberará todas as ações de tratamento, como:
+Atribuir nova tarefa
+Concluir
+Encaminhar
+Enviar por e-mail
+Dica prática:
+ Copie e cole o número do processo diretamente da intimação para evitar erros.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

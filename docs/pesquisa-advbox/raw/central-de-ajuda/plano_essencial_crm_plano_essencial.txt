@@ -1,0 +1,123 @@
+CRM - Plano Essencial
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 05/03/2026 15:49
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar o CRM da ADVBOX no Plano Essencial, entender como movimentar cards, configurar processos estagnados e aproveitar todos os recursos disponíveis dentro de cada processo.
+Como utilizar o CRM no Plano Essencial e para que ele serve
+O CRM da ADVBOX é a ferramenta utilizada para organizar e acompanhar os processos do escritório em formato Kanban, permitindo visualizar o andamento de cada caso de forma clara e prática.
+No Plano Essencial, o CRM funciona como o 
+principal
+ local para acompanhamento dos processos, já que 
+esse plano não possui um menu específico de Processos.
+Informações importantes sobre o CRM
+Antes de utilizar o CRM, é importante entender como ele funciona dentro do Plano Essencial.
+Cada card representa um processo.
+As colunas representam as etapas do fluxo de trabalho do escritório.
+O avanço do processo acontece conforme o card é movimentado entre as etapas.
+Essa visualização permite que o escritório identifique rapidamente:
+Em que fase cada processo está
+Quais processos estão parados
+Quais demandas precisam de atenção
+Como movimentar um card no CRM
+Movimentar um card significa atualizar a etapa do processo dentro do fluxo do escritório.
+1
+Acesse o menu CRM
+No menu lateral da plataforma, clique em 
+CRM
+.
+2
+Localize o card do processo
+Encontre o card correspondente ao processo que deseja atualizar.
+3
+Clique e segure o card
+Pressione e segure o card que deseja movimentar.
+4
+Arraste o card para a nova etapa
+Arraste o card até a coluna que representa a nova etapa do processo.
+5
+Solte o card na coluna desejada
+Solte o card na coluna desejada. Após a movimentação, o sistema atualiza automaticamente a etapa do processo.
+Importante:
+ A alteração do nome das etapas possuem controle de permissão. Para editar o nome, é necessário possuir perfil de 
+Administrador
+ ou 
+Gestor
+. Usuários sem essas permissões poderão visualizar , mas não alterar o fluxo.
+O que é possível fazer dentro de um card
+Ao visualizar um card no CRM, o usuário tem acesso a diversas ações importantes relacionadas ao processo.
+1
+Atribuir tarefas
+Permite criar tarefas relacionadas ao processo.
+2
+Gerar modelos de documentos
+É possível utilizar os modelos cadastrados no sistema para gerar documentos diretamente vinculados ao processo.
+3
+Visualizar o histórico de tarefas
+O card também apresenta o histórico de tarefas já realizadas ou atrasadas, permitindo acompanhar todas as atividades relacionadas ao processo.
+Como configurar processos estagnados no CRM
+A configuração de processos estagnados é uma das configurações mais importantes do CRM, pois ajuda o escritório a identificar processos que estão parados por muito tempo.
+Quando um processo permanece muitos dias sem movimentação, ele pode indicar:
+Falta de acompanhamento
+Atraso na execução de tarefas
+Necessidade de ação da equipe
+Com essa configuração, o sistema identifica automaticamente processos que estão sem atualização por determinado período.
+1
+Acesse o menu CRM
+2
+Clique nos três pontinho logo a frente do nome da ETAPA (gerenciar etapa)
+3
+Localize a opção Marcar como Estagnado
+4
+Defina o tempo máximo sem movimentação
+Informe o período máximo permitido sem movimentação do processo nessa etapa - Dias corridos
+5
+Salve a configuração
+Clique em 
+Atualizar etapa
+. Após atualizar, o sistema passará a identificar automaticamente processos estagnados dentro do CRM.
+Como editar o nome da etapa no CRM
+1
+Acesse o menu CRM
+2
+Clique nos três pontinho logo a frente do nome da ETAPA (gerenciar etapa) > disponível para Adminstradores e Gestor.
+3
+Localize a opção Nome da etapa*
+4
+Defina o nome desejado
+5
+Salve a configuração
+Clique em 
+Atualizar etapa
+. 
+Benefícios do uso do CRM
+Utilizar o CRM na ADVBOX permite que o escritório:
+Tenha controle visual dos processos
+Organize o fluxo de trabalho da equipe
+Acompanhe a evolução dos processos
+Identifique processos parados
+Centralize tarefas e documentos de cada caso
+Dica:
+ Configure o tempo de estagnação para cada etapa do CRM de acordo com a realidade do seu escritório. Isso garante que processos parados sejam identificados rapidamente e tratados antes de gerar atrasos.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ O que você precisa saber - Plano Essencial
+ Próximo ›
+ Menu tarefas - Plano Essencial
+ Navegação Interna

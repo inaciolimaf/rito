@@ -1,0 +1,113 @@
+Como utilizar o Menu Modelos na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 13/10/2025 19:16
+ Navegação Interna
+Neste artigo, você vai aprender como criar modelos padronizados na ADVBOX, configurar cabeçalhos, rodapés e marcas d'água, adicionar variáveis para preenchimento automático e utilizar a Biblioteca Pública para otimizar a criação de documentos.
+Como criar um Modelo Padrão
+1
+Acesse o menu lateral Modelos
+2
+Clique na opção Criar novo modelo
+Após clicar no botão para adicionar um novo documento, abrirá uma nova aba no seu navegador com o documento onde você poderá criar e editar o seu modelo de documento.
+Como configurar cabeçalho, marca d'água e rodapé
+Acessando a aba Inserir, na parte superior da sua tela, você poderá ver as opções para editar o cabeçalho, marca d'água e rodapé do seu documento.
+Importante:
+ Para personalizar seus modelos na ADVBOX, é essencial que você tenha os elementos visuais separados: a imagem do cabeçalho, a do rodapé, e a marca d'água, cada uma em arquivos distintos.
+Adicionando o cabeçalho
+1
+No menu superior, clique em "Inserir"
+2
+No menu suspenso, selecione "Cabeçalho"
+O espaço do cabeçalho aparecerá na parte superior do seu documento.
+3
+Agora, clique novamente em "Inserir" e selecione "Imagem"
+A seguir, selecione a imagem de cabeçalho a partir do seu computador.
+Dica:
+ Após a inserção da imagem, é possível redimensioná-la conforme necessário, ajustando-a de acordo com as preferências.
+Adicionando o rodapé
+1
+No menu superior, clique em "Inserir"
+2
+No menu suspenso, selecione "Rodapé"
+O espaço do rodapé aparecerá na parte inferior do seu documento.
+3
+Agora, clique novamente em "Inserir" e selecione "Imagem"
+A seguir, selecione a imagem de rodapé a partir do seu computador.
+Dica:
+ Após a inserção da imagem, é possível redimensioná-la conforme necessário, ajustando-a de acordo com as preferências.
+Adicionando a marca d'água
+1
+No menu superior, clique em "Inserir"
+2
+No menu suspenso, selecione "Marca d'água"
+O espaço da marca d'água aparecerá na parte lateral do seu documento.
+3
+Agora, clique em "Selecionar imagem"
+A seguir, selecione a imagem a partir do seu computador.
+Dica:
+ Após a inserção da imagem, é possível redimensioná-la conforme necessário, ajustando-a de acordo com as preferências.
+Alterando o alinhamento das imagens
+O seu cabeçalho/rodapé poderá ficar alinhado à esquerda, direita ou centralizado, para modificar o alinhamento, clique em uma das imagens, e a seguir e altere o alinhamento nas opções indicadas.
+Você pode utilizar a régua lateral para ajustar as imagens mais próximas das margens superior e inferior da página, garantindo um alinhamento mais preciso e visualmente agradável.
+Imagens timbradas
+Se o cabeçalho e o rodapé forem timbrados, ou seja, fixados nas margens da página, você pode ajustar isso facilmente. Basta clicar em "Inserir" e selecionar "Cabeçalho e Rodapé Timbrado". O sistema redimensiona automaticamente as imagens para que fiquem alinhadas às extremidades da página.
+Como adicionar variáveis
+Para adicionar campos de preenchimento automático, clique nas opções Cliente, Processo ou Escritório no menu superior e, em seguida, selecione o campo desejado para incluir no modelo.
+1
+Cliente
+Utilize este campo para importar automaticamente os dados cadastrais do cliente e do representante legal. Isso inclui informações como nome, CPF/CNPJ, endereço, telefone e e-mail, entre outros.
+2
+Processo
+Este campo é destinado à inserção de informações cadastrais relacionadas ao processo em questão. Aqui, você pode importar detalhes como número do processo, data de distribuição, vara e comarca, partes envolvidas, entre outros.
+3
+Escritório e Local
+Neste campo, insira automaticamente os dados do escritório, incluindo endereço, telefone e e-mail, assim como as informações dos advogados outorgantes, entre outros.
+Salvando o documento
+Para salvar o seu documento, preste atenção em alguns detalhes, como nome do documento, origem do documento, complexidade, área de atuação. Esses detalhes poderão facilitar na hora de filtrar encontrar o documento desejado por você e os colaboradores. Sempre salve um modelo padrão, para facilitar o trabalho e apenas duplicar a partir do modelo padrão, assim todos os modelos de documentos seguirão conforme o padrão definido.
+Como utilizar a Biblioteca Pública na ADVBOX
+1
+Acesse o Menu Modelos
+Na lateral esquerda do sistema, clique no ícone representado por folhas sobrepostas.
+2
+Clique na aba "Biblioteca Pública"
+A aba aparece com a descrição: "Esta é a biblioteca pública de modelos e petições".
+3
+Busque o modelo desejado
+Use o campo de busca (ícone de lupa) para pesquisar pelo nome ou termo relacionado ao modelo. Se preferir, utilize o filtro para refinar a busca (contratos, petições, recursos, documentos, excluídos).
+4
+Visualize o modelo
+Clique nos três pontinhos no canto inferior esquerdo do modelo.
+5
+Selecione a opção Visualizar Modelo
+O sistema abrirá o modelo completo para leitura e análise.
+6
+Copie o modelo para o seu escritório
+Dentro da tela de visualização, clique no botão azul "Copiar Modelo Público". O modelo será duplicado e salvo na aba Modelos do Escritório.
+7
+Gere documentos com o modelo copiado
+Acesse a aba Modelos do Escritório. Encontre o modelo copiado e utilize os atalhos rápidos (gerar documento, imprimir, enviar por e-mail, etc.).
+Dica:
+ Com essas funcionalidades, você pode criar modelos personalizados e aproveitar os recursos da Biblioteca Pública para otimizar a criação de documentos no seu escritório. Mantenha sempre um modelo padrão para facilitar o trabalho e garantir consistência em todos os documentos!
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

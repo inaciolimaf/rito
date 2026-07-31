@@ -1,0 +1,174 @@
+Dicas práticas para utilizar o Menu Atividades
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 04/08/2025 19:04
+ Navegação Interna
+Neste artigo, você vai aprender como exportar diferentes tipos de relatórios de tarefas, incluindo pendências da semana, tarefas por colaborador, prazos fatais e pautas de audiências.
+Como exportar um relatório de tarefas pendentes da semana
+1
+Acesse o menu de Atividades
+Acesse o menu de 
+Atividades
+ e clique em 
+"Filtrar"
+.
+2
+Limpar filtros 
+Clique em 
+"Limpar Filtros"
+ para garantir que não há filtros anteriores aplicados.
+3
+Configurar período
+Selecione o campo 
+"Data do compromisso"
+ e preencha os campos de 
+início do cadastro e término do cadastro
+ com o período desejado.
+4
+Aplicar filtros
+Clique no botão azul 
+"Aplicar Filtros"
+. O sistema irá trazer a listagem das tarefas pendentes do período.
+5
+Exportar relatório
+Caso deseje exportar, clique em 
+"Exportar"
+ e selecione Excel ou PDF de acordo com sua permissão de usuário.
+Como exportar um relatório de tarefas pendentes de um colaborador específico
+1
+Acesse o menu de Atividades
+Acesse o menu de 
+Atividades
+ e clique em 
+"Filtrar"
+.
+2
+Limpar filtros 
+Clique em 
+"Limpar Filtros"
+ para garantir que não há filtros anteriores aplicados.
+3
+Selecionar colaborador
+Selecione o nome do colaborador desejado no campo correspondente.
+4
+Limpar campos de data
+Limpe os campos de início do cadastro e término do cadastro.
+5
+Aplicar filtros
+Clique no botão azul 
+"Aplicar Filtros"
+. O sistema irá trazer a listagem das tarefas do colaborador selecionado.
+6
+Exportar relatório
+Caso deseje exportar, clique em 
+"Exportar"
+ e selecione Excel ou PDF de acordo com sua permissão de usuário.
+Como gerar um relatório de tarefas com prazo fatal de um período específico
+1
+Acesse o menu de Atividades
+Acesse o menu de 
+Atividades
+ e clique em 
+"Filtrar"
+.
+2
+Limpar filtros 
+Clique em 
+"Limpar Filtros"
+ para garantir que não há filtros anteriores aplicados.
+3
+Selecionar prazo fatal
+Selecione o campo 
+"Prazo Fatal"
+.
+4
+Configurar período e situação
+Preencha os campos de 
+início do cadastro e término do cadastro
+ com o período desejado e selecione no
+ campo situação "Pendentes".
+5
+Aplicar filtros
+Clique no botão azul 
+"Aplicar Filtros"
+. O sistema irá trazer a listagem das tarefas com prazo fatal do período.
+6
+Exportar relatório
+Caso deseje exportar, clique em 
+"Exportar"
+ e selecione Excel ou PDF de acordo com sua permissão de usuário.
+Como gerar um relatório da pauta de audiências de um período específico
+1
+Acesse o menu de Atividades
+Acesse o menu de 
+Atividades
+ e clique em 
+"Filtrar"
+.
+2
+Limpar filtros 
+Clique em 
+"Limpar Filtros"
+ para garantir que não há filtros anteriores aplicados.
+3
+Selecionar pauta de audiências
+Selecione no campo 
+"Tarefa"
+ a opção 
+"Pauta de audiências"
+.
+4
+Configurar período e situação
+Preencha os campos de 
+início do cadastro e término do cadastro
+ com o período desejado e 
+selecione no campo situação "Pendentes".
+5
+Aplicar filtros
+Clique no botão azul 
+"Aplicar Filtros"
+. O sistema irá trazer a listagem da pauta de audiências do período.
+6
+Exportar relatório
+Caso deseje exportar, clique em 
+"Exportar"
+ e selecione Excel ou PDF de acordo com sua permissão de usuário.
+Atalhos rápidos e funcionais ao passar o mouse sobre o nome do processo
+Ao passar o mouse sobre o processo na listagem, aparecem atalhos à direita para realizar ações sem precisar abrir o processo:
+>
+Seta para a esquerda
+Abre o formulário completo da tarefa.
+>
+Ícone de pessoa
+Exibe e permite editar o cadastro completo do cliente vinculado ao processo.
+>
+Ícone de folha (documento)
+Abre a ferramenta de geração de documentos com modelos cadastrados.
+>
+Ícone de seta com relógio
+Mostra o histórico completo do processo.
+>
+Ícone de sinal de mais (+)
+Cria e atribui nova tarefa diretamente da listagem, evitando erros de vínculo ao processo.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

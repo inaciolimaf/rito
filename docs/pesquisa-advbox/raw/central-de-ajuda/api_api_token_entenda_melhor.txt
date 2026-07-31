@@ -1,0 +1,94 @@
+API Token, entenda melhor
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 16/03/2026 18:49
+ Navegação Interna
+Neste artigo, você vai entender o que é o API Token, para que ele serve e como gerar e utilizar sua chave de acesso na ADVBOX com segurança.
+O API Token é uma chave de autenticação utilizada para acessar a API da ADVBOX com segurança. Ele permite que sistemas externos, integrações ou automações se conectem à ADVBOX para consultar ou enviar informações.
+Esse recurso é usado principalmente para:
+Integrações com outros sistemas
+Automações com ferramentas externas
+Consumo de dados da ADVBOX via API
+Importante:
+ O token funciona como uma senha de acesso à API. Por isso, ele deve ser mantido em segurança e nunca compartilhado publicamente.
+Quando você precisa de um API Token
+Você precisará gerar um API Token quando desejar integrar a ADVBOX com outro sistema, criar automações com ferramentas externas, acessar dados da ADVBOX via API ou desenvolver integrações personalizadas.
+Normalmente esse processo é realizado por desenvolvedores, integradores ou equipes de automação.
+Como gerar um API Token na ADVBOX
+1
+Acesse o menu Conta e assinatura
+2
+Localize a opção Nossos produtos
+3
+Localize a opção API ADVBOX
+Clique na opção para gerar um novo token de acesso. O sistema irá criar uma chave única que será utilizada para autenticar requisições na API.
+4
+Copie e armazene o token com segurança
+Após gerar o token, copie o valor exibido e guarde em local seguro.
+Atenção:
+ Quem possuir esse token poderá acessar a API da sua conta. Nunca compartilhe com terceiros sem necessidade.
+Como usar o API Token
+O token deve ser enviado nas requisições feitas à API da ADVBOX para autenticar o acesso. Normalmente ele é utilizado no header 
+Authorization
+ da requisição.
+Exemplo de uso
+1
+Inclua o token no header Authorization
+Esse header informa à API que a requisição está sendo feita por um usuário autorizado:
+Authorization: Bearer SEU_API_TOKEN
+2
+Exemplo de requisição completa
+Abaixo está um exemplo simplificado de chamada para a API utilizando o token:
+GET /api/v1/processos
+Authorization: Bearer SEU_API_TOKEN
+GET
+ — método da requisição
+/api/v1/processos
+ — endpoint acessado
+Authorization
+ — header que contém o token de acesso
+Boas práticas de segurança
+Para manter sua conta segura ao utilizar a API:
+Nunca publique seu API Token em código público
+Não compartilhe o token com terceiros sem necessidade
+Armazene o token em variáveis seguras ou ambientes protegidos
+Caso suspeite de uso indevido, gere um novo token imediatamente
+Problemas comuns
+1
+Não consigo acessar a API
+Verifique se:
+O token foi copiado corretamente
+O header Authorization está configurado
+O token não foi revogado ou regenerado
+2
+Token não funciona
+Se o token foi regenerado, o anterior deixa de funcionar. Nesse caso será necessário atualizar o token na integração com o novo valor gerado.
+Precisa de mais informações?
+Para conhecer todos os endpoints disponíveis, consulte a documentação da API da ADVBOX. Ela contém:
+Lista completa de endpoints
+Exemplos de requisições
+Parâmetros aceitos pela API
+Dica:
+ Armazene sempre o token em variáveis de ambiente ou cofres de senhas. Nunca salve diretamente no código-fonte da integração.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ API Token
+ Próximo ›
+ Nenhum
+ Navegação Interna

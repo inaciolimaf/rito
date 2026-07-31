@@ -1,0 +1,337 @@
+Como configurar o Menu Financeiro
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 28/08/2025 13:09
+ Navegação Interna
+Neste artigo, você vai aprender como configurar todas as opções do módulo financeiro da ADVBOX, incluindo contas e cartões, categorias, centros de custo e setores/unidades para organizar suas receitas e despesas.
+Entenda as opções antes de configurar
+1. Contas e cartões
+Este é o local onde você cadastra todas as contas bancárias do escritório para controle e conciliação, sem vínculo direto com o banco ou Receita Federal.
+Importante:
+ As informações não vinculam o sistema ao banco e nem com a receita federal, é uma forma para realizar o controle e conciliação bancária. Plano Banca Jurídica: permite usar apenas uma conta (a conta principal). Se integrar com o Asaas, será exibida mais uma conta. Planos Banca Max e Elite: não há limite de contas; todas as utilizadas no escritório devem ser cadastradas.
+Tipos de contas disponíveis:
+Conta Corrente, Poupança e Investimento
+ compartilham os mesmos campos:
+Nome da conta (obrigatório)
+Banco (opcional)
+Agência e número da conta (opcional)
+Saldo inicial (recomendado)
+Conta do tipo Cartão de Crédito
+ possui campos específicos:
+Nome da conta (obrigatório)
+Banco (opcional)
+Fechamento da fatura (obrigatório)
+Vencimento da fatura (obrigatório)
+Esta conta serve somente para despesas, e o sistema irá controlar as faturas automaticamente.
+2. Categorias
+As 
+categorias
+ organizam os lançamentos de 
+receitas e despesas
+ no seu financeiro. Elas são essenciais para relatórios como DRE e para análise de desempenho do escritório.
+Importante:
+ Categorias Personalizadas são categorias que foram adicionadas, seja pelo escritório ou através da migração dos dados financeiros.
+Grupos das categorias:
+ As categorias sempre são vinculadas a um dos 
+10 grupos
+ pré-definidos pela ADVBOX. Eles são usados nos cálculos automáticos de relatórios como o DRE:
+0 - Deduções da receita bruta:
+ Não entra no DRE. Ex: repasses a parceiros
+1 - Receita:
+ Entradas de valor. Definido automaticamente
+2 - Folha de pagamento:
+ Custos com colaboradores (exceto encargos)
+3 - Encargos sociais:
+ Ex: FGTS, 13º salário
+4 - Tributos:
+ Ex: INSS, IOF
+5 - Despesas fixas:
+ Ex: aluguel, internet
+6 - Despesas variáveis:
+ Custos que variam com faturamento
+7 - Despesas bancárias:
+ Juros, tarifas bancárias
+8 - Marketing e comercial:
+ Anúncios, serviços terceirizados
+9 - Distribuição de lucros e participação:
+ Não entra no DRE. Ex: repasse a sócios
+Categorias padrão:
+ As categorias padrão já vêm cadastradas no sistema. 
+Não podem ser editadas ou excluídas.
+3. Centro de Custo
+Os Centros de Custos servem para classificar receitas e despesas por áreas ou departamentos. Disponível apenas nos planos 
+Banca Max e Elite.
+Exemplos por área:
+ Administrativo, Trabalhista, Previdenciário, Empresarial
+Exemplos por departamento:
+ Marketing, Produção, Atendimento
+4. Setores/Unidades
+Usado para separar filiais, unidades ou projetos internos e acompanhar relatórios individualizados. Disponível apenas no plano 
+Elite.
+Exemplos por unidade ou projeto:
+ São Paulo, Recife, Projeto Escritório Digital
+Exemplos por departamento:
+ Ambiental, Empresarial, Trabalhista
+Como gerenciar Contas e Cartões
+Como criar uma conta ou cartão
+1
+Acessar configurações
+Acesse o menu 
+Configurações > Financeiro
+.
+2
+Criar nova conta
+Clique em 
+Nova conta ou cartão
+. Um formulário será aberto, escolha o tipo e preencha os campos.
+Dica:
+ Ao finalizar o preenchimento de uma conta, feche o pop-up e clique novamente em "Nova conta ou cartão" se for cadastrar outra. Isso evita sobrescrever a anterior.
+Como editar uma conta ou cartão
+1
+Localizar conta
+Acesse 
+Configurações > Financeiro
+. Passe o mouse sobre a conta desejada.
+2
+Editar conta
+Clique no 
+ícone de lápis
+ (ou direto na conta) para editar.
+Como excluir uma conta ou cartão
+1
+Localizar e excluir
+Acesse 
+Configurações > Financeiro
+. Passe o mouse sobre a conta desejada e clique no 
+ícone de lixeira
+.
+2
+Confirmar exclusão
+Confirme clicando em 
+Excluir
+.
+Como restaurar uma conta ou cartão excluído
+1
+Filtrar contas inativas
+Acesse 
+Configurações > Financeiro
+. Encontre o filtro de 
+Ativas
+ e altere para 
+Inativas
+.
+2
+Restaurar conta
+Localize a conta, clique no 
+ícone de lixeira
+ e depois em 
+Restaurar
+.
+Como definir uma conta padrão
+1
+Identificar conta padrão
+Acesse 
+Configurações > Financeiro
+. A conta com a chave 
+AZUL
+ é a atual padrão.
+2
+Alterar padrão
+Para alterar, clique na 
+chave cinza
+ da conta desejada.
+Como gerenciar Categorias
+Como adicionar uma nova categoria
+1
+Acessar aba Categorias
+Acesse 
+Configurações > Financeiro > aba Categorias
+.
+2
+Criar nova categoria
+Clique no botão 
+AZUL > NOVA CATEGORIA
+.
+3
+Preencher formulário
+Um formulário será aberto, preencha:
+Nome da categoria
+ (obrigatório)
+Tipo:
+ selecione se é Receita ou Despesa (obrigatório)
+Grupo:
+ se escolher Despesa, será necessário selecionar o grupo da categoria
+Como editar uma categoria personalizada
+1
+Filtrar categorias personalizadas
+Acesse 
+Configurações > Financeiro > aba Categorias
+. Altere o filtro 
+Todas
+ para 
+Categorias personalizadas
+.
+2
+Editar categoria
+Passe o mouse sobre a categoria que deseja alterar. Um formulário será aberto, faça as alterações e clique em 
+Atualizar Categoria
+.
+Como excluir uma categoria personalizada
+1
+Localizar categoria personalizada
+Acesse 
+Configurações > Financeiro > aba Categorias
+. Altere o filtro 
+Todas
+ para 
+Categorias personalizadas
+.
+2
+Excluir categoria
+Passe o mouse sobre a categoria que deseja alterar. Clique na 
+lixeira
+ à direita e confirme no botão vermelho 
+Excluir
+.
+Como restaurar uma categoria personalizada excluída
+1
+Filtrar categorias inativas
+Acesse 
+Configurações > Financeiro > aba Categorias
+. Aplique o filtro 
+Categorias personalizadas > Inativas
+.
+2
+Restaurar categoria
+Passe o mouse sobre a categoria que deseja alterar. Clique na 
+lixeira e depois em Restaurar
+.
+Como gerenciar Centro de Custos
+Como adicionar um novo centro de custo
+1
+Acessar aba Centro de Custos
+Acesse 
+Configurações > Financeiro > aba Centro de Custos
+.
+2
+Criar centro de custo
+Clique no botão 
+AZUL > Novo Centro de Custos
+. Um pop-up será aberto, preencha o nome que deseja.
+3
+Salvar centro de custo
+Para salvar, clique em 
+novo centro de custo
+.
+Como editar um centro de custo
+1
+Localizar centro de custo
+Acesse 
+Configurações > Financeiro > aba Centro de Custos
+. Clique sobre o nome do centro de custo desejado.
+2
+Atualizar centro de custo
+Um pop-up será aberto, edite o nome e clique em 
+Atualizar
+ centro de custo.
+Como excluir um centro de custo
+1
+Localizar e excluir
+Acesse 
+Configurações > Financeiro > aba Centro de Custos
+. Passe o mouse sobre o centro de custo desejado.
+2
+Confirmar exclusão
+Clique na 
+lixeira e confirme em EXCLUIR
+.
+Como restaurar um centro de custo
+1
+Filtrar inativos
+Acesse 
+Configurações > Financeiro > aba Centro de Custos
+. Altere o filtro de 
+Ativos
+ para 
+INATIVOS
+.
+2
+Restaurar centro de custo
+Passe o mouse sobre o centro de custo desejado, clique na 
+lixeira e depois em RESTAURAR
+.
+Como gerenciar Setores/Unidades
+Como adicionar um novo setor/unidade
+1
+Acessar aba Setores/unidade
+Acesse 
+Configurações > Financeiro > aba Setores/unidade
+.
+2
+Criar novo setor
+Clique no botão 
+AZUL > Novo Setor
+. Um pop-up será aberto, preencha o nome que deseja e clique em 
+criar novo setor
+.
+Como editar um setor/unidade
+1
+Localizar setor/unidade
+Acesse 
+Configurações > Financeiro > aba Setores/unidade
+. Clique sobre o nome que deseja alterar.
+2
+Atualizar setor
+Um pop-up será aberto, edite o nome e clique em 
+Atualizar
+ setor.
+Como excluir um setor/unidade
+1
+Localizar e excluir
+Acesse 
+Configurações > Financeiro > aba Setores/unidade
+. Passe o mouse sobre setor desejado.
+2
+Confirmar exclusão
+Clique na 
+lixeira e confirme em EXCLUIR
+.
+Como restaurar um setor/unidade
+1
+Filtrar inativos
+Acesse 
+Configurações > Financeiro > aba Setores/unidade
+. Altere o filtro de 
+Ativos
+ para 
+INATIVOS
+.
+2
+Restaurar setor/unidade
+Passe o mouse sobre o setor desejado, clique na 
+lixeira e depois em RESTAURAR
+.
+Dica:
+ Configurar corretamente todas as opções do financeiro facilita o controle das finanças do escritório e gera relatórios mais precisos para análise de desempenho.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Registro Interno : o que é e como utilizar.
+ Navegação Interna

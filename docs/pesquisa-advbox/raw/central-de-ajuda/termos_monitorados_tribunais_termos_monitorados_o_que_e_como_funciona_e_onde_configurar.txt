@@ -1,0 +1,196 @@
+Termos Monitorados: o que é, como funciona e onde configurar
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 19/06/2026 13:40
+ Navegação Interna
+Neste artigo, você vai aprender como configurar o monitoramento de intimações judiciais na ADVBOX através de OABs, CPFs ou CNPJs, garantindo o controle automatizado dos prazos processuais.
+Termos Monitorados na ADVBOX
+O módulo de 
+Termos Monitorados
+ permite ao escritório automatizar a captura de intimações judiciais a partir de 
+OABs, CPFs ou CNPJs
+ cadastrados, com varredura nos 
+Diários Oficiais
+ e 
+sistemas eletrônicos dos tribunais
+ (PJe, EPROC, PROJUDI, SEEU, entre outros). O sistema entrega as intimações diretamente em forma de 
+tarefas
+ para o responsável configurado, garantindo o controle dos prazos processuais e a agilidade na tratativa.
+Fontes monitoradas
+➡ 
+Diário Oficial
+Publicação aberta e periódica
+Não exige login
+Conteúdo pode ser resumido e sem anexos
+➡ 
+Sistemas Eletrônicos (PJe, EPROC, PROJUDI, SEEU, etc)
+Exigem Certificado A1 - 
+Clique aqui para saber mais .
+Conteúdo completo: inteiro teor da decisão + anexos
+Exige configuração correta dos acessos na ADVBOX
+Importante:
+ O uso combinado dos dois tipos de monitoramento (diário + sistema eletrônico) é o mais seguro.
+Como funciona
+O termo monitorado (OAB, CPF ou CNPJ) localiza intimações automaticamente
+A ADVBOX gera uma 
+tarefa de Intimação Judicial
+ e distribui conforme o Grupo de Ação ou Responsável Geral
+O monitoramento requer configuração do certificado A1 e as vezes QR CODE,em relação aos sistemas eletrônicos
+É possível cadastrar múltiplos termos, ajustando conforme a necessidade do escritório
+Status do monitoramento
+Monitorando (verde)
+: termo ativo e capturando intimações normalmente
+Sincronizando
+: processo de ativação em andamento (até 72 horas úteis)
+Falha na autenticação
+: erro no acesso ao sistema (revisar login e senha)
+Informe os dados de acesso
+: falta de dados necessários para ativar
+Recomendação:
+ Acompanhar regularmente o status no menu 
+Configurações > Termos Monitorados
+.
+Custos
+Para clientes antigos : R$ 7,00/mês 
+(estado no diário ou sistema eletrônico)
+Novas assinaturas : R$ 35,00/mês  (estado no diário ou sistema eletrônico)
+SEEU:
+ R$ 40,00/mês (abrangência nacional)
+Valor final exibido no cadastro/edição do termo
+Distribuição das intimações
+➡ 
+Grupo de Ação
+: Entrega ao responsável do grupo vinculado ao processo.
+➡ 
+Responsável Geral
+: Entrega ao usuário padrão quando:
+O processo não está cadastrado
+O grupo de ação não tem responsável definido
+Boas práticas
+✔ Não altere termos durante o status 
+Sincronizando
+, salvo necessidade
+✔ Mantenha os acessos sempre atualizados e sem bloqueios
+✔ Atente-se aos alertas de falha (são enviados como tarefa)
+Alertas e falhas
+Quando ocorre uma falha (ex.: erro de senha, caixa personalizada no tribunal), a ADVBOX:
+Emite um 
+alerta em forma de tarefa
+O responsável deve:
+Ler o alerta
+Corrigir o dado no termo
+Atualizar o termo para reiniciar sincronização (até 72h úteis)
+Acompanhar diretamente no tribunal até o monitoramento ser restabelecido
+Resumo
+O módulo de Termos Monitorados automatiza a captura de intimações
+É essencial configurar corretamente os acessos aos tribunais
+O monitoramento por diário + sistema eletrônico garante maior cobertura
+O status "Monitorando" indica funcionamento ideal
+Acompanhar os alertas e manter os dados atualizados previne falhas e perda de prazos
+Lembre-se:
+ A ADVBOX entrega a intimação na plataforma, mas 
+não abre o prazo no tribunal
+. O advogado deve acessar o sistema oficial para não perder o prazo.
+Como adicionar o monitoramento de um(a) Advogado(a)
+Na ADVBOX, você pode monitorar intimações associadas a 
+advogados(as)
+, 
+pessoas físicas
+ e 
+pessoas jurídicas
+. A seguir, veja como monitorar um(a) advogado(a) utilizando o número de OAB:
+1
+Acessar Termos Monitorados
+No menu lateral Configurações, acesse a aba 
+Termos monitorados
+.
+2
+Adicionar Novo Termo
+Clique no botão 
++ Adicionar novo termo
+.
+3
+Selecionar Tipo
+Em Tipo, selecione 
+Advogado(a)
+.
+4
+Informar OAB
+Informe o número da OAB (exemplo: 12345/SC). O nome do(a) advogado(a) será preenchido automaticamente.
+5
+Selecionar Estados
+Selecione os estados em que deseja habilitar o monitoramento nos Diários Oficiais de Justiça.
+6
+Ativar Sistemas Eletrônicos
+Para cada estado selecionado, você poderá ativar também o monitoramento nos sistemas eletrônicos como PJe, Eproc e Projudi.
+7
+Configurar Acessos
+Envie o Certificado A1
+ do(a) advogado(a) para os tribunais eletrônicos. E se solicitado o QR Code também .
+8
+Autorizar Cobrança
+Marque a opção de autorização da cobrança adicional:
+R$ 35,00  nos Diários Oficiais
+Para sistemas eletrônicos: entre R$ 35,00 e R$ 40,00, conforme o sistema
+9
+Salvar Configurações
+Clique em 
+Salvar dados
+ para enviar a solicitação de homologação.
+Como adicionar o monitoramento por CPF ou CNPJ (Pessoa Física ou Jurídica)
+1
+Acessar Termos Monitorados
+No menu lateral Configurações, acesse a aba 
+Termos monitorados
+.
+2
+Adicionar Novo Termo
+Clique no botão 
++ Adicionar novo termo
+.
+3
+Escolher Tipo
+Em Tipo, escolha 
+Pessoa Física
+ ou 
+Pessoa Jurídica
+.
+4
+Informar CPF ou CNPJ
+Informe o CPF ou CNPJ. O sistema preencherá automaticamente o nome correspondente. 
+Envie o Certificado A1
+ do(a) advogado(a) para os tribunais eletrônicos. E se solicitado o QR Code também .
+5
+Selecionar Estados
+Selecione os estados desejados para o monitoramento nos Diários Oficiais.
+6
+Autorizar Cobrança
+7
+Finalizar Cadastro
+Clique em 
+Salvar dados
+ para concluir o cadastro e enviar para homologação.
+Dica:
+ Configure o monitoramento combinado (diário + sistema eletrônico) para garantir maior cobertura e segurança na captura de intimações. Acompanhe regularmente o status dos termos monitorados para evitar falhas.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Tribunais que a ADVBOX monitora
+ Próximo ›
+ Problemas de acesso no tribunal? Saiba como recuperar QR Code, ajustar usuário/senha e configurar verificação 2F 
+ Navegação Interna

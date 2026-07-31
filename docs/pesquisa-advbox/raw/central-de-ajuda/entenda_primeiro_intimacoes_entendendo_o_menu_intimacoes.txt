@@ -1,0 +1,124 @@
+Entendendo o Menu Intimações
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 19/06/2026 13:43
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar o Menu Intimações da ADVBOX para facilitar a gestão das publicações judiciais, aplicar filtros, gerar relatórios e entender as diferenças entre intimações e andamentos processuais.
+O que é o Menu Intimações da ADVBOX
+O Menu Intimações da ADVBOX foi desenvolvido para facilitar a gestão das publicações judiciais recebidas, permitindo que o usuário visualize, filtre, organize e trate intimações de forma rápida e prática.
+Todos os perfis de acesso têm visibilidade e acesso ao menu, o que garante que diferentes membros da equipe possam acompanhar e atuar conforme suas responsabilidades.
+Disponível nos seguintes planos:
+ Banca Max e Elite
+Importante:
+ Nos planos que não contam com o menu Intimações, como o plano CRM e o Banca Jurídica, o tratamento das publicações judiciais deve ser realizado pelo menu Atividades, com as mesmas responsabilidades atribuídas ao Controller.
+Visualização das Intimações
+1
+Acessar o Menu
+Ao acessar o menu, você verá a listagem das intimações recebidas.
+2
+Funcionalidades Disponíveis
+Nessa listagem, você poderá:
+Ver detalhes clicando sobre cada item
+Tratar individualmente ou em lote
+Acompanhar o status de tratamento
+Criar tarefas e vincular ao processo correspondente
+Aplicação de Filtros e Geração de Relatórios
+1
+Utilizar Barra de Filtros
+No topo da tela, você encontra a barra de filtros, que permite:
+Filtrar por estado, data, tipo de publicação ou termo monitorado
+Buscar por nome da parte, número do processo ou conteúdo da intimação
+Identificar intimações pendentes, tratadas ou ignoradas
+2
+Exportar Relatórios
+É possível exportar relatórios em Excel, com as intimações filtradas, para controle e auditoria.
+Aviso de Termos Sincronizados
+Logo no topo da página, aparece uma mensagem sobre o status de sincronização dos termos monitorados:
+Todos os termos estão sincronizados:
+ Monitoramento funcionando corretamente
+Sincronizando:
+ Atualização em andamento. Aguarde até 48 horas
+Falha na autenticação:
+ É necessário atualizar login e senha do termo (especialmente em sistemas eletrônicos como PJe, Eproc, etc.)
+Importante:
+ Em caso de falha, clique em Configurar monitoramento, edite o termo e reenvie os dados de acesso.
+Qual a diferença entre Intimações e Andamentos Processuais na ADVBOX
+Na ADVBOX, Intimações e Andamentos Processuais são dois tipos diferentes de publicações judiciais recebidas automaticamente pelo sistema, mas cada um tem um propósito e tratamento específico.
+INTIMAÇÕES - ACESSE NO MENU INTIMAÇÕES
+São publicações oficiais destinadas ao advogado ou à parte, com o objetivo de comunicar uma obrigação ou solicitar uma ação dentro de um processo
+Exigem resposta, manifestação ou providência prática, como elaborar uma petição, participar de uma audiência ou cumprir um prazo
+Sempre devem ser analisadas pela Controladoria Jurídica e tratadas com atenção, pois geralmente envolvem prazos processuais
+ANDAMENTOS PROCESSUAIS - ACESSE DENTRO DO FORMULÁRIO DO PROCESSO, NA ABA DE ANDAMENTOS
+São publicações informativas que mostram o histórico de movimentação do processo nos tribunais
+Servem para acompanhar a evolução do processo, mas nem sempre exigem ação imediata
+Podem ser úteis para o advogado identificar oportunidades estratégicas ou atualizar o cliente
+O que são Intimações Judiciais de Sistemas Eletrônicos
+Hoje, existem dois formatos principais de intimações judiciais no Brasil:
+1. Intimações por Diário Oficial
+São publicações feitas em jornais eletrônicos dos Tribunais
+A intimação se torna pública em horários definidos pela rotina de cada Tribunal
+É o formato tradicional e ainda utilizado por diversos órgãos judiciais
+Na ADVBOX, essas intimações são capturadas automaticamente e exibidas no Menu Intimações para tratamento da equipe
+2. Intimações por Sistemas Eletrônicos
+São publicações feitas diretamente dentro de sistemas como PJe, Eproc, Projudi, entre outros
+Não são mais publicadas no Diário Oficial
+Exigem que o advogado acesse esses sistemas com login e senha ou certificado digital para visualizar os atos
+Na ADVBOX, é possível integrar esses sistemas via monitoramento eletrônico, configurado na aba Termos Monitorados, dentro do Menu Configurações
+Como funciona a contagem dos prazos
+Diário Oficial:
+O prazo começa no primeiro dia útil seguinte à data da publicação.
+Sistemas Eletrônicos:
+Após a expedição da intimação no painel do advogado, inicia-se a contagem de 10 dias corridos para o advogado abrir o documento
+Se ele não acessar nesse período, o sistema considera que ele foi intimado automaticamente ao final do 10º dia
+A partir disso, o prazo processual se inicia, variando conforme o tipo de ato ou tribunal
+Importante:
+ Cada Tribunal possui regras próprias sobre prazos e forma de contagem. A ADVBOX não recomenda prazos fixos por segurança jurídica.
+Como não perder prazos e intimações
+1
+Menu Intimações
+Centraliza todas as intimações capturadas via diários oficiais e sistemas eletrônicos.
+2
+Tarefas Automatizadas
+Cada intimação é convertida automaticamente em uma tarefa atribuída ao responsável, garantindo o controle por meio do Meu Painel.
+3
+Monitoramento por OAB, CPF ou CNPJ
+Você pode cadastrar termos para vigilância ativa, inclusive habilitando o monitoramento de sistemas eletrônicos com login e senha.
+4
+Notificações Direcionadas
+O usuário responsável por cada tipo de intimação ou aviso é definido no menu Configurações > Notificações, evitando falhas na comunicação da equipe.
+A ADVBOX possui a maior cobertura de intimações eletrônicas do Brasil, garantindo mais segurança, agilidade e tranquilidade no acompanhamento dos seus processos.
+Status da sincronização dos termos monitorados
+Após a solicitação, o sistema inicia a sincronização automática. Esse processo pode levar até 48 horas. Você pode acompanhar o status de cada termo diretamente na aba de Termos monitorados.
+Status
+Observações
+Monitorando
+Monitoramento ativo.
+Sincronizando
+Sincronização com o robô em andamento, aguarde.
+Falha na autenticação
+Monitoramento suspenso, atualize login e senha.
+A captura das publicações judiciais na ADVBOX é realizada através da leitura dos diários oficiais de justiça e de alguns sistemas eletrônicos.
+Dica:
+ O Menu Intimações é uma ferramenta essencial para garantir o controle total das publicações judiciais, evitando perda de prazos e mantendo a organização do escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

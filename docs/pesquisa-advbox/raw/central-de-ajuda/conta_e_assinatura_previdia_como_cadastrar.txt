@@ -1,0 +1,148 @@
+Previdia : como cadastrar 
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 19/06/2026 12:58
+ Navegação Interna
+Neste artigo, você vai aprender como gerar o token na ADVBOX, criar sua conta no Previdia, realizar as configurações iniciais do sistema e sincronizar seus dados para o primeiro acesso.
+Como Gerar o Token na ADVBOX
+1
+Acesse Conta e Assinatura
+Acesse o menu 
+Conta e Assinatura
+.
+2
+Localize o Previdia
+Clique em 
+Nossos Produtos
+ e encontre a opção 
+Previdia
+.
+3
+Habilite a Chave de API
+Habilite a chave de API e aceite o valor de R
+$200
+ para habilitação.
+4
+Gere e Copie o Token
+Clique em 
+Gerar Token
+ e copie o token gerado. Ele será utilizado no próximo passo.
+Como Criar a Conta no Previdia
+1
+Acesse o Link de Cadastro
+Acesse o link: 
+https://previdia.com.br/advbox
+ e clique em 
+CRIAR CONTA
+ (localizado abaixo do botão branco ENTRAR).
+2
+Valide o Token
+Cole o token copiado da ADVBOX e clique em 
+Validar Token
+. Se estiver correto, aparecerá a mensagem: 
+CHAVE API validada
+.
+3
+Preencha os Campos Obrigatórios
+Preencha os dados solicitados:
+Nome do escritório
+Endereço de e-mail (utilize o mesmo e-mail que você usa na ADVBOX)
+Senha
+Confirmar senha
+4
+Finalize o Cadastro
+Clique em 
+CRIAR CONTA E ACESSAR PAINEL
+.
+Configuração Inicial do Sistema
+Após criar a conta, será necessário configurar 3 etapas iniciais.
+Passo 1 — Tarefas
+Nesta etapa você definirá como o Previdia criará tarefas automáticas na ADVBOX ao identificar movimentações nos processos.
+Configuração de usuários:
+Usuário que envia tarefas:
+ será o usuário que aparecerá como remetente das tarefas criadas automaticamente.
+Usuário que recebe as tarefas:
+ serão os usuários que receberão as tarefas criadas pelo sistema.
+Tipos de tarefas:
+Tarefa para exigência:
+ selecione qual tarefa será criada automaticamente quando o sistema identificar uma movimentação de exigência no processo.
+Tarefa para conclusão:
+ selecione qual tarefa será criada automaticamente quando o sistema identificar que um processo foi concluído.
+Após preencher todas as informações, clique em 
+AVANÇAR
+.
+Passo 2 — Alertas
+Nesta etapa você pode configurar alertas automáticos. Essas configurações não são obrigatórias.
+Alerta de Exigência Vencendo:
+Caso deseje utilizar este alerta, ative a alavanca.
+Selecione a tarefa para alerta de exigência: será a tarefa que você receberá quando uma exigência estiver próxima de vencer.
+Selecione o prazo de dias: informe quantos dias antes do vencimento deseja receber o alerta.
+Alerta de Processo Estagnado:
+Caso deseje utilizar esta função, ative a alavanca.
+Selecione a tarefa para alerta de processo estagnado.
+Selecione o prazo de dias: defina quantos dias sem movimentação caracterizam um processo como estagnado.
+Após configurar, clique em 
+AVANÇAR
+.
+Passo 3 — Extensão
+Agora você deverá instalar a extensão do navegador.
+1
+Escolha o Navegador
+Escolha o navegador de sua preferência: Chrome/Edge ou Firefox, e clique na extensão desejada.
+2
+Copie a Chave de API
+Após a instalação, será exibida uma chave de API. Copie esta chave e cole na extensão do navegador para vincular ao seu escritório.
+3
+Conclua a Configuração
+Ao finalizar, aparecerá a mensagem: 
+TUDO PRONTO!
+ Clique em 
+CONCLUIR
+ — sua conta será configurada e você será redirecionado para o painel.
+Importante:
+ Anote a chave de API gerada na etapa da extensão. Ela será necessária para vincular o navegador ao seu escritório.
+Como Acessar o ADVBOX — INSS GERID e Sincronizar os Dados
+Após concluir a configuração, será aberta a dashboard do PREVIDIA.
+Em seguida, para inicia o monitoramento dos processos, é necessário:
+1
+Acesse o GERID
+Na tela inicial, selecione o período desejado e clique em 
+Buscar
+.
+2
+Configure a Exibição
+No final da página, selecione a opção de linhas com o maior número possível.
+3
+Sincronize pela Extensão
+Abra a extensão do navegador e clique em 
+SINCRONIZAR
+.
+Dica:
+ Clique no ícone de 
+quebra-cabeça (EXTENSÃO)
+ no navegador e selecione a opção 
+Fixar
+ na extensão do Previdia. Assim ela ficará visivel na barra do navegador, facilitando o acesso para realizar a sincronização.
+Após a sincronização, você já poderá acessar o Previdia e todas as informações estarão cadastradas automaticamente, assim como estão na sua ADVBOX.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nossos Produtos 
+ Próximo ›
+ Previdia : como utilizar - passo a passo
+ Navegação Interna

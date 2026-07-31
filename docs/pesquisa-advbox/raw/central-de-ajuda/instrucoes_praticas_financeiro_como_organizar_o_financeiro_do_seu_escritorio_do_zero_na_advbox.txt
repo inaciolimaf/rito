@@ -1,0 +1,177 @@
+Como organizar o financeiro do seu escritório do zero na ADVBOX
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 03/03/2026 16:31
+ Navegação Interna
+Neste artigo, você vai aprender como organizar o financeiro do seu escritório do zero na ADVBOX: desde a configuração inicial de acessos, contas e categorias, até a criação de uma rotina eficiente de lançamentos e geração de relatórios confiáveis.
+Como organizar o financeiro do seu escritório do zero na ADVBOX
+Organizar o financeiro na ADVBOX significa configurar corretamente a base do sistema e depois manter um padrão nos lançamentos. Se você seguir este passo a passo, terá controle real do caixa, previsibilidade e relatórios confiáveis.
+Passo 1 — Garanta o acesso correto de quem vai operar o financeiro
+Antes de começar, defina quem pode visualizar e quem pode lançar ou editar informações financeiras.
+1
+Acesse as configurações de usuários
+Vá em 
+Configurações > Usuários
+ e ajuste o campo 
+Acesso ao Financeiro
+ para cada colaborador:
+Sem acesso
+Somente visualizador
+Acesso completo
+Dica:
+ Deixe "Acesso Completo" apenas para quem realmente vai lançar e dar baixa nos valores. Para sócios e líderes que apenas acompanham números, utilize "Somente visualizador".
+Passo 2 — Cadastre suas contas bancárias e cartões (e defina o saldo inicial)
+Agora você vai estruturar suas contas.
+1
+Acesse Contas e Cartões
+Acesse 
+Configurações > Financeiro > Contas e cartões
+ e cadastre:
+Contas correntes
+Contas poupança
+Contas investimento
+Cartões de crédito (se utilizar)
+2
+Defina o saldo inicial
+Ao cadastrar uma conta, preencha o 
+Saldo inicial
+ considerando uma data de corte (por exemplo: saldo a partir de hoje). Depois disso, evite alterar esse valor. Isso garante uma conciliação correta sem distorcer seus resultados.
+3
+Configure o cartão de crédito (se utilizar)
+Informe corretamente:
+Data de fechamento da fatura
+Data de vencimento da fatura
+Assim, as compras serão organizadas automaticamente na fatura correta.
+Passo 3 — Estruture suas categorias (isso define seus relatórios)
+As categorias são a inteligência do seu financeiro. São elas que determinam como suas receitas e despesas aparecerão nos relatórios, inclusive no DRE e no BI. A categoria é 
+obrigatória
+ em todo lançamento.
+1
+Acesse as Categorias
+Vá em 
+Configurações > Financeiro > Categorias
+.
+2
+Crie e organize as categorias por grupos
+Exemplos de grupos:
+Tributos
+Despesas fixas
+Despesas variáveis
+Despesas bancárias
+Marketing
+Receita de honorários
+Importante:
+ Se você classificar uma categoria errada, seu relatório vai mostrar números distorcidos. Categoria errada = análise errada.
+Passo 4 — Crie Centros de Custo (para enxergar por área) * Plano Banca Max e Elite.
+Se você quer entender quanto cada área do seu escritório custa ou gera, use Centros de Custo.
+1
+Crie os Centros de Custo
+Exemplos de centros de custo:
+Comercial
+Produção
+Atendimento
+Marketing
+2
+Utilize nos lançamentos
+Ao utilizar centro de custo nos lançamentos, você consegue segmentar relatórios por área. Exemplo prático: ao usar "Marketing" como centro de custo, você consegue medir exatamente quanto está investindo para captar clientes.
+Passo 5 — Se você for plano Elite, utilize Setor/Unidade
+Se o seu escritório possui filiais, projetos específicos ou estrutura dividida por unidades, configure 
+Setor/Unidade
+ nas configurações do financeiro.
+1
+Verifique a elegibilidade
+Este recurso está disponível 
+apenas no plano Elite
+ e permite uma segmentação ainda mais detalhada dos seus relatórios por filiais (SP, Recife, Brasília…) ou projetos específicos.
+Passo 6 — (Opcional) Integre com o Asaas para automatizar cobranças
+Se você cobra honorários por boleto, cartão ou carnê, integrar com o Asaas facilita muito sua operação.
+1
+Benefícios da integração
+Com a integração você consegue:
+Emitir cobranças automaticamente
+Ter baixa automática quando o cliente paga
+Registrar automaticamente as taxas como despesa
+2
+Conta Asaas automática
+A ADVBOX cria automaticamente uma conta Asaas nas configurações financeiras para organizar essas movimentações.
+Passo 7 — Comece a lançar do jeito certo
+Dentro do Menu Financeiro, você trabalhará com três tipos de lançamento: 
+Receita
+, 
+Despesa
+ e 
+Transferência
+. Seus relatórios e indicadores dependem diretamente do que você lança aqui.
+1
+Preencha as três datas corretamente em cada lançamento
+Vencimento:
+ quando o valor deveria ser pago ou recebido. Base para previsão e controle de atraso.
+Pagamento:
+ quando o dinheiro realmente entrou ou saiu. Base para fluxo de caixa e saldo bancário.
+Competência:
+ o mês contábil de origem do valor. Base para DRE e análise real de resultado.
+Importante:
+ Não altere a data de vencimento para "esconder" atraso. Mantenha o vencimento original e preencha a data de pagamento quando o valor for quitado.
+Passo 8 — Crie uma rotina simples
+Não deixe para organizar tudo no final do mês. Isso distorce saldo, fluxo e indicadores.
+1
+Diariamente (10 minutos)
+Dê baixa nos valores pagos e recebidos (preencha a data de pagamento).
+2
+Semanalmente (30 minutos)
+Revise pendências e confira categorias e competências.
+3
+Mensalmente
+Feche seus relatórios conforme o objetivo:
+Previsão (por vencimento)
+Realizado (por pagamento)
+Resultado contábil (por competência)
+Passo 9 — Use o modo certo para cada análise
+No Menu Financeiro, você pode visualizar os dados de três formas. Usar o modo errado pode levar a interpretações equivocadas dos números.
+1
+Por vencimento
+Para planejamento e acompanhamento de inadimplência.
+2
+Por pagamento
+Para fluxo de caixa real.
+3
+Por competência
+Para análise contábil e resultado mensal (base do DRE).
+Passo 10 — Exporte e acompanhe corretamente
+1
+Atenção ao exportar relatórios
+O sistema exporta exatamente o que está visível na tela, considerando filtros e modo selecionado.
+Importante:
+ Se você utiliza DRE (planos Banca Max e Elite), ele é gerado com base no modo competência e exportado para Excel.
+Checklist rápido — Primeira semana organizando seu financeiro
+Ajustar acessos dos usuários
+Cadastrar contas e definir saldo inicial
+Criar e revisar categorias
+Criar centros de custo (e setor/unidade se for Elite)
+Integrar com Asaas (se desejar automatizar cobranças)
+Começar lançamentos com datas e categorias corretas
+Criar rotina semanal de revisão
+Dica:
+ O gerenciamento financeiro eficiente começa na configuração correta da base. Com categorias, contas e rotinas bem definidas, seus relatórios serão confiáveis e suas decisões muito mais precisas.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Dicas práticas para utilizar o Menu Financeiro
+ Próximo ›
+ Nenhum
+ Navegação Interna

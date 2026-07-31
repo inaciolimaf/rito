@@ -1,0 +1,59 @@
+Times : o que é e como usar na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 17/09/2025 13:40
+ Navegação Interna
+Neste artigo, você vai aprender o significado de Times e como configurar na ADVBOX.
+O que significa Times na ADVBOX
+1
+Conceito de Times
+A ferramenta 
+Times
+ da ADVBOX facilita a colaboração, a transparência e a gestão ágil das tarefas. Com ela, é possível atribuir uma tarefa a vários usuários ao mesmo tempo, por meio de um grupo pré-definido. Um 
+time
+ é um conjunto de pessoas que atuam no mesmo setor ou realizam tarefas semelhantes. Assim, ao configurar um time, as tarefas podem ser atribuídas a todos os membros com apenas um clique.
+Disponibilidade:
+ recurso exclusivo dos planos 
+Banca Max
+ e 
+Elite
+.
+Como criar um Time
+1
+Acessar Menu Times
+Acesse o menu de 
+Configurações > Usuários > aba Times
+.
+2
+Criar Novo Time
+Clique no 
+botão azul Novo Time
+.
+3
+Configurar Time
+No pop-up que será exibido:
+Preencha o nome do time (ex.: Time de Atendimento, Comercial, Administrativo, Financeiro)
+Marque os usuários que farão parte do time clicando no checkbox ao lado do nome de cada um
+Após selecionar os colaboradores, clique no botão azul Criar novo time
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Usuários no sistema: como cadastrar e gerenciar acessos
+ Próximo ›
+ Registro de Acesso: o que é e como usar na prática
+ Navegação Interna

@@ -1,0 +1,107 @@
+Registro Interno : o que é e como utilizar.
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 09/09/2025 13:15
+ Navegação Interna
+Neste artigo, você vai aprender o que é o Registro Interno no Financeiro da ADVBOX, quando utilizar, como funciona na prática e quais cuidados tomar para evitar distorções nos relatórios financeiros.
+O que é o Registro Interno?
+1
+Definição
+É um 
+tipo de lançamento do menu Financeiro
+.
+Quando marcado, o lançamento 
+não afeta saldo, relatórios de previsão, DRE ou fluxo de caixa
+.
+Serve apenas para 
+controle informativo
+, sem representar ganho ou custo real do escritório.
+Quando utilizar?
+1
+Situações Recomendadas
+Use o Registro Interno em situações em que o valor 
+não é uma movimentação efetiva
+ do escritório, como:
+Repasse de valores ao cliente após acordo ou alvará
+Registro de custas pagas em nome do cliente, que serão ressarcidas
+Recebimentos temporários que não pertencem ao escritório
+Transferências operacionais apenas para rastreabilidade
+Importante:
+ O recurso é útil para manter transparência sem distorcer indicadores de lucratividade.
+Como funciona na prática?
+1
+Funcionamento do Sistema
+O lançamento continua visível no 
+histórico financeiro do processo
+ (se vinculado).
+Pode ser incluído ou excluído de relatórios exportados, ativando ou desativando o filtro correspondente.
+Pode ser feito de forma avulsa, parcelada, recorrente ou diretamente dentro de um processo.
+Como identificar o Registro Interno?
+1
+Identificação Visual
+O sistema exibe um 
+ícone "i" (informação)
+ ao lado do nome da pessoa.
+2
+Visualização
+Esse ícone mostra que o lançamento é apenas informativo e não interfere no saldo.
+Para visualizar: ative o filtro 
+"Exibir registros internos"
+ no painel de filtros (funil).
+Cuidados ao utilizar
+!
+Evite Uso Indevido
+Evite marcar como interno de forma indevida, pois isso pode 
+distorcer relatórios financeiros
+. 
+Erros comuns:
+Marcar lançamentos reais apenas para "não afetar saldo"
+Usar como forma de corrigir lançamentos mal categorizados
+Criar lançamentos fictícios para "simular" relatórios
+Atenção:
+Nunca use registros internos em relatórios oficiais como o 
+DRE
+Sempre revise os filtros antes de exportar relatórios
+O campo deve ser usado com 
+critério e clareza
+, seguindo política interna do escritório
+Dicas finais
+1
+Finalidade
+Registros internos servem 
+somente para organização e rastreamento interno
+.
+2
+Verificação de Distorções
+Em caso de distorções no saldo ou relatórios, verifique se 
+lançamentos reais foram marcados indevidamente como internos
+.
+3
+Alteração de Status
+Se o lançamento precisar passar a impactar o financeiro, basta 
+desmarcar a opção de registro interno
+.
+Dica:
+ Use o Registro Interno com responsabilidade para manter a precisão dos seus relatórios financeiros e garantir transparência nos controles internos do escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Como configurar o Menu Financeiro
+ Próximo ›
+ Nenhum
+ Navegação Interna

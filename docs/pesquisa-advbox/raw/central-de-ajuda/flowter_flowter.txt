@@ -1,0 +1,287 @@
+Flowter
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 05/02/2026 18:44
+ Navegação Interna
+Neste artigo, você vai aprender o que é o Flowter, como configurar fluxos automáticos de tarefas, utilizar gatilhos e ações, além de conhecer exemplos práticos para otimizar a rotina do seu escritório.
+O que é o Flowter?
+O Flowter é a nova ferramenta de automação da ADVBOX que substitui o antigo workflow. Pense nele como um "assistente invisível" que executa tarefas repetitivas para você.
+A lógica é sempre a mesma: 
+"Quando ISSO acontecer → Faça AQUILO automaticamente"
+Estrutura de um Fluxo (3 elementos)
+1
+Gatilho (o que inicia o fluxo)
+Quando uma tarefa for concluída
+Quando o processo mudar de etapa
+2
+Ação (o que o sistema faz)
+Criar tarefa automática (definindo: qual tarefa, quem é responsável, qual o prazo)
+Enviar HTTP Request para outro sistema (opcional)
+3
+Tempo (quando a próxima ação acontece)
+Imediatamente
+Aguardar X dias (corridos ou úteis)
+Esperar conclusão de uma tarefa
+Gatilhos disponíveis
+Conclusão de tarefa
+Quando qualquer tarefa específica for marcada como concluída
+Ex: "Quando a tarefa 'Enviar contrato' for concluída..."
+Mudança de etapa do processo
+Quando o processo/caso mudar de fase no funil
+Ex: "Quando o processo entrar na etapa 'Em execução'..."
+Importante - Delay de segurança nos gatilhos:
+ Todo gatilho do Flowter possui um delay automático de 1 minuto antes de disparar as ações configuradas. Esse tempo existe para permitir correções manuais, como desmarcar uma tarefa concluída incorretamente ou reverter uma movimentação de etapa feita por engano. Esse mesmo comportamento se aplica tanto para conclusão de tarefas quanto para mudança de etapa do processo.
+Configurando uma tarefa automática
+Ao criar uma tarefa pelo Flowter, você define:
+1
+Qual tarefa
+Seleciona da lista de tarefas cadastradas. Pode adicionar descrição padrão para orientar a equipe.
+2
+Responsável
+Colaborador específico, múltiplos colaboradores, cargo ou dono do processo. Se o responsável for definido por cargo e houver mais de uma pessoa vinculada a esse cargo, o Flowter fará a distribuição automática de forma sequencial, respeitando a ordem interna do sistema. Isso evita sobrecarga em um único colaborador e garante uma divisão equilibrada das tarefas.
+3
+Prazo
+Quantidade de dias (corridos ou úteis). O prazo conta a partir do momento que o Flowter é acionado.
+Opções de espera entre ações
+Aguardar X dias (corridos ou úteis)
+Aguardar conclusão de uma tarefa
+Isso permite criar fluxos complexos com várias etapas sequenciais.
+Exemplos Práticos para Escritórios de Advocacia
+Exemplo 1: Fluxo de Novo Cliente (Onboarding)
+Cenário:
+ Cliente fechou contrato, precisa iniciar o atendimento
+GATILHO:
+ Tarefa "Contrato assinado" concluída
+→ 
+AÇÃO 1:
+ Criar tarefa "Solicitar documentos do cliente"
+    Responsável: Atendimento
+    Prazo: 1 dia útil
+→ 
+AGUARDAR:
+ Conclusão da tarefa anterior
+→ 
+AÇÃO 2:
+ Criar tarefa "Analisar documentos recebidos"
+    Responsável: Advogado responsável (dono do processo)
+    Prazo: 2 dias úteis
+→ 
+AGUARDAR:
+ Conclusão da tarefa anterior
+→ 
+AÇÃO 3:
+ Criar tarefa "Elaborar estratégia do caso"
+    Responsável: Advogado responsável
+    Prazo: 3 dias úteis
+Exemplo 2: Acompanhamento de Prazos Processuais
+Cenário:
+ Após protocolar petição, acompanhar publicações
+GATILHO:
+ Tarefa "Protocolar petição inicial" concluída
+→ 
+AÇÃO 1:
+ Criar tarefa "Verificar distribuição no tribunal"
+    Responsável: Jurídico
+    Prazo: 5 dias úteis
+→ 
+AGUARDAR:
+ 15 dias úteis
+→ 
+AÇÃO 2:
+ Criar tarefa "Acompanhar movimentação processual"
+    Responsável: Jurídico
+    Prazo: 2 dias úteis
+Exemplo 3: Cobrança e Financeiro
+Cenário:
+ Após fechamento de contrato, gerar cobrança
+GATILHO:
+ Processo entrou na etapa "Contrato Fechado"
+→ 
+AÇÃO 1:
+ Criar tarefa "Emitir primeira parcela"
+    Responsável: Financeiro
+    Prazo: 1 dia útil
+→ 
+AGUARDAR:
+ 30 dias corridos
+→ 
+AÇÃO 2:
+ Criar tarefa "Verificar pagamento e emitir próxima parcela"
+    Responsável: Financeiro
+    Prazo: 2 dias úteis
+Exemplo 4: Fluxo de Audiência
+Cenário:
+ Audiência foi agendada, preparar documentação
+GATILHO:
+ Tarefa "Audiência agendada" concluída
+→ 
+AÇÃO 1:
+ Criar tarefa "Preparar documentos para audiência"
+    Responsável: Advogado responsável
+    Prazo: 5 dias úteis
+    Descrição: "Revisar peças, preparar perguntas para testemunhas, organizar provas"
+→ 
+AGUARDAR:
+ Conclusão da tarefa anterior
+→ 
+AÇÃO 2:
+ Criar tarefa "Confirmar presença do cliente"
+    Responsável: Atendimento
+    Prazo: 2 dias úteis
+→ 
+AGUARDAR:
+ 1 dia útil antes da audiência
+→ 
+AÇÃO 3:
+ Criar tarefa "Lembrete final - Audiência amanhã"
+    Responsável: Advogado responsável
+    Prazo: 1 dia útil
+Exemplo 5: Processo de Execução
+Cenário:
+ Sentença favorável transitou em julgado
+GATILHO:
+ Processo entrou na etapa "Trânsito em Julgado"
+→ 
+AÇÃO 1:
+ Criar tarefa "Elaborar cálculos de liquidação"
+    Responsável: Calculista / Advogado
+    Prazo: 5 dias úteis
+→ 
+AGUARDAR:
+ Conclusão da tarefa anterior
+→ 
+AÇÃO 2:
+ Criar tarefa "Iniciar cumprimento de sentença"
+    Responsável: Advogado responsável
+    Prazo: 3 dias úteis
+→ 
+AGUARDAR:
+ 15 dias úteis
+→ 
+AÇÃO 3:
+ Criar tarefa "Verificar pagamento voluntário"
+    Responsável: Jurídico
+    Prazo: 2 dias úteis
+Exemplo 6: Follow-up com Cliente
+Cenário:
+ Manter cliente informado sobre o andamento
+GATILHO:
+ Tarefa "Atualizar cliente sobre o caso" concluída
+→ 
+AGUARDAR:
+ 30 dias corridos
+→ 
+AÇÃO 1:
+ Criar tarefa "Atualizar cliente sobre o caso"
+    Responsável: Atendimento
+    Prazo: 2 dias úteis
+    Descrição: "Ligar para o cliente e informar status atual do processo"
+Este fluxo cria um ciclo automático de follow-up mensal!
+Exemplo 7: Recurso após Sentença Desfavorável
+Cenário:
+ Sentença desfavorável, verificar possibilidade de recurso
+GATILHO:
+ Processo entrou na etapa "Sentença Desfavorável"
+→ 
+AÇÃO 1:
+ Criar tarefa "Analisar cabimento de recurso"
+    Responsável: Advogado responsável
+    Prazo: 2 dias úteis
+    Descrição: "Avaliar se há fundamentos para recurso. Prazo fatal em 15 dias!"
+→ 
+AGUARDAR:
+ Conclusão da tarefa anterior
+→ 
+AÇÃO 2:
+ Criar tarefa "Contatar cliente sobre recurso"
+    Responsável: Advogado responsável
+    Prazo: 1 dia útil
+    Descrição: "Informar cliente sobre possibilidade de recurso e custos envolvidos"
+HTTP Request (Integração com outros sistemas)
+O que é?
+O HTTP Request do Flowter funciona como um webhook, ou seja, um disparo automático de informações da ADVBOX para outro sistema sempre que um evento acontece (gatilho). Nesse processo, a ADVBOX envia um JSON estruturado contendo os dados do evento para a URL configurada no sistema externo.
+Quando usar?
+Gerar contratos:
+ Enviar dados do cliente para plataforma de assinatura digital (ex: Clicksign, DocuSign)
+Enviar mensagens:
+ Disparar WhatsApp automático via API de mensageria
+Atualizar planilhas:
+ Enviar dados para Google Sheets ou sistemas de BI
+Marketing:
+ Adicionar cliente em ferramenta de e-mail marketing
+Sistemas internos:
+ Integrar com ERP ou sistema próprio do escritório
+Importante:
+ A configuração de integrações via HTTP Request exige conhecimento técnico. A ADVBOX entrega os dados em formato JSON, e o sistema de destino precisa estar preparado para receber, interpretar e tratar essas informações corretamente. Em alguns casos, pode ser necessário criar um mecanismo de "tradução" ou mapeamento, para correlacionar os campos enviados pela ADVBOX com os campos utilizados pela outra plataforma.
+Como configurar?
+Você precisa de 3 informações (fornecidas pelo sistema externo):
+1
+URL
+Endereço para onde enviar os dados.
+2
+Método
+POST (enviar), PUT (atualizar) ou DELETE (excluir).
+3
+Autorização
+Chave de acesso (se o sistema exigir).
+Importante:
+ Se o escritório não usa integrações externas, essa funcionalidade pode ser ignorada.
+Boas Práticas
+1
+Comece simples
+Crie fluxos básicos primeiro, depois vá adicionando complexidade.
+2
+Mapeie suas rotinas
+Antes de criar o fluxo, desenhe no papel o que acontece hoje manualmente.
+3
+Use descrições claras
+Adicione texto explicativo nas tarefas para orientar quem vai executar.
+4
+Defina responsáveis por cargo
+Facilita quando há rotatividade na equipe.
+5
+Prefira dias úteis
+Para prazos processuais, use dias úteis para evitar problemas.
+6
+Teste antes de confiar
+Acompanhe os primeiros fluxos para garantir que funcionam como esperado.
+Observações importantes sobre o funcionamento do Flowter
+Gatilhos possuem delay fixo de 1 minuto
+HTTP Request funciona como webhook
+Integrações exigem conhecimento técnico
+Distribuição sequencial por cargo
+Resumo Rápido
+O que o Flowter faz?
+Automatiza tarefas repetitivas.
+O que inicia um fluxo?
+Conclusão de tarefa OU mudança de etapa.
+O que ele pode fazer?
+Criar tarefas automáticas e enviar dados para outros sistemas.
+Posso encadear várias ações?
+Sim, quantas precisar.
+HTTP Request é obrigatório?
+Não, é opcional.
+Dica:
+ O Flowter é ideal para padronizar rotinas do escritório, reduzir trabalho manual, evitar esquecimentos e garantir que todos os prazos sejam cumpridos de forma automática.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Flowter: guia técnico
+ Navegação Interna

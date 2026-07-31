@@ -1,0 +1,50 @@
+Esqueci minha senha: o que fazer ?
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 28/08/2025 13:10
+ Navegação Interna
+Neste artigo, você vai aprender como redefinir sua senha de acesso à ADVBOX de forma segura e rápida, garantindo que você possa voltar a utilizar o sistema sem complicações.
+Como redefinir sua senha na ADVBOX
+Se você esqueceu sua senha de acesso, siga o passo a passo abaixo para redefini-la com segurança:
+1
+Acessar a plataforma
+Acesse: app.advbox.com.br
+2
+Localizar a opção de recuperação
+Na tela de login, clique em 
+Esqueci minha senha
+.
+3
+Informar seu e-mail
+Informe o e-mail cadastrado na sua conta e clique em 
+Recuperar Senha
+.
+4
+Verificar sua caixa de entrada
+Verifique sua caixa de entrada (ou spam) e siga as instruções do e-mail para criar uma nova senha.
+Dica:
+ Escolha uma senha segura e de fácil memorização.
+Importante:
+ Caso não receba o e-mail, verifique se digitou o endereço correto ou entre em contato com o Suporte da ADVBOX.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Parceiros : o que é, como funciona e onde configurar
+ Próximo ›
+ Financeiro: Como configurar ?
+ Navegação Interna

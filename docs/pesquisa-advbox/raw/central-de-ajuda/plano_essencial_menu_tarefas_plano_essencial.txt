@@ -1,0 +1,81 @@
+Menu tarefas - Plano Essencial
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 06/03/2026 13:28
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar o menu Tarefas da ADVBOX, entender para que ele serve e como cadastrar, acompanhar e organizar as atividades da equipe do seu escritório.
+Menu Tarefas: como utilizar e para que serve
+O menu Tarefas é a ferramenta utilizada para organizar e acompanhar as atividades realizadas pelo usuário dentro da ADVBOX, ou seja ele é individual de cada pessoa. Ele ajuda o escritório a manter controle sobre suas atividades do dia a dia, garantindo que as tarefas do usuário sejam acompanhadas e concluídas dentro do prazo de forma individual.
+No Plano Essencial, as tarefas podem ser visualizadas em formato Kanban.
+Para que servem as Tarefas
+As tarefas permitem:
+Organizar atividades da equipe
+Definir responsáveis por cada atividade
+Acompanhar o andamento das tarefas
+Melhorar a produtividade dos colaboradores
+Priorizar atividades importantes
+Como cadastrar uma tarefa no Plano Essencial
+Siga os passos abaixo para cadastrar uma nova tarefa na plataforma, existem vários atalhos, iremos ver apenas um deles.
+1
+Acesse o menu Tarefas
+No menu lateral da ADVBOX, clique em 
+Adicionar
+.
+2
+Clique em Adicionar
+Dentro do atalho, clique na opção 
+Nova tarefa
+ para iniciar o cadastro.
+3
+Preencha as informações da tarefa
+No formulário de criação da tarefa, informe os dados necessários:
+Título da tarefa
+ — Nome da atividade que será realizada.
+Responsável
+ — Usuário que ficará encarregado de executar a tarefa.
+Descrição
+ — Informações adicionais sobre o que deve ser feito.
+Prazo
+ — Data limite para conclusão da atividade.
+Essas informações ajudam a garantir que todos saibam o que deve ser feito, por quem e até quando.
+4
+Salve a tarefa
+Após preencher os dados necessários, clique em 
+Salvar
+. A tarefa será criada e aparecerá no quadro de tarefas, podendo ser acompanhada e atualizada conforme o andamento da atividade.
+Como acompanhar uma tarefa
+Depois de cadastrada, a tarefa pode ser:
+Visualizada no quadro de tarefas
+Movimentada entre as colunas conforme o andamento
+Marcada como concluída quando finalizada
+Isso permite acompanhar de forma simples todas as suas atividades.
+Benefícios do uso das Tarefas
+Utilizar o menu Tarefas permite que o escritório:
+Mantenha controle das atividades da equipe
+Evite esquecimentos de tarefas importantes
+Organize melhor a rotina de trabalho
+Acompanhe a produtividade dos colaboradores
+Dica:
+ Mantenha as tarefas sempre atualizadas e incentive a equipe a registrar o andamento das atividades. Isso garante mais controle sobre a rotina do escritório e evita que prazos importantes sejam perdidos.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ CRM - Plano Essencial
+ Próximo ›
+ Intimações - Plano Essencial
+ Navegação Interna

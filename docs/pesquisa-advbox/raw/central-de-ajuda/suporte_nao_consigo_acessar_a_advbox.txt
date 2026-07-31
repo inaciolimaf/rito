@@ -1,0 +1,104 @@
+Não consigo acessar a ADVBOX
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 03/03/2026 17:29
+ Navegação Interna
+Neste artigo, você vai aprender o que fazer quando não consegue acessar a ADVBOX: como identificar o motivo do bloqueio e resolver rapidamente, passo a passo, sem precisar acionar o suporte na maioria dos casos.
+Não consigo acessar a ADVBOX: o que fazer?
+Se você está tentando entrar na ADVBOX e não consegue acessar, não se preocupe. Na maioria dos casos, o bloqueio acontece por um dos motivos abaixo e todos têm solução rápida. Siga este passo a passo para identificar e resolver.
+Verifique se você concluiu o cadastro pelo e-mail
+1
+Finalize o cadastro pelo e-mail de boas-vindas
+Se você é um novo usuário, o acesso só é liberado após finalizar o cadastro pelo link enviado por e-mail. Você deve:
+Abrir o e-mail com o assunto de boas-vindas
+Clicar em "Concluir meu cadastro"
+Criar sua senha
+Ativar a verificação em dois fatores (2FA)
+Sem essa etapa, o acesso não é ativado.
+Dica:
+ Verifique também a caixa de spam caso não encontre o e-mail de boas-vindas.
+Problema com verificação em dois fatores (2FA)
+1
+Não recebeu o código de verificação
+A ADVBOX exige verificação de segurança por código enviado via e-mail ou SMS. Se você não recebeu o código:
+Confirme se digitou corretamente o e-mail ou número
+Aguarde alguns segundos
+Clique em "Reenviar código"
+Sem validar o código, o acesso não é concluído.
+Senha incorreta
+1
+Verifique os critérios de segurança da senha
+A senha da ADVBOX precisa atender aos seguintes critérios:
+Mínimo 8 caracteres
+Pelo menos 1 número
+Pelo menos 1 letra maiúscula
+Pelo menos 1 letra minúscula
+Pelo menos 1 caractere especial
+2
+Redefina sua senha se necessário
+Se você esqueceu a senha, utilize a opção de redefinição na tela de login. Se seu e-mail foi alterado recentemente, você precisará confirmar novamente pelo novo endereço.
+Usuário inativo ou excluído
+1
+Verifique a situação do seu usuário
+Se você fazia login normalmente e parou de conseguir acessar, pode ser que seu usuário tenha sido desativado, excluído ou que seu perfil tenha sido alterado.
+2
+Solicite reativação ao Gestor ou Administrador
+Somente um Gestor ou Administrador pode reativar seu usuário em 
+Configurações > Usuários
+. Se você não for gestor, entre em contato com o responsável da sua equipe.
+Registro de acesso ativado (logoff automático)
+1
+Logoff automático por inatividade
+Se o escritório ativou a opção 
+Registro de Acesso
+, o sistema faz logoff automático após 10 minutos sem interação. Isso não é erro — é uma medida de segurança. Basta fazer login novamente.
+Bloqueio por atraso na mensalidade
+1
+Regularize o pagamento
+Se a mensalidade da ADVBOX estiver em atraso por mais de 7 dias, o acesso é bloqueado automaticamente. Nesse caso, gere o boleto em 
+Configurações > Conta e Pagamento
+ ou atualize a forma de pagamento. Após o pagamento, o acesso é restabelecido.
+Dica:
+ Se já pagou, envie o comprovante para (48) 88027274 para agilizar a liberação do acesso.
+Alteração de e-mail
+1
+Confirme o novo e-mail
+Se seu e-mail foi alterado recentemente, você precisa confirmar o novo endereço. Um novo link de validação é enviado automaticamente. Sem essa confirmação, o login não será concluído.
+Quando procurar suporte?
+1
+Entre em contato com o suporte apenas se
+Você não recebe o código mesmo após reenviar
+Seu usuário está ativo, mas o sistema não permite login
+O pagamento já foi feito e o acesso continua bloqueado
+Na maioria dos casos, o próprio gestor do escritório consegue resolver rapidamente pelo menu Configurações.
+Se você não consegue acessar a ADVBOX, normalmente o motivo está relacionado a:
+Cadastro não finalizado
+Verificação em dois fatores pendente
+Senha incorreta
+Usuário inativo ou excluído
+Bloqueio por atraso na mensalidade
+E-mail alterado sem confirmação
+Dica:
+ Siga o passo a passo acima e você provavelmente resolverá o problema de acesso em poucos minutos.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Como aproveitar ao máximo a IA de suporte da ADVBOX
+ Próximo ›
+ Nenhum
+ Navegação Interna

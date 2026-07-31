@@ -1,0 +1,130 @@
+Dados da conta e Logotipo: como visualizar e atualizar no sistema 
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 14/01/2026 12:11
+ Navegação Interna
+Neste artigo, você vai aprender como gerenciar e atualizar os dados oficiais da sua conta ADVBOX, garantindo que todas as informações do escritório estejam corretas e atualizadas.
+Conta e assinatura
+A tela 
+Dados da conta
+ na ADVBOX é onde devem ser mantidas as informações oficiais do escritório (e não dados pessoais do gestor ou contratante). É fundamental revisar e manter atualizados os seguintes dados obrigatórios:
+Nome/Razão Social
+Nome Fantasia
+CPF/CNPJ
+Telefone
+CEP, Endereço, Bairro, Cidade, Estado (UF)
+E-mail principal e E-mail financeiro
+Fuso horário
+Importante:
+ após qualquer alteração, clique em 
+Salvar dados
+ no botão azul ao final da página.
+Como Atualizar dados da conta
+1
+Acessar Conta e assinatura
+2
+Navegar para Dados da Conta
+Na listagem clique em 
+Dados da conta
+.
+3
+Preencher Campos Obrigatórios
+Preencha os campos obrigatórios com os dados do seu escritório:
+Nome/Razão Social:
+ razão social do escritório
+Nome Fantasia:
+ nome fantasia do escritório
+CPF/CNPJ:
+ CPF ou CNPJ do escritório
+Telefone:
+ número principal de contato
+Celular
+ (opcional): número secundário
+CEP:
+ CEP do escritório
+Endereço:
+ rua e número
+Bairro:
+ bairro do escritório
+Cidade:
+ cidade onde o escritório está localizado
+Estado (UF):
+ estado no padrão UF
+E-mail principal:
+ e-mail oficial do escritório (usado para compartilhamento na ADVBOX)
+E-mail financeiro:
+ e-mail para cobranças e alertas da ADVBOX
+Site
+ (opcional): site do escritório
+Fuso horário:
+ selecione o fuso horário correto (ex.: Brasília, Manaus)
+4
+Salvar Alterações
+Após atualizar qualquer informação, clique em 
+Salvar dados
+ ao final da página.
+Logotipo
+O 
+logotipo
+ do escritório será utilizado nos relatórios e recibos gerados pela ADVBOX. Para garantir qualidade na reprodução:
+Envie uma imagem de alta qualidade no formato 
+JPG ou JPEG
+Resolução recomendada: 
+300 pixels por polegada
+Altura máxima: 
+200 pixels
+Evite logotipos com excesso de informações, pois a área de aplicação é limitada nos documentos
+Como Inserir Logotipo
+1
+Acessar Conta e assinatura
+2
+Navegar para Dados da Conta
+Na listagem, clique em 
+Dados da conta
+.
+3
+Localizar Campo do Logotipo
+Localize o campo do logotipo (onde há uma imagem em branco com o ícone de foto e o texto 
+Atualizar logotipo
+).
+4
+Selecionar Arquivo
+Clique no campo para abrir a janela de seleção do arquivo.
+5
+Escolher Imagem
+Escolha o arquivo de imagem do seu logotipo no computador e clique em 
+Abrir
+.
+6
+Salvar Alterações
+Desça até o final da página e clique no botão azul 
+Salvar dados
+.
+Importante:
+ use imagem em 
+JPG/JPEG
+, 300 ppi e altura máxima de 200 px para melhor qualidade.
+Dica:
+ Manter os dados da conta sempre atualizados é fundamental para garantir o funcionamento correto de todas as funcionalidades da ADVBOX e receber comunicações importantes sobre sua conta.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Assinatura e pagamento: como atualizar plano e forma de cobrança
+ Navegação Interna

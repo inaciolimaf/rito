@@ -1,0 +1,74 @@
+Migração por tribunais
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 21/07/2026 17:57
+ Navegação Interna
+Neste artigo, você vai aprender como funciona a migração de dados para a ADVBOX, quais informações podem ser importadas e como enviar seus arquivos de forma segura.
+Como funciona a migração de dados para a ADVBOX?
+Ao contratar a ADVBOX, você pode solicitar a migração dos dados do seu sistema atual para facilitar a transição e evitar cadastros manuais.
+Durante esse processo, nossa equipe solicitará algumas informações e arquivos necessários para realizar a importação. Todo o envio é feito por meio de um link seguro, garantindo que seus dados sejam recebidos de forma organizada.
+O que pode ser migrado?
+A migração depende do sistema utilizado atualmente e dos dados disponíveis. Entre as informações que normalmente podem ser importadas estão:
+Processos;
+Clientes e contatos;
+Dados cadastrais;
+Informações processuais;
+Outros dados compatíveis com a ADVBOX.
+Importante:
+ Caso algum dado não possa ser migrado automaticamente, nossa equipe informará durante o processo.
+Como enviar os arquivos
+Após o início da implantação, você receberá um link para envio das informações. No formulário, você poderá realizar as seguintes ações:
+1
+Enviar os arquivos solicitados
+2
+Informar os dados de acesso ao sistema de origem
+Quando necessário.
+3
+Adicionar observações
+Para auxiliar a equipe de migração.
+4
+Aguardar a análise
+Depois de concluir o envio, basta aguardar a análise da equipe.
+Quais arquivos podem ser enviados?
+Os formatos aceitos variam conforme o sistema de origem, mas normalmente incluem arquivos de backup, planilhas e bases de dados. Sempre que possível, dê preferência ao formato 
+.xlsx
+, pois ele facilita e agiliza o processo de padronização dos dados.
+Vale destacar que nem todos os arquivos enviados são aceitos para migração. Em muitos casos, os dados chegam desorganizados ou em formatos que não são compatíveis com o processo de padronização da ADVBOX. Nesses casos, nossa equipe entrará em contato para orientar sobre os ajustes necessários.
+Caso você tenha dúvidas sobre qual arquivo enviar, entre em contato com a equipe responsável pela sua implantação antes de realizar o envio.
+Posso enviar mais de um arquivo?
+Sim. Você pode enviar todos os arquivos necessários para a migração.
+Se posteriormente for necessário complementar alguma informação, nossa equipe solicitará um novo envio utilizando o mesmo processo.
+O link de envio possui validade?
+Sim. O link enviado possui um prazo de validade.
+Importante:
+ Caso o link expire antes do envio dos arquivos, entre em contato com a equipe de implantação para solicitar um novo link.
+Meus dados estão seguros?
+Sim. Todos os arquivos enviados passam por validações de segurança antes de serem processados pela equipe da ADVBOX.
+Além disso, somente profissionais autorizados têm acesso às informações enviadas durante a migração.
+O que acontece depois do envio?
+Após receber os arquivos, a equipe iniciará a padronização dos dados. Em seguida, a depender do tipo de migração, será feita também a validação das informações antes da importação para o sistema.
+Caso seja necessário algum ajuste ou informação complementar, você será informado para que a migração seja concluída com sucesso.
+Dica:
+ Ter os arquivos organizados, de preferência em formato .xlsx, e as informações de acesso ao sistema de origem em mãos antes de iniciar o processo agiliza toda a migração.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Tudo sobre Migração do Financeiro do Asaas para ADVBOX
+ Próximo ›
+ FAQ
+ Navegação Interna

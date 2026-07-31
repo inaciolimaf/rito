@@ -1,0 +1,127 @@
+Integração Asaas: o que é,como fazer.
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 15/06/2026 11:54
+ Navegação Interna
+Neste artigo, você vai aprender como configurar a integração entre ADVBOX e Asaas para automatizar cobranças por boleto ou cartão de crédito, além de conhecer as limitações e boas práticas para usar essa funcionalidade corretamente.
+O que é a Integração Asaas
+Com a integração da ADVBOX com o 
+Asaas
+, você automatiza a emissão e o controle de cobranças por 
+boleto
+ ou 
+cartão de crédito
+.
+Sempre que o cliente realizar o pagamento, o sistema baixa automaticamente o lançamento no seu financeiro.
+Pré-requisitos:
+Ter uma conta ativa no Asaas com documentos aprovados
+Estar com o celular cadastrado no Asaas em mãos, pois será necessário confirmar um código via SMS
+Como configurar a integração com o Asaas
+1
+Preparar conta no Asaas
+Crie uma conta no 
+Asaas
+ e conclua a aprovação dos documentos exigidos.
+2
+Acessar configurações da conta
+Acesse sua conta no Asaas, clique no 
+ícone de perfil
+ no canto superior direito e selecione 
+Minha conta
+.
+3
+Localizar seção de API
+Vá até a aba 
+Integração
+ e depois na subaba 
+Chave de API
+.
+4
+Gerar chave de API
+Clique em 
+Gerar chave de API
+. Defina um 
+nome para a chave
+ (ex.: ADVBOX) e, se desejar, uma data de expiração.
+5
+Crie nome,Confirme e copie o token
+Confirme o código de verificação enviado por 
+SMS
+ para o telefone cadastrado e copie a chave (token) exibida na tela.
+6
+Configurar na ADVBOX
+Acesse o 
+Menu Configurações
+ na ADVBOX e clique no submenu 
+Integrações e API
+. Na seção 
+Asaas
+, cole o token no campo indicado e clique em 
+Salvar dados
+.
+A conta Asaas estará vinculada à ADVBOX
+. A partir daí, ao criar lançamentos de receita, você poderá:
+Selecionar a conta Asaas no campo 
+Conta/Cartão
+Gerar cobranças 
+via boleto ou cartão de crédito
+ diretamente pela ADVBOX
+Importante:
+ A baixa dos pagamentos será feita automaticamente após confirmação do Asaas (em até 48h). As taxas das transações serão lançadas automaticamente como despesas na ADVBOX. Se gerar nova chave no Asaas no futuro, será necessário atualizar o token na ADVBOX manualmente.
+Limitações e Boas Práticas na Integração com o Asaas
+A integração entre a ADVBOX e o Asaas é uma ferramenta poderosa para automatizar cobranças e controlar o financeiro do escritório. No entanto, ela tem algumas limitações importantes que você precisa conhecer para usá-la corretamente.
+O que você precisa saber sobre as limitações:
+1
+Cobrança só funciona com conta Asaas selecionada
+A emissão automática de cobranças (boleto, cartão ou carnê) só é possível se, ao lançar uma receita, você escolher a conta Asaas no campo "Conta/Cartão". Se outra conta for selecionada, essa opção não estará disponível.
+2
+Integração única por escritório
+A configuração do Asaas é feita em nível de conta do escritório, ou seja, todos os usuários compartilham a mesma integração. Alterar a chave de API afeta todos os lançamentos vinculados.
+3
+Alterações manuais podem quebrar a integração
+Você pode alterar manualmente o status de uma cobrança dentro da ADVBOX, mas isso faz com que ela perca a conexão automática com o Asaas, deixando de receber atualizações em tempo real.
+4
+Cancelamento deve ser feito pela ADVBOX
+Para cancelar uma cobrança, faça isso diretamente na ADVBOX. Isso também cancelará o boleto ou link de pagamento no Asaas. Depois disso, o vínculo é removido.
+Boas práticas para usar a integração corretamente:
+1
+Use sempre a conta Asaas nos lançamentos
+Ao criar uma nova receita, selecione a conta Asaas no campo "Conta/Cartão" para garantir que a cobrança seja gerada automaticamente.
+2
+Mantenha a chave de API atualizada
+A chave de acesso ao Asaas deve ser verificada periodicamente. Uma chave expirada ou incorreta impede o funcionamento da integração.
+3
+Evite alterações manuais nos status das cobranças
+Deixe o sistema atualizar sozinho os status de pagamento. Isso mantém tudo sincronizado e confiável.
+4
+Oriente sua equipe
+Todos devem saber como configurar e usar a integração corretamente. Um erro simples pode impactar todo o fluxo financeiro.
+5
+Ajuste notificações pelo painel do Asaas
+Se quiser personalizar mensagens de SMS ou e-mail enviadas aos clientes, configure essas notificações diretamente no painel administrativo do Asaas.
+Importante:
+ Essa é uma integração opcional. Você pode utilizar o financeiro da ADVBOX normalmente sem integrar ao Asaas, caso prefira outro método de cobrança ou controle manual.
+Dica:
+ A integração com o Asaas ajuda seu escritório a emitir cobranças automaticamente, controlar pagamentos em tempo real e reduzir inadimplência e retrabalho.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Integração da Agenda : Como fazer, quais estão disponíveis na ADVBOX.
+ Próximo ›
+ Integração RD Station: entenda e configure.
+ Navegação Interna

@@ -1,0 +1,138 @@
+Perfil de usuarios: Entenda as diferenças 
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 10/03/2026 18:08
+ Navegação Interna
+Neste artigo você vai entender a diferença entre os perfis Gestor, Administrador e Colaborador na ADVBOX, quais permissões cada um possui e como distribuí-los corretamente dentro do seu escritório.
+Antes de tudo: regras importantes sobre os perfis
+Algumas regras são válidas para todos os perfis dentro da ADVBOX.
+Todos os perfis podem visualizar as tarefas do escritório
+Independentemente do perfil escolhido:
+Todos os usuários podem acessar o menu 
+Atividades
+Todos conseguem visualizar tarefas da equipe
+Isso permite acompanhar produtividade e andamento do trabalho
+Essa funcionalidade é essencial para manter transparência e organização na operação do escritório.
+O acesso ao financeiro depende da configuração do Gestor
+O acesso ao menu Financeiro não depende apenas do perfil. O Gestor pode liberar ou bloquear o acesso financeiro para Administradores e Colaboradores, definindo três níveis:
+Sem acesso
+Somente visualização
+Acesso completo
+Essa configuração garante maior controle sobre dados financeiros sensíveis do escritório.
+Alguns menus dependem do plano contratado
+Algumas funcionalidades da ADVBOX estão disponíveis apenas em determinados planos:
+Menu Intimações
+ → disponível nos planos Banca Max e Elite
+Menu Gestão BI
+ → disponível no plano Elite
+Menu Processos
+ → disponível nos planos Banca Jurídica, Banca Max e Elite
+Cada plano possui funcionalidades específicas que ampliam o nível de gestão do escritório.
+Perfil Gestor
+O perfil Gestor possui o nível máximo de acesso dentro da ADVBOX. Normalmente esse perfil é utilizado por sócios do escritório, diretores e responsáveis pela gestão operacional.
+O Gestor é responsável por configurar a estrutura do sistema e gerenciar a equipe dentro da plataforma.
+Principais permissões do Gestor
+1
+Cadastrar e editar usuários
+2
+Definir permissões de acesso
+3
+Configurar tarefas, financeiro e grupos de ação
+4
+Gerenciar automações
+5
+Acompanhar relatórios e indicadores
+6
+Gerenciar configurações gerais da conta
+Além disso, o Gestor possui acesso completo a todos os menus disponíveis no plano contratado.
+Acesso ao Business Intelligence (BI)
+Nos escritórios que utilizam o plano Elite, o Gestor também possui acesso ao menu 
+Gestão BI
+, que permite analisar dados estratégicos como:
+Produtividade da equipe
+Rentabilidade dos processos
+Custos da operação
+Desempenho comercial
+Tempo médio dos processos
+Essas informações ajudam o escritório a tomar decisões estratégicas baseadas em dados.
+Perfil Administrador
+O perfil Administrador possui um nível alto de acesso dentro da plataforma, porém com algumas restrições em relação ao Gestor. Ele é indicado para profissionais responsáveis por coordenação operacional, como coordenadores jurídicos, controllers, responsáveis administrativos e gestores de equipe.
+O que o Administrador pode fazer
+1
+Visualizar tarefas de todos os usuários
+2
+Acompanhar processos do escritório
+3
+Editar etapas CRM e gerar relatórios em Excel
+4
+Acessar configurações e gerenciar parcerias
+5
+Acessar menu financeiro (se habilitado pelo Gestor)
+No plano Elite, o Administrador também possui acesso ao menu Gestão BI para acompanhar indicadores estratégicos, exceto a geração de relatórios neste menu.
+O que o Administrador não pode fazer
+Importante:
+ O Administrador não pode alterar as configurações de tarefas, não pode alterar permissões de Gestores e algumas configurações avançadas continuam exclusivas do Gestor. Essas restrições existem para manter a segurança e a governança da plataforma.
+Perfil Colaborador
+O perfil Colaborador é voltado para usuários que atuam na execução das tarefas do escritório, como advogados, estagiários, assistentes jurídicos e equipe administrativa.
+O que o Colaborador pode acessar
+Mesmo sendo um perfil operacional, o Colaborador possui acesso a diversos menus da plataforma:
+Meu Painel
+Contatos
+CRM
+Agenda
+Modelos
+Parceiros
+Flowter
+Atividades
+Intimações (nos planos Banca Max e Elite)
+Processos (nos planos Banca Jurídica, Banca Max e Elite)
+Esses menus permitem que o colaborador execute suas atividades diárias dentro da plataforma.
+O que o Colaborador não pode acessar
+Importante:
+ O Colaborador não possui acesso à exportação de relatórios em Excel, ao Menu Gestão BI (plano Elite) e às configurações administrativas do sistema. O acesso ao menu Financeiro só ocorre se o Gestor habilitar essa permissão. Essas limitações existem para proteger dados sensíveis e garantir uma gestão organizada da plataforma.
+Resumo rápido dos perfis
+Perfil
+Nível de acesso
+Indicado para
+Gestor
+Acesso completo
+Sócios e gestores do escritório
+Administrador
+Gestão operacional
+Coordenadores e controllers
+Colaborador
+Execução de tarefas
+Advogados, estagiários e equipe
+Dica importante para organizar o escritório
+Uma boa prática é distribuir os perfis da seguinte forma:
+Gestor:
+ Sócios e Diretores
+Administrador:
+ Controller jurídico e Coordenador
+Colaborador:
+ Advogados, Estagiários e Assistentes
+Essa divisão ajuda a manter organização, segurança e eficiência na gestão do escritório dentro da ADVBOX.
+Dica:
+ Os perfis de acesso da ADVBOX foram criados para garantir que cada membro do escritório tenha as permissões adequadas à sua função, evitando erros operacionais e protegendo informações estratégicas. Definir corretamente esses perfis é um passo fundamental para manter a organização e o bom funcionamento do escritório dentro da plataforma.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Registro de Acesso: o que é e como usar na prática
+ Próximo ›
+ Nenhum
+ Navegação Interna

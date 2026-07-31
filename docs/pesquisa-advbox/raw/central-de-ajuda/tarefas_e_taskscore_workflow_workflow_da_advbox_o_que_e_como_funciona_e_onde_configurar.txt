@@ -1,0 +1,170 @@
+Workflow da ADVBOX: o que é, como funciona e onde configurar
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 28/08/2025 13:02
+ Navegação Interna
+Neste artigo, você vai aprender como criar, editar, excluir e restaurar workflows na ADVBOX para padronizar e automatizar as rotinas do seu escritório.
+O que é Workflow na ADVBOX
+O 
+Workflow
+ na ADVBOX é uma funcionalidade que permite criar uma sequência de tarefas organizadas, com responsáveis e prazos definidos para cada etapa. Ele ajuda a padronizar e automatizar rotinas do escritório, garantindo que as atividades sejam feitas sempre da mesma forma, de forma clara, eficiente e organizada. Na prática, é muito usado para estruturar fluxos de trabalho, como na análise de casos, distribuindo as tarefas entre a equipe e facilitando o controle das demandas.
+Como criar um workflow
+1
+Acessar Configurações
+No menu lateral, acesse 
+Configurações
+ e clique na aba 
+Workflow
+.
+2
+Criar Novo Workflow
+Clique no botão 
+Novo Workflow
+.
+3
+Preencher Campos das Etapas
+Para cada etapa, preencha os seguintes campos:
+Tarefa:
+ selecione qual será executada (campo obrigatório)
+Responsável:
+ defina quem realizará a tarefa (opcional)
+Prazo:
+ informe o prazo em dias úteis, se desejar (opcional)
+4
+Adicionar Tarefas
+Adicione quantas tarefas forem necessárias para compor o seu fluxo.
+Como editar um Workflow
+1
+Acessar Configurações
+Acesse o menu lateral 
+Configurações
+.
+2
+Navegar para Workflow
+Clique no sub-menu 
+Workflow
+.
+3
+Localizar Workflow
+Na lista de workflows cadastrados, localize o fluxo desejado.
+4
+Iniciar Edição
+Para editar:
+Clique diretamente sobre o 
+nome do workflow
+Ou posicione o mouse sobre o nome e clique no 
+ícone de lápis
+ que aparecerá no canto esquerdo
+5
+Modificar Dados
+Um 
+pop-up
+ será aberto no lado direito da tela. Nele, você poderá:
+Modificar tarefas, responsáveis e prazos
+Adicionar novas tarefas
+Remover etapas existentes
+6
+Salvar Alterações
+Após finalizar as alterações, clique no botão azul 
+"Atualizar Workflow"
+ no final do pop-up para salvar as modificações.
+Importante:
+ As mudanças só são aplicadas após clicar em 
+Atualizar Workflow
+.
+Como excluir um Workflow
+1
+Acessar Workflow
+Acesse 
+Configurações
+ > 
+Workflow
+.
+2
+Localizar Workflow
+Na lista, posicione o mouse sobre o nome do workflow que deseja excluir.
+3
+Excluir
+Clique no 
+ícone de lixeira
+ que aparecerá no lado direito.
+4
+Confirmar Exclusão
+Confirme a exclusão na caixa exibida no canto inferior esquerdo clicando no botão vermelho 
+"Excluir"
+.
+Atenção:
+ A exclusão é permanente, mas o fluxo pode ser restaurado se necessário.
+Como restaurar um Workflow
+1
+Acessar Workflow
+Acesse 
+Configurações
+ > 
+Workflow
+.
+2
+Alterar Filtro
+Ao lado do botão 
+"Novo Workflow"
+, clique no filtro que está como 
+"Ativo"
+ e altere para 
+"Inativos"
+.
+3
+Localizar Workflow Inativo
+Na lista de workflows inativos, localize o desejado.
+4
+Restaurar
+Posicione o mouse sobre o nome e clique no 
+ícone de lixeira com função de restauração
+.
+5
+Confirmar Restauração
+Confirme a restauração na caixa exibida no canto inferior esquerdo clicando no botão verde 
+"Restaurar"
+.
+Importante:
+ O workflow será reativado e estará novamente disponível na lista de workflows ativos.
+Como atribuir um workflow
+1
+Acessar Criação de Tarefas
+Acesse a janela de criação de tarefas dentro do processo desejado.
+2
+Selecionar Workflow
+No campo 
+Selecionar Workflow
+, escolha o fluxo que você criou.
+3
+Preencher Campos
+Preencha os demais campos normalmente (descrição, observações, anexos, etc.).
+4
+Criar Tarefa
+Clique em 
+Criar nova tarefa
+.
+Dica:
+ Os workflows são uma ferramenta poderosa para padronizar processos e garantir que todas as etapas sejam executadas de forma consistente. Use-os para criar rotinas eficientes e melhorar a organização do seu escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Tarefas e o Taskscore: o que é, como funciona e onde configurar
+ Próximo ›
+ Transferir tarefas em lote para outro usuário
+ Navegação Interna

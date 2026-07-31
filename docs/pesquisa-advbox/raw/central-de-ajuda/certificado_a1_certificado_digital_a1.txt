@@ -1,0 +1,126 @@
+Certificado Digital A1
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 19/06/2026 12:29
+ Navegação Interna
+Neste artigo, você vai aprender o que é o Certificado Digital A1, como enviá-lo para a ADVBOX e utilizá-lo para monitorar tribunais eletrônicos com mais segurança e agilidade.
+O que é o Certificado Digital A1?
+O 
+Certificado A1
+ é um 
+arquivo digital
+ instalado no computador, utilizado por advogados para acessar sistemas judiciais, assinar documentos e autenticar seu acesso com segurança.
+Diferente do 
+Certificado A3
+ (usado via token, pen drive ou nuvem), o A1 permite automações e não depende de dispositivos físicos. 
+❗Por isso, será necessário que os advogados 
+emitam um A1 o quanto antes
+ para utilizar o novo sistema de monitoramento da ADVBOX.
+Como enviar o Certificado A1 para a ADVBOX
+Agora é possível monitorar os tribunais eletrônicos com 
+mais segurança e agilidade
+ usando o Certificado Digital A1.
+❗Tutorial
+ - Clique aqui
+Requisitos:
+Somente Certificados A1
+ (formatos .pfx ou .p12) são aceitos
+Certificados A3 (token, pen drive ou nuvem) não são aceitos
+O certificado é 
+criptografado e armazenado com segurança
+Uso restrito ao acesso dos tribunais que você selecionar
+Passo a passo para envio:
+1
+Acesse o menu de Configurações
+Acesse o menu 
+Configurações > Termos Monitorados
+.
+2
+Inicie o envio
+Clique em 
+"Envie o seu certificado digital"
+.
+3
+Clique em enviar
+Clique em 
+"Envie o certificado"
+.
+4
+Selecione o arquivo
+Selecione o 
+arquivo A1
+ do seu computador.
+5
+Salve o certificado
+Clique em 
+"Salvar certificado"
+.
+6
+Confirme o envio
+Confirme o envio para finalizar o processo.
+E depois do envio?
+⚠️ ATENÇÃO: o envio por si só não ativa o monitoramento!
+Após o envio do certificado, 
+você precisa acessar novamente Configurações > Termos Monitorados e vincular o certificado aos termos já cadastrados.
+‼️Esse passo é OBRIGATÓRIO 
+para que o sistema comece a usar o certificado no monitoramento dos tribunais.
+Após o envio do certificado e vincular aos termos já cadastrados, a sincronização ocorrerá automaticamente na 
+próxima leitura do sistema
+, que 
+acontece ao longo do dia.
+Assim que o certificado for validado, você terá as seguintes funcionalidades disponíveis:
+No menu 
+Termos Monitorados
+, você poderá escolher 
+qual certificado utilizar
+ para cada termo cadastrado
+Você 
+não precisará mais digitar usuário e senha
+ para acessar os tribunais compatíveis
+Se o certificado tiver 
+QR Code
+, escaneie — isso dispensa a senha
+Se 
+não houver QR Code
+, será necessário inserir a senha manualmente
+O sistema só substituirá login e senha pelo uso do certificado A1 após a validação do arquivo enviado.
+Importante:
+A mudança para o uso de certificado A1 deve ser feita até
+ 10 de agosto
+A partir dessa data, login e senha funcionarão 
+temporariamente
+, até ocorrer alguma desincronização
+Após isso, 
+apenas o uso de certificado A1 será aceito
+ para garantir estabilidade e segurança no monitoramento automático
+Tribunais que ainda não aceitam Certificado A1
+Nos tribunais listados abaixo, o acesso continuará sendo feito com 
+login e senha
+:
+PROJUDI PR, BA, ES, RN, RR, AM, PE
+CRETA AL,CE,PB,PE,RN,SE
+EPROC TJ TO
+Dica:
+ O uso do Certificado Digital A1 garante maior segurança e estabilidade no monitoramento automático dos tribunais, eliminando problemas de desincronização comum com login e senha.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Principais dúvidas sobre Certificado A1
+ Navegação Interna

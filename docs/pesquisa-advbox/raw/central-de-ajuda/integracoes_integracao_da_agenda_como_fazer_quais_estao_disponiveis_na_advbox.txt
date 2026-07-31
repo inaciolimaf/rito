@@ -1,0 +1,159 @@
+Integração da Agenda : Como fazer, quais estão disponíveis na ADVBOX.
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 24/07/2025 17:30
+ Navegação Interna
+Neste artigo, você vai aprender como integrar sua agenda da ADVBOX com Google Agenda, Outlook e Apple Calendar, permitindo visualizar tarefas e prazos diretamente no seu calendário pessoal.
+O que são Integrações
+As integrações são conexões entre a ADVBOX e outros sistemas usados pelo escritório. O objetivo é automatizar tarefas, evitar retrabalho e manter os dados sincronizados entre diferentes áreas, como marketing, financeiro e organização de agenda.
+Na ADVBOX, você pode integrar com três ferramentas principais:
+Asaas:
+ para cobranças e controle financeiro
+RD Station Marketing:
+ para captação e acompanhamento de leads
+Agendas Externas
+ (Google Agenda, Outlook e Apple Calendar): para visualizar tarefas e prazos no calendário
+Como funciona a integração com agendas:
+Cada usuário recebe uma URL única para conectar sua agenda da ADVBOX com o calendário pessoal
+As tarefas com a opção "Mostrar na Agenda" ativada aparecem automaticamente no calendário externo
+A sincronização é unidirecional: as informações saem da ADVBOX e vão para a agenda
+Alterações feitas fora da ADVBOX não voltam para a plataforma
+Como sincronizar com o Google Agenda
+1
+Acessar Configurações na ADVBOX
+Acesse o 
+Menu Configurações
+ na ADVBOX.
+2
+Localizar a seção Agenda
+Clique no submenu 
+Integrações
+ e localize a seção 
+Agenda
+.
+3
+Ativar e copiar a URL
+Ative a 
+chave de exibição da URL
+ (se estiver desativada, ela aparecerá em cinza). Clique no botão 
+Ver URL
+ para visualizar a URL pública de sincronização e copie a URL exibida.
+4
+Configurar no Google Agenda
+Acesse o 
+Google Agenda
+ no navegador e vá até a seção 
+Outras agendas
+ (lateral esquerda da tela). Clique no ícone de 
++
+ e selecione a opção 
+Do URL
+.
+5
+Finalizar integração
+Cole a URL copiada da ADVBOX no campo indicado e clique em 
+Adicionar agenda
+ para concluir.
+Importante:
+ O Google pode demorar para exibir novas tarefas devido à sua política de atualização, mas a ADVBOX envia os dados imediatamente após o registro ou alteração da tarefa.
+Como sincronizar com o Outlook
+1
+Acessar Configurações na ADVBOX
+Acesse o 
+Menu Configurações
+ na ADVBOX.
+2
+Obter URL de sincronização
+Clique no submenu 
+Integrações
+ e localize a seção 
+Agenda
+. Ative a 
+chave de exibição da URL
+ e clique em 
+Ver URL
+ para visualizar e copiar a URL pública.
+3
+Configurar no Outlook
+Acesse o 
+Outlook Web
+ e, na lateral esquerda, clique em 
+Adicionar Calendário
+. No menu exibido, selecione 
+Assinar da Web
+.
+4
+Finalizar integração
+Cole a URL copiada da ADVBOX no campo indicado. Dê um 
+nome para o calendário
+ e clique em 
+Importar
+.
+Importante:
+ A atualização da agenda no Outlook depende da frequência definida pelo próprio Outlook. A integração é apenas de leitura: alterações feitas no Outlook não impactam na ADVBOX.
+Como sincronizar com o Apple Calendar
+No Mac
+1
+Obter URL na ADVBOX
+Acesse o 
+Menu Configurações > Integrações > Agenda
+ na ADVBOX. Ative a chave de exibição da URL e clique em 
+Ver URL
+ para copiar o link.
+2
+Configurar no Mac
+Abra o aplicativo 
+Calendário
+ no Mac. No menu superior, clique em 
+Arquivo
+ e selecione 
+Nova assinatura de calendário
+.
+3
+Finalizar configuração
+Cole a URL da ADVBOX no campo indicado e clique em 
+Assinar
+. Configure a frequência de atualização (5 min, 15 min, 1h, diariamente ou semanalmente).
+No iPhone
+1
+Obter URL e acessar pelo Safari
+Acesse o 
+Menu Configurações > Integrações > Agenda
+ na ADVBOX, ative a chave e copie a URL. No iPhone, abra o 
+Safari
+ e cole a URL na barra de endereços.
+2
+Confirmar integração
+Toque em 
+Ir
+. O sistema reconhecerá o link e exibirá o convite para abrir a agenda. Toque em 
+Abrir
+ e confirme a inclusão no 
+Calendário do iOS
+.
+Importante:
+ A integração é apenas de leitura. Alterações no Apple Calendar não impactam a ADVBOX.
+Dica:
+ A integração com agendas externas ajuda você a visualizar tarefas e prazos da ADVBOX no seu calendário pessoal, organizar melhor seu tempo e manter tudo sincronizado automaticamente.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Integração Asaas: o que é,como fazer.
+ Navegação Interna

@@ -1,0 +1,85 @@
+Cadastrar QR CODE do PJE
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 13/11/2025 19:28
+ Navegação Interna
+Neste artigo, você vai aprender como cadastrar o QR Code do PJe. O primeiro acesso ao sistema solicitará o cadastro de um QR Code para validação dos próximos acessos.
+Como cadastrar o QR Code do PJe
+O primeiro acesso ao PJe, seja com usuário e senha ou certificado digital, solicitará o cadastro de um QR Code.
+1
+Acesse o PJe
+Acesse o PJe normalmente, utilizando seu usuário e senha ou certificado digital.
+2
+Visualize a tela de cadastro
+Ao entrar, o sistema exibirá uma tela solicitando o cadastro de QR Code.
+3
+Baixe o aplicativo
+No seu celular, baixe o aplicativo 
+Google Authenticator
+ (disponível na Play Store e App Store).
+4
+Adicione um novo código
+Abra o aplicativo e selecione a opção para adicionar um novo código.
+5
+Escaneie o QR Code
+Escaneie o QR Code que aparece na tela do PJe.
+6
+Finalize o cadastro
+Após escanear, o código será adicionado automaticamente ao aplicativo, e você poderá utilizá-lo para validar seus próximos acessos.
+7
+Salve o QR Code e anexe na ADVBOX
+Tire um print do QR Code, salve no seu computador e anexe na ADVBOX para facilitar futuras configurações.
+Comparativo: Como tirar o print do QR Code corretamente
+✓
+ Maneira Correta
+Capture apenas o QR Code completo, sem cortes nas bordas. Certifique-se de que toda a imagem esteja visível e nítida.
+✗
+ Maneira Incorreta
+Evite cortar as bordas do QR Code ou capturar a imagem com partes faltando. Isso impedirá a leitura correta do código.
+Caso você já tenha cadastrado o seu QR CODE e nao tenha tirado um print do mesmo e salvo a imagem, siga estes passos do artigo:  
+Acesse Passo a Passo exportar QR CODE
+Como inserir o QR Code na ADVBOX
+1
+Acesse sua ADVBOX
+Entre na sua conta ADVBOX.
+2
+Navegue até Termos monitorados
+Clique em 
+Configurações > Termos monitorados
+.
+3
+Edite o monitoramento
+Clique no 
+Lápis para Editar
+ o monitoramento.
+4
+Configure o QR Code
+Selecione o tribunal desejado, clique em 
+"Selecionar QRCODE"
+, insira o print que salvou e clique em 
+"Atualizar termo"
+.
+Dica:
+ O QR Code do PJe é o mesmo utilizado pelo PDPJ (Plataforma Digital do Poder Judiciário Brasileiro). Isso significa que todos os sistemas PJe compartilham o mesmo QR Code, sendo necessário realizar o cadastro apenas uma vez.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Status de Monitoramento 
+ Próximo ›
+ Problemas de acesso ao Tribunal, entenda melhor
+ Navegação Interna

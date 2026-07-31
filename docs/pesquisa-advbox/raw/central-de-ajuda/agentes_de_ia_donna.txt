@@ -1,0 +1,162 @@
+Donna
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 16/06/2026 16:32
+ Navegação Interna
+Neste artigo, você vai conhecer todas as novidades da Donna IA Estratégica, a assistente inteligente integrada à ADVBOX que ajuda na operação, organização, produtividade e análise do escritório.
+Principais novidades da Donna
+Muito mais inteligente
+A Donna agora possui uma capacidade muito maior de interpretação contextual e entendimento operacional do escritório. Ela consegue:
+1
+Entender perguntas mais naturais
+2
+Interpretar comandos incompletos
+3
+Relacionar diferentes módulos da ADVBOX
+4
+Cruzar informações do sistema
+5
+Organizar respostas mais claras e úteis
+Exemplos de perguntas que você pode fazer:
+"Quais processos estão parados?"
+"Mostre minhas audiências da semana"
+"Quais tarefas estão atrasadas?"
+Markdown avançado e respostas organizadas
+As respostas da Donna agora possuem formatação muito mais moderna e visual. Ela aceita:
+✓
+Tabelas
+✓
+Listas organizadas e passo a passo
+✓
+Estruturas hierárquicas
+✓
+Resumos formatados e comparativos entre perfis
+✓
+Checklists operacionais
+Isso deixa as informações mais fáceis de entender e analisar.
+Relatórios em HTML e Excel
+A Donna agora consegue gerar relatórios completos diretamente na conversa.
+Relatórios HTML
+Ideal para compartilhamento, visualização organizada, resumos gerenciais e indicadores.
+Planilhas Excel (.xlsx)
+Ideal para exportações, análises, controle operacional, gestão financeira, processos e produtividade.
+Exemplos de relatórios que a Donna pode gerar:
+Relatório de processos trabalhistas
+Planilha de tarefas atrasadas
+Relatório contratos fechados
+Indicadores de produtividade
+Nova versão minificada
+A Donna agora possui uma estrutura otimizada e mais leve, trazendo:
+1
+Maior velocidade e melhor desempenho
+2
+Respostas mais rápidas
+3
+Melhor experiência operacional
+Donna integrada à barra de pesquisa
+Agora a Donna também está integrada à barra de pesquisa da ADVBOX, permitindo:
+1
+Pesquisas rápidas e consultas mais inteligentes
+2
+Busca contextual e localização rápida de informações
+O que você pode buscar:
+Clientes
+Processos
+Tarefas
+Audiências
+Movimentações
+Novo ícone e identidade visual
+A Donna recebeu novo ícone, nova identidade visual e melhor integração com a plataforma ADVBOX.
+O que a Donna consegue consultar no sistema
+Clientes
+Buscar clientes por nome, CPF/CNPJ, telefone, e-mail, cidade, estado e outros filtros.
+Processos
+Consultar processos por cliente, número do processo, protocolo, pasta, fase, tipo de ação e responsável.
+Tarefas
+Consultar tarefas pendentes, atrasadas, concluídas e tarefas por responsável.
+Agenda e compromissos
+Consultar audiências, reuniões, prazos e compromissos.
+Histórico e movimentações
+Visualizar movimentações processuais, histórico de tarefas, publicações e intimações.
+Aniversariantes
+Consultar aniversariantes do escritório.
+Indicadores e produtividade
+Levantar indicadores de usuários, indicadores processuais, produtividade da equipe e resumos operacionais.
+O que a Donna consegue cadastrar
+1
+Clientes
+Cadastrar novos clientes diretamente pela conversa.
+2
+Processos
+Cadastrar novos processos.
+3
+Tarefas
+Criar tarefas vinculadas a processos.
+4
+Movimentações
+Registrar movimentações processuais.
+5
+Financeiro
+Criar receitas, despesas e lançamentos financeiros.
+Consultas externas e apoio jurídico
+Além das informações internas da ADVBOX, a Donna também consegue realizar consultas externas e pesquisas na internet.
+Consultas externas
+Consultar dados cadastrais externos de CPF e CNPJ.
+Pesquisas na internet
+Buscar informações públicas, conteúdos jurídicos e dados complementares.
+Jurimetria
+A Donna pode auxiliar em análises de jurimetria, desde que os dados necessários sejam informados.
+Como contratar?
+1
+Valor da contratação
+R$ 200,00/mês.
+2
+Como ativar
+Acesse: 
+Conta e assinatura > Agentes de IA > Ativar Donna
+Como interagir com a Donna
+Formas de interagir:
+1
+Barra de pesquisa
+2
+Ícone lateral direito
+Exemplos do que você pode pedir para a Donna:
+"Quais audiências temos esta semana?"
+"Me mostre os processos da cliente Maria Silva"
+"Cadastre um cliente novo"
+"Crie uma tarefa de audiência para o processo do João"
+"Quantos contratos fechamos este mês?"
+"Quais tarefas estão atrasadas?"
+"Gere um relatório em Excel dos processos trabalhistas"
+"Mostre os processos parados"
+"Quem está com mais tarefas pendentes?"
+"Liste os processos por responsável"
+"Como organizar as etapas da fase de negociação de um escritório civil?"
+"Qual a diferença entre etapa e fase processual?"
+Segurança e confiabilidade
+Importante:
+ A Donna sempre trabalha com segurança e validação das informações. Antes de responder, ela consulta os dados reais do sistema. Se algo não existir, ela informa com clareza que a informação não foi encontrada. Em caso de ambiguidade, ela confirma antes de executar ações importantes — garantindo mais segurança, menos erros operacionais e maior confiabilidade nas respostas.
+Dica:
+ Quanto mais natural e detalhada for a sua pergunta, melhor a Donna consegue interpretar e entregar a resposta certa para você.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Justin-e
+ Próximo ›
+ Nenhum
+ Navegação Interna

@@ -1,0 +1,383 @@
+Como utilizar o Menu Intimações na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 06/02/2026 19:42
+ Navegação Interna
+Neste artigo, você vai aprender como configurar e utilizar o monitoramento de intimações na ADVBOX. Abordamos a configuração por estado e sistema eletrônico, a ativação por QR Code, alteração de personalização do painel, além das orientações sobre o que fazer ao receber uma nova intimação. Você também verá como usar os atalhos disponíveis e como encaminhar intimações aproveitando todas as funcionalidades dessa ferramenta.
+Como Configurar  o Monitoramento de Intimações
+1
+Acessar Configurações
+No menu lateral Configurações > Termos monitorados e clique no botão + Adicionar novo termo.
+2
+Configurar Dados do Advogado + Certificado A1
+Em Tipo, selecione Advogado(a) e informe o número da OAB. O nome do(a) advogado(a) será preenchido automaticamente. Selecione o Certificado A1, ja enviado . Dúvidas sobre = 
+Clique aqui
+3
+Selecionar Estados para Monitoramento
+Selecione os estados em que deseja habilitar o monitoramento nos Diários Oficiais de Justiça.
+4
+Configurar Sistemas Eletrônicos
+Para cada estado selecionado, você poderá ativar também o monitoramento nos sistemas eletrônicos como PJe, Eproc e Projudi.
+5
+Informar Credenciais
+Informe o login e senha do(a) advogado(a) para os tribunais eletrônicos.
+6
+Autorizar Cobrança
+Marque a opção de autorização da cobrança adicional (R$ 7,00 por estado monitorado nos Diários Oficiais.)
+7
+Finalizar Cadastro
+Clique em 
+Salvar dados
+ para enviar a solicitação de homologação.
+Dica:
+ Configure o monitoramento adequado para manter-se sempre atualizado sobre as publicações nos diários oficiais e sistemas eletrônicos relacionados aos seus casos.
+Como Adicionar o Monitoramento de um(a) Advogado(a)
+1
+Acessar Configurações
+No menu lateral Configurações > Termos monitorados e clique no botão + Adicionar novo termo.
+2
+Configurar Dados do Advogado
+Em Tipo, selecione Advogado(a) e informe o número da OAB. O nome do(a) advogado(a) será preenchido automaticamente.
+3
+Selecionar Estados para Monitoramento
+Selecione os estados em que deseja habilitar o monitoramento nos Diários Oficiais de Justiça.
+4
+Configurar Sistemas Eletrônicos
+Para cada estado selecionado, você poderá ativar também o monitoramento nos sistemas eletrônicos como PJe, Eproc e Projudi.
+5
+Informar Credenciais
+Informe o login e senha do(a) advogado(a) para os tribunais eletrônicos.
+6
+Autorizar Cobrança
+Marque a opção de autorização da cobrança adicional (R$ 35,00 por estado monitorado nos Diários Oficiais.)
+7
+Finalizar Cadastro
+Clique em 
+Salvar dados
+ para enviar a solicitação de homologação.
+Como Adicionar o Monitoramento por CPF ou CNPJ 
+1
+Acessar Configurações
+No menu lateral Configurações > Termos monitorados e clique no botão + Adicionar novo termo.
+2
+Selecionar Tipo de Pessoa
+Em Tipo, escolha Pessoa Física ou Pessoa Jurídica.
+3
+Informar CPF ou CNPJ
+Informe o CPF ou CNPJ. O sistema preencherá automaticamente o nome correspondente.
+4
+Selecionar Estados
+Selecione os estados desejados para o monitoramento nos Diários Oficiais.
+5
+Finalizar Cadastro
+Autorize a cobrança e clique em 
+Salvar dados
+ para concluir o cadastro e enviar para homologação.
+Importante:
+ A cobrança adicional para monitoramento de publicações em diários oficiais de justiça é de R$ 35,00 por estado. O monitoramento de sistemas eletrônicos não se faz necessário para pessoas físicas e jurídicas, apenas para advogados.
+Dica:
+ Configure o monitoramento adequado para manter-se sempre atualizado sobre as publicações nos diários oficiais e sistemas eletrônicos relacionados aos seus casos.
+Como recuperar um QR Code de autenticação do Eproc ou Projudi no Google Authenticator
+1
+Abra o Google Authenticator
+Abra o aplicativo 
+Google Authenticator
+ no seu dispositivo.
+2
+Acesse o Menu
+Toque no 
+menu de três barras
+ no canto superior para acessar as opções.
+3
+Selecione Transferir
+Selecione 
+"Transferir contas"
+ (iOS) ou 
+"Transferir códigos"
+ (Android).
+4
+Escolha Exportar
+Escolha a opção 
+"Exportar contas"
+.
+5
+Insira o PIN
+Insira o 
+PIN (Senha)
+ configurada para acessar o aplicativo.
+6
+Visualize as Autenticações
+Na tela seguinte, você verá todas as autenticações salvas no aplicativo, marcadas com bolinhas e um "✓".
+7
+Selecione o Tribunal
+Marque 
+apenas o tribunal
+ que deseja recuperar (Eproc ou Projudi) e clique em 
+"Próxima"
+.
+8
+QR Code Gerado
+O QR Code correspondente será gerado automaticamente.
+9
+Capture e Salve
+Tire um print da tela
+, recorte a imagem, envie essa imagem e salve no seu computador.
+10
+Anexe no Sistema
+Baixe a imagem
+ e anexe o QR Code no sistema, clicando no monitoramento correto e realizando o procedimento de anexação.
+Dica:
+ Mantenha sempre uma cópia de segurança dos seus QR Codes de autenticação para evitar perda de acesso aos sistemas jurídicos.
+Como configurar a autenticação de 2 fatores do Projudi
+Quando houver a necessidade de realizar os ajustes de autenticação, o sistema irá emitir um alerta no formato de intimação como este exposto abaixo, e para ajustar, será necessário seguir o passo a passo.
+❗Importante:
+ Quando receber este alerta, o responsável deve acessar o tribunal manualmente para realizar tratamento das intimações do dia em questão.
+Preciso de um novo QR Code
+Importante:
+ É necessário cadastrar em seu dispositivo móvel o Google Authenticator para realizar a captura e habilitação do QRCode.
+1
+Acesse o Site do Tribunal
+Acesse o site do tribunal informado no corpo da intimação, insira seus dados de acesso e clique em 
+entrar
+.
+2
+Acesse Código Único
+Na tela de Código único clique em 
+"Não tem o código autenticador?"
+.
+3
+Preencha os Dados
+Você será direcionado para uma nova tela do PROJUDI, preencha os dados solicitados: CPF/CNPJ, senha e e-mail cadastrado no PROJUDI. Clique na opção 
+"Não sou um Robô"
+, na sequência, clique em 
+Confirmar
+.
+4
+Confirme a Reinicialização
+Ao visualizar a mensagem alertando que você receberá um e-mail e que o seu token será reiniciado, clique em 
+Confirmar
+. O sistema apresentará uma mensagem de confirmação.
+5
+Acesse seu E-mail
+Acesse sua conta de e-mail cadastrada no PROJUDI. Clique no link indicado, seguindo as instruções do e-mail.
+6
+Acesse Novamente o Sistema
+Acesse novamente o sistema do tribunal utilizando seu usuário e senha e clique para 
+entrar
+.
+7
+Capture o QR Code
+Após acessar, o QR Code será exibido na tela. 
+Tire um print desse qrcode, recorte a imagem e salve no computador
+.
+8
+Configure o Google Authenticator
+Abra o aplicativo 
+Google Authenticator
+ em seu dispositivo. Toque no ícone 
+"+"
+ e selecione a opção 
+"Ler QR Code"
+.
+9
+Escaneie o QR Code
+Escaneie o QR Code salvo anteriormente. A autenticação será registrada no aplicativo.
+10
+Finalize no Sistema
+No sistema do tribunal, insira o código gerado pelo Google Authenticator, informe o nome do dispositivo e clique para 
+salvar
+.
+Importante: Para garantir que tudo está funcionando corretamente:
+Acesse novamente o sistema do tribunal com seu usuário, senha e o código gerado pelo Google Authenticator.
+Se o acesso ocorrer normalmente, significa que a autenticação foi configurada com sucesso.
+Caso não consiga acessar, desative a autenticação e repita o processo, seguindo o item 1 (Preciso de um novo QR Code) ou entre em contato com o suporte no ícone do "?" para que a equipe possa refazer a configuração para você.
+Na ADVBOX
+1
+Acesse Termos Monitorados
+Após atualizar sua senha no site do tribunal, acesse a aba 
+termos monitorados
+ em configurações.
+2
+Edite o Monitoramento
+Localize o monitoramento e clique no 
+LÁPIS
+ ao lado da OAB para editar.
+3
+Insira Login e Senha
+Já na janela de edição, localize os dados do tribunal, e insira as informações de 
+login e senha
+.
+4
+Adicione o QR Code
+A seguir, basta clicar em 
+Adicionar QRCODE
+ e selecione o arquivo com imagem do QRCODE do seu computador, e clique em 
+atualizar termo
+.
+Importante:
+ Após a edição será necessário aguardar o período de sincronização que pode levar até 72hrs, durante esse intervalo é recomendado que o responsável realize o tratamento das intimações direto no site do tribunal.
+Dica:
+ Mantenha sempre uma cópia de segurança do QR Code configurado para evitar problemas futuros de autenticação.
+Como Desvincular uma intimação de um processo
+Importante:
+ essa funcionalidade está disponível somente para usuários com perfil de 
+gestor.
+Localizando a intimação que será desvinculada
+1
+Acesse o Menu
+Acesse o 
+Menu Intimações
+ ou o 
+Menu Atividades
+.
+2
+Encontre a Tarefa
+Encontre a tarefa com o título 
+"Intimação Judicial"
+ que deseja corrigir.
+3
+Abra a Tarefa
+Clique sobre a tarefa para abri-la.
+Desvinculando a intimação do processo atual
+4
+Localize o Botão de Desvinculação
+Com a tarefa aberta, localize no menu lateral direito o botão vermelho 
+"Desvincular processo"
+.
+5
+Clique no Botão
+Clique no botão.
+6
+Confirme a Ação
+O sistema exibirá um aviso pedindo confirmação da ação. Clique em 
+"Sim"
+ para confirmar.
+7
+Intimação Desvinculada
+A intimação será imediatamente desvinculada do processo anterior.
+Atribuindo uma nova tarefa RIDT
+(Recebimento da Intimação e Distribuição da Tarefa)
+Se a intimação exige alguma providência (ex: manifestação, petição, audiência), você pode:
+1
+Acesse a Seção de Atribuição
+Rolar a tela até a seção de atribuição de nova tarefa.
+2
+Preencha os Campos
+Preencher os campos obrigatórios, como:
+Responsável
+Tipo de tarefa
+Prazo
+Observações, se necessário
+3
+Salve a Tarefa
+Clicar em 
+"Salvar"
+. Isso gera uma nova tarefa vinculada ao processo e à intimação original, mantendo o fluxo organizado.
+Como Encaminhar para outro colaborador
+Se a intimação foi entregue a você, mas o responsável pelo caso é outro membro da equipe:
+1
+Clique em Encaminhar
+Clique em 
+"Encaminhar"
+.
+2
+Selecione o Usuário
+Selecione o usuário correto.
+3
+Confirme a Ação
+Confirme a ação. A tarefa será redirecionada imediatamente para o novo responsável.
+Como Enviar a intimação por e-mail
+Caso seja necessário compartilhar a intimação com um cliente, parceiro ou colega externo:
+1
+Clique em Enviar por E-mail
+Clique no botão 
+"Enviar por e-mail"
+.
+2
+Informe o E-mail
+Informe o endereço de e-mail do destinatário.
+3
+Confirme o Envio
+Confirme o envio. O conteúdo da intimação será encaminhado automaticamente para o e-mail informado, com segurança.
+Como Concluir a intimação
+Após ler, tratar e tomar as devidas ações:
+1
+Clique em Concluir
+Clique em 
+"Concluir tarefa"
+. (somente o responsável tem essa permissão)
+2
+Intimação Finalizada
+A intimação será marcada como finalizada e arquivada no histórico do processo. Essa ação garante que o sistema reconheça a intimação como tratada e evita retrabalho ou perda de prazos.
+Dica:
+ O gerenciamento adequado de intimações é essencial para manter o controle dos prazos processuais e garantir que nenhuma ação importante seja perdida.
+Falha no Usuário e senha: O que fazer?
+Importante:
+ Quando receber este alerta, o responsável deve acessar o tribunal manualmente para realizar tratamento das intimações do dia em questão.
+No Tribunal
+1
+Acesse o Site do Tribunal
+Acesse o site do tribunal informado no corpo da intimação e realize uma tentativa de acesso com os dados de acesso que estão informados nos termos monitorados na ADVBOX.
+2
+Verifique os Dados de Acesso
+Verifique se os dados de acesso ainda estão válidos, ou se sua senha não foi expirada/bloqueada.
+3
+Atualize a Senha
+Atualize sua senha de acesso no site do tribunal e anote para não esquecer sua nova senha.
+Na ADVBOX
+1
+Acesse Termos Monitorados
+Após atualizar sua senha no site do tribunal, acesse a aba 
+termos monitorados
+ em configurações.
+2
+Edite o Monitoramento
+Localize o monitoramento ao qual apresentou falha e clique no 
+✏️
+ ao lado da OAB para editar.
+3
+Atualize a Senha
+Já na janela de edição, localize os dados do tribunal e insira a nova senha que você gerou no tribunal e clique em 
+"ATUALIZAR TERMO"
+.
+Informações Importantes:
+Após a edição será necessário aguardar o período de sincronização que pode levar até 72hrs, durante esse intervalo é recomendado que o responsável realize o tratamento das intimações direto no site do tribunal.
+Caso a senha se mantenha a mesma, apenas edite o monitoramento e salve sem fazer nenhuma alteração, para que os dados sejam sincronizados novamente.
+Personalização no Tribunal: O que fazer?
+1
+Acesse o Site do Tribunal
+Acesse o site do tribunal informado no corpo da intimação.
+2
+Localize as Caixas Personalizadas
+Localize as caixas que não sejam as padrões de 
+"caixa de entrada"
+ como no exemplo abaixo.
+3
+Exclua as Caixas Personalizadas
+Após localizar, basta excluir as caixas personalizadas.
+Importante:
+ Após a edição será necessário aguardar até o dia seguinte para que o sistema realize a captura das intimações. Durante esse período recomendamos que o responsável realize o tratamento das intimações dentro do próprio tribunal no referido dia.
+Dica:
+ Mantenha sempre seus dados de acesso atualizados e evite personalizar as caixas dos tribunais para garantir o funcionamento correto da captura automática de intimações.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

@@ -1,0 +1,136 @@
+Entenda Melhor
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 09/10/2025 16:43
+ Navegação Interna
+A aba Tempo e Honorários do menu Gestão BI permite que o escritório avalie com profundidade quanto tempo é investido e quanto valor é gerado em cada processo ao longo do seu ciclo completo.
+Importante:
+ Esta aba está disponível exclusivamente no plano Elite, e acessível apenas para usuários com perfil de gestor ou administrador.
+Filtros Globais
+1
+Tipo de Resultado
+Escolha entre todos os processos, ganhos ou perdidos
+Por que usar:
+ Comparar agilidade e desperdício
+Dica:
+ Essencial para avaliar eficiência e revisar critérios comerciais
+2
+Período de Fechamento
+Escolha um intervalo de datas. Usa a data de fechamento registrada na linha do tempo.
+Indicadores de Honorários
+1
+Média de Honorários por Processo
+Como é calculado: soma dos honorários ÷ quantidade de processos no filtro.
+2
+Média Mensal de Honorários
+Como é calculado: honorários ÷ meses do processo
+Alerta: processos longos e baratos derrubam a média
+3
+Tempo Perdido
+Mostra meses somados de processos sem receita.
+Entenda as Métricas
+1
+Ciclos Principais
+As métricas são organizadas em quatro ciclos principais:
+Prospecção
+Produção
+Execução
+Rotação completa
+Entenda os Gráficos
+1
+Visualização por Grupo de Ação
+Gráfico de barras por fase (verde, azul claro, azul escuro, vermelho)
+Informações exibidas: tempo médio por fase e indicadores financeiros
+2
+Gráfico Segmentado
+Gráfico segmentado por etapa para identificar retorno, gargalos e tempo médio.
+Tabela Tempo Médio
+1
+Funcionalidades
+Traz dados que ajudam na definição de prazos, precificação, planejamento e marketing jurídico.
+Tempo e Honorários por Grupo de Ação
+1
+Análise de Desempenho
+Mostra onde há retorno e onde há desperdício, com média por fase e rentabilidade mensal.
+Relatórios
+1
+Filtros Especializados
+Filtro por tipo de ação específica
+Recalcula todos os dados focando apenas naquela ação
+2
+Dados em Tempo Real
+Trazem dados técnicos e detalhados em tempo real para auditoria, conferência e exportação.
+Relatórios e Análises Detalhadas
+1
+Tempo Médio e Honorários
+Relatório com análise detalhada de tempo e honorários por processo.
+2
+Processos com Inconsistência
+Identifica processos com dados inconsistentes ou incompletos.
+Análises e Decisões Estratégicas
+1
+Gestão de expectativa do cliente
+2
+Precificação inteligente
+3
+Identificação de gargalos
+4
+Tomada de decisão sobre portfólio
+5
+Escalabilidade
+Antes de Começar
+1
+Preencha corretamente a linha do tempo
+2
+Registre honorários
+3
+Corrija datas inconsistentes
+Conceito-chave:
+ "Um escritório eficiente não trabalha onde simplesmente aparece cliente. Ele foca onde o tempo investido se converte em retorno jurídico e financeiro."
+Boas Práticas
+Avalie a Eficiência por Etapa
+1
+Veja os gráficos
+2
+Identifique gargalos
+3
+Reforce fluxos e redistribua tarefas
+Calcule a Rentabilidade Real
+1
+Compare tempo total × média mensal
+2
+Reavalie preços e selecione os processos mais vantajosos
+Detecte Desperdícios Jurídicos
+1
+Use o indicador de tempo perdido
+2
+Reavalie a qualificação de clientes e contratos
+Compare por Grupo de Ação
+1
+Veja quais áreas são rápidas e rentáveis
+2
+Use isso para marketing e foco comercial
+Dica:
+ A aba Tempo e Honorários é uma ferramenta estratégica fundamental para maximizar a rentabilidade e eficiência operacional do escritório jurídico.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Como Utilizar o Menu Gestão/ Tempo e honorários na prática
+ Navegação Interna

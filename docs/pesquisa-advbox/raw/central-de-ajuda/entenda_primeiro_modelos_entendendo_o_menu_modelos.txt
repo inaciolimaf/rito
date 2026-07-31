@@ -1,0 +1,125 @@
+Entendendo o Menu Modelos
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 07/10/2025 17:16
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar o Menu Modelos da ADVBOX para criar, organizar e usar documentos padronizados, incluindo contratos, petições, procurações e outros arquivos recorrentes no dia a dia do escritório.
+Menu Modelos da ADVBOX
+O Menu Modelos é o espaço da ADVBOX destinado à criação, organização e uso de documentos padronizados, como contratos, petições, procurações e outros arquivos recorrentes no dia a dia do escritório.
+Para que serve?
+1
+Facilitar e agilizar a geração de documentos
+Automatize a criação de documentos recorrentes com preenchimento automático de dados.
+2
+Centralizar todos os modelos em um único lugar
+Tenha acesso rápido a todos os seus modelos organizados por categorias.
+3
+Padronizar peças jurídicas e documentos administrativos
+Mantenha consistência visual e técnica em todos os documentos do escritório.
+4
+Permitir preenchimento automático
+Utilize dados do cliente, processo e escritório para preenchimento instantâneo.
+Principais Recursos
+1
+Documentos Únicos
+Crie documentos para uso imediato e específico, sem necessidade de reutilização.
+2
+Modelos Reutilizáveis
+Desenvolva modelos com o mesmo formato para usar em diferentes casos e processos.
+3
+Formatação Completa
+Insira cabeçalho, rodapé, marca d'água, tabelas, imagens e formatações diversas.
+4
+Organização por Categorias
+Salve modelos organizados por tipo: contrato, petição, recurso, documento, etc.
+Campos Disponíveis para Automação
+Os modelos permitem o preenchimento automático com os dados cadastrados no sistema:
+1
+Dados do Cliente
+Informações automaticamente preenchidas:
+Nome completo, CPF/CNPJ, RG
+Data de nascimento (numérica e por extenso)
+Estado civil, nacionalidade, profissão
+Endereço, e-mail, telefone, nome da mãe
+Dados do representante (nome, CPF/CNPJ, RG, endereço)
+2
+Dados do Processo
+Informações processuais:
+Número CNJ, tipo de ação, tribunal, comarca, vara
+Fase do processo, responsável
+Valor dos honorários, valor da causa (numérico e por extenso)
+Data do ajuizamento, data do arquivamento, resultado
+3
+Dados do Escritório e Usuário
+Informações institucionais:
+Razão social, CNPJ, endereço, telefone, e-mail, site
+Nome do usuário, cargo, CPF, OAB, celular
+Funcionalidades do Editor
+1
+Barra de Ferramentas :
+O editor oferece ferramentas completas para personalização;
+Desfazer/refazer, localizar e substituir
+Inserir imagem, tabela, quebra de página
+Cabeçalho, rodapé, marca d'água
+Cabeçalho e rodapé timbrado
+Digitação por voz
+2
+Opções de Formatação
+Escolha de fonte, tamanho e cor da letra
+Negrito, itálico, sublinhado, tachado
+Alinhamento (esquerda, centro, direita, justificar)
+Listas numeradas, com marcadores, checklist
+Controle de indentação
+3
+Atalhos Rápidos
+Salvar na nuvem, gerar documento
+Imprimir, enviar por e-mail
+Fazer cópia, editar, excluir
+Visualizar (biblioteca pública)
+Importante:
+ Os modelos da aba "Modelos do Escritório" são visíveis apenas para usuários cadastrados na conta ADVBOX, garantindo segurança e privacidade dos documentos internos do escritório.
+Biblioteca Pública
+A Biblioteca Pública é uma aba disponível no Menu Modelos da ADVBOX onde os usuários encontram modelos jurídicos prontos para uso, criados e disponibilizados pela própria ADVBOX.
+1
+Visualizar Conteúdo
+Visualize o conteúdo completo do modelo antes de utilizá-lo.
+2
+Copiar para o Escritório
+Copie o modelo público para a biblioteca do escritório, tornando-o um modelo interno disponível para personalização.
+3
+Buscar e Filtrar
+Busque modelos por nome ou termo e filtre por tipo (contrato, petição, recurso, documento).
+Vantagens da Biblioteca Pública
+1
+Economia de Tempo
+Não precisa criar documentos do zero - utilize modelos prontos e atualizados.
+2
+Qualidade Garantida
+Acesso a materiais jurídicos revisados conforme as melhores práticas.
+3
+Padronização
+Apoio para manter a consistência dos documentos do escritório.
+Dica:
+ Com o Menu Modelos da ADVBOX, você terá maior produtividade, padronização e qualidade na geração de documentos do seu escritório. Mantenha os modelos atualizados, cuide da qualidade dos dados cadastrais, aproveite a automação e organize por categorias para facilitar a localização!
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

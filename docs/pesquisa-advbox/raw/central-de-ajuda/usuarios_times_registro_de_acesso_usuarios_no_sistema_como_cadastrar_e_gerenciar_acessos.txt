@@ -1,0 +1,140 @@
+Usuários no sistema: como cadastrar e gerenciar acessos
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 19/01/2026 19:52
+ Navegação Interna
+Neste artigo, você vai aprender o significado de perfis de acesso na ADVBOX.
+1
+Gestor
+É o perfil principal da conta, responsável pela gestão geral do escritório
+Tem acesso total a todas as funcionalidades do sistema
+Pode criar, editar e excluir tipos de tarefas
+Não pode ser excluído do sistema
+2
+Administrador
+Possui acesso amplo às tarefas de todos os usuários
+Pode administrar parcerias, acompanhar lançamentos financeiros e alterar configurações da plataforma
+Pode ter acesso ao menu Financeiro, conforme definido nas permissões
+3
+Colaborador
+Tem acesso às suas próprias tarefas e dos colegas, dados pessoais e agenda geral do escritório
+Não pode configurar o sistema ou gerar relatórios em Excel
+Pode ou não ter acesso ao menu Financeiro, dependendo das permissões definidas
+Quais são os níveis de Acesso ao Financeiro, disponíveis na ADVBOX
+1
+Personalização de acesso
+A ADVBOX permite personalizar o nível de acesso ao menu Financeiro, garantindo maior controle e segurança sobre as informações sensíveis do escritório.
+Níveis de Acesso:
+1
+CINZA - Sem acesso
+Não visualiza o menu nem realiza qualquer ação financeira.
+2
+LARANJA - Visualizador
+Visualiza o menu financeiro e pode criar novos lançamentos, mas não edita ou marca lançamentos como pagos.
+3
+VERDE - Acesso Completo
+Tem total liberdade para criar, editar, deletar e marcar lançamentos como pagos.
+Como Cadastrar um Novo Usuário
+1
+Acessar Menu de Usuários
+Acesse o menu lateral 
+Configurações
+, clique na aba 
+Usuários
+.
+2
+Criar Novo Usuário
+Clique no botão 
++ Novo Usuário
+.
+3
+Preencher Formulário
+Preencha o formulário respeitando os campos obrigatórios e salve os dados.
+4
+Finalizar Cadastro
+Um e-mail será enviado para finalizar o cadastro.
+Importante:
+ Ao cadastrar um novo usuário, utilize uma senha 
+padrão
+ (ex.: troqueSuasenha$%1). Isso permite que o colaborador defina sua própria senha ao realizar o primeiro acesso ao sistema. Certifique-se de que o e-mail utilizado ainda não esteja vinculado a outra conta na ADVBOX.
+Como Concluir o cadastro via e-mail
+1
+Recebimento do e-mail
+Após o envio, o colaborador receberá um e-mail com o título 
+"Bem-vindo à ADVBOX – Complete seu cadastro"
+. O conteúdo do e-mail indicará o nome do escritório que o convidou e conterá o botão 
+"Concluir meu cadastro"
+. Caso o e-mail não esteja visível na caixa de entrada, é importante verificar a caixa de spam.
+2
+Preenchimento das informações
+Ao clicar no botão, o colaborador deverá preencher as seguintes informações:
+Nome completo
+CPF
+Celular
+Senha e confirmação
+Aceite dos termos
+Verificação em dois fatores (2FA)
+1
+Escolha do método
+O usuário deverá escolher entre duas opções para receber o código de verificação: 
+E-mail
+ (recomendado) ou 
+SMS
+.
+Em caso de não recebimento, é possível clicar em 
+"Reenvie o código"
+ para gerar um novo. O dispositivo será reconhecido por 30 dias.
+2
+Etapa final
+Como etapa final, para acessar a conta, é necessário 
+Aceitar a Política de Privacidade
+.
+Como Excluir um usuário
+1
+Preparação prévia
+Antes de excluir ou inativar um usuário é necessário Transferir as Tarefas pendentes para outro colaborador.
+2
+Localizar Usuário
+Acesse Configurações > Usuários: posicione o mouse sobre o nome do usuário que deseja excluir.
+3
+Confirmar Exclusão
+Clique no ícone de Lixeira que aparecerá à direita e confirme a exclusão clicando em 
+Excluir
+.
+Importante:
+ Sempre que inativar ou excluir um usuário, certifique-se de mover todas as tarefas ativas para outro responsável. Mais informações : 
+Clique aqui
+Como Restaurar um Usuário Excluído
+1
+Acessar Usuários Inativos
+Acesse Configurações > Usuários: clique na aba Inativos, localizada acima da listagem.
+2
+Localizar e Restaurar
+Posicione o mouse sobre o nome do usuário que deseja restaurar.
+3
+Confirmar Restauração
+Clique no ícone de Lixeira e selecione a opção 
+Restaurar
+.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Times : o que é e como usar na prática
+ Navegação Interna

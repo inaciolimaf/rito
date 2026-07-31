@@ -1,0 +1,306 @@
+Grupos e Tipos de Ação: o que significa e como configurar
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 28/08/2025 13:05
+ Navegação Interna
+Neste artigo, você vai aprender como criar e gerenciar Grupos de Ação e Tipos de Ação na ADVBOX para organizar seus processos e automatizar a distribuição de intimações.
+O que são e para que servem os Grupos de Ação
+Os Grupos de Ação servem para organizar e analisar dados relacionados às matérias dos seus processos. Eles estão diretamente ligados às áreas de atuação do seu escritório, como Trabalhista, Previdenciário, Tributário, Bancário, Ambiental, entre outras.
+Além da organização dos processos, os Grupos de Ação também permitem automatizar a distribuição de intimações, otimizando o fluxo de trabalho da equipe.
+Grupos de Ação personalizados
+Se o seu escritório atua em uma única área do Direito, um único grupo pode se tornar muito amplo. Por isso, é recomendável criar 
+Grupos de Ação específicos
+, agrupando os tipos de ação mais recorrentes ou segmentando por advogado responsável ou por sede da unidade.
+Exemplos de segmentação:
+Por advogado e área do direito:
+Daniela – Trabalhista
+Daniela – Previdenciário
+Gabriela – Trabalhista
+Gabriela – Previdenciário
+Por sede e área do direito:
+Florianópolis – Trabalhista
+Florianópolis – Previdenciário
+São Paulo – Trabalhista
+São Paulo – Previdenciário
+Essa segmentação facilita o controle, os relatórios e a automatização das tarefas internas.
+O que significa Responsável pelo Grupo de Ação
+É o usuário designado para 
+receber e tratar as intimações eletrônicas
+ relacionadas a uma determinada área jurídica (como Trabalhista, Cível, etc.). Esse responsável, que geralmente é o 
+controller jurídico
+, desempenha as seguintes funções:
+Receber a intimação
+ vinculada ao Grupo de Ação
+Interpretar o conteúdo da intimação
+Transformar a intimação em uma tarefa
+ no sistema (processo de RIDT — Recebimento da Intimação e Distribuição da Tarefa)
+Distribuir essa tarefa
+ para os colaboradores responsáveis pela execução
+Acompanhar o cumprimento dos prazos internos
+ do escritório
+Caso 
+não haja um responsável definido
+ para o grupo, o sistema encaminha automaticamente a intimação para o 
+responsável geral por intimações
+. Resumindo, o 
+responsável pelo grupo de ação
+ garante que as intimações 
+cheguem à pessoa certa, virem tarefas e sejam tratadas com agilidade
+, assegurando o bom funcionamento do controle de prazos no escritório.
+O que são e para que servem os Tipos de Ação
+Os 
+Tipos de Ação
+ na ADVBOX são utilizados para classificar de forma específica o 
+assunto principal tratado no processo
+, seja ele de natureza judicial, administrativa, consultiva ou de prestação de serviço. Eles complementam os 
+Grupos de Ação
+, funcionando como um detalhamento mais preciso dentro da área jurídica à qual o processo pertence.
+Além disso, o escritório deve manter uma 
+padronização interna na nomenclatura
+ dos Tipos de Ação, evitando variações com o mesmo significado. Por exemplo: 
+Ação de indenização
+ e 
+Ação indenizatória
+ são variações redundantes e devem ser unificadas para evitar ruído estatístico. Em áreas como Penal ou Trabalhista, a recomendação é usar o 
+assunto central
+ como Tipo de Ação, o que facilita os filtros e a clareza nos relatórios. Exemplo: 
+Roubo
+, 
+Tráfico de drogas
+, 
+Assédio moral
+, 
+Rescisão indireta
+.
+Movimentação em lote de Tipos de Ação
+A ADVBOX permite mover 
+vários processos de um Tipo de Ação para outro
+ de forma rápida e segura, por meio da funcionalidade de 
+movimentação em massa
+, disponível no menu 
+Configurações > Tipo de Ação
+.
+Essa funcionalidade é especialmente útil para:
+Corrigir cadastros duplicados
+Padronizar variações desnecessárias
+Realocar processos classificados com tipos incorretos
+Garantir consistência na base de dados do escritório
+Importante:
+Essa ação é 
+irreversível
+Todos os processos vinculados
+ ao tipo atual serão transferidos para o novo Tipo de Ação selecionado
+Se o 
+novo Tipo de Ação
+ estiver vinculado a um 
+Grupo de Ação diferente
+, o Grupo também será automaticamente alterado no processo
+Após a transferência, o 
+tipo de ação anterior pode ser excluído
+, se não for mais necessário
+Antes de executar, revise com atenção.
+ A movimentação afeta todos os processos vinculados ao tipo antigo e impacta diretamente filtros e relatórios.
+Movimentação em Lote de Tipos de Ação
+1
+Acessar Configurações
+Acesse o menu lateral 
+Configurações
+.
+2
+Navegar para Tipo de Ação
+Clique no submenu 
+Tipo de Ação
+.
+3
+Localizar Tipo Atual
+Localize o 
+Tipo de Ação atual
+ que contém os processos que você deseja mover.
+4
+Iniciar Movimentação
+Posicione o mouse sobre o nome do tipo.
+5
+Clicar em Movimentar
+Clique no 
+ícone de seta para a direita
+ que aparecerá no canto direito da linha (representa a movimentação).
+6
+Configurar Transferência
+No pop-up de transferência que abrirá no lado direito da tela:
+Selecione o 
+novo Tipo de Ação
+ para onde os processos serão transferidos
+No campo solicitado, digite a frase de segurança 
+Confirmar
+ (com "C" maiúsculo)
+7
+Concluir Movimentação
+Clique no botão vermelho 
+"Transferir tipos de ação"
+ para concluir a movimentação.
+Importante:
+Essa funcionalidade é ideal para padronizar cadastros, corrigir duplicidades e manter a base de dados organizada
+O processo é irreversível via sistema; revise com atenção o novo tipo antes de confirmar a transferência
+Dica:
+ Os Grupos de Ação e Tipos de Ação são fundamentais para a organização e análise de dados do seu escritório. Mantenha-os bem estruturados e padronizados para facilitar relatórios e automatizar a distribuição de intimações.
+Como cadastrar um novo Grupo de Ação
+No menu lateral, clique em 
+Configurações
+ e acesse a aba 
+Grupos de Ação
+.
+1
+Criar Novo Grupo
+Clique no botão 
++ Novo grupo
+.
+2
+Preencher Formulário
+Preencha o formulário com as informações solicitadas (como nome e área).
+3
+Salvar
+Clique em 
+Salvar
+ para concluir.
+Como cadastrar um Grupo de Ação durante o cadastro de um processo
+1
+Cadastrar Novo Processo
+Ao cadastrar um novo processo.
+2
+Localizar Campo
+No campo 
+Grupo de Ação
+.
+3
+Inserir Nome
+Digite o nome de um grupo já existente ou insira um novo nome.
+4
+Cadastro Automático
+Se o grupo ainda não estiver cadastrado, o sistema irá sugerir automaticamente o cadastro desse novo grupo, facilitando a criação sem precisar sair da tela de processo.
+Como editar um Grupo de Ação
+1
+Acessar Configurações
+Acesse o menu lateral 
+Configurações
+.
+2
+Navegar para Grupo de Ação
+Clique no submenu 
+Grupo de Ação
+.
+3
+Localizar Grupo
+Localize o grupo desejado na lista.
+4
+Iniciar Edição
+Posicione o mouse sobre o nome do grupo.
+5
+Editar
+Clique no 
+ícone de lápis
+ que aparecerá no lado direito.
+6
+Alterar Informações
+No pop-up de edição, altere o que for necessário:
+Nome do grupo (representando a matéria jurídica: Trabalhista, Previdenciário, Cível etc.)
+Responsável pelo recebimento das intimações eletrônicas do grupo
+7
+Salvar Alterações
+Clique no botão azul 
+"Atualizar grupo de ação"
+ no final do pop-up para salvar as alterações.
+Importante:
+O nome do grupo deve manter a 
+padronização por área jurídica
+A troca do responsável deve ser feita com cautela: priorize o controller jurídico ou responsável central
+Como excluir um Grupo de Ação
+1
+Acessar Grupo de Ação
+Acesse 
+Configurações
+ > 
+Grupo de Ação
+.
+2
+Localizar Grupo
+Posicione o mouse sobre o grupo que deseja excluir.
+3
+Excluir
+Clique no 
+ícone de lixeira
+ que aparecerá no lado direito.
+4
+Confirmar Exclusão
+Confirme a exclusão na caixa no canto inferior esquerdo clicando no botão vermelho 
+"Excluir"
+.
+Atenção:
+A exclusão desassocia os processos do grupo, afetando a organização e os filtros estatísticos
+Os processos permanecem no sistema
+Como restaurar um Grupo de Ação
+1
+Acessar Grupo de Ação
+Acesse 
+Configurações
+ > 
+Grupo de Ação
+.
+2
+Alterar Filtro
+No canto superior direito, ao lado do botão azul 
+"Novo grupo"
+, altere o filtro de 
+"Ativo"
+ para 
+"Inativos"
+.
+3
+Localizar Grupo
+Localize o grupo que deseja restaurar.
+4
+Restaurar
+Clique no 
+ícone de lixeira com símbolo de restauração
+ ao lado do nome.
+5
+Confirmar Restauração
+Confirme a ação clicando no botão verde 
+"Restaurar"
+ na caixa no canto inferior esquerdo.
+Importante:
+ O grupo será reativado e estará disponível na lista de grupos ativos, com todas as configurações preservadas.
+Como criar um novo Tipo de ação
+1
+Acessar Configurações
+2
+Navegar para Tipo de Ação
+Clique no submenu 
+Tipo de ação
+.
+3
+Criar Novo Tipo
+Clique no Botão Azul - 
+NOVO TIPO
+.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Fases e Etapas: o que é, para que serve e como configurar
+ Navegação Interna

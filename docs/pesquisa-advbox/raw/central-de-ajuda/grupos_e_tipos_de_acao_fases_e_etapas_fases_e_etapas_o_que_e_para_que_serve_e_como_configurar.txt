@@ -1,0 +1,108 @@
+Fases e Etapas: o que é, para que serve e como configurar
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 01/07/2026 13:15
+ Navegação Interna
+Neste artigo, você vai entender o que são Fases e Etapas na ADVBOX, qual a diferença entre elas e como utilizá-las para organizar o andamento dos processos do seu escritório.
+Entendendo a diferença entre Fase e Etapa
+Imagine que um processo é uma viagem.
+A 
+Fase
+ representa a cidade onde você está.
+A 
+Etapa
+ representa a rua ou o local exato dentro dessa cidade.
+Ou seja:
+A Fase mostra o momento geral do processo.
+A Etapa mostra o estágio específico em que ele se encontra.
+Exemplo:
+Fase:
+ Judicial
+Etapas:
+Petição inicial protocolada
+Aguardando audiência
+Audiência realizada
+Sentença publicada
+Mesmo permanecendo na Fase Judicial, o processo evolui entre diferentes Etapas conforme o trabalho é realizado.
+Quais são as Fases da ADVBOX?
+As Fases são padronizadas pela ADVBOX e representam a linha do tempo dos processos. São elas:
+Marketing
+Negociação
+Consultoria
+Administrativo
+Judicial
+Recursal
+Execução/Cobrança
+Arquivamento
+RH/Financeiro
+Cada processo percorre essas fases conforme avança até sua conclusão.
+Importante:
+ Como fazem parte da estrutura da plataforma, as Fases não podem ser alteradas ou excluídas.
+O que são as Etapas?
+As Etapas são subdivisões das Fases. Elas permitem que cada escritório organize seus processos de acordo com a própria forma de trabalhar.
+Por exemplo, dois escritórios podem estar na Fase Judicial, mas utilizar etapas diferentes para representar sua rotina.
+Escritório A
+Inicial protocolada
+Aguardando contestação
+Audiência marcada
+Sentença
+Escritório B
+Distribuído
+Concluso para despacho
+Aguardando decisão
+Processo encerrado
+Ambos utilizam a mesma Fase, mas personalizam as Etapas conforme sua metodologia de trabalho.
+Por que utilizar Etapas?
+Uma boa estrutura de Etapas ajuda o escritório a:
+visualizar rapidamente o andamento dos processos;
+padronizar o fluxo de trabalho da equipe;
+identificar processos que estão parados;
+facilitar o acompanhamento das atividades;
+tornar a gestão dos processos mais organizada.
+Dica:
+ Nos planos que possuem CRM, as Etapas também aparecem como colunas do quadro Kanban, permitindo movimentar os processos visualmente entre os diferentes estágios.
+Como criar uma nova Etapa
+1
+Acesse Configurações
+Vá em 
+Configurações - Etapas
+.
+2
+Clique em Nova Etapa
+3
+Informe o nome da etapa
+4
+Escolha a Fase
+Selecione a Fase à qual a etapa pertencerá.
+5
+Finalize a criação
+Clique em 
+"Criar Nova Etapa"
+.
+Observações e limitações
+As Fases são padrão da ADVBOX e não podem ser criadas, editadas ou excluídas.
+As Etapas podem ser personalizadas para representar o fluxo de trabalho do escritório.
+Nos planos com CRM, as Etapas também organizam as colunas do quadro Kanban.
+Alguns recursos, como Workflow e Estagnação, dependem do plano contratado.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Grupos e Tipos de Ação: o que significa e como configurar
+ Próximo ›
+ Nenhum
+ Navegação Interna

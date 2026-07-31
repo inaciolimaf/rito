@@ -1,0 +1,136 @@
+Previdia : como utilizar - passo a passo
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 28/07/2026 12:37
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar a integração entre Previdia e ADVBOX para identificar movimentações em processos administrativos e registrá-las no sistema. A sincronização é manual e deve ser realizada sempre que o usuário quiser atualizar os andamentos dos processos.
+Novidade:
+ além das movimentações tradicionais (como exigências e conclusões), o Previdia agora também identifica 
+movimentações internas em requerimentos que possuem perícia
+. Isso permite que o escritório acompanhe alterações importantes em benefícios que dependem de avaliação pericial, evitando que mudanças relevantes passem despercebidas.
+Como utilizar a integração Previdia com a ADVBOX
+1
+Acessar o GERID
+Acesse a página 
+INSS GERID
+.
+Na tela inicial, clique em 
+Buscar
+ para exibir a lista de processos.
+2
+Configurar a exibição dos processos
+Vá até o final da página.
+Selecione a opção para exibir 
+500 processos por página
+ (ou o maior número disponível).
+Por que isso é importante?
+A extensão irá analisar apenas os processos que estiverem visíveis na página.
+Se a página mostrar 10 processos, somente esses 10 serão analisados.
+Se houver 50 processos com movimentação, mas apenas 10 estiverem visíveis, os outros não serão analisados.
+Por isso, recomenda-se sempre selecionar o maior número possível de processos por página.
+3
+Abrir a extensão do Previdia
+Clique no 
+ícone da extensão do Previdia
+ no navegador.
+Caso a extensão não esteja visível, clique no 
+ícone de quebra-cabeça
+ (Extensões).
+Localize a extensão do Previdia.
+Dica:
+ Clique em 
+Fixar
+ para deixar a extensão sempre visível na barra do navegador.
+4
+Sincronizar os processos e aguardar a análise
+Com o GERID aberto, abra a extensão do Previdia.
+Clique em 
+SINCRONIZAR
+.
+A extensão irá analisar os processos exibidos na página e verificar se existem novas movimentações.
+Após iniciar a sincronização, aguarde a verificação.
+Quando finalizar, o sistema informará quantas novas movimentações foram encontradas.
+Essas movimentações serão registradas no Previdia e poderão gerar tarefas na ADVBOX, conforme as configurações realizadas.
+Exemplo de retorno:
+"Foram encontradas 4 novas movimentações no sistema."
+5
+Consulte os detalhes da movimentação
+Após a sincronização;
+Acesse o 
+painel do Previdia
+.
+Entre no menu 
+Andamentos
+Localize a movimentação desejada e clique no 
+protocolo para visualizar todas as informações do requerimento.
+Importante:
+ Para visualizar as informações corretamente, é necessário estar logado no sistema com o acesso do advogado que possui permissão naquele processo.
+6
+Acompanhe movimentações internas em requerimentos com perícia (Novidade)
+O Previdia passou a informar também quando ocorre 
+movimentação interna
+ em requerimentos que possuem 
+perícia
+.
+Essa funcionalidade amplia o monitoramento dos processos administrativos, permitindo identificar alterações internas que podem indicar mudanças importantes na análise do benefício ou na tramitação da perícia.
+Entre os benefícios contemplados estão, por exemplo:
+Incapacidade Temporária;
+Incapacidade Permanente;
+Aposentadoria da Pessoa com Deficiência;
+Benefício Assistencial (BPC/LOAS);
+Auxílio-Acidente;
+Demais requerimentos que dependam de perícia médica.
+Com esse acompanhamento, o escritório consegue agir com mais rapidez sempre que houver alterações relevantes durante a análise do requerimento.
+7
+Frequência recomendada
+A sincronização 
+não é automática
+.
+Recomenda-se que o advogado realize esse processo 
+diariamente
+, para manter as movimentações dos processos sempre atualizadas.
+8
+Movimentações duplicadas
+O sistema reconhece quando uma movimentação já foi capturada anteriormente.
+Mesmo que a sincronização seja realizada novamente, a mesma movimentação 
+não será registrada duas vezes
+.
+9
+Visualize as tarefas na ADVBOX
+Após a sincronização, pode haver um pequeno tempo de processamento até que as tarefas sejam criadas.
+Quando o processamento for concluído:
+Acesse seu painel de tarefas na ADVBOX.
+Caso você seja o responsável definido nas configurações da integração, as tarefas serão exibidas automaticamente.
+Abra a tarefa e realize as ações necessárias.
+Observações e limitações
+A sincronização depende da extensão do Previdia instalada e configurada corretamente.
+O monitoramento somente ocorre após a sincronização manual.
+O sistema agora também identifica movimentações internas em requerimentos com perícia, reforçando o acompanhamento de benefícios que dependem de avaliação pericial.
+Os prazos e a situação oficial do requerimento devem sempre ser conferidos diretamente no portal do INSS antes da adoção de qualquer medida processual.
+Próximo passo sugerido
+Dica:
+ Caso ainda não tenha configurado a integração entre o Previdia e a ADVBOX, consulte o artigo 
+Como configurar a integração Previdia com a ADVBOX
+ antes de iniciar a sincronização.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Previdia : como cadastrar 
+ Próximo ›
+ Nenhum
+ Navegação Interna

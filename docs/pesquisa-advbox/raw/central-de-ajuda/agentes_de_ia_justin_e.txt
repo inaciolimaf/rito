@@ -1,0 +1,128 @@
+Justin-e
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 22/06/2026 12:34
+ Navegação Interna
+Neste artigo, você vai aprender o que é a Justin-e, como ela funciona na leitura e interpretação de intimações judiciais, e como utilizá-la na prática para otimizar a gestão de prazos e tarefas no seu escritório.
+O que é a Justin-e
+A Justin-e é a assistente jurídica com Inteligência Artificial da ADVBOX, responsável por ler, interpretar e sugerir ações a partir de intimações judiciais. Ela utiliza Machine Learning, ou seja, aprende com o uso do escritório, tornando-se cada vez mais precisa ao longo do tempo.
+Principais funções
+Leitura automática de intimações
+Identificação do tipo de ato
+Cálculo de prazos (úteis ou corridos)
+Sugestão de tarefas
+Indicação de responsáveis
+Percentual de confiança (%) nas sugestões
+Explicação dos cálculos de prazo
+Importante:
+ A IA não substitui a análise humana. As sugestões devem ser validadas pela equipe. O uso contínuo melhora a precisão das sugestões.
+Como funciona
+1. Leitura automática
+Ao acessar uma intimação, a Justin-e já realizou a leitura em segundo plano e apresenta automaticamente:
+O que aconteceu
+O que deve ser feito
+Sugestões de tarefas
+Quero contratar Justin-e 
+2. Sugestões com percentual (%)
+A IA sugere tarefas com base na leitura da intimação e mostra a probabilidade de acerto (%) para cada sugestão.
+Evolução do percentual:
+Início: cerca de 50%
+Com o uso contínuo: maior precisão
+Importante:
+ A porcentagem é uma probabilidade, não uma garantia.
+3. Explicação do prazo (ponto de interrogação)
+Ao lado do cálculo de prazo, existe um ícone de ponto de interrogação (?). Ao clicar, ele explica como a Justin-e realizou a contagem do prazo, mostrando a lógica aplicada (dias úteis/corridos, início, fim, etc.).
+Dica:
+ Isso traz mais transparência e segurança na validação dos prazos pela equipe.
+4. Cálculo com D- e feriados
+O D- define quantos dias antes do prazo a tarefa será executada
+A contagem considera dias úteis ou corridos e feriados nacionais
+Dica:
+ O D- já respeita automaticamente os feriados nacionais no cálculo.
+5. Aprendizado contínuo
+A IA aprende com as tarefas escolhidas, edições realizadas, correções da equipe e padrões de uso, tornando o sistema cada vez mais personalizado para o seu escritório.
+6. Configuração do D-
+1
+Acesse as Configurações
+2
+Acesse Inteligência Artificial
+Clique em 
+Inteligência Artificial
+.
+3
+Selecione Justin-e
+Clique em 
+Justin-e
+ e depois em 
+Configurar
+.
+Regras do D-:
+Apenas 1 D- é permitido
+Valor fixo para todas as tarefas
+Exemplo: D-2 → tarefa criada 2 dias antes do prazo final
+7. Tarefas (nova lógica)
+A IA usa apenas tarefas já cadastradas no sistema
+Não existe mais configuração de tarefas diretamente na IA
+Para novas sugestões, cadastre novas tarefas no sistema
+8. Botão "Refinar"
+Utilizado para orientar a IA em casos fora do padrão, como estratégias diferentes das sugeridas ou exceções específicas do processo.
+Dica:
+ Use o botão Refinar sempre que a sugestão da IA não se encaixar no caso. Isso evita aprendizado incorreto e melhora as sugestões futuras.
+Na prática: passo a passo
+1
+Acesse a intimação
+A Justin-e já terá analisado automaticamente ao abrir a intimação.
+2
+Visualize a análise
+Confira o que aconteceu, o que deve ser feito e as sugestões de tarefas apresentadas pela IA.
+3
+Revise as opções disponíveis
+Na tela você pode:
+Escolher dias úteis ou corridos
+Ver o cálculo com base no D-
+Clicar no (?) para entender o prazo
+Visualizar tarefas com % de probabilidade
+Aprovar todas as ações
+Editar tarefas
+4
+Execute a tarefa
+Escolha a tarefa mais adequada, ajuste se necessário e aprove ou edite conforme o caso.
+5
+Use o botão Refinar quando necessário
+Utilize quando a sugestão fugir do padrão e explique o motivo da decisão para ensinar a IA corretamente.
+Boas práticas
+Usar a IA com frequência para acelerar o aprendizado
+Validar todas as sugestões antes de aprovar
+Utilizar tarefas bem estruturadas no sistema
+Usar o botão Refinar quando a sugestão não se encaixar
+Ensinar a IA com decisões conscientes e consistentes
+Resumo final:
+A IA sugere → você valida
+A IA aprende → com seu uso
+O prazo é transparente → explicado no (?)
+O D- já considera → feriados nacionais
+Dica:
+ Quanto mais a equipe utilizar e validar as sugestões da Justin-e, mais precisa e personalizada ela ficará para o seu escritório.
+Quero contratar Justin-e 
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ FAQ - Donn@
+ Próximo ›
+ Donna
+ Navegação Interna

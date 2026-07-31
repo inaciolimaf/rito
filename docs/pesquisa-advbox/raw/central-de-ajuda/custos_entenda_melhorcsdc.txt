@@ -1,0 +1,301 @@
+Entenda Melhor
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 10/10/2025 20:22
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar a aba Custos para analisar quanto o escritório investe para gerar, produzir e concluir um processo jurídico etapa por etapa, incluindo indicadores de custo médio, análises por grupo de ação e relatórios detalhados.
+O que é a Aba Custos
+1
+Funcionalidade Principal
+A aba Custos mostra, com clareza, quanto o escritório investe para gerar, produzir e concluir um processo jurídico etapa por etapa. Diferente das outras abas, ela considera processos em andamento também, não apenas os arquivados.
+Importante:
+ Atenção aos filtros no topo direito da tela: Tipo de processo (todos, ganhos ou perdidos) e Intervalo de anos de arquivamento (ano inicial e final). Este filtro permite escolher quais processos serão considerados nos cálculos.
+Tipos de Filtros Disponíveis:
+1
+Todos os processos
+Inclui todos os processos válidos com movimentação financeira registrada.
+2
+Processos ganhos
+Inclui apenas processos com resultado favorável ao cliente.
+3
+Processos perdidos
+Considera somente aqueles encerrados com improcedência, extinção sem julgamento, perda de prazo ou abandono.
+Importante:
+ Esse filtro atua sobre o ano da data de fechamento dos processos, registrada na linha do tempo. Processos com registros financeiros lançados fora do intervalo, mas com data de fechamento dentro da faixa selecionada, ainda serão considerados nos cálculos.
+Atualizações:
+1
+Atualização automática dos gráficos
+A cada 8 horas.
+2
+Relatórios no fim da aba
+Atualizados em tempo real.
+Entenda os Indicadores de Custo Médio
+1
+Cinco indicadores principais
+Logo no topo, você verá cinco indicadores principais, que mostram os custos médios por fase:
+Custo de Prospecção (CAC)
+Custo médio na Produção
+Custo médio na Execução
+Custo da rotação completa
+Custo por ponto (esforço)
+2
+Base de cálculo
+Esses dados não dependem do processo estar arquivado — são calculados com base no que já está registrado no sistema (tarefas, folha, despesas etc.).
+Veja o Gráfico de Tempo por Etapa
+Cores do gráfico:
+1
+Verde
+Tempo médio de prospecção.
+2
+Azul claro
+Tempo médio de produção.
+3
+Azul escuro
+Tempo médio de execução.
+4
+Vermelho
+Tempo total da rotação completa.
+Interatividade:
+1
+Passe o mouse sobre as barras
+Para ver:
+Quantos processos foram considerados no cálculo
+Tempo médio exato da etapa (meses e dias)
+Importante:
+ Esse gráfico mostra tempo, não valores em reais.
+Entenda o Custo por Processo e por Ponto
+1
+Custo por processo
+Média geral do investimento por processo, com base nos filtros aplicados.
+2
+Custo por ponto
+Relação entre folha de pagamento e esforço produtivo (tarefas com pontuação).
+3
+Interpretação
+Esses valores são médios da base filtrada. Não representam um processo individual, mas sim o comportamento médio da carteira.
+Analise o Custo de Prospecção (CAC)
+1
+O que é o CAC
+O CAC mostra quanto custa transformar uma oportunidade em cliente.
+Como é calculado:
+1
+Soma dos pontos das tarefas
+De RH, Financeiro, Atendimento e Marketing.
+2
+Multiplicado pelo valor médio do ponto
+Com base na folha de pagamento.
+3
+Somado aos custos externos
+Dessas fases (campanhas, ferramentas, equipe comercial etc.). O grupo financeiro mais relevante aqui é o Grupo 8 - Marketing/Comercial.
+4
+Objetivo
+Avaliar se os investimentos em marketing e atendimento estão trazendo retorno real.
+Compare Custos por Grupo de Ação:
+1
+A aba também permite ver
+Áreas com alto ou baixo investimento médio
+A composição de custos (pessoal, estrutura, terceiros) por tipo de serviço jurídico
+2
+Isso ajuda você a
+Reduzir custos em áreas ineficientes
+Reforçar frentes com boa performance e custo equilibrado
+Redirecionar recursos de forma estratégica
+Entenda o Custo de Produção
+1
+Definição
+O Custo de Produção mostra quanto o escritório investe, em média, do fechamento do contrato até o trânsito em julgado.
+Como é calculado:
+1
+Soma dos pontos das tarefas
+Nas fases: consultiva, administrativa, judicial e recursal.
+2
+Multiplicado pelo custo por ponto
+Da folha de pagamento (grupo 2).
+3
+Acrescenta os custos fixos e variáveis
+Dos grupos 5 e 6 (como aluguel, energia, licenças, transporte, etc.).
+4
+Resumo prático
+Essa é a fase com maior esforço técnico jurídico, onde há mais equipe, mais tecnologia e mais tempo envolvido.
+5
+Importância
+Revela onde está o maior peso operacional do escritório.
+Entenda o Custo de Execução
+1
+Definição
+O Custo de Execução mostra o investimento médio entre o trânsito em julgado e o recebimento dos honorários.
+O que entra no cálculo:
+1
+Tarefas nas fases específicas
+De Execução, Cobrança e RH/Financeiro (quando atuam no encerramento).
+2
+Custos da folha de pagamento
+Alocados nessas tarefas.
+3
+Ferramentas e estruturas
+Usadas na recuperação dos valores (ex: sistemas de cobrança, equipe de backoffice, atendimento ao cliente).
+4
+Resumo prático
+Mesmo após ganhar um processo, a má gestão dessa fase pode gerar prejuízo. Esse indicador mostra se o escritório está finalizando bem os processos.
+Entenda a Rotação Completa
+1
+Definição
+A Rotação Completa representa todo o custo interno para conduzir um processo do início ao fim.
+Inclui:
+1
+Pessoal (grupo 2)
+2
+Meios de produção (grupos 5, 6 e 8)
+Não inclui:
+1
+Tributos (grupo 4)
+2
+Encargos trabalhistas (grupo 3)
+3
+Despesas bancárias (grupo 7)
+Aplicações:
+1
+Resumo prático
+Esse é o principal indicador de eficiência operacional total.
+2
+Use para
+Comparar com a média de honorários por processo
+Calcular a margem real de lucro por tipo de ação
+Entenda o Custo por Ponto
+1
+Definição
+O Custo por Ponto mostra quanto custa, em média, cada ponto de tarefa realizado pela equipe.
+Como é calculado:
+1
+Fórmula
+Total da folha de pagamento do ano ÷ Total de pontos concluídos.
+2
+Resumo prático
+Esse indicador dá valor ao esforço da equipe. Ele serve como base para calcular:
+O custo de cada fase
+O custo por processo
+A eficiência da pontuação das tarefas
+3
+Essencial para
+Escritórios que usam Taskscore para remuneração variável
+Precificação de contratos
+Planejamento de carga de trabalho
+Indicadores de Composição de Custos por Processo
+1
+Finalidade
+Os indicadores mostram como os recursos são distribuídos, permitindo analisar a eficiência dos custos por tipo de processo.
+Custo por processo (total):
+1
+Composição
+Apresenta a média geral de todos os custos operacionais e externos do escritório por processo, considerando a base de processos filtrada na aba. São somados os seguintes componentes:
+Custo de pessoal (calculado por pontuação registrada)
+Meios de produção (infraestrutura, software, energia, transporte, etc.)
+Custos externos (tributos, encargos e taxas bancárias)
+Importante:
+ Esse valor é uma média geral da base de processos resultante da filtragem da aba. Processos com poucos lançamentos ou sem tarefas atribuídas podem distorcer o valor médio, especialmente se o volume da base for reduzido.
+Custo de pessoal:
+1
+Cálculo
+Aponta o valor médio da folha de pagamento alocado por processo, com base nas tarefas realizadas pela equipe. O cálculo é feito da seguinte forma:
+Somatório da pontuação concluída nas tarefas vinculadas aos processos incluídos na base filtrada da aba
+Multiplicado pelo valor médio de cada ponto, determinado a partir da folha de pagamento total do período selecionado
+Importante:
+ Tarefas sem pontuação não são consideradas no cálculo, mesmo que estejam finalizadas. Processos sem tarefas ou com tarefas não vinculadas ao centro de custo terão custo de pessoal igual a zero. Para garantir a confiabilidade do dado, a equipe deve registrar tarefas corretamente, vinculá-las aos processos e atribuir pontuação conforme os padrões definidos pela gestão.
+Meios de produção:
+1
+Definição
+Refere-se ao custo médio por processo vinculado aos recursos físicos e digitais utilizados no escritório. Inclui:
+Equipamentos (computadores, móveis, impressoras)
+Licenças de software, energia elétrica, internet
+Transporte, aluguel, e demais elementos da infraestrutura operacional
+2
+Apuração
+Esses valores são apurados a partir dos lançamentos financeiros classificados nos grupos contábeis correspondentes (grupos 5, 6 e 8), e são distribuídos proporcionalmente entre os processos da base filtrada, conforme a pontuação associada a cada um.
+Custos externos:
+1
+Composição
+Apresenta a média de tributos, encargos trabalhistas, taxas bancárias e demais obrigações legais vinculadas aos processos da base. É composto por registros contábeis dos seguintes grupos:
+Grupo 3: encargos sociais e trabalhistas
+Grupo 4: impostos e contribuições
+Grupo 7: taxas e despesas bancárias
+2
+Características
+Estes valores não são influenciados pela produtividade, mas devem ser considerados na formação de preço, no planejamento fiscal e no controle de margem líquida.
+Custo Mensal por processo:
+1
+Definição
+Este indicador apresenta o investimento médio mensal que o escritório realiza para manter um processo ativo, ao longo do seu ciclo completo (da entrada até o encerramento).
+2
+Fórmula aplicada
+Custo mensal por processo = Custo por processo ÷ Número médio de meses por processo
+3
+Base de cálculo
+O número de meses é calculado com base no tempo médio de rotação completa da base considerada, conforme exibido no gráfico horizontal de duração por fase.
+Custos por Grupos de Ação
+1
+Análise detalhada
+A aba Custos apresenta uma análise detalhada da duração média e dos custos por grupo de ação. Esta seção permite comparar áreas de atuação do escritório em relação ao tempo de tramitação e aos investimentos médios por processo.
+Cada grupo é apresentado com:
+1
+Duração média das fases
+De prospecção, produção, execução e rotação completa, exibida no gráfico horizontal com cores padronizadas.
+2
+Indicador de custo por processo total
+3
+Composição do custo por tipo
+Pessoal, meios de produção e custos externos.
+4
+Custo mensal médio por processo
+Calculado com base na rotação média do grupo.
+Entendendo os dados:
+1
+Gráfico horizontal de duração média por fase
+Com as cores:
+Verde: prospecção
+Azul claro: produção
+Azul escuro: execução
+Vermelho: rotação completa
+2
+Indicadores financeiros
+Todos em valores médios por processo do grupo:
+Custo por processo
+Custo de pessoal
+Meios de produção
+Custos externos
+3
+Características dos valores
+Esses valores refletem a média resultante dos processos vinculados a cada grupo de ação considerados na filtragem aplicada na aba (tipo de processo e ano de fechamento). O tempo de cada fase é expresso em meses inteiros, possibilitando análises comparativas rápidas e visuais.
+Relatórios
+1
+Tipos de relatório
+A seção de relatórios exibe por padrão os dados financeiros dos processos, mas o sistema também permite alternar entre dois tipos de relatório:
+2
+Custos
+Exibe os valores de custo por processo, detalhados por tipo de despesa (pessoal, produção, externos), conforme os filtros aplicados.
+3
+Processos com inconsistência
+Lista processos que apresentam falhas nos registros necessários para cálculo, onde as datas da linha do tempo não estão em ordem cronológica.
+Dica:
+ A aba Custos é fundamental para entender a real eficiência econômica do escritório, permitindo análises precisas de investimento por processo e identificação de oportunidades de otimização de recursos.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

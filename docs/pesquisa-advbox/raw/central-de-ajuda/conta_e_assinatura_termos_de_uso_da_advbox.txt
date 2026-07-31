@@ -1,0 +1,156 @@
+Termos de Uso da ADVBOX
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 14/01/2026 14:14
+ Navegação Interna
+Neste artigo, você vai conhecer os principais pontos dos Termos de Uso da ADVBOX e entender como acessar a versão mais atualizada do contrato diretamente no sistema.
+Termos de Uso da ADVBOX
+Você pode acessar os 
+Termos de Uso da ADVBOX
+ diretamente dentro do sistema: 
+Menu Conta e assinatura  → Conta e assinatura → Termos de Uso
+Lá estará sempre a versão mais atualizada do contrato. 
+Acesse Termos de Uso ADVBOX
+O que são os Termos de Uso?
+Os 
+Termos de Uso da ADVBOX
+ definem as regras para utilização da plataforma, garantindo transparência, segurança e responsabilidade tanto para a empresa quanto para os clientes.
+Principais pontos dos Termos de Uso
+1. Objeto do contrato
+1
+Licença de uso
+O cliente adquire uma 
+licença de uso do software ADVBOX
+, de acordo com o plano escolhido.
+2
+Propriedade do código
+O código-fonte é de propriedade exclusiva da ADVBOX e não pode ser compartilhado.
+2. Atualizações e versões
+1
+Melhorias constantes
+A ADVBOX realiza atualizações e melhorias constantes.
+2
+Acesso automático
+Se o recurso fizer parte do plano contratado, o cliente terá acesso automático.
+3
+Recursos extras
+Caso contrário, será necessário migrar de plano ou contratar o recurso separadamente.
+3. Suporte técnico
+1
+Suporte remoto
+Disponível por chat, e-mail ou acesso remoto em dias úteis, das 9h às 12h e das 13h30 às 17h.
+2
+Suporte presencial
+Pode ser solicitado, mas envolve custos adicionais de deslocamento, hospedagem e hora técnica.
+4. Funcionalidades e módulos
+A ADVBOX pode oferecer módulos extras, como:
+1
+Capture
+Captura automática de andamentos processuais.
+2
+Atendimento Virtual
+Consultas por clientes do escritório.
+3
+GED
+Gestão eletrônica de documentos com armazenamento em nuvem.
+4
+Publicações
+Recebimento automático de intimações.
+5
+Inteligência Artificial
+Organização de tarefas e interpretação de publicações.
+5. Dados e segurança
+1
+Propriedade dos dados
+O cliente é proprietário dos dados inseridos no sistema.
+2
+Exportação de dados
+Os dados podem ser exportados em 
+.XLS ou PDF
+ a qualquer momento.
+3
+Backups regulares
+Backups são realizados regularmente para garantir integridade.
+4
+Conformidade LGPD
+A ADVBOX segue normas de 
+segurança e sigilo
+, em conformidade com a LGPD.
+6. Implantação e treinamento
+1
+Serviços incluídos
+Estão incluídos na taxa de ativação: implantação, treinamento virtual e migração de dados básicos.
+2
+Serviços extras
+Migrações adicionais ou customizações podem ser contratadas à parte.
+7. Pagamentos e valores
+1
+Disponibilidade de valores
+Os valores e planos estão disponíveis no site oficial.
+2
+Cobrança recorrente
+A cobrança é recorrente (cartão ou boleto).
+3
+Atraso no pagamento
+Em caso de atraso, há multa de 2% e juros de 1% ao mês.
+4
+Reajuste anual
+Os valores sofrem reajuste anual pelo IGP-M.
+8. Vigência e rescisão
+1
+Prazo do contrato
+O contrato é por prazo indeterminado.
+2
+Cancelamento
+Por pedido de cancelamento com 
+30 dias de antecedência
+.
+3
+Outras formas de rescisão
+Por inadimplência ou por decisão judicial (falência, liquidação etc.).
+4
+Dados após rescisão
+Ao rescindir, o cliente pode baixar seus dados antes da exclusão da conta.
+9. Responsabilidade
+1
+Limitações técnicas
+A ADVBOX não se responsabiliza por problemas de internet ou telecomunicações.
+2
+Serviços terceirizados
+Em casos de falha em serviços terceirizados (como captura de intimações), a responsabilidade é da empresa parceira.
+3
+Limite de indenização
+Em qualquer hipótese, a indenização máxima fica limitada ao valor pago em até 1 ano.
+10. Foro
+1
+Jurisdição
+Eventuais disputas serão resolvidas no 
+Foro da Comarca de Florianópolis/SC
+.
+Importante:
+ Esses termos asseguram uma relação justa, transparente e segura entre seu escritório e a ADVBOX. Recomenda-se a leitura completa diretamente no sistema para total compreensão.
+Dica:
+ Mantenha-se sempre atualizado com os Termos de Uso acessando 
+diretamente o menu do sistema, onde estará disponível a versão mais recente do contrato.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nuvem : o que é, como funciona e onde visualizar
+ Próximo ›
+ Nossos Produtos 
+ Navegação Interna

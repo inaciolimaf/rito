@@ -1,0 +1,164 @@
+Guia de Migração de Dados - ADVBOX
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 20/07/2026 12:57
+ Navegação Interna
+Este guia foi desenvolvido para que você entenda de forma clara e objetiva como funciona a migração dos seus processos para a ADVBOX. Nosso objetivo é garantir uma transição segura, organizada e eficiente.
+Importante:
+ Quando você cria sua conta de testes, nossos robôs cadastram automaticamente até 200 processos ativos para que você consiga realizar os testes. A migração de dados completa é realizada após a contratação de um de nossos planos. Os processos do teste permanecem na sua conta e não são modificados.
+Formas de Migração de Dados
+A ADVBOX disponibiliza três modalidades para migração de dados do seu escritório. Ela pode ser realizada de três formas: a partir de outro sistema, a partir de planilhas de Excel do escritório ou pela extração dos tribunais.
+1
+A partir de Outro Sistema
+Com o fornecimento do acesso ou backuo ao seu antigo sistema, nosso time de migração poderá realizar a extração, higienização e importação de dados para sua conta na ADVBOX.
+Importante:
+ No plano Essencial, a migração de dados é realizada EXCLUSIVAMENTE através da extração dos tribunais.
+Vale ressaltar que a migração de dados é realizada com base nos dados fornecidos em extrações em lote do seu antigo sistema. Não serão realizadas consultas manuais no seu antigo sistema para complementar dados não extraídos em lote ou em formatos sem compatibilidade.
+2
+A partir de Planilhas de Excel
+Migraremos todos os processos que você estiver controlando em planilhas. Basta enviar os arquivos para nossa equipe de migração de dados após a contratação.
+3
+Através dos Tribunais
+A migração de dados pelos tribunais é realizada através de buscas dos processos públicos nos tribunais pela OAB do advogado em um ou mais estados.
+Importante:
+ A extração é realizada a partir da disponibilidade dos dados na capa do processo do tribunal. Processos com níveis de sigilo, por exemplo, podem não ser capturados ou vir com detalhes restritos.
+Exemplo: Os processos trabalhistas possuem sigilo de nível 1, ou seja, os dados disponíveis das partes na capa do processo são abreviados apenas pela primeira letra do nome.
+Nome da parte na capa do processo:
+ J C S
+Nome completo da parte:
+ João Carlos Silva
+Campos disponíveis
+Os seguintes campos 
+poderão ser preenchidos
+ na ADVBOX com os dados coletados nas extrações.
+1
+Pessoas
+• Nome
+• Cpf Cnpj
+• Rg
+• Nacionalidade
+• Data De Nascimento
+• Estado Civil
+• Profissão
+• Sexo
+• Celular
+• Telefone
+• Email
+• País
+• Estado
+• Cidade
+• Bairro
+• Endereço
+• Cep
+• Pis Pasep
+• Ctps
+• Cid
+• Nome Da Mãe
+• Origem Do Cliente
+• Anotações Gerais
+2
+Processos
+• Nome do cliente
+• Parte Contrária
+• Tipo de ação
+• Grupo de ação
+• Fase Processual
+• Etapa
+• Número do processo
+• Processo originário
+• Tribunal
+• Vara
+• Comarca
+• Protocolo
+• Expectativa/Valor da causa
+• Valor Honorários
+• Pasta
+• Data do cadastro
+• Data fechamento
+• Data trânsito em julgado
+• Data arquivamento
+• Data requerimento
+• Responsável
+• Anotações gerais
+3
+Financeiro
+• Tipo (Receita ou Despesa)
+• Conta/Cartão
+• Centro De Custo
+• Setor/Unidade
+• Categoria
+• Data De Vencimento
+• Data De Competência
+• Data De Recebimento/Pagamento
+• Descrição
+• Valor
+• Processo
+• Nome Do Cliente
+4
+Agenda
+• Data Compromisso
+• Hora Compromisso
+• Data Conclusão
+• Remetente
+• Destinatário
+• Tarefa
+• Descrição
+• Número do processo
+• Protocolo
+• Pasta
+Saiba a diferença entre Extração, Migração e Enriquecimento de Dados
+A ADVBOX realiza a migração de dados de diversas formas como já descrito neste artigo.
+Importante:
+ O processo de migração de dados da ADVBOX 
+não inclui
+ o enriquecimento dos dados. Caso seu escritório precise deste serviço, converse com o seu consultor de vendas para verificar a viabilidade.
+1
+Extração de dados
+A extração de dados é uma das etapas no processo de migração, a depender da modalidade na qual você escolher para migrar os seus dados. Na etapa de extração, iremos coletar todos os dados conforme as informações disponibilizadas.
+2
+Migração de dados
+A migração de dados é o processo como um todo: extração, higienização, validação e inserção dos dados na sua conta na ADVBOX.
+3
+Enriquecimento de dados
+O enriquecimento de dados consiste na captura de informações com a finalidade de complementar os dados existentes ou já extraídos dos processos do escritório. Considera-se enriquecimento de dados toda informação que para ser capturada necessite de consulta manual ou individualizada.
+Etapas da Migração
+1
+Confirmação da forma de migração escolhida
+Confirmação da forma de migração escolhida e envio dos seus dados por e-mail.
+2
+Extração dos dados
+Extração dos dados pela nossa equipe.
+3
+Tratamento dos dados e higienização
+Tratamento dos dados e higienização pela nossa equipe.
+4
+Validação dos dados coletados e tratados
+Validação dos dados coletados e tratados através de uma planilha em Excel para 
+você conferir e autorizar a importação.
+5
+Importação dos dados
+Importação dos dados na sua conta e conclusão do procedimento.
+Dica:
+ Defina um responsável no seu escritório para acompanhar o processo de migração de dados. O atendimento da migração é exclusivamente por e-mail, para sua segurança, transparência e registros durante este procedimento. Por isso, leia todas as informações antes de responder. A ADVBOX não realiza nenhum tipo de enriquecimento de dados nas informações extraídas. Após a validação e aprovação da migração, não será possível realizar ajustes nos dados. Não realizamos a migração de nenhum tipo de documento. Tempo estimado: O processo completo de migração leva em média de 3 a 10 dias úteis, dependendo do volume de dados.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Tudo sobre Migração do Financeiro do Asaas para ADVBOX
+ Navegação Interna

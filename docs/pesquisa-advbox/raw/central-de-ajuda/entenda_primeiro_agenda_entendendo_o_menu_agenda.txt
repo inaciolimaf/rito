@@ -1,0 +1,70 @@
+Entendendo o Menu Agenda
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 19/01/2026 13:02
+ Navegação Interna
+O Menu Agenda da ADVBOX foi criado para facilitar o acompanhamento dos seus compromissos e tarefas mais importantes. Nele, você tem uma visão rápida, clara e organizada do que precisa ser feito no dia, na semana ou no mês, com destaque especial para tarefas como audiências, perícias, prazos e atividades externas.
+Importante:
+ todos os usuários do sistema têm acesso a esse menu, independente do perfil.
+Principais funcionalidades
+1
+Visualização de tarefas de forma organizada, por período
+2
+Acesso rápido aos detalhes de qualquer compromisso: clique sobre a tarefa para abrir, editar ou visualizar
+3
+Criar uma nova tarefa diretamente pela agenda: clique em um espaço vazio na data desejada e preencha as informações
+4
+Acompanhamento prático dos compromissos do escritório ou de um colaborador específico
+Visualização e Cores
+A agenda utiliza cores para facilitar a identificação do status das tarefas:
+🔵
+Azul = Tarefa pendente
+🟢
+Verde = Tarefa concluída
+🔴
+Vermelho = Tarefa atrasada
+As tarefas aparecem no quadro central da agenda, exibindo:
+✓
+Nome da tarefa
+✓
+Horário (se informado)
+✓
+Partes envolvidas
+✓
+Foto do responsável
+Navegue entre os dias, semanas ou meses utilizando as setas no topo da tela.
+Filtros disponíveis
+Na lateral esquerda da agenda, você pode filtrar:
+✓
+Por colaborador: veja só as tarefas de uma pessoa específica
+✓
+Por data do compromisso
+✓
+Por prazo fatal
+✓
+Por status: Mostrar concluídos, se desejar ver também as tarefas já finalizadas
+✓
+Remover os filtros a qualquer momento clicando no X
+Com o Menu Agenda da ADVBOX, você mantém o controle total sobre seus compromissos e tarefas, garantindo que nada importante seja esquecido.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

@@ -1,0 +1,48 @@
+Transferir tarefas em lote para outro usuário
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 28/08/2025 13:02
+ Navegação Interna
+Neste artigo, você vai aprender como transferir tarefas em lote de um usuário para outro antes de excluir uma conta do sistema.
+Transferindo tarefas em lote para outro usuário
+Antes de EXCLUIR UM USUÁRIO, verifique se o mesmo possui tarefas pendentes para que você possa mover-las para outro usuário, conforme os passos a seguir:
+1
+Acesse o menu de configurações
+Esta funcionalidade fica localizada dentro do menu de configurações, no submenu usuário, encontre o usuário que deseja mover as tarefas em lote e coloque o mouse em cima do nome, alguns botões de ação irão aparecer à direita.
+2
+Clique no botão de movimentação
+Clique no botão de ação que é uma seta para movimentar as tarefas em lote.
+3
+Selecione o novo responsável
+Irá abrir um pop-up onde será selecionado qual será o novo usuário responsável pelas tarefas a serem movidas.
+4
+Confirme a transferência
+Escolha o usuário que receberá as tarefas e digite a palavra 
+CONFIRMAR
+ e confirme a ação no final do pop-up no botão de cor vermelha, 
+Mover tarefas pendentes
+.
+‼️Importante:
+ O procedimento de transferência de tarefas é irreversível, faça o processo seguindo o passo a passo com atenção para não cometer equívocos.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Workflow da ADVBOX: o que é, como funciona e onde configurar
+ Próximo ›
+ Inativar e Restaurar Tarefas
+ Navegação Interna

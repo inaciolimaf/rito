@@ -1,0 +1,78 @@
+Utilizando o Menu Parceiros na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 23/07/2025 17:31
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar o Menu Parceiros para gerenciar processos compartilhados, atribuir tarefas e acompanhar o fluxo colaborativo entre escritórios.
+Como utilizar o Menu Parceiros
+O acesso e uso do Menu Parceiros é simples e intuitivo. Siga os passos abaixo para começar a gerenciar seus processos compartilhados de forma eficiente.
+1
+Acesse o menu Parceiros
+Localize o menu "Parceiros" na barra lateral esquerda da ADVBOX e clique para acessar.
+2
+Visualize os processos compartilhados
+Na tela inicial, você tem acesso à lista completa de processos compartilhados com suas métricas e informações principais.
+3
+Utilize os filtros disponíveis
+Use os filtros para localizar processos específicos, tarefas pendentes, parceiros ou períodos determinados, facilitando sua navegação e gestão.
+4
+Cadastre novos parceiros
+Para adicionar um novo parceiro, clique no botão 
+"Novo Parceiro"
+, insira o e-mail do escritório e aguarde a aceitação da parceria.
+Como atribuir uma tarefa para Parceiros
+A gestão de tarefas compartilhadas é uma das principais funcionalidades do Menu Parceiros. Veja como criar e atribuir tarefas aos seus parceiros de forma eficiente.
+1
+Crie a tarefa no processo compartilhado
+Acesse o processo específico dentro do Menu Parceiros onde deseja criar a nova tarefa.
+2
+Adicione uma nova tarefa
+Clique na opção para adicionar uma nova tarefa dentro do processo selecionado.
+3
+Selecione o responsável pela tarefa
+No campo "Responsável", escolha a opção:
+"Parceiro (Nome do Escritório)"
+Essa escolha garante que a tarefa será enviada diretamente ao escritório parceiro vinculado ao processo.
+Encaminhamento da tarefa no parceiro
+Importante:
+ A tarefa será recebida automaticamente pelo usuário configurado como responsável por Compartilhamentos e Parceiros no menu 
+Configurações > Notificações
+ do escritório parceiro. Esse usuário responsável atua como ponto central de comunicação, fazendo a triagem da tarefa recebida e encaminhando para a pessoa correta dentro da equipe do parceiro. Isso garante que as demandas sejam direcionadas adequadamente e organizadas internamente.
+Como acompanhar as tarefas no Menu Parceiros
+O acompanhamento das tarefas é fundamental para manter a colaboração fluindo adequadamente. O Menu Parceiros oferece ferramentas específicas para esse monitoramento.
+1
+Utilize os filtros disponíveis
+No Menu Parceiros, aplique os filtros específicos para monitoramento:
+Tarefas pendentes no escritório:
+ Mostra processos com tarefas atribuídas ao seu escritório
+Tarefas pendentes no parceiro:
+ Exibe processos com tarefas atribuídas ao escritório parceiro
+Filtros por período:
+ Permite acompanhar tarefas dentro de um intervalo de tempo específico
+2
+Acompanhe o andamento
+Use essas ferramentas para visualizar e acompanhar o progresso das tarefas atribuídas, garantindo que o fluxo colaborativo esteja sempre em dia.
+Dica:
+ Use os filtros e métricas do Menu Parceiros para identificar facilmente demandas pendentes e garantir que o fluxo colaborativo esteja sempre em dia. Isso otimiza a comunicação e evita atrasos nos processos compartilhados.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

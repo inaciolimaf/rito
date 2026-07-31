@@ -1,0 +1,161 @@
+Entenda o Menu Processos
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 15/01/2026 13:51
+ Navegação Interna
+Neste artigo, você vai aprender como gerenciar e acompanhar todas as demandas jurídicas do seu escritório através do Menu Processos, incluindo métricas, gráficos, cadastro, filtros e configurações avançadas.
+Importante:
+ Este menu está disponível para os planos Banca Jurídica, Banca Max e Elite. No plano Essencial, o acompanhamento dos processos é feito diretamente pelo Menu CRM.
+Principais Métricas e Gráficos do menu processos
+1
+Processos Ativos
+Mostra a quantidade total de processos ativos no escritório.
+Considera apenas processos que possuem número de CNJ preenchido e que não estão na fase de Arquivamento.
+Para que serve:
+ Acompanhar o volume atual de processos em andamento no escritório.
+2
+Fechamentos
+Indica a quantidade de processos que tiveram contrato fechado, ou seja, quando o cliente formalizou que seguirá com o escritório.
+Processos que foram movidos da fase de Negociação, ou em que a Data da linha do tempo no Campo fechamento tenha sido preenchida manualmente.
+Mostra também uma comparação com o mês anterior, indicando se houve crescimento ou queda no número de fechamentos.
+Para que serve:
+ Medir o desempenho comercial do escritório, quantificar contratos fechados e acompanhar a evolução mensal.
+3
+Arquivados este mês
+Mostra quantos processos foram encerrados e movidos para a fase Arquivamento no mês atual, com comparação em relação ao mês anterior.
+Para que serve:
+ Controlar a quantidade de processos encerrados, entender a rotatividade das demandas e acompanhar o ciclo de vida dos processos.
+4
+Gráfico Volume por Fase
+Mostra a quantidade de processos distribuída por cada fase do escritório: Marketing, Negociação, Consultoria, Administrativo, Judicial, Recursal, Execução e Arquivamento (se houver).
+Para que serve:
+ Visualizar rapidamente onde estão concentradas as demandas do escritório. Facilita a identificação de gargalos, fases sobrecarregadas ou desequilíbrios no fluxo de trabalho.
+5
+Meta de Fechamentos
+Mostra o progresso da meta mensal de fechamentos configurada no sistema. Acompanhe, em tempo real, quantos contratos foram fechados e quanto falta para bater a meta.
+Para que serve:
+ Gerenciar o desempenho da equipe, acompanhar o progresso comercial e garantir que os objetivos do mês sejam atingidos.
+Quando cadastrar um processo na ADVBOX
+1
+Nova demanda jurídica
+Sempre que houver uma nova demanda jurídica vinculada a um cliente.
+2
+Vinculação obrigatória
+Todo cliente deve ter pelo menos um processo vinculado.
+Entenda os campos opcionais no cadastro de processo
+1
+Responsável
+Indica qual usuário do sistema será o responsável principal por aquele processo. Facilita a busca, organização e acompanhamento da carteira de processos por advogado ou setor.
+Importante:
+ Não gera tarefas automáticas nem interfere no controle de produtividade.
+2
+Anotações Gerais
+Campo livre para registrar informações adicionais importantes, como: dados complementares sobre o cliente ou o processo, observações internas. Você pode usar hashtags (#) para categorizar, exemplo: #clienteVIP #urgente
+3
+Número do CNJ
+Campo para inserir o número do processo judicial oficial. Fundamental para ativar a captura de andamentos e intimações automáticas. Se o processo ainda não tem número, você pode deixar em branco e preencher depois.
+4
+Número do Protocolo/Requerimento
+Usado para processos administrativos (ex.: INSS, Prefeitura, Cartório, etc.). Ajuda a controlar demandas que não possuem número CNJ, mas têm um protocolo interno no órgão.
+5
+Processo Originário
+Permite vincular processos que estão relacionados, como: apensos, recursos e cumprimento de sentença. Mantém o histórico dos processos conectados e facilita a gestão do caso como um todo.
+6
+Pasta/Caso
+É uma chave de identificação interna. Use para cadastrar um código, nome, número ou palavra-chave que facilite a busca e a organização do processo. Esse campo permite busca rápida e precisa no Menu Processos. 
+Exemplos:
+ "ClienteXPensao2024", "Pasta 125", "RevisaoContrato2024"
+7
+Data do Requerimento
+Serve para registrar a data em que um protocolo foi realizado, especialmente em processos administrativos. Se não for processo administrativo, pode usar este campo para registrar, por exemplo, a data do protocolo da petição inicial.
+8
+Expectativa/Valor da Causa
+Campo informativo, sem vínculo com o financeiro da plataforma. Registra o valor estimado da causa para controle estratégico e acompanhamento interno.
+9
+Valor dos Honorários
+É um campo informativo. Use para registrar o valor combinado ou previsto dos honorários advocatícios daquele processo.
+10
+Percentual de Honorários
+Permite registrar o percentual acordado dos honorários (ex.: 30%, 20%). Não impacta no financeiro, mas ajuda a manter o registro do acordo feito com o cliente.
+11
+Contingenciamento
+Indica a probabilidade de êxito do processo. Sendo: provável (chance alta), possível (incerto) e remota (chance baixa). É muito útil para controle estratégico, gestão de riscos e análise interna da carteira de processos.
+Dica:
+ Mesmo sendo opcionais, preencher esses campos torna sua gestão mais eficiente, seus filtros mais poderosos e seus relatórios mais completos!
+Notificação para o cliente por E-mail ou SMS
+Exemplo de notificação por SMS:
+ADVBOX: [Nome do cliente], seu processo está na fase Judicial, etapa Aguardando sentença. [Nome do escritório]
+Observação:
+ As mensagens de SMS têm um limite de até 160 caracteres. Recomenda-se testar a mensagem antes de utilizar, para garantir que ela seja enviada completa e claramente compreendida pelo cliente.
+Exemplo de notificação por E-MAIL:
+Olá [Nome do cliente],
+Seu processo Nº [Número do processo] (Tipo de Ação) está na fase Judicial, etapa Aguardando sentença.
+Estamos atentos a qualquer atualização. Aguarde novidades.
+Atenciosamente,
+[Nome do escritório]
+Dica:
+ As etapas dentro das fases do processo podem ser editadas conforme a necessidade do escritório. Isso significa que usuários com permissão (Gestor ou Administrador) têm a liberdade de adaptar a linguagem das etapas para algo mais claro e acessível.
+Exemplo:
+ Ao invés de usar "Protocolada Inicial", pode-se alterar para "Início do processo no tribunal".
+Essa prática ajuda o cliente a entender melhor o andamento do seu caso, tornando a comunicação mais eficaz e humana.
+Importante:
+ Toda notificação enviada ao cliente será registrada no Histórico do Processo, dentro da aba Histórico de Tarefas, com as seguintes informações: data e hora do envio, tipo de notificação (SMS ou e-mail) e usuário responsável pela ação. Esse registro garante transparência e rastreabilidade, ajudando na gestão interna e no acompanhamento das interações realizadas com o cliente.
+Como funciona a captura de andamentos processuais
+1
+Sistema realiza captura automática
+Desde que o processo tenha: número CNJ corretamente preenchido e/ou monitoramento ativo (quando contratado).
+2
+Novo andamento é encontrado
+Ele aparece na aba "Histórico de Andamentos" dentro do cadastro do processo.
+3
+Usuário pode tratar o andamento
+Gerando uma tarefa ou apenas registrando que foi visualizado.
+Importante:
+ Todos os planos têm processos ativos ILIMITADOS, 
+EXCETO
+ plano 
+Essencial
+ que é de 2.000 processos ativos.
+Clientes que possuem segredo de justiça não recebem andamentos automáticos (seguindo critérios de consulta pública).
+A ADVBOX também oferece monitoramento de intimações, separado dos andamentos.
+Linha do Tempo
+1
+O que é?
+A Linha do Tempo é um campo dentro do cadastro do processo, usado para registrar datas importantes da jornada do cliente no escritório. Ela aparece após o processo ser cadastrado e salvo.
+2
+Preenchimento Automático
+As datas são preenchidas automaticamente ao mudar a Fase e Etapa do processo, como:
+Data do Cadastro: Quando o processo é cadastrado
+Data do Fechamento: Quando sai da fase Negociação e vai para uma fase ativa (ex.: Judicial)
+Arquivamento: Quando você move para a fase Arquivamento
+Importante:
+ Mesmo preenchendo automaticamente, é obrigatório revisar e corrigir se necessário.
+3
+Por que preencher?
+Garante que os gráficos e relatórios estejam corretos, principalmente no Menu Gestão BI (Plano Elite)
+Impacta diretamente nas métricas do Menu de Gestão B.I(Elite), e Fechamentos no mês (disponível nos planos Banca Jurídica, Banca Max)
+Sem essas datas, seus relatórios ficam com dados distorcidos ou vazios
+Dica:
+ Se quer ter uma gestão de verdade e relatórios 100% confiáveis, mantenha a Linha do Tempo sempre atualizada!
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

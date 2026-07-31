@@ -1,0 +1,52 @@
+Origem de pessoas: o que é, como utilizar na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 15/09/2025 17:51
+ Navegação Interna
+Neste artigo, você vai aprender o que é a Origem da Pessoa na ADVBOX, como ela ajuda a identificar os canais de captação de clientes e como criar novas origens para melhorar sua gestão comercial.
+O que é e para que serve a Origem da pessoa
+A 
+Origem da Pessoa
+ indica o canal, meio ou contato responsável por trazer novos clientes ao seu escritório. Com essa configuração na ADVBOX, você identifica de onde vêm seus clientes, avalia o desempenho dos canais de captação e aprimora a gestão comercial. É possível cadastrar diferentes origens, como redes sociais, sites, parceiros, clientes antigos ou empresas indicadoras. Essa informação também alimenta os gráficos de captação e contribui para o controle da sua carteira de clientes.
+Como criar uma nova Origem de Pessoas
+1
+Acessar Configurações
+Acesse o menu 
+Configurações
+.
+2
+Navegar para Origem de Pessoas
+No submenu 
+Origem de Pessoas
+, clique no botão 
+Adicionar nova origem
+.
+3
+Criar Nova Origem
+Preencha o nome da origem e clique em 
+Salvar
+.
+Dica:
+ Configure origens específicas para cada canal de captação (redes sociais, site, indicações, parcerias, etc.) para ter uma visão clara de quais estratégias estão trazendo mais clientes ao seu escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Metas: Significado, como utilizar e configurar
+ Próximo ›
+ Parceiros : o que é, como funciona e onde configurar
+ Navegação Interna

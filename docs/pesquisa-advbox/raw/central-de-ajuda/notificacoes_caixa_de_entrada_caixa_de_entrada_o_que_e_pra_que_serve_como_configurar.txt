@@ -1,0 +1,95 @@
+Caixa de entrada: o que é, pra que serve ,como configurar
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 28/08/2025 13:12
+ Navegação Interna
+Neste artigo, você vai aprender como configurar a Caixa de Entrada na ADVBOX para organizar automaticamente suas tarefas e melhorar a produtividade do seu dia a dia.
+Caixa de entrada
+A 
+Caixa de Entrada
+ na ADVBOX é uma ferramenta que organiza automaticamente as tarefas atribuídas ao usuário no 
+Meu Painel
+, ajudando na priorização do dia a dia. Ela funciona como um filtro inteligente, separando as tarefas em categorias pré-definidas para facilitar o controle das pendências.
+Categorias padrão da Caixa de Entrada:
+Intimações
+Importantes
+Prazo Fatal
+Não Lidas
+Urgentes
+Todas as Demais
+Como funciona:
+A organização das tarefas pode ser feita com agrupamento (em blocos por categoria) ou sem agrupamento (lista única)
+Cada usuário configura a própria Caixa de Entrada, incluindo a ordem das categorias no Meu Painel
+Essa configuração 
+é individual e não altera o conteúdo das tarefas
+, apenas a forma de visualização
+Importante:
+As categorias são padrão do sistema e não podem ser editadas
+A Caixa de Entrada está disponível apenas em planos com visualização por lista ou visão geral
+Usuários do plano CRM organizam tarefas apenas no modo quadro (Kanban)
+Organizar a Caixa de Entrada corretamente ajuda a visualizar rapidamente o que é mais crítico, aumentando a produtividade e melhorando o acompanhamento das demandas.
+Como configurar a Caixa de Entrada
+1
+Acessar Configurações
+Acesse o Menu 
+Configurações
+ na ADVBOX.
+2
+Navegar para Caixa de Entrada
+Clique no submenu 
+Caixa de Entrada
+.
+3
+Configurar Seções
+Na tela de configuração, localize a opção 
+Seções da Caixa de Entrada
+ e utilize a 
+chave de ativação
+ ao lado para:
+Ativar (visualização agrupada por categorias)
+Desativar (visualização contínua, sem agrupamento)
+4
+Visualizar Categorias
+Abaixo, veja a lista das categorias padrão:
+Intimações
+Importantes
+Prazo Fatal
+Não Lidas
+Urgentes
+Todas as Demais
+5
+Definir Ordem das Categorias
+Use os botões 
+Mover para cima
+ ou 
+Mover para baixo
+ ao lado de cada categoria para definir a ordem de exibição no Meu Painel conforme sua prioridade.
+6
+Salvar Alterações
+Ao finalizar os ajustes, clique no botão azul 
+Salvar alterações
+, no final da tela, para aplicar as configurações.
+Dica:
+ Configure a ordem das categorias de acordo com sua rotina de trabalho, colocando as mais críticas (como Prazo Fatal e Intimações) no topo para facilitar a visualização e priorização das tarefas mais importantes.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Notificações: veja como esse recurso facilita a rotina do escritório
+ Navegação Interna

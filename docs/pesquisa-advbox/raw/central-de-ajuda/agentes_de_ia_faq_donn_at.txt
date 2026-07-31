@@ -1,0 +1,51 @@
+FAQ - Donn@
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 16/09/2025 18:05
+ Navegação Interna
+Neste artigo, você vai esclarecer as principais dúvidas sobre a Donna, assistente de IA integrada à ADVBOX, e descobrir como ela pode transformar a gestão e análise de dados do seu escritório jurídico.
+Donna ADVBOX
+Qual a diferença entre a Donna e outras assistentes de IA genéricas?
+A Donna não é uma IA genérica: ela foi desenvolvida especificamente para o ambiente jurídico e integrada diretamente ao sistema ADVBOX. Enquanto outras IAs precisam receber informações manualmente, a Donna já tem acesso aos dados do escritório (clientes, processos, finanças, tarefas) e entrega análises prontas, sem exigir configurações extras.
+A Donna consegue analisar dados em tempo real, diferente de outras IAs?
+Sim.
+A grande vantagem da Donna é que ela consulta as informações já registradas no sistema ADVBOX em tempo real. Isso significa que ao perguntar sobre produtividade, clientes inadimplentes ou tarefas pendentes, o resultado é imediato e baseado na rotina atualizada do escritório.
+Em termos de segurança, qual é o diferencial da Donna?
+Enquanto IAs comuns dependem de servidores externos e não foram criadas com foco em dados jurídicos, a Donna segue critérios de segurança alinhados à LGPD, dentro da estrutura da ADVBOX. Assim, dados sensíveis dos clientes não são expostos em plataformas externas.
+A Donna substitui consultas em relatórios?
+Sim e não. Ela não elimina os relatórios tradicionais da ADVBOX, mas transforma a experiência: em vez de configurar filtros ou cruzar informações, basta perguntar e a Donna gera a análise pronta, economizando tempo e reduzindo margem de erro.
+Outras IAs podem executar ações dentro do sistema?
+Não.
+Essa é uma exclusividade da Donna. 
+Além de responder perguntas, ela pode cadastrar clientes, criar tarefas, registrar processos e interagir diretamente com os dados da ADVBOX.
+É possível personalizar a forma como a Donna apresenta as informações?
+Sim.
+A Donna consegue mostrar resultados em listas, tabelas ou resumos objetivos, de acordo com a necessidade do usuário. Isso permite que cada advogado ou gestor acompanhe os dados no formato mais prático para sua rotina.
+A Donna precisa de treinamento para começar a funcionar?
+Não.
+Ela já vem preparada para interpretar os dados registrados na ADVBOX. 
+Quanto mais completa for a inserção de informações no sistema (tarefas, finanças, processos), mais ricos e estratégicos serão os insights gerados.
+Dica:
+ A Donna representa a evolução natural da gestão jurídica, transformando dados em insights estratégicos de forma instantânea e segura.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ FAQ - Agentes Jurídicos ADVBOX
+ Próximo ›
+ Justin-e
+ Navegação Interna

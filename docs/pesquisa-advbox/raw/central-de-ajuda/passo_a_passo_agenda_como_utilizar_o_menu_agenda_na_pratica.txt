@@ -1,0 +1,164 @@
+Como utilizar o Menu Agenda na Prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 09/07/2025 14:48
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar o Menu Agenda da ADVBOX para visualizar, organizar e sincronizar suas tarefas com diferentes plataformas de calendário.
+Como utilizar o Menu Agenda
+1
+Acesse o menu Agenda
+Acesse o menu "Agenda" na barra lateral esquerda.
+2
+Escolha a visualização
+Escolha como deseja visualizar: por dia, semana ou mês.
+3
+Visualize as tarefas
+As tarefas aparecem automaticamente, desde que tenham sido marcadas com a opção "Mostrar na agenda" no momento do cadastro.
+Como usar o Quadro no Menu Agenda
+1
+Acesse o Menu Agenda
+Clique no ícone correspondente na lateral esquerda do sistema ADVBOX.
+2
+Visualize o quadro principal
+O centro da tela exibirá o quadro com os agendamentos.
+3
+Configure a visualização
+Escolha como deseja visualizar: dia, semana ou mês (essa configuração pode ser alterada no topo do quadro).
+4
+Navegue entre os períodos
+Use as setas acima do quadro para mudar o período (dia anterior ou seguinte, semana anterior ou próxima, mês anterior ou seguinte).
+5
+Entenda as informações do agendamento
+Cada tarefa exibida no quadro mostra: nome da tarefa, horário (se informado no cadastro), partes envolvidas, ícone com foto do responsável pela tarefa.
+6
+Interaja com o quadro
+Clicar em uma tarefa marcada abre o formulário completo da tarefa para visualizar ou editar os detalhes. Clicar em um campo vazio abre o formulário de nova tarefa com a data já preenchida conforme o dia selecionado.
+Como sincronizar com o Google Agenda
+1
+Acesse as configurações na ADVBOX
+Acesse o Menu Configurações na ADVBOX.
+2
+Localize a seção Agenda
+Clique no submenu Integrações e localize a seção Agenda.
+3
+Ative a URL
+Ative a chave de exibição da URL (se estiver desativada, ela aparecerá em cinza).
+4
+Obtenha a URL
+Clique no botão Ver URL para visualizar a URL pública de sincronização.
+5
+Copie a URL
+Copie a URL exibida.
+6
+Acesse o Google Agenda
+Acesse o Google Agenda no navegador e vá até a seção Outras agendas (lateral esquerda da tela).
+7
+Adicione a agenda
+Clique no ícone de + e selecione a opção Do URL.
+8
+Cole a URL
+Cole a URL copiada da ADVBOX no campo indicado.
+9
+Finalize a integração
+Clique em Adicionar agenda para concluir.
+A nova agenda será exibida na lateral esquerda do Google Agenda, vinculada à conta do usuário.
+Importante:
+ O Google pode demorar para exibir novas tarefas devido à sua política de atualização, mas a ADVBOX envia os dados imediatamente após o registro ou alteração da tarefa.
+Como sincronizar com o Outlook
+1
+Acesse as configurações na ADVBOX
+Acesse o Menu Configurações na ADVBOX.
+2
+Localize a seção Agenda
+Clique no submenu Integrações e localize a seção Agenda.
+3
+Ative a URL
+Ative a chave de exibição da URL (se estiver desativada, ela aparecerá em cinza).
+4
+Obtenha e copie a URL
+Clique em Ver URL para visualizar e copiar a URL pública de sincronização.
+5
+Acesse o Outlook Web
+Acesse o Outlook Web e, na lateral esquerda, clique em Adicionar Calendário.
+6
+Selecione Assinar da Web
+No menu exibido, selecione Assinar da Web.
+7
+Cole a URL
+Cole a URL copiada da ADVBOX no campo indicado.
+8
+Nomeie e importe
+Dê um nome para o calendário e clique em Importar.
+9
+Visualize a agenda sincronizada
+O Outlook mostrará automaticamente a agenda sincronizada na visualização principal, exibindo as tarefas da ADVBOX marcadas com Mostrar na Agenda.
+Importante:
+ A atualização da agenda no Outlook depende da frequência definida pelo próprio Outlook. A integração é apenas de leitura: alterações feitas no Outlook não impactam na ADVBOX.
+Como sincronizar com o Apple Calendar
+No Mac
+1
+Acesse as configurações na ADVBOX
+Acesse o Menu Configurações na ADVBOX.
+2
+Localize a seção Agenda
+No submenu Integrações, localize a seção Agenda.
+3
+Ative a URL
+Ative a chave de exibição da URL (se estiver desativada, estará em cinza).
+4
+Obtenha e copie a URL
+Clique em Ver URL e copie o link exibido.
+No iPhone
+1
+Acesse as configurações na ADVBOX
+Acesse o 
+Menu Configurações > Integrações > Agenda
+ na ADVBOX, ative a chave e copie a URL.
+2
+Abra o Safari no iPhone
+No iPhone, abra o 
+Safari
+ e cole a URL na barra de endereços.
+3
+Confirme o acesso
+Toque em 
+Ir
+. O sistema reconhecerá o link e exibirá o convite para abrir a agenda.
+4
+Finalize a integração
+Toque em 
+Abrir
+ e confirme a inclusão no 
+Calendário do iOS
+.
+A agenda mostrará as tarefas da ADVBOX marcadas com 
+Mostrar na Agenda
+.
+Importante:
+ A integração é 
+apenas de leitura
+. Alterações no Apple Calendar não impactam a ADVBOX.
+Dica:
+ A sincronização com diferentes calendários permite que você visualize suas tarefas da ADVBOX em qualquer dispositivo, mantendo sua agenda sempre atualizada e acessível.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

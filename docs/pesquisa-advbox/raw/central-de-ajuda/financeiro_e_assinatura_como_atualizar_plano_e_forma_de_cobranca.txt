@@ -1,0 +1,124 @@
+Como Atualizar Plano e forma de cobrança
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 14/01/2026 14:28
+ Navegação Interna
+Neste artigo, você vai aprender como gerenciar sua assinatura, alterar formas de pagamento, solicitar segunda via de boleto e consultar ou alterar seu plano na ADVBOX.
+Plano e pagamento 
+Na área 
+plano e pagamento
+ da ADVBOX, você encontra as informações sobre:
+Modalidade de cobrança ativa
+ (ex.: boleto ou cartão de crédito — neste caso, serão exibidos os 4 últimos dígitos do cartão)
+Data de vencimento da assinatura
+Valor da mensalidade
+Dica:
+ Se optar por pagamento via cartão, use cartões físicos. Cartões virtuais ou temporários podem gerar falhas na cobrança.
+Compensação dos pagamentos:
+Boleto:
+ compensação no próximo dia útil após o pagamento
+Cartão:
+ compensação conforme a data de vencimento da mensalidade
+Como atualizar ou alterar forma de pagamento
+1
+Acessar Conta e assinatura
+Acesse o menu 
+Conta e assinatura
+ > 
+Plano e pagamento
+.
+2
+Iniciar Alteração
+Clique na opção 
+Alterar forma de pagamento
+ (em azul, no canto direito da tela).
+3
+Selecionar Nova Forma
+Escolha a nova forma de pagamento (boleto ou cartão de crédito) e preencha os dados solicitados.
+4
+Finalizar Alteração
+Clique no botão azul 
+Atualizar forma de pagamento
+ para concluir.
+Como alterar os dados do Cartão de Crédito
+1
+Acessar Conta e assinatura
+Acesse o menu 
+Conta e assinatura
+ > 
+Plano e pagamento.
+2
+Iniciar Atualização
+Clique em 
+Atualizar forma de pagamento
+.
+3
+Atualizar Dados
+Atualize os dados do seu Cartão.
+Importante:
+ Por questões de segurança, após 24 horas o cartão precisa ser Atualizado. Isso fará com que o sistema "revalide" as informações e permita uma nova tentativa de cobrança com sucesso.
+Como solicitar Segunda via de boleto da sua mensalidade
+Sempre que necessário uma segunda via do boleto da sua mensalidade, você pode gerar uma nova guia, seguindo os passos a seguir.
+1
+Acessar Conta e assinatura
+2
+Navegar para Plano e pagamento
+Clique na aba 
+Conta e Pagamento
+.
+3
+Abrir Alterar forma de pagamento
+4
+Gerar Segunda Via
+Clique no botão 
+Gerar Segunda via
+.
+Como consultar seu Plano atual, ou alterá-lo
+1
+Acessar Conta e assinatura
+2
+Navegar para Plano e pagamento
+3
+Verificar Plano Atual
+Na categoria Plano e pagamento, vá até o 
+final da página
+ e verifique o plano atual do escritório.
+4
+Iniciar Alteração do Plano
+Ao lado do plano, clique em 
+Alterar meu plano
+.
+5
+Selecionar Novo Plano
+Na tela exibida, selecione o novo plano desejado clicando na 
+bolinha ao lado do nome do plano
+.
+6
+Finalizar Alteração
+Clique em 
+Continuar
+.
+Dica:
+ O gerenciamento adequado da sua assinatura e formas de pagamento é fundamental para garantir a continuidade dos serviços da ADVBOX sem interrupções.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Cancelamento : Como solicitar 
+ Próximo ›
+ Reativação de Assinatura: Tudo que você precisa saber
+ Navegação Interna

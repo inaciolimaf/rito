@@ -1,0 +1,57 @@
+O que você precisa saber
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 05/08/2025 16:47
+ Navegação Interna
+Informações Importantes:
+ O Menu Gestão B.I. (Business Intelligence) da ADVBOX é uma ferramenta que transforma os dados do dia a dia em indicadores estratégicos. Ele permite acompanhar a produtividade, prospecção, tempo médio dos processos, honorários, custos e qualidade do escritório. Com dashboards e relatórios, o gestor toma decisões baseadas em dados reais, analisando desempenho jurídico, financeiro e operacional de forma prática e visual.
+No plano 
+Elite
+, o menu aparece como "Gestão Business Intelligence" e oferece acesso completo a todas as abas e funcionalidades.
+No plano 
+CRM
+, o menu é exibido como "Gestão B.I.", com acesso restrito às abas de Produtividade e Estoque e Prospecção.
+Nos planos 
+Banca Jurídica e Banca Max
+, o menu é exibido como "Gestão", limitando-se exclusivamente à aba de Produtividade.
+As informações exibidas de forma visual no menu Gestão BI são atualizadas a cada 8 horas.
+Apenas usuários com perfil configurado como administrador ou gestor visualizam o menu Gestão BI. Usuários com perfil colaborador não visualizam o menu, independentemente do plano contratado.
+O nome exibido no menu e a quantidade de abas disponíveis variam de acordo com o plano contratado e o perfil do usuário.
+Abas disponíveis por plano:
+ A quantidade de abas exibidas no menu Gestão BI depende do plano contratado:
+Plano Elite:
+ acesso completo a todas as abas:
+Produtividade
+Estoque e Prospecção
+Tempo e Honorários
+Custos
+Safra e Qualidade
+Plano CRM:
+ acesso parcial, limitado às abas:
+Produtividade
+Estoque e Prospecção
+Planos Banca Jurídica e Banca Max:
+ acesso exclusivamente à aba:
+Produtividade
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

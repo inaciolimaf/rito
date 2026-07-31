@@ -1,0 +1,112 @@
+Principais dúvidas sobre Certificado A1
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 19/06/2026 12:42
+ Navegação Interna
+Este artigo reúne as dúvidas mais comuns sobre o certificado digital A1.
+Dica:
+ Caso ainda não possua um certificado A1, você pode adquiri-lo com qualquer autoridade certificadora de sua preferência.
+Já possuo um certificado A1. Como encontrar o arquivo?
+O arquivo do certificado normalmente é enviado pela certificadora para o seu e-mail no momento da contratação. Se já estiver salvo no seu computador, é possível localizá-lo facilmente:
+No Windows
+1
+Abra a barra de pesquisa
+Abra a barra de pesquisa (no menu Iniciar ou na barra de tarefas).
+2
+Digite a extensão do arquivo
+Digite 
+.pfx
+ ou 
+.p12
+ e pressione 
+Enter
+.
+3
+Localize seu certificado
+O sistema exibirá todos os arquivos com essa extensão — basta identificar o seu certificado.
+No MacOS
+1
+Abra o Spotlight
+Pressione 
+Command + Espaço
+ para abrir o Spotlight.
+2
+Busque pela extensão
+Digite 
+.pfx
+ e verifique os resultados.
+3
+Acesse a pasta
+Clique em 
+Buscar no Finder
+ para localizar a pasta onde o certificado está armazenado.
+Importante:
+ O certificado A1 aceito pela ADVBOX deve ser instalado primeiro em um computador Windows. Depois, se desejar usá-lo no MacOS, faça a exportação (backup) a partir do Windows.
+Por que a ADVBOX aceita apenas o certificado A1 de Pessoa Física ?
+O A1
+ é um arquivo digital seguro, que permite automação contínua das consultas em tribunais com autenticação em dois fatores (2FA). Ele pode ser instalado no ambiente seguro da ADVBOX, permitindo que as consultas ocorram sem a necessidade de intervenção manual.
+O A3
+, por outro lado:
+É físico (token ou cartão com leitora)
+Exige conexão manual e inserção de senha a cada acesso
+Essa dependência inviabiliza a automação diária
+Além disso, seguindo o padrão técnico do mercado, a infraestrutura de automação não é compatível com a leitura automática de certificados A3.
+Por que não é aceito o certificado A1 de Pessoa Jurídica?
+Isso ocorre por uma limitação técnica dos tribunais:
+Sistemas como o ESAJ não vinculam contas ao 
+CNPJ
+, apenas ao 
+CPF
+ do advogado
+Por esse motivo, o certificado de pessoa jurídica não possibilita as consultas automatizadas em tribunais como TJSP, TJMS e TJAL
+Como funciona a captura de andamentos usando o certificado?
+1
+Autenticação automática
+O sistema usa o certificado para autenticar no tribunal como se fosse você.
+2
+Consultas automatizadas
+As consultas são feitas várias vezes ao dia, automaticamente.
+3
+Sem intervenção manual
+Você não precisa liberar o acesso manualmente, desde que o certificado esteja cadastrado corretamente.
+Quantos certificados posso cadastrar?
+A ADVBOX permite cadastrar 
+mais de um certificado digital
+.
+Possíveis motivos para erro no cadastro do certificado
+O certificado 
+não é do tipo A1
+ (único aceito)
+O arquivo 
+não está no formato .pfx ou .p12
+Dados incorretos: nome/identificador, senha, UF ou número da OAB
+Arquivo corrompido — necessário contatar a certificadora
+Certificado expirado — o A1 costuma ter validade de 
+1 ano
+Se nenhuma das opções acima resolver, entre em contato com o Suporte ADVBOX. 
+Preciso de suporte 
+ .
+Dica Final:
+ Mantenha o certificado válido e atualizado para evitar interrupções nas consultas automáticas.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Certificado Digital A1
+ Próximo ›
+ Nenhum
+ Navegação Interna

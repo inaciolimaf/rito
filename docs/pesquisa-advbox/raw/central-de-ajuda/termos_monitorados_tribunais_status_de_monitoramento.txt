@@ -1,0 +1,134 @@
+Status de Monitoramento 
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 16/10/2025 12:12
+ Navegação Interna
+Neste artigo, você vai aprender o significado de cada status do monitoramento de processos na ADVBOX e como resolver os erros mais comuns que podem aparecer durante a conexão com os tribunais.
+Significado dos Status
+Durante a integração e atualização de dados, o sistema exibe diferentes status. Cada um deles indica uma etapa do funcionamento do monitoramento.
+Status de Monitoramento e Intimações
+Antes de acompanhar os status exibidos durante o monitoramento, siga as orientações abaixo para garantir o bom funcionamento da integração com os tribunais.
+Dicas importantes antes de começar
+Verifique o tipo de acesso ao tribunal:
+ Se o acesso for via login e senha, utilize somente números no campo de login, sem pontos, traços ou espaços. Exemplo: se o CPF for 
+123.456.789-00
+, digite apenas 
+12345678900
+. O uso de caracteres especiais 
+%$&
+pode gerar os erros "senha inválida" ou "login inválido".
+Certificado digital:
+ Garanta que o certificado digital esteja válido e atualizado. Certificados expirados causam falhas no monitoramento.
+Tempo de sincronização:
+ Caso o status demore para atualizar, aguarde alguns minutos. O sistema realiza verificações automáticas e contínuas.
+Tribunal compatível:
+ Confirme se o tribunal em que o advogado atua está entre os integrados à ADVBOX.
+Falhas recorrentes:
+ Se o erro persistir, revise o login, senha, QR code e a validade do certificado digital antes de abrir um chamado.
+Monitorando ✅
+Esse status significa que o sistema está buscando novas informações no tribunal, como andamentos, publicações ou intimações. É um comportamento normal e temporário. Assim que a busca termina, o status muda para Monitoramento Ativo se tudo estiver correto.
+Sincronizando
+ 🔄
+Indica que a ADVBOX está atualizando e alinhando os dados já existentes com o tribunal. Essa etapa garante que todas as informações estejam completas e atualizadas. O tempo de sincronização pode variar conforme o número de processos e o tempo de resposta do tribunal.
+Monitoramento Ativo
+Esse é o status ideal. Significa que o monitoramento está funcionando normalmente, com o sistema conectado ao tribunal e recebendo atualizações automáticas.
+Falha
+ ❌
+O status "Falha" indica que houve algum erro na conexão com o tribunal. Quando isso acontece, é importante verificar se as informações de autenticação estão corretas e se o certificado digital ainda é válido. Na maioria dos casos, o motivo da falha é mostrado na própria mensagem exibida abaixo do status.
+Mensagens de Erro Comuns
+Além do status "Falha", o sistema pode mostrar mensagens que indicam o tipo de problema encontrado. Abaixo estão os erros mais frequentes e suas soluções.
+QRCode inválido
+1
+Problema identificado
+Ocorre quando o QRCode usado para autenticação está incorreto ou expirou.
+2
+Solução
+Gere um novo QRCode diretamente no sistema do tribunal e refaça a autenticação na ADVBOX.
+Senha inválida
+1
+Problema identificado
+Indica que a senha informada está incorreta.
+2
+Solução
+Verifique se está usando a mesma senha cadastrada no tribunal e tente novamente.
+Envie um certificado digital válido
+1
+Problema identificado
+Essa mensagem aparece quando o certificado digital está expirado ou inválido.
+2
+Solução
+É necessário renovar o certificado e fazer novo upload na ADVBOX. Certificados vencidos impedem o recebimento de intimações e o monitoramento de processos.
+A senha do certificado é inválida
+1
+Problema identificado
+Esse erro aparece em certificados antigos ou com senha incorreta.
+2
+Solução
+A ADVBOX valida a senha no momento do envio do certificado, então é importante enviar o arquivo correto com a senha atualizada. Se a senha estiver errada, o sistema não concluirá o upload.
+Falha ao validar certificado digital
+1
+Problema identificado
+Significa que o sistema não conseguiu confirmar a autenticidade do certificado. As causas mais comuns são:
+Certificado expirado
+Senha incorreta
+Arquivo incompatível
+2
+Solução
+Gere novamente o certificado, confirme a senha e envie novamente o arquivo.
+Resumo Rápido
+Status / Erro
+Significado
+O que fazer
+Monitorando
+ ✅
+O sistema está buscando novas informações.
+Nenhuma ação necessária.
+Sincronizando
+🔄
+Atualizando e buscando dados com o tribunal.
+Aguardar o processo.
+Monitoramento Ativo 
+Tudo funcionando normalmente.
+Nenhuma ação necessária.
+Falha ❌
+Ocorreu um erro.
+Verifique a mensagem exibida.
+QRCode inválido
+Código incorreto ou expirado.
+Gere um novo no tribunal.
+Senha inválida
+Senha incorreta.
+Verifique e tente novamente.
+Certificado digital inválido
+Certificado expirado.
+Renove e reenvie.
+Senha do certificado inválida
+Senha incorreta ou antiga.
+Atualize e envie novamente.
+Falha ao validar certificado
+Erro na validação do arquivo.
+Verifique e reenvie o certificado.
+Dica:
+ Mantenha o certificado digital atualizado e sempre utilize os dados mais recentes do tribunal. Isso garante que o monitoramento continue funcionando corretamente e que todas as intimações sejam entregues sem interrupções.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Tudo sobre DJEN
+ Próximo ›
+ Cadastrar QR CODE do PJE
+ Navegação Interna

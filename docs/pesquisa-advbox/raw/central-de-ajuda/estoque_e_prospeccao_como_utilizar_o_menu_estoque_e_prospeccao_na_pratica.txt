@@ -1,0 +1,77 @@
+Como utilizar o Menu Estoque e Prospecção na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 09/10/2025 16:39
+ Navegação Interna
+Neste artigo, você vai aprender como gerar relatórios de processos parados e processos com inconsistências através do menu de Gestão B.I.
+Como gerar relatório de processos parados
+1
+Acesse o menu de Gestão B.I
+Acesse o menu de 
+Gestão B.I > Estoque e Prospecção
+.
+2
+Configure os filtros
+Selecione 
+FILTRAR > LIMPAR FILTROS
+.
+3
+Selecione processos parados
+Selecione a opção 
+Processos parados
+ ao lado de Filtrar.
+4
+Aplique os filtros
+Clique em 
+aplicar filtros
+ (botão azul).
+5
+Exporte o relatório (opcional)
+Dessa forma o sistema já irá trazer a listagem. Caso deseje exportar, selecione 
+Excel ou PDF
+ de acordo com sua permissão de usuário.
+Como gerar relatório de processos com inconsistências
+1
+Acesse o menu de Gestão B.I
+Acesse o menu de 
+Gestão B.I > Estoque e Prospecção
+.
+2
+Selecione processos com inconsistências
+Selecione a opção 
+Processos com inconsistências
+ ao lado de Filtrar.
+3
+Aplique os filtros
+Clique em 
+aplicar filtros
+ (botão azul).
+4
+Exporte o relatório (opcional)
+Dessa forma o sistema já irá trazer a listagem. Caso deseje exportar, selecione 
+Excel ou PDF
+ de acordo com sua permissão de usuário.
+Dica:
+ Os relatórios de processos parados e com inconsistências são ferramentas importantes para manter a gestão eficiente do seu escritório jurídico.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Entenda Melhor
+ Próximo ›
+ Nenhum
+ Navegação Interna

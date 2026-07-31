@@ -1,0 +1,75 @@
+Menu Atividades - Plano Essencial
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 06/03/2026 19:07
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar o menu Atividades no Plano Essencial da ADVBOX, entender o que é possível visualizar, como usar os filtros disponíveis e quando esse menu pode ser mais útil no dia a dia do escritório.
+Como utilizar o menu Atividades no Plano Essencial
+O menu Atividades no Plano Essencial da ADVBOX permite acompanhar todas as atividades registradas no sistema, como tarefas, movimentações e intimações relacionadas aos processos. Esse menu funciona como um painel geral de acompanhamento do trabalho do escritório, permitindo visualizar o que já foi realizado e o que ainda está pendente.
+Importante:
+ Todos os colaboradores conseguem visualizar as atividades registradas no sistema, incluindo tarefas criadas por outros usuários.
+Onde encontrar o menu Atividades
+1
+Entre no sistema ADVBOX
+2
+Acesse o menu Atividades
+No menu lateral, clique em 
+Atividades
+.
+3
+Visualize a lista de atividades
+A tela exibirá a lista de atividades registradas no sistema. Nesse espaço é possível consultar diversas informações relacionadas às tarefas dos processos.
+O que é possível visualizar no menu Atividades
+No menu Atividades, os usuários conseguem visualizar:
+Tarefas em geral
+Intimações
+Informações sobre andamento das atividades
+A visualização inclui atividades pendentes e concluídas, permitindo acompanhar o histórico completo do trabalho realizado.
+Visualização das atividades de toda a equipe
+No Plano Essencial, o menu Atividades permite uma visão geral das atividades do escritório. Isso significa que:
+Todos os colaboradores podem visualizar as atividades registradas no sistema.
+É possível ver tarefas criadas por outros usuários.
+Também é possível consultar tarefas pendentes e tarefas já concluídas.
+Essa funcionalidade facilita a organização do trabalho em equipe, pois todos conseguem acompanhar o andamento das atividades e identificar o que já foi realizado.
+Utilizando os filtros do menu Atividades
+Para facilitar a busca por informações específicas, o sistema disponibiliza filtros dentro do menu Atividades. Com os filtros, é possível localizar tarefas por:
+Data do compromisso
+Prazo Fatal
+Data de Conclusão
+Data de Criação
+Período
+Tarefas específicas
+Fase do processo
+Grupo de ação
+Tipos de ação
+Quando utilizar o menu Atividades
+O menu Atividades pode ser utilizado para:
+Consultar tarefas realizadas no sistema.
+Verificar tarefas que ainda estão pendentes.
+Acompanhar tarefas concluídas.
+Monitorar a produtividade do escritório.
+Visualizar intimações.
+Dica:
+ Utilize o menu Atividades sempre que precisar consultar ou acompanhar o histórico de atividades do sistema. Como todos os colaboradores têm acesso a essa visualização, ele se torna uma ferramenta importante para acompanhar o fluxo de trabalho e manter a equipe alinhada.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Intimações - Plano Essencial
+ Próximo ›
+ Nenhum
+ Navegação Interna

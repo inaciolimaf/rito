@@ -1,0 +1,47 @@
+Dicas práticas para usar o menu CRM 
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 30/09/2025 18:25
+ Navegação Interna
+Como movimentar os Cards
+1
+Movimentar entre etapas
+Clique e arraste o card lateralmente dentro da mesma fase (colunas da esquerda para a direita ou vice-versa).
+2
+Movimentar entre fases
+Clique e arraste o card para a parte inferior da tela, solte sobre a fase desejada e confirme a movimentação.
+Dica:
+ Ao movimentar, você pode notificar automaticamente o cliente por e-mail e SMS.
+Formas de enviar notificação ao cliente no CRM da ADVBOX (SMS e E-mail)
+1
+Movimentação no Kanban (arrastando o card)
+No Menu CRM, localize o card do processo, clique, segure e arraste o card para a nova fase ou etapa
+Ao soltar o card no destino, o sistema exibirá uma janela de confirmação
+Na janela, selecione a opção de enviar notificação automática e confirme a movimentação
+2
+Movimentação dentro do formulário do processo
+Clique no card do processo no Kanban para abrir a ficha completa. Vá até o atalho Pasta (informações do processo)
+Altere o campo de fase e/ou etapa para o novo status, e clique em Salvar dados
+O sistema mostrará a opção de enviar notificação ao cliente - confirme o envio
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Relatórios CRM
+ Navegação Interna

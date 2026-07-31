@@ -1,0 +1,81 @@
+Instruções Práticas Meu Painel
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 11/11/2025 12:56
+ Navegação Interna
+Neste artigo, você irá entender como utilizar os atalhos do menu Meu Painel para tornar o uso da plataforma mais prático e eficiente.
+Como visualizar histórico completo de forma rápida
+1
+Acesse o histórico completo
+No final do formulário da tarefa, clique em 
+Mostrar histórico completo
+ e confira a lista detalhada das tarefas do processo.
+2
+Use os atalhos de 3 pontos
+Ao lado de cada tarefa, clique no atalho de 3 pontos para acessar as opções:
+Visualizar completa
+Editar
+Excluir
+Como consultar informações rápidas do processo
+1
+Acesse o formulário do processo
+Na lateral direita da tela da tarefa, clique no 
+número do processo
+ para abrir o formulário completo do processo.
+2
+Consulte as informações principais
+Visualize rapidamente: Pasta/Caso, Partes envolvidas, Grupo de Ação, Tipo de Ação, Responsável pelo processo.
+Como usar os atalhos na listagem de Tarefas na ADVBOX
+Configurar visualização da listagem
+1
+Acesse sua listagem de tarefas
+Localize a listagem de tarefas abaixo da barra de compromissos.
+2
+Defina o número de tarefas por página
+No canto direito, escolha o número de tarefas por página: 50, 100, 200 ou 500.
+Usar atalhos rápidos na frente do nome da Tarefa
+Na linha da tarefa, utilize os ícones para ações rápidas:
+1
+Concluir tarefa
+Clique no 
+quadrado em branco
+ para concluir a tarefa.
+2
+Marcar como importante
+Clique na 
+estrela
+ para marcar como importante (ela ficará amarela).
+3
+Marcar como urgente
+Clique no 
+ponto de exclamação
+ para marcar como urgente (ficará vermelho).
+4
+Alternar status de leitura
+Clique no 
+círculo
+ para alternar entre lido (sem cor) e não lido (verde).
+Dica:
+ Use esses atalhos para gerenciar suas tarefas de forma mais eficiente, priorizando e organizando seu fluxo de trabalho diretamente na listagem principal.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Como utilizar o Menu Meu Painel na prática
+ Navegação Interna

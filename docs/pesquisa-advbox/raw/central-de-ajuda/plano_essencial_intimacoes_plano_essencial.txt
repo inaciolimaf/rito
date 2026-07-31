@@ -1,0 +1,69 @@
+Intimações - Plano Essencial
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 06/03/2026 13:26
+ Navegação Interna
+Neste artigo, você vai aprender como visualizar e receber intimações no plano Essencial da ADVBOX, entender quem é responsável pelo tratamento e como funciona o fluxo completo de controle de intimações.
+Como visualizar e receber intimações no plano Essencial
+No plano Essencial da ADVBOX, todos os usuários conseguem visualizar as intimações através do menu Atividades. O controle e tratamento dessas intimações acontece por meio das tarefas enviadas ao responsável configurado no grupo de ação.
+1. Onde visualizar as intimações
+1
+Acesse o menu Atividades
+2
+Utilize o filtro "Intimações"
+3
+Visualize as intimações disponíveis
+Serão exibidas todas as intimações disponíveis no sistema. Esse filtro permite acompanhar as intimações registradas e consultar as informações relacionadas ao processo.
+Importante:
+ Todos os usuários do sistema possuem acesso a essa visualização.
+2. Quem recebe a intimação para tratar
+Embora todos consigam visualizar as intimações no menu Atividades, quem recebe a tarefa para tratar a intimação é o usuário definido como responsável no grupo de ação.
+Esse usuário receberá a atividade diretamente no menu 
+Tarefas
+.
+3. Fluxo de tratamento da intimação
+1
+A intimação é entregue no sistema
+2
+O responsável recebe a tarefa
+O responsável configurado no grupo de ação recebe uma tarefa no menu 
+Tarefas
+.
+3
+Análise das informações
+Essa pessoa realiza o controle da intimação, analisando as informações recebidas.
+4
+Encaminhamento da tarefa
+Após a análise, ela encaminha a tarefa para o responsável pela execução.
+5
+Conclusão da intimação
+Após a ação necessária ser realizada, a tarefa (intimação) é finalizada com a conclusão da intimação.
+4. Boas práticas de controle de intimações
+Para garantir um fluxo organizado no escritório:
+Defina um responsável pelo controle de intimações no grupo de ação.
+Essa pessoa deve analisar todas as intimações recebidas antes de encaminhar.
+Após a execução da atividade necessária, a tarefa deve ser finalizada para registrar que a intimação foi tratada.
+Dica:
+ Manter um responsável fixo pelo controle das intimações garante que nenhuma intimação seja ignorada e que o fluxo de tratamento ocorra de forma eficiente e rastreável.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Menu tarefas - Plano Essencial
+ Próximo ›
+ Menu Atividades - Plano Essencial
+ Navegação Interna

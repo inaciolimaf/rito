@@ -1,0 +1,198 @@
+Entendendo o Menu Financeiro
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 23/07/2025 18:46
+ Navegação Interna
+O Menu Financeiro da ADVBOX centraliza e organiza receitas, despesas, transferências e cobranças do escritório. Integrado à área jurídica, facilita o controle do fluxo de caixa, o planejamento financeiro e a geração de relatórios para uma gestão mais eficiente.
+Importante:
+ O Menu Financeiro não está disponível para o plano CRM da ADVBOX. Além disso, a quantidade de funcionalidades exibidas pode variar conforme o plano contratado.
+Tipos de Acesso
+No ADVBOX, os acessos ao Menu Financeiro podem ser personalizados para cada usuário, garantindo segurança e controle sobre quem pode visualizar ou editar as informações financeiras do escritório. Essas permissões são configuradas no menu de 
+Configurações > Usuários
+, e permitem três níveis diferentes de acesso ao financeiro:
+1
+Sem Acesso
+O usuário não tem permissão para acessar o Menu Financeiro nem realizar qualquer ação dentro dele
+Na lista de usuários, esse acesso é identificado por uma 
+chave na cor cinza
+Apesar disso, ele ainda pode adicionar lançamentos pontuais (como nova receita ou despesa) através da barra superior do sistema
+2
+Somente Visualizador
+O usuário pode visualizar todos os lançamentos financeiros, mas não pode editá-los nem marcar como pagos ou recebidos
+Este acesso é indicado para colaboradores que precisam acompanhar o fluxo financeiro, mas não têm responsabilidade direta pela gestão
+Na lista de usuários, aparece com uma 
+chave na cor laranja
+3
+Acesso Completo
+O usuário tem liberdade total para visualizar, editar, incluir e excluir lançamentos financeiros, além de alterar status como "pago" ou "recebido"
+É o acesso recomendado para gestores e pessoas diretamente responsáveis pelo controle financeiro do escritório
+Na plataforma, esse nível é identificado por uma 
+chave na cor verde
+Atenção:
+ Essa configuração está disponível apenas para usuários com perfil de Gestor.
+Configurações disponíveis do Menu Financeiro
+1. Contas e cartões
+Este é o local onde você cadastra todas as contas bancárias do escritório para controle e conciliação, sem vínculo direto com o banco ou Receita Federal.
+Importante:
+ As informações não vinculam o sistema ao banco e nem com a receita federal, é uma forma para realizar o controle e conciliação bancária.
+1
+Plano Banca Jurídica
+Permite usar apenas uma conta (a conta principal). Se integrar com o Asaas, será exibida mais uma conta.
+2
+Planos Banca Max e Elite
+Não há limite de contas; todas as utilizadas no escritório devem ser cadastradas.
+Tipos de contas disponíveis:
+Conta Corrente, Poupança e Investimento
+Esses tipos compartilham os mesmos campos a serem preenchidos:
+Nome da conta (obrigatório)
+Banco (opcional)
+Agência e número da conta (opcional)
+Saldo inicial (recomendado)
+Cartão de Crédito
+Nome da conta (obrigatório)
+Banco (opcional)
+Fechamento da fatura (obrigatório)
+Vencimento da fatura (obrigatório)
+Essa conta serve somente para despesas, e o sistema irá controlar as faturas automaticamente.
+2. Categorias
+As categorias organizam os lançamentos de receitas e despesas no seu financeiro. Elas são essenciais para relatórios como DRE e para análise de desempenho do escritório.
+Grupos das categorias
+As categorias sempre são vinculadas a um dos 10 grupos pré-definidos pela ADVBOX. Eles são usados nos cálculos automáticos de relatórios como o DRE:
+Grupo
+Nome
+Observações
+0
+Deduções da receita bruta
+Não entra no DRE. Ex: repasses a parceiros.
+1
+Receita
+Entradas de valor. Definido automaticamente.
+2
+Folha de pagamento
+Custos com colaboradores (exceto encargos).
+3
+Encargos sociais
+Ex: FGTS, 13º salário.
+4
+Tributos
+Ex: INSS, IOF.
+5
+Despesas fixas
+Ex: aluguel, internet.
+6
+Despesas variáveis
+Custos que variam com faturamento.
+7
+Despesas bancárias
+Juros, tarifas bancárias.
+8
+Marketing e comercial
+Anúncios, serviços terceirizados.
+9
+Distribuição de lucros e participação
+Não entra no DRE. Ex: repasse a sócios.
+Categorias padrão
+As categorias padrão já vêm cadastradas no sistema. Não podem ser editadas ou excluídas.
+3. Centro de Custo
+Os Centros de Custos servem para classificar receitas e despesas por áreas ou departamentos.
+Disponível apenas nos planos Banca Max e Elite.
+Exemplos por área:
+Administrativo
+Trabalhista
+Previdenciário
+Empresarial
+Exemplos por departamento:
+Marketing
+Produção
+Atendimento
+4. Setores/Unidades
+Usado para separar filiais, unidades ou projetos internos e acompanhar relatórios individualizados.
+Disponível apenas no plano Elite.
+Exemplos por unidade ou projeto:
+São Paulo
+Recife
+Projeto Escritório Digital
+Exemplos por departamento:
+Ambiental
+Empresarial
+Tributário
+Integração Asaas
+Com a integração da ADVBOX com o Asaas, você automatiza a emissão e o controle de cobranças por boleto ou cartão de crédito. Sempre que o cliente realizar o pagamento, o sistema baixa automaticamente o lançamento no seu financeiro.
+Pré-requisitos
+Ter uma conta ativa no Asaas com documentos aprovados
+Estar com o celular cadastrado no Asaas em mãos, pois será necessário confirmar um código via SMS
+Facilidades que a integração proporciona:
+Você pode gerar boletos e cobranças por cartão direto pela ADVBOX
+Assim que o cliente paga, o lançamento é baixado automaticamente no seu Menu Financeiro
+Importante:
+ Essa é uma integração opcional. Você pode utilizar o financeiro da ADVBOX normalmente sem integrar ao Asaas, caso prefira outro método de cobrança ou controle manual.
+Acessando o Menu Financeiro - Entenda as Métricas e Indicadores
+Saldo
+Mostra o total de valores recebidos e pagos em todas as contas cadastradas, com base na data de pagamento dos lançamentos. Inclui um comparativo com o saldo do mês anterior e a variação percentual, ajudando a identificar crescimento ou queda.
+Receita mensal prevista
+Mostra a soma de todas as receitas com vencimento no mês atual, estejam pagas ou não
+Representa o que o escritório espera receber no mês
+VS realizado:
+ valor das receitas que já foram pagas com data de pagamento registrada neste mês
+Despesa mensal prevista
+Soma de todas as despesas com vencimento no mês atual, pagas ou pendentes
+Mostra o quanto o escritório precisa pagar no mês
+VS realizado:
+ soma apenas das despesas já pagas com data de pagamento dentro do mês
+Pagamentos atrasados
+Exibe o valor total de despesas vencidas que ainda não foram pagas. Funciona como um alerta de pendências financeiras.
+Importante:
+ Ao clicar em qualquer um dos contadores (saldo, receitas, despesas, atrasados), a lista de lançamentos abaixo será automaticamente filtrada para mostrar os lançamentos correspondentes.
+Gráfico de Receitas x Despesas
+Mostra a previsão de receitas e despesas mês a mês. Baseado na data de vencimento, o gráfico exibe o mês atual e os próximos 4 meses.
+Colunas azuis:
+ receitas previstas
+Colunas vermelhas:
+ despesas previstas
+Importante:
+ O gráfico não se atualiza com pagamentos realizados, apenas com novos lançamentos, edições ou exclusões.
+Lista de Contas Bancárias e Cartões
+Todas as contas e cartões cadastrados, com seus saldos atualizados
+Contas com saldo negativo aparecem em vermelho
+O saldo total no topo considera apenas lançamentos pagos
+Diferença entre os planos:
+Banca Max e Elite:
+ podem cadastrar várias contas (corrente, investimento, caixa e cartões de crédito)
+Cartões de crédito:
+ exigem definição de fechamento e vencimento da fatura. As despesas com o cartão são agrupadas e o pagamento é lançado como despesa, saindo da conta padrão (mas pode ser alterado)
+Banca Jurídica:
+ permite o uso de uma única conta (conta principal). Se houver integração com o Asaas, uma segunda conta é adicionada automaticamente. Não é possível adicionar outras contas, cartões ou formas de saldo além dessas duas
+Tipos de Lançamentos
+O sistema permite três tipos principais:
+Receita
+ (valores a receber)
+Despesa
+ (valores a pagar)
+Transferência
+ (movimentações entre contas internas)
+Todos os relatórios financeiros da plataforma dependem desses lançamentos.
+Dica:
+ O Menu Financeiro da ADVBOX oferece controle completo sobre as finanças do seu escritório, desde lançamentos simples até relatórios gerenciais avançados, sempre respeitando as limitações e funcionalidades do seu plano contratado.
+Com essas informações, você pode aproveitar ao máximo as funcionalidades do Menu Financeiro da ADVBOX para uma gestão eficiente e organizada.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Erros comuns no Menu Financeiro
+ Navegação Interna

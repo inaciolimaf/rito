@@ -1,0 +1,898 @@
+Como utilizar o Menu Financeiro na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 13/08/2025 17:48
+ Navegação Interna
+Neste artigo, você vai aprender como configurar e utilizar as informações do Financeiro no sistema ADVBOX.
+Como criar,editar ou excluir uma conta ou cartão
+1
+Acesse o menu Financeiro
+Acesse o menu 
+Configurações > Financeiro
+ e clique em 
+Nova conta ou cartão
+.
+2
+Preencha o formulário
+Um formulário será aberto, escolha o tipo e preencha os campos necessários.
+Dica:
+ Ao finalizar o preenchimento de uma conta, 
+feche o pop-up e clique novamente em "Nova conta ou cartão"
+ se for cadastrar outra. Isso evita sobrescrever a anterior.
+Como editar uma conta ou cartão
+1
+Acesse o menu Financeiro
+Acesse 
+Configurações > Financeiro
+.
+2
+Selecione a conta para editar
+Passe o mouse sobre a conta desejada e clique no 
+ícone de lápis
+ (ou direto na conta) para editar.
+Como excluir uma conta ou cartão
+1
+Acesse o menu Financeiro
+Acesse 
+Configurações > Financeiro
+ e passe o mouse sobre a conta desejada.
+2
+Confirme a exclusão
+Clique no 
+ícone de lixeira
+ e confirme clicando em 
+Excluir
+.
+Como restaurar uma conta ou cartão excluído
+1
+Acesse o menu Financeiro
+Acesse 
+Configurações > Financeiro
+.
+2
+Altere o filtro para Inativas
+Encontre o filtro de 
+Ativas e altere para Inativas
+.
+3
+Restaure a conta
+Localize a conta, clique no 
+ícone de lixeira
+ e depois em 
+Restaurar
+.
+Dica:
+ O gerenciamento adequado das contas e cartões é essencial para manter a organização financeira do seu escritório jurídico.
+Como definir uma conta padrão
+1
+Acesse o menu Financeiro
+Acesse 
+Configurações > Financeiro
+.
+2
+Identifique a conta padrão atual
+A conta com a 
+chave AZUL
+ é a atual padrão.
+3
+Altere a conta padrão
+Para alterar, clique na 
+chave cinza
+ da conta desejada.
+Como adicionar,editar, excluir ou restaurar uma nova categoria
+1
+Acesse a aba Categorias
+Acesse 
+Configurações > Financeiro > aba Categorias
+.
+2
+Inicie a criação
+Clique no botão 
+AZUL > NOVA CATEGORIA
+.
+3
+Preencha o formulário
+Um formulário será aberto, preencha:
+Nome da categoria
+(obrigatório)
+Tipo
+: selecione se é 
+Receita
+ ou 
+Despesa
+(obrigatório)
+Grupo
+: se escolher 
+Despesa
+, será necessário selecionar o grupo da categoria
+Como editar uma categoria personalizada
+1
+Acesse a aba Categorias
+Acesse 
+Configurações > Financeiro > aba Categorias
+.
+2
+Altere o filtro
+Altere o 
+filtro
+ de 
+Todas
+ para 
+Categorias personalizadas
+.
+3
+Edite a categoria
+Passe o mouse sobre a categoria que deseja alterar.
+4
+Salve as alterações
+Um formulário será aberto, faça as alterações e clique em 
+Atualizar Categoria
+.
+Como excluir uma categoria personalizada
+1
+Acesse a aba Categorias
+Acesse 
+Configurações > Financeiro > aba Categorias
+.
+2
+Altere o filtro
+Altere o 
+filtro
+ de 
+Todas
+ para 
+Categorias personalizadas
+.
+3
+Selecione e exclua
+Passe o mouse sobre a categoria que deseja alterar.
+4
+Confirme a exclusão
+Clique na 
+lixeira
+ à direita e confirme no botão vermelho 
+Excluir
+.
+Como restaurar uma categoria personalizada excluída
+1
+Acesse a aba Categorias
+Acesse 
+Configurações > Financeiro > aba Categorias
+.
+2
+Aplique o filtro para Inativas
+Aplique o filtro 
+Categorias personalizadas > Inativas
+.
+3
+Restaure a categoria
+Passe o mouse sobre a categoria que deseja alterar.
+4
+Confirme a restauração
+Clique na 
+lixeira
+ e depois em 
+Restaurar
+.
+Como adicionar um novo centro de custo
+1
+Acesse a aba Centro de Custos
+Acesse 
+Configurações > Financeiro > aba Centro de Custos
+.
+2
+Inicie a criação
+Clique no botão 
+AZUL > Novo Centro de Custos
+.
+3
+Preencha as informações
+Um pop-up será aberto, preencha o nome que deseja.
+4
+Salve o centro de custo
+Para salvar, clique em 
+novo centro de custo
+.
+Como editar,excluir ou restaurar um centro de custo
+1
+Acesse a aba Centro de Custos
+Acesse 
+Configurações > Financeiro > aba Centro de Custos
+.
+2
+Selecione o centro de custo
+Clique sobre o 
+nome do centro de custo
+ desejado.
+3
+Salve as alterações
+Um pop-up será aberto, edite o nome e clique em 
+Atualizar
+ centro de custo.
+Como excluir um centro de custo
+1
+Acesse a aba Centro de Custos
+Acesse 
+Configurações > Financeiro > aba Centro de Custos
+.
+2
+Selecione o centro de custo
+Passe o mouse sobre o centro de custo desejado.
+3
+Confirme a exclusão
+Clique na 
+lixeira
+ e confirme em 
+EXCLUIR
+.
+Como restaurar um centro de custo
+1
+Acesse a aba Centro de Custos
+Acesse 
+Configurações > Financeiro > aba Centro de Custos
+.
+2
+Altere o filtro para Inativos
+Altere o 
+filtro
+ de 
+Ativos
+ para 
+INATIVOS
+.
+3
+Restaure o centro de custo
+Passe o mouse sobre o centro de custo desejado, clique na 
+lixeira
+ e depois em 
+RESTAURAR
+.
+Dica:
+ Uma configuração adequada das contas, categorias e centros de custo é fundamental para um controle financeiro eficiente e relatórios precisos no seu escritório jurídico.
+Como adicionar,editar,excluir ou restaurar um novo Setor/Unidade
+1
+Acesse a aba Setores/unidade
+Acesse 
+Configurações > Financeiro > aba Setores/unidade
+.
+2
+Inicie a criação
+Clique no botão 
+AZUL > Novo Setor
+.
+3
+Salve o novo setor
+Um pop-up será aberto, preencha o nome que deseja e clique em 
+criar novo setor
+.
+Como editar um setor/unidade
+1
+Acesse a aba Setores/unidade
+Acesse 
+Configurações > Financeiro > aba Setores/unidade
+.
+2
+Selecione o setor
+Clique sobre o 
+nome
+ que deseja alterar.
+3
+Salve as alterações
+Um pop-up será aberto, edite o nome e clique em 
+Atualizar
+ setor.
+Como excluir um setor/unidade
+1
+Acesse a aba Setores/unidade
+Acesse 
+Configurações > Financeiro > aba Setores/unidade
+.
+2
+Selecione o setor
+Passe o mouse sobre o setor desejado.
+3
+Confirme a exclusão
+Clique na 
+lixeira
+ e confirme em 
+EXCLUIR
+.
+Como restaurar um setor/unidade
+1
+Acesse a aba Setores/unidade
+Acesse 
+Configurações > Financeiro > aba Setores/unidade
+.
+2
+Altere o filtro para Inativos
+Altere o 
+filtro
+ de 
+Ativos
+ para 
+INATIVOS
+.
+3
+Restaure o setor
+Passe o mouse sobre o setor desejado, clique na 
+lixeira
+ e depois em 
+RESTAURAR
+.
+Passo a passo da integração no ASAAS
+1
+Acesse sua conta Asaas
+Acesse sua conta em 
+app.asaas.com
+.
+2
+Acesse o menu do usuário
+Clique no 
+ícone de usuário (canto superior direito)
+.
+3
+Acesse Minha conta
+Selecione 
+Minha conta
+ (ícone de engrenagem).
+4
+Navegue até a aba Integração
+Vá até a aba 
+Integração > subaba Chave de API
+.
+5
+Gere a chave de API
+Clique no botão azul 
+Gerar chave de API
+.
+6
+Configure a chave
+No pop-up que abrir:
+Dê um nome (ex: 
+ADVBOX
+)
+Não defina data de expiração (recomendado)
+Clique em 
+Avançar
+7
+Confirme com SMS
+Digite o 
+código recebido por SMS
+.
+8
+Copie a chave gerada
+Copie a 
+chave gerada
+ clicando no botão 
+Copiar
+.
+Importante:
+ Sempre que gerar uma nova chave de API no Asaas, você deverá atualizá-la na ADVBOX. Caso contrário, a integração deixará de funcionar.
+Passo a passo da integração na ADVBOX
+1
+Acesse sua conta ADVBOX
+Acesse sua conta na ADVBOX.
+2
+Acesse as Integrações
+Vá em 
+Configurações > Financeiro > aba Integrações
+.
+3
+Ative a integração Asaas
+Encontre a integração 
+Asaas
+ e ative a chave.
+4
+Insira o token
+Cole o 
+token copiado do Asaas
+ no campo solicitado.
+5
+Salve a configuração
+Clique em 
+Salvar
+.
+6
+Integração concluída
+Pronto! A integração está ativa.
+Dica:
+ A integração com o Asaas automatiza o processo de cobrança e controle de recebimentos, facilitando significativamente a gestão financeira do seu escritório jurídico.
+Como lançar uma RECEITA
+1
+Acesse o Menu Financeiro
+Acesse o 
+Menu Financeiro
+.
+2
+Inicie o lançamento
+Clique no botão verde 
+"+ Nova Receita"
+.
+3
+Preencha os campos obrigatórios
+Preencha os campos obrigatórios:
+Conta/Cartão
+Centro de Custo
+Categoria
+Valor
+Vencimento
+Competência
+4
+Preencha os campos opcionais
+(Opcional) Preencha:
+Pessoa
+Processo
+Descrição
+Pagamento (se já tiver ocorrido)
+Marcar como Registro Interno, se necessário
+Anexar arquivos
+5
+Configure repetição se necessário
+Se for parcelada ou recorrente, configure a repetição.
+6
+Salve o lançamento
+Clique em 
+"Salvar dados"
+.
+Como lançar uma DESPESA
+1
+Acesse o Menu Financeiro
+Acesse o 
+Menu Financeiro
+.
+2
+Inicie o lançamento
+Clique no botão vermelho 
+"– Despesa"
+.
+3
+Preencha os campos obrigatórios
+Preencha os campos obrigatórios:
+Conta/Cartão
+Centro de Custo
+Categoria
+Valor
+Vencimento
+Competência
+4
+Preencha os campos opcionais
+(Opcional) Preencha:
+Pessoa
+Processo
+Descrição
+Pagamento (se já tiver ocorrido)
+Marcar como Registro Interno, se necessário
+Anexar documentos
+5
+Configure repetição se necessário
+Se for parcelada ou recorrente, configure a repetição.
+6
+Salve o lançamento
+Clique em 
+"Salvar dados"
+.
+Como lançar uma TRANSFERÊNCIA entre contas
+1
+Acesse o Menu Financeiro
+Acesse o 
+Menu Financeiro
+.
+2
+Inicie a transferência
+Clique no botão 
+"⇄ Transferência"
+.
+3
+Preencha os dados da transferência
+Preencha:
+Saiu da conta
+Entrou na conta
+Valor
+Data
+Pagamento (se já tiver sido feito)
+(Opcional) Descrição
+4
+Salve a transferência
+Clique em 
+"Salvar dados"
+.
+Como lançar uma despesa com Cartão de Crédito
+1
+Acesse o Menu Financeiro
+Acesse o 
+Menu Financeiro
+.
+2
+Inicie o lançamento
+Clique no botão vermelho 
+"– Despesa"
+.
+3
+Selecione o cartão de crédito
+No campo 
+Conta/Cartão
+, selecione o cartão de crédito desejado.
+4
+Preencha os campos obrigatórios
+Preencha os campos obrigatórios:
+Centro de Custo
+Categoria
+Valor da compra
+Data da compra
+Competência
+Vencimento da fatura
+5
+Adicione descrição se necessário
+(Opcional) Preencha a 
+Descrição
+.
+6
+Salve o lançamento
+Clique em 
+"Salvar dados"
+.
+Emissão de Cobrança via Boleto ou Cartão Asaas
+Como emitir:
+1
+Crie uma nova receita
+Crie uma nova receita com a 
+conta Asaas
+ selecionada.
+2
+Preencha os campos obrigatórios
+Preencha os campos obrigatórios: valor, categoria, vencimento e cliente.
+3
+Gere a cobrança
+Clique em 
+Gerar cobrança no boleto ou cartão
+ (aparece somente com a conta Asaas ativa).
+Opções disponíveis:
+Boleto bancário
+Cartão de crédito
+Ambas as opções geram cobrança direto no Asaas.
+Geração de Carnê
+Quando usar:
+Apenas para cobranças por 
+boleto parcelado
+.
+1
+Crie uma receita parcelada
+Crie uma receita com conta Asaas e marque como 
+parcelada
+.
+2
+Escolha boleto como forma de pagamento
+Escolha 
+boleto
+ como forma de pagamento.
+3
+Imprima o carnê
+Após salvar, clique em 
+Imprimir carnê de pagamento
+ (na tela de resumo).
+4
+Carnê gerado
+O carnê será gerado em PDF, com todas as parcelas e códigos de barras.
+Importante:
+ Disponível apenas para 2 ou mais parcelas. Não funciona com cartão ou cobrança à vista.
+Ações Após a Emissão
+⚠️ Atenção sobre pagamentos via PIX ou boleto Asaas
+1
+Compensação Manual Obrigatória
+Pagamentos realizados por 
+PIX (com QR Code)
+ ou 
+boleto gerado pelo Asaas
+não são compensados automaticamente
+ no sistema.
+2
+Procedimento Necessário
+Nesses casos, é necessário 
+marcar o pagamento manualmente como concluído
+ dentro da ADVBOX.
+⚠️ Importante:
+ Pagamentos realizados por 
+PIX (com QR Code)
+ ou 
+boleto gerado pelo Asaas
+não são compensados automaticamente
+ no sistema. É necessário 
+marcar o pagamento manualmente como concluído
+ dentro da ADVBOX.
+✅ Para evitar esse processo manual, você pode:
+1
+Solicitar Comprovante Diretamente
+Solicitar que o cliente envie o 
+comprovante diretamente para você
+.
+2
+Orientar sobre Chave PIX
+Orientá-lo a não utilizar o QR Code do PIX
+, optando por copiar e colar a chave PIX, o que possibilita a compensação automática.
+Dica:
+ Sempre oriente seus clientes sobre a melhor forma de pagamento para evitar processos manuais desnecessários e garantir maior agilidade na compensação.
+Cobrança por Boleto
+Imprimir boleto
+Compartilhar via WhatsApp
+Imprimir carnê (se parcelado)
+Cancelar cobrança
+Importante:
+ Após emissão, não é possível alterar valor, vencimento ou forma de pagamento.
+Cobrança por Cartão
+Informar dados do cartão
+Compartilhar via WhatsApp
+Editar forma de pagamento (enquanto não preencher dados do cartão)
+Cancelar cobrança
+Importante:
+ "Editar forma de pagamento" só fica disponível enquanto os dados do cartão não forem inseridos.
+Cancelamento
+1
+Acesse as opções de exclusão
+Ao clicar na 
+lixeira
+, você pode:
+Excluir apenas este
+: cancela só a parcela selecionada
+Excluir este e os próximos
+: cancela essa e as futuras
+Excluir todos os lançamentos
+: remove toda a série
+2
+Sincronização automática
+Todos os cancelamentos são feitos tanto na ADVBOX quanto no Asaas, mantendo a sincronização entre os sistemas.
+Dica:
+ A integração com o Asaas facilita significativamente o processo de cobrança, permitindo emissão automatizada de boletos e processamento de cartões, mantendo seu controle financeiro sempre atualizado.
+Como marcar uma Receita ou Despesa como Paga/Recebida (Baixa Manual)
+Opção 1: Pelo pop-up completo
+1
+Acesse o lançamento
+Clique sobre a 
+linha do lançamento
+ na lista.
+2
+Pop-up de edição aberto
+O pop-up de edição será aberto.
+3
+Informe a data de pagamento
+Preencha o campo 
+Data de Pagamento
+.
+4
+Salve as alterações
+Clique em 
+"Salvar dados"
+ para concluir.
+Opção 2: Pela lista de lançamentos (baixa rápida)
+1
+Localize o ícone na lista
+Localize o 
+ícone de quadrado vazio
+ na lateral do lançamento pendente.
+2
+Clique no quadrado
+Clique no quadrado.
+3
+Baixa automática realizada
+O sistema fará a baixa automática com a 
+data do dia atual
+.
+4
+Confirmação visual
+O ícone será substituído por um 
+✔️
+ (confirmando o pagamento).
+Atenção:
+Não é permitido
+ preencher data de pagamento 
+futura
+A baixa 
+só será efetivada
+ após salvar o pop-up ou confirmar o clique no quadrado
+Para 
+informar uma data anterior ao dia atual
+, utilize o 
+pop-up
+Dica:
+ A baixa rápida é ideal para agilizar o processo quando o pagamento foi realizado no dia atual, enquanto o pop-up completo oferece mais flexibilidade para datas específicas.
+Como Editar, Excluir um lançamento financeiro
+1
+Acesse o Menu Financeiro
+2
+Escolha uma das opções
+Escolha uma das opções:
+Clique sobre a 
+linha do lançamento
+ para abrir o pop-up completo, 
+ou
+Clique no 
+ícone de lápis
+ na lateral direita da linha
+3
+Edite os campos desejados
+Edite os campos desejados (valor, datas, conta, pessoa, categoria etc.).
+4
+Salve as alterações
+Clique em 
+"Salvar dados"
+ para aplicar as alterações.
+Importante lembrar:
+Em lançamentos 
+parcelados ou recorrentes
+, cada parcela é 
+independente
+ — editar uma 
+não altera as outras
+Lançamentos com cobrança via 
+Asaas
+não permitem alterar a conta
+ vinculada, mesmo após o cancelamento
+Para corrigir: 
+exclua o lançamento
+ e crie um 
+novo com a conta correta
+Como Excluir um lançamento financeiro
+1
+Acesse o Menu Financeiro
+2
+Localize o lançamento
+Localize o lançamento desejado.
+3
+Clique no ícone de lixeira
+Clique no 
+ícone de lixeira
+ à direita da linha.
+4
+Confirme a exclusão
+O sistema exibirá uma janela de confirmação com opções diferentes, conforme o tipo de lançamento.
+Lançamentos simples (isolados):
+Mensagem: 
+"Tem certeza que deseja excluir?"
+Opções:
+Cancelar
+Excluir
+ (confirma a exclusão)
+Lançamentos parcelados ou recorrentes:
+Escolha uma das opções:
+Excluir apenas este lançamento
+Excluir este e os próximos
+Excluir todos os lançamentos
+Importante lembrar:
+A exclusão não apaga o dado definitivamente — o lançamento vai para a lixeira e pode ser restaurado depois
+Para visualizar lançamentos excluídos, ative o filtro "Somente os excluídos"
+Se o lançamento estiver vinculado ao Asaas, a exclusão também cancela automaticamente a cobrança gerada
+Restaurar Lançamento Excluído
+1
+Acesse o filtro
+No 
+Menu Financeiro
+, clique no botão 
+"Filtrar"
+ (ícone de funil).
+2
+Ative o filtro de excluídos
+Ative o filtro 
+"Somente os excluídos"
+.
+3
+Visualize os excluídos
+A lista mostrará apenas os lançamentos excluídos.
+4
+Restaure o lançamento
+Clique no 
+ícone de restauração
+ (em vez da lixeira).
+Opções de restauração:
+Lançamento simples
+: Confirme com "Restaurar" ou "Cancelar"
+Lançamentos parcelados ou recorrentes
+:
+Restaurar apenas este
+: só o item selecionado volta
+Restaurar este e os próximos
+: inclui esse e todos os futuros da série
+Restaurar todos
+: devolve toda a sequência (anteriores, atuais e futuros)
+Importante:
+Lançamentos restaurados afetam novamente saldos e relatórios
+Não há limite de tempo para restaurar
+Só é possível restaurar um por vez — não há opção de seleção em lote
+Geração do DRE (Demonstrativo de Resultados)
+1
+Acesse o Menu Financeiro
+2
+Selecione o modo por competência
+3
+Aplique os filtros desejados
+4
+Exporte o relatório
+Clique em 
+Exportar → Excel
+.
+5
+Receba o relatório por e-mail
+Estrutura do DRE:
+Receitas
+: listadas por categoria
+Receita Bruta
+: total antes das deduções
+Deduções
+: descontos ou impostos retidos (Grupo 0)
+Receita Líquida
+: Receita Bruta – Deduções
+Despesas
+: agrupadas por tipo (Folha, Tributos, Marketing etc.)
+Resultado
+: Receita Líquida – Despesas
+Importante:
+Só considera lançamentos com data de competência preenchida
+Registros internos devem ser desativados para evitar distorções
+Relatório sai apenas em Excel e não é personalizável
+Relatório por Competência
+1
+Selecione o modo por competência
+No 
+Menu Financeiro
+, selecione o modo 
+"por competência"
+.
+2
+Aplique filtros
+Aplique filtros (categoria, conta, centro de custo etc.).
+3
+Visualize ou exporte
+Visualize ou exporte os dados em PDF ou Excel.
+Importante:
+Competência ≠ Vencimento ou Pagamento
+Deve refletir o mês real da origem da receita/despesa
+Preenchimento incorreto gera distorções nas análises
+Conciliação Bancária (Manual)
+1
+Selecione uma conta bancária
+Selecione uma conta bancária no filtro do 
+Menu Financeiro
+.
+2
+Ative o modo por pagamento
+3
+Escolha o período correspondente ao extrato
+4
+Compare os valores quitados com os do extrato bancário
+Demonstrativo de Fluxo de Caixa (DFC)
+1
+Selecione o modo por pagamento
+No 
+Menu Financeiro
+, selecione o modo 
+"por pagamento"
+.
+2
+Aplique os filtros necessários
+3
+Exporte o relatório
+Clique em 
+Exportar → Excel
+.
+Dica:
+ O controle adequado de edições, exclusões e relatórios financeiros é fundamental para manter a integridade dos dados e gerar análises precisas para a tomada de decisões no escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

@@ -1,0 +1,159 @@
+Erros comuns no Menu Financeiro
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 03/03/2026 17:04
+ Navegação Interna
+Neste artigo, você vai conhecer os erros mais comuns cometidos no Menu Financeiro da ADVBOX e aprender como evitá-los para garantir relatórios confiáveis, saldo correto e análises precisas no seu escritório.
+Erros mais comuns no Menu Financeiro da ADVBOX (e como evitar)
+Organizar o financeiro não é difícil — mas alguns erros simples podem distorcer completamente seus relatórios, saldo e análise de lucro. Se você quer usar a ADVBOX para ter controle real do seu escritório, evite os erros abaixo.
+Alterar a data de vencimento para "esconder" atraso
+1
+O erro
+Mudar a data de vencimento quando o cliente atrasa o pagamento, para que ele não apareça como vencido.
+2
+O problema
+Isso distorce previsão financeira, indicadores de inadimplência e planejamento de caixa. Você perde a noção real de atraso.
+3
+Como evitar
+Mantenha sempre a data de vencimento original. Quando o cliente pagar, preencha apenas a data de pagamento.
+Dica:
+Vencimento
+ mostra previsão. 
+Pagamento
+ mostra realidade.
+Não preencher a data de pagamento
+1
+O erro
+Lançar a receita ou despesa, mas não preencher a data de pagamento quando ela acontece.
+2
+O problema
+O valor continua como pendente, o saldo da conta não atualiza e o fluxo de caixa fica incorreto.
+3
+Como evitar
+Crie o hábito de dar baixa diariamente. Recebeu? Pagou? → Atualize a data de pagamento no mesmo dia.
+Usar categoria errada
+1
+O erro
+Lançar despesas de marketing como "Despesas fixas", ou tributos como "Despesas gerais".
+2
+O problema
+O DRE fica errado, o BI apresenta análise distorcida e você toma decisões com base em dados incorretos. Categoria errada = análise errada.
+3
+Como evitar
+Antes de lançar, pergunte: 
+"Esse valor impacta qual grupo financeiro?"
+ Se necessário, ajuste ou crie categorias nas configurações antes de continuar lançando.
+Não usar competência corretamente
+1
+O erro
+Colocar a competência no mês do pagamento, em vez do mês em que o serviço foi contratado ou executado.
+2
+O problema
+Seu resultado mensal fica distorcido. Você pode parecer ter lucro em um mês e prejuízo em outro — quando na verdade só houve atraso no recebimento.
+3
+Como evitar
+Competência representa o mês contábil de origem. Ela não muda porque o cliente atrasou.
+Não definir saldo inicial corretamente
+1
+O erro
+Cadastrar contas sem definir saldo inicial ou alterar o saldo depois de começar a usar o sistema.
+2
+O problema
+A conciliação bancária fica impossível, o saldo nunca bate com o banco e você começa a desconfiar do sistema.
+3
+Como evitar
+Defina uma data de corte, cadastre o saldo real daquele dia e, depois disso, não altere mais o saldo inicial.
+Não usar Centro de Custo
+1
+O erro
+Lançar tudo sem segmentação por área.
+2
+O problema
+Você não sabe quanto o marketing custa, quanto cada área consome ou onde está o maior gasto.
+3
+Como evitar
+Use Centro de Custo sempre que quiser analisar por área: Comercial, Produção, Atendimento, Marketing. Isso transforma seu financeiro em ferramenta estratégica.
+Lançar despesas no cartão errado (ou sem fatura correta)
+1
+O erro
+Não configurar corretamente o fechamento e o vencimento do cartão.
+2
+O problema
+Compras entram na fatura errada e a previsão fica desorganizada.
+3
+Como evitar
+Configure corretamente o dia de fechamento e o dia de vencimento. Sempre selecione a fatura correta ao lançar a compra.
+Não usar o modo correto de visualização
+1
+O erro
+Analisar fluxo de caixa no modo "competência", ou analisar resultado mensal no modo "pagamento".
+2
+O problema
+Você interpreta números errados e toma decisões com base em análises equivocadas.
+3
+Como evitar
+Use cada modo para a pergunta certa:
+Por vencimento
+ → previsão e inadimplência
+Por pagamento
+ → fluxo de caixa real
+Por competência
+ → resultado contábil (DRE)
+Deixar para organizar tudo no final do mês
+1
+O erro
+Lançar tudo acumulado no final do mês.
+2
+O problema
+Erros de categoria, esquecimento de pagamentos, distorção de saldo e sensação de "bagunça financeira".
+3
+Como evitar
+Crie uma rotina simples:
+Diariamente
+ → dar baixa nos valores pagos e recebidos
+Semanalmente
+ → revisar pendências
+Mensalmente
+ → fechar relatórios
+O maior erro de todos
+Importante:
+ O maior erro não é lançar errado. É 
+não lançar
+. Se você não registra tudo no Menu Financeiro, o BI não funciona corretamente (disponível no plano Elite), o DRE perde sentido e seu planejamento vira "achismo".
+Conclusão
+O Menu Financeiro da ADVBOX não é apenas um lugar para registrar valores. Ele é a base de planejamento, previsão, rentabilidade e crescimento estratégico do seu escritório.
+Evitar esses erros simples já coloca seu escritório anos à frente em organização e controle:
+Manter a data de vencimento original
+Dar baixa diariamente com a data de pagamento
+Usar sempre a categoria correta
+Preencher a competência pelo mês do serviço
+Definir e não alterar o saldo inicial
+Utilizar Centro de Custo para análise por área
+Configurar corretamente os cartões de crédito
+Usar o modo de visualização adequado para cada análise
+Manter uma rotina consistente de lançamentos
+Registrar tudo — sempre
+Dica:
+ Pequenos ajustes na rotina de lançamentos fazem uma diferença enorme na qualidade dos seus relatórios e na confiança que você terá nos números do seu escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Entendendo o Menu Financeiro
+ Próximo ›
+ Fluxo de Caixa, entenda melhor.
+ Navegação Interna

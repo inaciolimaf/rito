@@ -1,0 +1,135 @@
+Parceiros : o que é, como funciona e onde configurar
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 10/06/2026 15:12
+ Navegação Interna
+Neste artigo, você vai aprender como configurar parcerias na ADVBOX, compartilhar processos de forma segura e gerenciar tarefas colaborativas entre escritórios jurídicos.
+O que significa Parceiros na ADVBOX
+O 
+Menu Parceiros
+ da ADVBOX foi criado para facilitar o trabalho conjunto entre escritórios jurídicos que usam a plataforma. Ele permite compartilhar processos de forma segura, organizada e colaborativa, garantindo que cada escritório tenha acesso apenas às informações necessárias para sua atuação. Além disso, o menu ajuda a acompanhar os processos compartilhados, visualizar métricas da parceria e gerenciar tarefas de forma integrada.
+Como configurar um parceiro
+1
+Acessar Parceiros
+Acesse o menu lateral 
+Configurações
+ e clique no submenu 
+Parceiros
+.
+2
+Criar Novo Parceiro
+Clique no botão azul 
+Novo parceiro
+.
+3
+Localizar Escritório
+Insira o e-mail cadastrado na ADVBOX do escritório parceiro e clique no ícone de lupa para localizar os dados.
+4
+Verificar e Convidar
+Verifique se as informações estão corretas e clique em 
+Convidar parceiro
+.
+5
+Aguardar Aceitação
+Após isso, solicite ao escritório que aceite o convite para finalizar a configuração.
+Atenção:
+ A parceria só será ativada após o escritório parceiro aceitar o convite.
+Como aceitar um parceiro
+1
+Acessar Parceiros
+Acesse o menu lateral 
+Configurações
+ e clique em 
+Parceiros
+.
+2
+Localizar Convite
+Localize o parceiro que enviou o convite. Ao passar o mouse sobre o nome do escritório, aparecerão as opções para 
+Aceitar
+ ou 
+Recusar
+.
+3
+Aceitar Parceria
+Clique em 
+Aceitar
+ e a parceria estará ativa. A partir desse momento, será possível compartilhar processos e tarefas com o escritório.
+Como compartilhar um processo
+1
+Encontre o processo
+Acesse a barra de pesquisa ou o menu Processos.
+2
+Selecione o quinto ícone ( representado pelo Globo)
+3
+Localize o Escritório
+Na barra de pesquisa selecione escritório da sua rede.
+4
+Verificar 
+Verifique se as informações estão corretas nas informações em "escritorios compartilhados".
+5
+Atualize os dados
+Clique no botão azul em Atualizar dados do processo.
+Como configurar o recebimento de tarefas dos parceiros
+1
+Acessar Notificações
+Acesse o menu lateral 
+Configurações
+ e clique em 
+Notificações
+.
+2
+Definir Responsável
+No campo 
+Compartilhamentos e Parceiros
+, selecione o colaborador responsável por receber as tarefas enviadas pelos parceiros.
+3
+Salvar Configuração
+Clique em 
+Atualizar notificações
+ para salvar.
+Observação:
+ O colaborador definido nesse campo será o responsável por receber todas as tarefas atribuídas pelos escritórios parceiros, atuando como ponto de contato principal para a triagem e distribuição dessas demandas.
+Como atribuir uma tarefa para um parceiro
+1
+Acessar Processo Compartilhado
+Acesse a janela de criação de tarefas e selecione o processo compartilhado.
+2
+Selecionar Parceiro
+No campo 
+Responsável
+, escolha a opção 
+Parceiro: Nome do escritório parceiro
+.
+3
+Preencher Dados
+Preencha os demais campos normalmente (descrição, prazo, etc.).
+4
+Criar Tarefa
+Clique em 
+Criar nova tarefa
+.
+A tarefa será direcionada para o escritório parceiro, que poderá visualizar e gerenciar internamente.
+Dica:
+ Use a funcionalidade de Parceiros para criar colaborações eficientes entre escritórios, mantendo sempre a segurança e organização dos processos compartilhados. Configure adequadamente o responsável por receber as tarefas dos parceiros para garantir um fluxo de trabalho eficiente.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Origem de pessoas: o que é, como utilizar na prática
+ Próximo ›
+ Esqueci minha senha: o que fazer ?
+ Navegação Interna

@@ -1,0 +1,136 @@
+Como Utilizar o Menu Processos na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 15/01/2026 13:52
+ Navegação Interna
+Este guia aborda as principais funcionalidades de gestão de processos na ADVBOX. Certifique-se de ter as permissões adequadas para realizar as operações descritas.
+Como cadastrar um processo na ADVBOX
+1
+Acesse o Menu Processos
+2
+Clique no botão azul "Novo Processo"
+3
+Preencha os campos obrigatórios
+Partes envolvidas
+Grupo de ação
+Tipo de ação
+Fase
+Etapa
+4
+Complete os campos opcionais, se desejar
+(número do processo, informações financeiras, anotações, etc.)
+5
+Clique no botão azul "Cadastrar Processo"
+No final do formulário para finalizar o cadastro.
+Como cadastrar Advogado responsável pelo processo
+1
+Encontre e clique no processo desejado
+2
+Clique no botão de editar
+3
+Vá até o campo "Responsável pelo processo"
+4
+Selecione o advogado responsável
+Na lista de usuários disponíveis.
+5
+Clique em Salvar
+No final da página para confirmar as alterações.
+Importante:
+ Definir corretamente quem é o responsável garante filtrar e pesquisar todos os processos vinculados àquele advogado diretamente no sistema, facilita o controle operacional e ajuda a identificar rapidamente quais processos pertencem a cada colaborador. A escolha do responsável não interfere automaticamente na atribuição de tarefas nem na geração de relatórios de produtividade.
+Como editar um processo
+1
+No Menu Processos, localize o processo na listagem
+2
+Passe o mouse sobre o processo
+E clique no ícone de lápis que aparece.
+3
+O formulário de cadastro será aberto
+4
+Faça os ajustes necessários
+Nos campos desejados conforme sua necessidade.
+5
+Clique no botão azul "Atualizar dados do processo"
+Para salvar as alterações realizadas.
+Como excluir um processo
+Atenção:
+ Apenas usuários com perfil Gestor ou Administrador podem excluir processos.
+1
+No Menu Processos, encontre o processo na listagem
+2
+Passe o mouse sobre ele
+E clique no ícone de lixeira que aparece.
+3
+Confirme a exclusão
+Na janela de confirmação que aparecerá.
+Importante:
+ O processo não é apagado definitivamente. Ele é movido para uma listagem separada chamada "Somente excluídos".
+Como restaurar um processo
+1
+No Menu Processos, clique em Filtrar
+2
+Ative a opção "Mostrar somente os excluídos"
+3
+Aplique o filtro
+4
+Localize o processo desejado na lista
+5
+Passe o mouse sobre ele
+E clique no ícone de lixeira com seta para restaurar.
+6
+O processo volta automaticamente para a listagem ativa
+Como notificar o cliente por E-mail ou SMS
+1
+Acesse o processo desejado
+2
+No final do formulário do processo
+Localize os campos Fase e Etapa.
+3
+Selecione a nova Fase e/ou Etapa
+Que deseja informar ao cliente.
+4
+Marque a opção de notificação por:
+SMS e/ou
+E-mail (basta deixar o campo selecionado)
+5
+Clique no botão azul "Atualizar dados do processo"
+O cliente receberá a notificação automaticamente com a mensagem padrão da plataforma.
+Atenção:
+ Para que o envio funcione, é necessário que o cadastro do cliente tenha e-mail válido e/ou celular completo com DDD.
+Informação Importante:
+ Não há cobrança adicional por esse serviço. A notificação é realizada diretamente pela plataforma ADVBOX, via rede própria de envio.
+Como vincular Apensos e Recursos ao mesmo caso
+1
+Ao cadastrar ou editar um processo
+Localize o campo "Processo Originário".
+2
+Digite e selecione o número do processo principal
+(aquele que originou o recurso ou apenso).
+3
+Complete os demais campos normalmente
+4
+Clique no botão azul
+"Cadastrar Processo" ou "Atualizar dados do processo".
+Dica:
+ O sistema cria uma conexão entre os processos, facilitando a busca, o acompanhamento e a gestão do caso como um todo.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

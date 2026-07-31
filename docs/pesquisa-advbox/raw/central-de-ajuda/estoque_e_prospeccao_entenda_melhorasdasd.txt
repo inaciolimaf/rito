@@ -1,0 +1,164 @@
+Entenda Melhor
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 09/10/2025 16:32
+ Navegação Interna
+Atenção:
+ A qualidade das análises depende da correta alimentação dos dados no CRM e na linha do tempo dos processos. Dados incompletos geram análises distorcidas e decisões equivocadas.
+Dica:
+ A aba Estoque e Prospecção é fundamental para transformar dados comerciais em insights estratégicos, permitindo uma gestão eficiente do funil de vendas e otimização da performance comercial do escritório.
+Neste artigo, você vai aprender como utilizar a aba Estoque e Prospecção para análise comercial estratégica, incluindo indicadores de desempenho, gráficos de conversão e relatórios filtráveis para otimizar o funil de contratação do escritório.
+Análise Comercial Estratégica
+1
+Definição
+A aba Estoque e Prospecção, disponível nos planos CRM e Elite, oferece uma visão completa do funil de contratação do escritório. É acessível apenas para gestores e administradores.
+O que é possível analisar:
+1
+Volume de leads e taxa de conversão
+Acompanha quantos leads entraram e quantos viraram clientes.
+2
+Avanço dos processos
+Visualiza em que fase estão (atendimento, produção, execução) e identifica paralisações ou arquivamentos.
+3
+Efetividade comercial
+Avalia prospecção, campanhas, precificação e fidelização.
+4
+Estoque jurídico como ativo
+Mede a capacidade do escritório em transformar oportunidades em resultados jurídicos e financeiros.
+A aba é composta por:
+1
+Indicadores de desempenho comercial e carteira
+2
+Resumo da carteira por fase e período
+3
+Gráficos por grupo de ação e taxa de conversão
+4
+Relatórios filtráveis e segmentados
+Atenção:
+ Dados visuais são atualizados a cada 8 horas. Já os relatórios operam em tempo real, refletindo os filtros aplicados.
+Entenda os Indicadores
+1
+Oportunidades do mês
+Mostra quantas oportunidades (leads) foram cadastradas no mês atual. Mede o volume de entrada no funil e a efetividade das ações de prospecção e marketing.
+2
+Processos ativos
+Total de processos em andamento nas fases administrativa, consultoria, judicial, recursal ou execução. Representa o estoque produtivo atual do escritório.
+3
+Processos arquivados
+Exibe o total de processos encerrados, com arquivamento formalizado no sistema. Permite avaliar a rotatividade da carteira e o ritmo de saída.
+4
+Processos +120 dias parados
+Alerta sobre processos sem nenhuma tarefa há mais de 120 dias. Indica gargalos, falhas de acompanhamento ou abandono.
+Atenção:
+ Monitorar processos parados é essencial para evitar insatisfação, cancelamentos e danos à reputação do escritório.
+5
+Fechamentos do mês
+Mostra quantos processos foram formalmente fechados (contratados) no mês. Acompanha também a variação em relação ao mês anterior e a evolução dos últimos 6 meses. Mede o impacto das ações comerciais e serve como base para projeções de faturamento.
+Atenção:
+ Queda nos fechamentos, mesmo com muitas oportunidades, pode indicar falhas na conversão ou no atendimento inicial.
+6
+Em atendimento
+Processos em fase de negociação, ainda sem contrato formalizado. Mostra a variação mensal, percentual sobre o estoque produtivo e evolução dos últimos 6 meses.
+Atenção:
+ Acúmulo nessa fase indica risco de perda de leads por falta de follow-up, demora no retorno ou propostas mal estruturadas.
+7
+Em produção
+Processos ativos nas fases administrativa, consultiva, judicial ou recursal, que ainda não chegaram na execução. Traz variação mensal e evolução nos últimos 6 meses. Representa o maior volume de tarefas do escritório.
+Atenção:
+ Crescimento descontrolado nesta fase pode gerar sobrecarga, atrasos e gargalos. Deve ser monitorado junto aos dados da aba Produtividade e tempo médio de tramitação.
+8
+Em execução
+Processos que estão na fase final, aguardando cumprimento de sentença, liquidação ou cobrança. Apresenta variação mensal e gráfico dos últimos 6 meses.
+Atenção:
+ Alto volume sem arquivamento pode sinalizar falhas no acompanhamento, cobrança, pendências processuais ou falta de gestão na controladoria.
+Gráficos de Desempenho Comercial
+1
+Oportunidades e Fechamentos por grupo de ação
+Mostra a relação entre oportunidades geradas e fechamentos por tipo de ação no mês.
+Azul escuro: total de oportunidades
+Azul claro: total de fechamentos
+Atenção:
+ Ajuda a identificar quais grupos de ação têm maior geração de leads, melhor conversão ou estão desperdiçando oportunidades.
+2
+Oportunidades e Fechamentos por período
+Gráfico mostra a evolução de oportunidades e fechamentos nos últimos 12 meses.
+Atenção:
+ Ideal para analisar sazonalidades, impacto de campanhas, quedas ou picos no funil comercial.
+3
+Taxa de conversão
+Exibe, em percentual, a proporção entre oportunidades geradas e contratos fechados no mês.
+Fórmula: (Fechamentos ÷ Oportunidades) × 100
+Atenção:
+ Taxa baixa sinaliza problemas na qualificação, na proposta ou no atendimento. Deve ser acompanhada de perto e ajustada quando necessário.
+Relatórios e Análises
+Filtro por tipo de relatório:
+1
+Tipos disponíveis
+Oportunidades
+Fechamentos
+Processos ativos
+Processos ajuizados (que avançaram para a fase judicial)
+Processos parados
+Processos arquivados
+Em atendimento
+Em produção
+Em execução
+Recontratações
+Processos com inconsistência (processos cuja linha do tempo não está em ordem cronológica)
+Filtro por período:
+1
+Data inicial
+Marca o início do recorte temporal.
+2
+Data final
+Define o limite superior da análise. Este filtro é útil para visualizar comportamentos mensais, comparações entre trimestres, campanhas específicas ou auditorias por faixa de tempo.
+Filtros avançados:
+1
+Opções disponíveis
+Grupo de ação
+Tipo de ação
+Tribunal
+Estado (UF)
+Origem do cliente
+Fase atual do processo
+Esses filtros permitem cruzamentos complexos para análise de performance por segmento, região ou estratégia de captação.
+Importante:
+ Ao solicitar a exportação, o relatório não é baixado diretamente no navegador. O sistema envia automaticamente o arquivo para o e-mail cadastrado do usuário que gerou o relatório.
+Análises Possíveis e Decisões Estratégicas
+1
+Conversão por grupo de ação
+Permite identificar quais serviços geram mais leads e quais convertem melhor. Usado para priorizar campanhas, ajustar propostas e realinhar esforços comerciais.
+2
+Ritmo de crescimento da carteira
+Mostra se o crescimento do escritório é sustentável ou se há acúmulo sem estrutura. Ajuda a balancear geração de novos contratos com a capacidade produtiva do time.
+3
+Diagnóstico de falhas na negociação
+Atenção a volumes altos na fase Em Atendimento sem avanço. Isso pode indicar: Falta de follow-up, proposta desalinhada, demora no retorno ou falhas no processo comercial. Necessário revisar abordagem, scripts, processos e integração entre comercial e jurídico.
+4
+Identificação de riscos operacionais
+O painel de +120 dias parados alerta sobre processos sem movimentação. Indica risco de abandono, descumprimento de contrato e queda na satisfação do cliente. Exige atuação da controladoria, reativação de tarefas ou encerramento estratégico.
+5
+Análise segmentada por origem e região
+Os filtros permitem cruzar dados por: Grupo de ação, origem do lead, estado, tribunal e fase processual. Responde a perguntas como: Quais canais trazem mais clientes efetivos? Onde a conversão é mais alta? Quais ações geram muitos leads, mas têm baixa conversão? Fundamenta decisões sobre investimento em marketing, expansão, parcerias ou ajustes na estratégia comercial.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Como utilizar o Menu Estoque e Prospecção na prática
+ Navegação Interna

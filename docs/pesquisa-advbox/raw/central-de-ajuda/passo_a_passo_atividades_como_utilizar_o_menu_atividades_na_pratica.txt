@@ -1,0 +1,117 @@
+Como utilizar o Menu Atividades na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 08/10/2025 17:51
+ Navegação Interna
+Neste artigo, você vai aprender como visualizar tarefas pendentes de toda a equipe, tarefas específicas de um colaborador e a pauta de audiências, utilizando os filtros disponíveis no sistema.
+Como visualizar tarefas pendentes de toda a equipe
+1
+Acessar Filtros
+Clique em 
+"Filtrar"
+ e selecione 
+"Limpar filtros"
+.
+2
+Configurar Responsável
+No campo 
+"Responsável"
+, selecione a opção 
+"Todos"
+ (ou deixe em branco).
+3
+Definir Situação e Período
+Em 
+"Situação"
+, selecione 
+"Pendentes"
+. Defina o período desejado (opcional).
+4
+Aplicar Filtros
+Clique em 
+"Aplicar Filtros"
+.
+Resultado:
+ Lista de todas as tarefas pendentes do escritório, independente do responsável.
+Como visualizar tarefas específicas de um colaborador
+1
+Acessar Filtros
+Clique em 
+"Filtrar"
+.
+2
+Limpar Filtros Anteriores
+Selecione 
+"Limpar filtros"
+.
+3
+Selecionar Colaborador
+No campo 
+"Responsável"
+, selecione o nome do colaborador.
+4
+Ajustar Filtros Opcionais
+Ajuste outros filtros se desejar (ex.: período ou situação pendente).
+5
+Aplicar Filtros
+Clique em 
+"Aplicar Filtros"
+.
+Resultado:
+ Visualização completa das tarefas daquele colaborador.
+Exemplo prático:
+O colaborador João ficou doente e não trabalhará hoje. É necessário identificar as tarefas que ele deveria executar para que outro responsável possa assumi-las.
+Utilizando os filtros do menu atividades, outro responsável irá filtrar:
+Responsável:
+ selecione João
+Período:
+ defina como hoje (data inicial = hoje / data final = hoje)
+Situação:
+ selecione Pendente
+Clicar em 
+Aplicar Filtros
+ para visualizar.
+A lista exibirá todas as tarefas pendentes de João para hoje. Assim, o gestor ou outro colaborador poderá:
+Verificar quais são as prioridades
+Atribuir as tarefas para outro responsável
+Garantir que os prazos sejam cumpridos mesmo na ausência de João
+Como visualizar todas as audiências (pauta de audiências)
+1
+Acessar Atalho de Audiências
+Clique no ícone do calendário na barra de compromissos (Atalho 
+"Pauta de Audiências"
+).
+2
+Filtro Automático
+O sistema irá filtrar automaticamente todas as tarefas que 
+VOCÊ
+ possui, contendo 
+"audiência"
+ no nome, se desejar visualizar de forma geral,será necessário clicar em FILTRAR > LIMPAR FILTROS.
+3
+Refinar Busca (Opcional)
+Se quiser, refine a busca utilizando o filtro de período (mês inteiro) para visualizar todas as audiências daquele mês.
+Dica:
+ O uso eficiente dos filtros permite uma visão completa e organizada das atividades da equipe, facilitando o gerenciamento e a distribuição de tarefas.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

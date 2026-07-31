@@ -1,0 +1,178 @@
+Como utilizar o Menu Meu Painel na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 14/01/2026 14:41
+ Navegação Interna
+Neste artigo, você vai aprender como criar, editar e excluir tarefas, além de utilizar os atalhos disponíveis para agilizar sua rotina.
+Como cadastrar uma Tarefa na ADVBOX
+1
+Iniciar Criação
+Clique no botão - Criar nova tarefa.
+2
+Preencher Campos Obrigatórios
+Processo ou caso / Responsável(is) / Tarefa ou Workflow / Data em que a tarefa deve ser realizada.
+3
+Completar Campos Opcionais
+Hora,Prazo fatal,Mostrar na agenda,Informar término, Dia inteiro, Local, Descrição,Anexos, Importante, Urgente, Futura, Recorrente, Privada ou Retroativa.
+4
+Revisar Informações
+5
+Finalizar Criação
+Clique no botão azul 
+"Criar nova tarefa"
+ para finalizar. Se necessário, use o botão "Cancelar" para descartar o cadastro.
+Importante:
+ A nova tarefa será exibida na listagem com todas as informações preenchidas. O usuário terá acesso a atalhos para gerenciamento imediato.
+Caso utilize workflow:
+Selecione o workflow desejado
+Revise o responsável e a data de cada tarefa
+Tarefas já concluídas podem ser "puladas"
+As tarefas serão atribuídas e exibidas na sequência, garantindo que todos fiquem cientes de suas responsabilidades
+Como Concluir, Editar ou Excluir uma Tarefa na ADVBOX
+Como Concluir uma Tarefa na ADVBOX
+1
+Encontre a Tarefa desejada
+Abra a tarefa que deseja concluir.
+2
+Clique em Concluir
+Clique no botão 
+"Concluir"
+, localizado na barra superior da tarefa.
+3
+O que acontece ao concluir
+A tarefa sai da lista de pendentes e fica registrada no histórico do processo, garantindo rastreabilidade.
+Como Excluir uma Tarefa na ADVBOX
+1
+Abra a tarefa desejada
+Clique no 
+ícone de lixeira
+, que fica no topo da tela.
+2
+Confirme a exclusão
+Confirme a exclusão se for solicitado.
+3
+O que acontece ao excluir
+A tarefa é removida da lista ativa e o registro permanece no histórico do processo, incluindo quem criou, editou e excluiu.
+Como Editar uma Tarefa na ADVBOX
+1
+Encontre a tarefa desejada
+Clique no 
+nome da tarefa
+.
+2
+Clique em Editar
+Na tela de detalhes, clique no botão 
+"Editar"
+ e faça as alterações desejadas.
+3
+Salve as alterações
+Clique em 
+"Salvar"
+ ao final para concluir a edição.
+Como utilizar o atalho "Atividade"
+Criar nova Tarefa:
+1
+Acesse o atalho Atividade
+Clique no botão 
+Atividade
+, abaixo das informações da tarefa.
+2
+Preencha o formulário simplificado
+Preencha os campos desejados:
+Responsável
+Tarefa
+Descrição
+Anexar arquivos (ícone de clipagem)
+Marcar como privada (cadeado trancado)
+Mostrar na agenda (ícone de calendário)
+Tarefa futura (seta com relógio)
+Data, Hora, Prazo fatal
+3
+Finalize a criação
+Clique no botão azul 
+"Atribuir Tarefa"
+ para concluir.
+Enviar uma Tarefa por e-mail:
+1
+Clique em Enviar por e-mail
+Clique no botão 
+Enviar por e-mail
+ ao lado do atalho Atividade e informe o e-mail do destinatário.
+2
+Confirme o envio
+Clique em 
+Enviar
+ e aguarde a mensagem: 
+"E-mail enviado com sucesso"
+.
+Encaminhar uma Tarefa para outro colaborador:
+1
+Clique em Encaminhar
+Clique no botão 
+Encaminhar
+ e selecione o novo responsável.
+2
+Registro automático
+O sistema registrará a mudança no histórico da tarefa.
+Como Gerar Relatório das minhas Tarefas concluídas no mês
+1
+Acessar Filtros
+Acesse o menu 
+"Meu Painel"
+: clique em 
+"Filtrar"
+.
+2
+Limpar Filtros Anteriores
+Antes de começar, clique em 
+"Limpar Filtros"
+ para garantir que não há filtros anteriores aplicados.
+3
+Configurar Período
+Preencha os campos:
+Início: selecione a data inicial desejada
+Término: selecione a data final desejada
+Situação: selecione "Concluídas"
+4
+Aplicar Filtros
+Clique em 
+"Aplicar Filtros"
+: O sistema irá exibir todas as tarefas que você concluiu no período selecionado.
+5
+Exportar Relatório
+Caso opte por gerar o relatório: selecionar 
+"Exportar"
+ ou 
+Imprimir
+ (Exportar para Excel para usuários com perfil Gestor ou Administrador/ Imprimir ou salvar em PDF (disponível para todos os perfis).
+Como configurar sua Caixa de Entrada
+1
+Acesse as configurações
+Acesse o menu lateral Meu Painel: clique no ícone de Configurações no topo da tela.
+2
+Escolha a forma de exibição
+Escolha a forma de exibição que preferir.
+Dica:
+ O gerenciamento eficiente de tarefas é fundamental para manter a produtividade e organização do seu escritório jurídico.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Instruções Práticas Meu Painel
+ Próximo ›
+ Nenhum
+ Navegação Interna

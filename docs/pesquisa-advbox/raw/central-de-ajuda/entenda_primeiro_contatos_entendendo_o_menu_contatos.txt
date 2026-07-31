@@ -1,0 +1,115 @@
+Entendendo o Menu Contatos
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 15/01/2026 11:11
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar o Menu Contatos para gerenciar clientes, compreender as métricas do sistema, cadastrar novos contatos e utilizar as ferramentas de busca e filtros disponíveis.
+Compreendendo as Métricas do Sistema
+O painel de métricas oferece uma visão estratégica completa do seu escritório com informações essenciais:
+1
+Contatos Cadastrados
+Exibe o número total de pessoas cadastradas no sistema, com comparação ao mês anterior.
+2
+Com Processo Ativo
+Mostra a quantidade de pessoas com processos cadastrados que possuem o campo "Número do processo CNJ" ou "Requerimento" preenchido. Permite comparação com o mês anterior. O dado é clicável para acesso rápido.
+3
+Sem Processo Ativo
+Indica o número de pessoas com processos cadastrados, mas sem preenchimento dos campos CNJ ou Requerimento. Também clicável para detalhamento.
+4
+Top Origem
+Tabela com as 5 principais origens que mais indicam clientes para o escritório. Para funcionar corretamente, o campo Origem da pessoa deve estar sempre preenchido.
+5
+Faixa Etária
+Gráfico circular com a média de idade dos clientes que mais procuram o escritório (ex.: 25 a 30 anos).
+6
+Top Profissões
+Gráfico circular com as profissões mais frequentes entre os clientes do escritório.
+Entenda os ícones da Barra Superior
+Barra superior do formulário: Apresenta atalhos rápidos em forma de ícones, que tornam o uso do sistema mais prático:
+1
+Ícone de boneco
+Representa o perfil do contato em cadastro. Permite inserir uma foto do cliente para ajudar na identificação, especialmente em casos de nomes semelhantes ou duplicados.
+2
+Ícone de nuvem
+Área de armazenamento online para guardar documentos, anexos e arquivos relacionados ao contato, processos ou tarefas.
+3
+Ícone de pasta com seta
+Permite alterar a posição do formulário na tela (centralizado ou fixo na lateral direita). Dica: para iniciantes, o ideal é usar o formulário fixo na lateral direita. Assim, é possível acessar outros menus sem perder o que já foi preenchido.
+Campos do cadastro de Novo Contato
+Siga este processo completo para garantir um cadastro eficiente:
+1
+CPF/CNPJ (não obrigatório)
+Permite informar o CPF (pessoa física) ou CNPJ (pessoa jurídica). Ao digitar e pressionar TAB, o sistema preenche automaticamente alguns dados consultando a Receita Federal.
+2
+Nome (obrigatório)
+Campo para o nome completo do contato.
+3
+Origem da pessoa (obrigatório)
+Indica como a pessoa chegou ao escritório (ex.: indicação, redes sociais).
+4
+Anotações gerais (opcional)
+Campo livre para registrar observações relevantes (ex.: preferências do cliente, senhas, hashtags para facilitar buscas).
+5
+Pessoa física ou Pessoa jurídica
+Seleciona o tipo de cadastro, sendo Pessoa física ou Pessoa jurídica.
+6
+Adicionar representante
+Para vincular um representante legal ao contato, útil em casos de menores ou incapazes.
+7
+Criar novo contato
+Botão azul que finaliza o cadastro e direciona ao formulário de cadastro do processo vinculado ao cliente.
+Campos adicionais (não obrigatórios):
+ RG, data de nascimento, estado civil, profissão, sexo, nacionalidade, celular, telefone, e-mail, CEP, país, estado, cidade, endereço e número, bairro, PIS/PASEP, CTPS, CID, nome da mãe
+Importante:
+ Embora o formulário de novo contato na ADVBOX tenha campos obrigatórios e opcionais, é altamente recomendado preencher o máximo de informações possíveis. Por quê? Os dados alimentam as métricas e relatórios do Menu Contatos. Informações incompletas geram relatórios imprecisos e prejudicam a análise estratégica. Um cadastro completo evita retrabalho e reduz falhas ou inconsistências. O sistema fica mais eficiente, os relatórios ganham qualidade e o controle operacional do escritório melhora significativamente.
+Ferramentas de busca, filtro e atalhos
+Utilize essas ferramentas para localizar e organizar contatos eficientemente:
+1
+Buscar
+Permite localizar contatos rapidamente usando nome completo ou parte do nome. Hashtags (#) registradas no campo de anotações gerais.
+2
+Filtrar
+Refina a listagem de contatos por clientes, partes contrárias, com processo em andamento / sem processo em andamento, aniversariantes do dia / do mês, estado, cidade, origem, parceiro, período de início ou término do cadastro e visualização dos excluídos.
+3
+Exportar
+Gerar relatório em Excel (apenas para gestores/administradores, enviado por e-mail) ou PDF (disponível para todos, para impressão ou arquivamento).
+4
+Ordenar
+Organiza a listagem por nome do cliente, cidade/UF, data do cadastro.
+5
+Ícone de aniversário (bolo)
+Destaca clientes que fazem aniversário no dia atual (se a data de nascimento estiver cadastrada). Facilita o envio de mensagens e ações personalizadas.
+6
+Atalhos na listagem
+Funcionalidades disponíveis:
+Ícone "+" antes do nome: expande para exibir os processos vinculados ao contato.
+Ao passar o mouse:
+ Editar, Criar novo processo, Gerar documentos, Mover para lixeira
+Limite de contatos por plano
+NÃO EXISTE LIMITE DE CONTATOS PARA NENHUM PLANO.
+Importante:
+ Listagens têm paginação automática, e há limites por relatório: BJ/BM: até 1.000 linhas | Elite: até 5.000 linhas (necessário paginar e extrair em partes se passar disso).
+Dica:
+ O Menu Contatos é uma ferramenta fundamental para organizar e gerenciar as informações de todos os indivíduos relacionados ao escritório, incluindo clientes, partes contrárias e testemunhas. É crucial, portanto, que esses contatos sejam mantidos sempre atualizados. Sua base de clientes, otimizando relacionamentos e impulsionando o crescimento do seu escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

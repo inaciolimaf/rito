@@ -1,0 +1,114 @@
+Entendendo o Menu Parceiros
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 07/10/2025 17:06
+ Navegação Interna
+O Menu Parceiros da ADVBOX foi desenvolvido para facilitar a gestão de processos compartilhados entre escritórios jurídicos que também utilizam a plataforma. Essa funcionalidade permite uma atuação colaborativa, segura e organizada, mantendo cada escritório com acesso às informações necessárias para sua participação no processo.
+Importante:
+ O Menu Parceiros funciona somente entre escritórios que utilizam a ADVBOX. Todos os perfis de usuário têm acesso a esse menu.
+O Menu Parceiros permite que escritórios jurídicos compartilhem processos de forma colaborativa, segura e organizada. Com ele, você consegue trabalhar em conjunto com outros escritórios que também utilizam a ADVBOX, mantendo cada parte responsável por suas atividades no mesmo processo.
+Principais recursos:
+Visualização dos processos compartilhados na listagem padrão
+Filtros para refinar buscas por parceiro, fase processual, tarefas pendentes e período
+Métricas e gráficos dinâmicos que mostram distribuição de processos e demandas pendentes
+Criação e gestão de parcerias (convidar parceiro, monitorar status)
+Atribuição de tarefas diretamente ao parceiro
+Atalhos rápidos para editar processo, gerar documentos, visualizar histórico e dados do cliente
+Qual é a diferença na visualização?
+1
+O escritório que é "dono do processo"
+Tem acesso completo a todas as informações, incluindo: CRM, financeiro, grupos internos, documentos privados e intimações como tarefas.
+2
+O escritório parceiro
+Tem acesso apenas às informações necessárias para atuar no processo, como:
+Dados gerais do processo
+Documentos na pasta compartilhada
+Tarefas atribuídas ao parceiro
+Não visualiza financeiro, grupos internos, nem recebe intimações como tarefas
+Principais Métricas e Dados
+O Menu Parceiros não serve apenas para visualizar processos compartilhados, ele também oferece gráficos e métricas que ajudam a acompanhar e gerenciar sua colaboração com outros escritórios.
+Detalhamento das Métricas
+1
+Processos Compartilhados (Ativos)
+Mostra o total de processos ativos que estão compartilhados, organizados conforme as fases do seu fluxo de trabalho.
+Importante:
+ processos na fase de Arquivamento não entram nessa contagem.
+2
+Demanda Pendente pelo Seu Escritório
+Indica quantos processos compartilhados possuem tarefas pendentes atribuídas ao seu escritório. Serve para você acompanhar o que ainda precisa ser feito na sua parte da parceria.
+É clicável!
+ Ao clicar, você vê a lista desses processos com pendências.
+3
+Demanda Pendente pelo Parceiro
+Mostra quantos processos compartilhados possuem tarefas pendentes atribuídas ao escritório parceiro. Assim, você acompanha se há algo aguardando do parceiro na colaboração.
+4
+Gráfico de Processos Compartilhados por Fase
+Exibe em formato de gráfico de barras a quantidade de processos em cada fase, como:
+Marketing
+Negociação
+Consultoria
+Administrativo
+Judicial
+Recursal
+Execução/Cobrança
+Isso ajuda a entender em quais etapas estão concentrados os processos da parceria.
+5
+Barra de Compromissos
+Ferramenta prática que fica no topo do Menu Parceiros e permite:
+Adicionar novo parceiro
+Buscar processos
+Aplicar filtros (por fase, pendências, situação, período, etc.)
+Ordenar informações
+Exportar dados (Excel ou PDF)
+6
+Filtro "Você e seus parceiros"
+Permite selecionar um escritório parceiro específico e ver:
+Somente os processos compartilhados com aquele parceiro
+Gráficos e métricas atualizados automaticamente, focando apenas na parceria selecionada
+Desde quando essa parceria está ativa (exemplo: "Você e X Advogados. Seu parceiro desde outubro de 2024")
+Informações importantes
+1
+Compatibilidade
+O Menu Parceiros funciona somente entre escritórios que utilizam a ADVBOX.
+2
+Controle independente
+Cada escritório mantém o controle do seu próprio fluxo, financeiro e documentos privados.
+3
+Acesso limitado
+O compartilhamento permite colaboração no processo, mas com acesso limitado às informações sensíveis.
+4
+Distribuição de tarefas
+As tarefas atribuídas ao parceiro são direcionadas para o usuário configurado como responsável dentro das Notificações, e é esse usuário quem organiza e distribui internamente as demandas.
+5
+Intimações
+As intimações não chegam como tarefa para o parceiro, mas podem ser acessadas no histórico do processo, desde que o parceiro tenha monitoramento ativo do tribunal.
+6
+Pasta compartilhada
+Sempre utilize a pasta compartilhada para disponibilizar documentos ao escritório parceiro.
+7
+Acesso de usuários
+Todos os perfis de usuário têm acesso a esse menu.
+Dica:
+ Com o Menu Parceiros, você terá total controle sobre processos compartilhados, fortalecendo a colaboração entre escritórios de forma segura e organizada. As principais vantagens incluem: fortalecimento da advocacia colaborativa, facilidade na gestão de tarefas e compromissos compartilhados, e manutenção da privacidade das informações sensíveis do escritório dono.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

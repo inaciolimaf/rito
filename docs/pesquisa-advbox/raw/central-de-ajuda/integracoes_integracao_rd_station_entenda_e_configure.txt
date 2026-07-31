@@ -1,0 +1,165 @@
+Integração RD Station: entenda e configure.
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 24/07/2025 12:27
+ Navegação Interna
+Neste artigo, você vai aprender como integrar a ADVBOX com o RD Station Marketing para automatizar o recebimento de leads qualificados, transformando-os em cadastros, processos e tarefas de forma automática.
+O que é a Integração com RD Station Marketing
+A integração da ADVBOX com o 
+RD Station Marketing
+ conecta as ações de marketing digital do escritório ao fluxo jurídico, automatizando o recebimento de leads qualificados. Esses leads são transformados diretamente em cadastros de pessoas, processos e tarefas na ADVBOX.
+É uma solução ideal para equipes que utilizam 
+inbound marketing
+, nutrição de leads e funil de vendas no RD Station, e que desejam integrar essas ações ao atendimento jurídico.
+Importante:
+ Compatível apenas com o RD Station Marketing (não funciona com RD Station CRM ou Conversas). Exige conta ativa no RD Station Marketing com acesso ao painel de automações e webhooks. Disponível para os planos CRM, Max e Elite da ADVBOX (não disponível no plano Banca Jurídica). A configuração é feita no nível da conta do escritório, e vale para todos os usuários.
+As automações no RD Station enviam dados para a ADVBOX automaticamente, com critérios como pontuação, estágio do funil ou eventos de conversão. Cada automação na ADVBOX gera um 
+Webhook
+ (URL exclusiva) que deve ser configurado no RD Station. Além disso, quando o processo na ADVBOX muda de fase ou etapa, essa informação é enviada de volta ao RD Station como evento de conversão.
+Como configurar a integração via Token público
+1
+Obter token no RD Station
+Acesse sua conta no 
+RD Station Marketing
+. Vá até a área de 
+Integrações
+ e clique em 
+Dados de integração (API)
+.
+2
+Copiar token público
+Localize o campo 
+Token público
+ e clique em 
+Copiar
+ para salvar a chave.
+3
+Acessar integrações na ADVBOX
+Na ADVBOX, acesse o 
+Menu Configurações
+ e clique no submenu 
+Integrações
+.
+4
+Configurar RD Station Marketing
+Localize a seção 
+RD Station Marketing
+ e clique em 
+Configurar
+ (texto azul).
+5
+Inserir token
+Se o token ainda não estiver cadastrado, clique em 
+Configurar Token
+ (ícone de chave). No pop-up, cole o 
+Token público
+ do RD Station no campo indicado.
+6
+Salvar configuração
+Clique em 
+Salvar dados
+ para concluir o vínculo entre as plataformas.
+Como criar automações na ADVBOX (geração de Webhook)
+1
+Acessar automações
+Na ADVBOX, no menu 
+Integrações > RD Station Marketing
+, clique em 
+Configurar
+.
+2
+Criar nova automação
+Clique em 
++ Criar nova automação
+.
+3
+Preencher campos obrigatórios
+Preencha os campos obrigatórios no pop-up:
+Nome da automação
+Origem do cliente
+Grupo / Tipo de ação
+Etapa do processo
+Colaborador responsável
+(Opcional) Marque o checkbox para criar uma tarefa automática
+4
+Obter URL do Webhook
+Clique em 
+Salvar dados
+. A ADVBOX exibirá a URL do Webhook gerada para uso no RD Station.
+Como configurar o envio de leads no RD Station
+1
+Criar Webhook no RD Station
+No 
+RD Station Marketing
+, vá até 
+Integrações
+ e clique em 
+Criar Webhook
+.
+2
+Preencher configurações básicas
+Preencha os campos:
+Nome:
+ nome interno da integração
+URL:
+ cole a URL do Webhook da ADVBOX
+Gatilho:
+ escolha entre 
+Oportunidade
+ (envio ao marcar como oportunidade) ou 
+Conversão
+ (envio ao atingir evento específico no funil)
+3
+Configurar eventos (se necessário)
+Se escolher 
+Conversão
+, preencha o campo 
+Eventos de Conversão
+ com o nome exato do evento.
+Importante:
+ Se o token do RD Station for substituído, atualize manualmente na ADVBOX. É possível criar múltiplas automações com diferentes regras para etapas, responsáveis e tipos de ação.
+Boas práticas de integração entre marketing e operação
+Para aproveitar ao máximo a integração entre 
+RD Station Marketing
+ e 
+ADVBOX
+, é essencial o alinhamento entre marketing, atendimento e jurídico. O uso correto da integração melhora a qualidade do atendimento e potencializa as oportunidades comerciais.
+1
+Automatize de forma segmentada
+Crie automações específicas para perfis diferentes de leads (por serviço, área ou maturidade). Isso direciona o processo na ADVBOX ao grupo e tipo de ação mais adequado.
+2
+Defina fase e etapa iniciais
+Posicione o lead corretamente no funil jurídico para um acompanhamento fiel do avanço e geração de conversões relevantes no RD Station.
+3
+Padronize a origem das pessoas
+Use descrições claras para facilitar relatórios e métricas de conversão.
+4
+Valide os Webhooks regularmente
+Garanta que continuem ativos após alterações no RD Station (como token ou fluxo).
+5
+Treine os usuários
+A movimentação correta dos processos na ADVBOX alimenta o histórico do RD Station e gera dados confiáveis.
+Dica:
+ A integração com RD Station Marketing permite alinhar marketing, atendimento e jurídico, transformando leads qualificados automaticamente em oportunidades de negócio organizadas na ADVBOX.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Integração Asaas: o que é,como fazer.
+ Próximo ›
+ Conheça nossas Integrações
+ Navegação Interna

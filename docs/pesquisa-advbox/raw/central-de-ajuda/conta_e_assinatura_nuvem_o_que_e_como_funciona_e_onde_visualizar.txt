@@ -1,0 +1,67 @@
+Nuvem : o que é, como funciona e onde visualizar
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 14/01/2026 14:13
+ Navegação Interna
+Neste artigo, você vai aprender como visualizar o uso da nuvem na ADVBOX e entender os limites de armazenamento de cada plano.
+Nuvem
+Na ADVBOX, o 
+Uso da nuvem
+ mostra quanto espaço de armazenamento e quantos arquivos já foram utilizados na plataforma. Essa informação está disponível no 
+Menu Conta e assinatura
+, logo abaixo dos dados da assinatura.
+Cada plano tem um 
+limite gratuito
+ de armazenamento:
+ESSENCIAL
+: 50 GB
+Banca Jurídica
+: 70 GB
+Banca Max
+: 90 GB
+Elite
+: 100 GB
+Caso o espaço gratuito seja excedido, será cobrado 
+R$ 0,50 por mês a cada 1 GB adicional utilizado
+.
+Como visualizar o uso Nuvem
+1
+Acessar Conta e assinatura
+2
+Navegar para Plano e pagamento
+No submenu, clique em 
+Plano e pagamento
+.
+3
+Localizar Informações da Nuvem
+Na categoria 
+Assinatura e pagamento
+, localize logo abaixo das informações de valor e vencimento da assinatura o campo que exibe:
+O 
+espaço utilizado na nuvem (em GB)
+A 
+quantidade de arquivos armazenados
+Dica:
+ Monitore regularmente o uso da nuvem para evitar cobranças adicionais por excesso de armazenamento e gerenciar adequadamente seus arquivos na plataforma.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Assinatura e pagamento: como atualizar plano e forma de cobrança
+ Próximo ›
+ Termos de Uso da ADVBOX
+ Navegação Interna

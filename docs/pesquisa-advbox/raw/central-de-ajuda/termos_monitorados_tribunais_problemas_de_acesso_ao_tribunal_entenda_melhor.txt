@@ -1,0 +1,139 @@
+Problemas de acesso ao Tribunal, entenda melhor
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 04/03/2026 18:24
+ Navegação Interna
+Neste artigo, você vai aprender como identificar e corrigir os principais problemas de acesso ao tribunal na ADVBOX: recuperar QR Code, atualizar usuário e senha, e reconfigurar a verificação em duas etapas (2FA).
+Problemas de acesso ao tribunal são uma das causas mais comuns de falha no monitoramento de processos na ADVBOX. Isso geralmente acontece quando:
+A senha do tribunal foi alterada
+O QR Code do autenticador foi perdido
+A verificação em duas etapas (2FA) foi reconfigurada
+Houve troca de celular ou aplicativo autenticador
+Checklist rápido — resolva em 30 segundos
+Antes de seguir o passo a passo, verifique:
+O usuário e senha funcionam diretamente no site do tribunal
+O celular ainda possui o aplicativo autenticador (Google Authenticator, Microsoft Authenticator etc.)
+O QR Code não foi redefinido recentemente no tribunal
+O celular usado para autenticação não foi trocado
+Importante:
+ Se algum desses itens mudou, será necessário reconfigurar o acesso na ADVBOX.
+Como corrigir erro de usuário ou senha
+Esse erro ocorre quando a senha do tribunal foi alterada, o login foi digitado incorretamente ou o tribunal exigiu redefinição de senha.
+1
+Acesse o site do tribunal diretamente
+Abra o portal do tribunal no navegador e faça login com seu usuário e senha.
+2
+Confirme que o acesso funciona normalmente
+Certifique-se de que o login está funcionando corretamente no próprio site do tribunal antes de atualizar na ADVBOX.
+3
+Atualize as credenciais dentro da ADVBOX
+Acesse as configurações do tribunal na ADVBOX e atualize o usuário e a senha com as informações corretas.
+Importante:
+ Sempre que a senha do tribunal for alterada, ela também precisa ser atualizada na ADVBOX, ou o monitoramento pode falhar.
+Como recuperar ou gerar um novo QR Code
+O QR Code é usado para configurar o aplicativo autenticador no celular. Você precisará gerar um novo QR Code se trocou de celular, removeu o aplicativo autenticador ou redefiniu a autenticação no tribunal.
+1
+Acesse o tribunal
+Entre no portal do tribunal com seu usuário e senha.
+2
+Acesse as configurações de segurança
+Procure pela opção 
+verificação em duas etapas
+ dentro das configurações de segurança do tribunal.
+3
+Gere um novo QR Code
+Solicite a geração de um novo QR Code para reconfigurar o autenticador.
+4
+Escaneie com o aplicativo autenticador
+Abra o aplicativo autenticador no celular (Google Authenticator, Microsoft Authenticator ou Authy) e escaneie o QR Code exibido.
+5
+Atualize a configuração na ADVBOX
+Após escanear, atualize as configurações de autenticação do tribunal dentro da ADVBOX.
+Como configurar a verificação em duas etapas (2FA)
+A verificação em duas etapas adiciona uma camada extra de segurança no acesso ao tribunal. Normalmente funciona com aplicativos como Google Authenticator, Microsoft Authenticator ou Authy.
+1
+Instale um aplicativo autenticador no celular
+Baixe e instale o Google Authenticator, Microsoft Authenticator ou Authy na loja de aplicativos do seu celular.
+2
+Acesse as configurações de segurança do tribunal
+Entre no portal do tribunal e localize a opção de verificação em duas etapas.
+3
+Escaneie o QR Code exibido
+Abra o aplicativo autenticador e escaneie o QR Code exibido na tela do tribunal.
+4
+Digite o código gerado e salve
+Insira o código temporário gerado pelo aplicativo para confirmar a configuração e salve. Após isso, o sistema passará a gerar códigos temporários para login.
+Troquei de celular. O que fazer?
+Se você trocou de celular, o aplicativo autenticador não terá mais o acesso configurado. Será necessário refazer a configuração do QR Code.
+1
+Acesse o tribunal
+Entre no portal do tribunal com seu usuário e senha.
+2
+Vá até a área de segurança
+Localize as configurações de verificação em duas etapas.
+3
+Redefina a autenticação e gere um novo QR Code
+Solicite a redefinição da autenticação em duas etapas e gere um novo QR Code.
+4
+Configure no novo celular
+Abra o aplicativo autenticador no novo celular, escaneie o QR Code e atualize as configurações na ADVBOX.
+Erros mais comuns e como resolver
+1
+Usuário ou senha inválidos
+Significado:
+ Senha alterada no tribunal.
+Solução:
+ Atualizar as credenciais na ADVBOX.
+2
+Código 2FA inválido
+Significado:
+ Autenticador desconfigurado.
+Solução:
+ Refazer o QR Code.
+3
+Não recebo código
+Significado:
+ Aplicativo autenticador não configurado.
+Solução:
+ Configurar o autenticador novamente.
+4
+ADVBOX não acessa o tribunal
+Significado:
+ Credenciais desatualizadas.
+Solução:
+ Revisar login e 2FA.
+Boas práticas para evitar esse problema
+Para evitar falhas no monitoramento de processos:
+Não altere a senha do tribunal sem atualizar na ADVBOX
+Não remova o aplicativo autenticador do celular
+Ao trocar de celular, refaça o QR Code
+Mantenha o acesso ao tribunal sempre ativo
+Ainda com problemas?
+Se após seguir este guia o acesso ainda não funcionar, entre em contato com o suporte informando:
+Tribunal utilizado
+Mensagem de erro exibida
+Se houve alteração de senha ou troca de celular
+Dica:
+ Informar esses detalhes ao suporte ajudará a equipe a identificar e resolver o problema com muito mais rapidez.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Cadastrar QR CODE do PJE
+ Próximo ›
+ Nenhum
+ Navegação Interna

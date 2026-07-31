@@ -1,0 +1,163 @@
+Dicas práticas para utilizar o Menu Contatos
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 02/10/2025 17:22
+ Navegação Interna
+Neste artigo, você vai aprender como exportar relatórios de clientes aniversariantes do mês, relatórios de todos os clientes cadastrados, como gerar relatórios filtrados por origem específica através do menu Contatos, além de fazer download de documentos individuais ou em lote do cadastro de clientes.
+Como exportar um relatório de clientes aniversariantes do mês
+1
+Acessar Contatos
+Acesse o menu de 
+Contatos
+.
+2
+Configurar Filtro de Aniversariantes
+Selecione 
+Filtrar
+ > 
+Filtrar por aniversariantes do mês
+.
+3
+Aplicar Filtros
+Clique no botão azul 
+"Aplicar Filtros"
+.
+4
+Exportar Relatório
+Clique em 
+"Exportar"
+ e selecione 
+Excel
+ ou 
+PDF
+ de acordo com sua permissão de usuário.
+Como exportar um relatório de todos os clientes cadastrados
+1
+Acessar Contatos
+Acesse o menu de 
+Contatos
+.
+2
+Configurar Filtro por Clientes
+Selecione 
+Filtrar
+ > 
+Filtrar por clientes
+ e preencha os campos 
+"Início do cadastro"
+ e 
+"Término do cadastro"
+ com o período desejado.
+3
+Aplicar Filtros
+Clique no botão azul 
+"Aplicar Filtros"
+.
+4
+Exportar Relatório
+Clique em 
+"Exportar"
+ e selecione 
+Excel
+ ou 
+PDF
+ de acordo com sua permissão de usuário.
+Como gerar relatório de cliente de uma origem específica
+1
+Acessar Contatos
+Acesse o menu de 
+Contatos
+.
+2
+Acessar Filtros
+Selecione 
+Filtrar
+.
+3
+Selecionar Origem
+No campo 
+"Origem das partes"
+, selecione a origem que deseja filtrar.
+4
+Aplicar Filtros
+Clique no botão azul 
+"Aplicar Filtros"
+.
+5
+Exportar Relatório
+Clique em 
+"Exportar"
+ e selecione 
+Excel
+ ou 
+PDF
+ de acordo com sua permissão de usuário.
+Dica:
+ Os relatórios de contatos são úteis para campanhas de marketing direcionadas e acompanhamento da origem dos clientes. Use regularmente para manter relacionamento próximo com seus clientes.
+Como fazer download de documentos individuais
+1
+Acesse o cadastro do cliente ou o processo vinculado ao cliente desejado
+Clique sobre o nome do cliente que deseja fazer o 
+download
+ do documento. - Cliente
+Clique sobre o processo e selecione o ícone de nuvem
+2
+Navegue até a aba Documentos
+Clique na aba 
+Documentos
+ e você terá acesso a todos documentos já anexados neste cadastro.
+3
+Faça o download do documento
+Vá no documento que deseja e clique no ícone de download para baixar o arquivo.
+Como fazer download de todos os documentos (ZIP)
+1
+Acesse a opção de download em lote
+Na aba Documentos, clique no botão 
+"Baixar todos arquivos (ZIP)"
+ se os arquivos não forem muito pesados.
+2
+Aguarde o download
+Os documentos serão baixados em formato .ZIP, por isso você terá que descompactá-los posteriormente.
+Importante:
+ Quando os documentos forem muito grandes e o download demorar, ele pode não se completar. Desta forma, orientamos para que seja evitado o uso do "baixar todos os documentos" quando o arquivo de determinado cliente for muito pesado.
+Como descompactar arquivos ZIP
+Para descompactar os arquivos baixados em formato ZIP, você pode utilizar programas como o 
+WinRAR
+. Siga os passos abaixo:
+1
+Localize o arquivo baixado
+Após baixar os documentos, eles ficarão dispostos na área de downloads do seu navegador. Clique sobre o ícone para abrir o arquivo.
+2
+Extraia os arquivos
+Clique em 
+"Extrair para"
+, escolha a pasta onde os seus arquivos devem ser salvos e clique em 
+"OK"
+.
+3
+Acesse os arquivos descompactados
+Após a extração, você poderá acessar todos os documentos na pasta escolhida, organizados e prontos para uso.
+Dica:
+ Para arquivos muito grandes, prefira fazer o download individual de cada documento para evitar problemas de conectividade e garantir que todos os arquivos sejam baixados corretamente.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

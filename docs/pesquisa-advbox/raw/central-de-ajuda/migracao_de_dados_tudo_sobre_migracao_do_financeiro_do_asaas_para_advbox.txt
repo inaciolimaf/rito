@@ -1,0 +1,149 @@
+Tudo sobre Migração do Financeiro do Asaas para ADVBOX
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 20/07/2026 13:11
+ Navegação Interna
+Neste artigo, você vai aprender sobre o processo de integração e migração do Asaas para a ADVBOX, incluindo como exportar dados, o que pode ser migrado e as principais limitações técnicas do processo.
+Visão Geral
+O Asaas é uma ferramenta de gestão financeira e cobrança utilizada por muitos escritórios jurídicos. Na migração para a ADVBOX, é possível importar dados financeiros (receitas e despesas), desde que o cliente envie o relatório exportado diretamente do Asaas.
+Importante:
+ O Asaas utiliza autenticação em dois fatores (2FA). Por isso, o cliente precisa gerar manualmente os relatórios e enviá-los para a equipe de migração.
+Como exportar dados do Asaas
+Para que a equipe da ADVBOX possa realizar a migração, siga os passos abaixo:
+1
+Acesse o menu lateral no Asaas
+Navegue até 
+Cobranças
+.
+2
+Vá até Cobranças → Todas
+Localize a opção de exportação de dados.
+3
+Exporte os dados
+Clique em 
+Ações em lote → Exportar dados
+.
+4
+Aguarde o download
+Espere alguns segundos até que o arquivo Excel (.xlsx) seja baixado automaticamente.
+5
+Envie o arquivo
+Encaminhe o arquivo para a equipe de migração da ADVBOX.
+Receitas Futuras
+Os boletos que já haviam sido emitidos antes da migração continuam válidos?
+Sim, continuam válidos, 
+desde que não tenha sido realizado um reset dos clientes ou dos lançamentos.
+Detalhe técnico:
+Os boletos já emitidos terão somente seus lançamentos financeiros migrados, mas a baixa dos pagamentos deverá ser feita manualmente dentro da ADVBOX
+Não são trazidos os boletos, apenas os lançamentos financeiros (receitas e despesas), sem baixa automática
+A conta do Asaas integrada ao Easyjur será migrada automaticamente para a ADVBOX?
+Não‼️
+ A integração automática não é migrada. É necessário refazer a integração diretamente na ADVBOX.
+A integração com o Easyjur será substituída pela integração com a ADVBOX
+Importante:
+ A integração não traz dados retroativos (boletos, cobranças anteriores etc.). A partir da nova integração, os lançamentos cadastrados na ADVBOX passam a constar no Asaas — e não o contrário.
+Receitas Parceladas
+As receitas parceladas ficarão agrupadas na pasta do processo após a migração?
+Não. Na ADVBOX, os lançamentos parcelados são criados de forma vinculada (1/12, 2/12, etc.), mas durante a migração esse agrupamento não é mantido.
+1
+Migração Individual
+Os valores e parcelas são migrados individualmente.
+2
+Vínculo com Clientes
+Se estavam vinculados a clientes, permanecem vinculados à pessoa.
+Despesas
+As despesas já pagas serão migradas como quitadas?
+Sim. As despesas com o campo "Data de Pagamento" preenchido na planilha original são consideradas pagas e migradas como quitadas para a ADVBOX.
+As despesas atrasadas também serão migradas?
+Sim. As despesas com status "atrasado" e sem data de pagamento são cadastradas na ADVBOX como em aberto, mantendo o vencimento original. São migradas receitas pagas, despesas atrasadas e também receitas e despesas futuras.
+O que é migrado do Asaas para a ADVBOX
+Tipo de dado
+É possível migrar?
+Observações técnicas
+Financeiro (receitas e cobranças)
+✅ Sim
+Requer envio do relatório Excel pelo cliente.
+Boletos emitidos
+❌ Não
+Os boletos já emitidos não são migrados e a baixa deve ser MANUAL
+Despesas pagas
+✅ Sim
+Consideradas quitadas se houver data de pagamento.
+Despesas atrasadas
+✅ Sim
+Migradas como em aberto.
+Receitas e despesas futuras
+✅ Sim
+Incluídas no relatório exportado do Asaas.
+Integração automática com Asaas
+❌ Não
+Deve ser refeita manualmente na ADVBOX.
+Histórico retroativo de cobranças pela integração
+❌ Não
+Integração não traz lançamentos anteriores. Requer contratação da migração via relatório Excel.
+Vínculo com processos
+❌ Não
+O Asaas não possui vínculo direto com processos.
+Vínculo com pessoas
+✅ Sim
+As informações do cliente são mantidas.
+Limitações técnicas
+1
+Boletos e Comprovantes
+A migração não traz boletos, faturas ou comprovantes, apenas os lançamentos financeiros.
+2
+Vínculo Individual
+As receitas e despesas são importadas individualmente, podendo se vincular apenas ao cliente.
+3
+Autenticação 2FA
+É necessário autorizar manualmente o acesso aos relatórios por conta da verificação em dois fatores (2FA) no Asaas.
+4
+Integração Não Retroativa
+A integração não é retroativa: dados anteriores à ativação não são sincronizados. A migração via relatório Excel, por outro lado, é retroativa e traz o histórico existente até o momento da exportação.
+5
+Duplicidade de Contas
+Caso a migração seja feita antes da integração, o sistema criará duas contas Asaas distintas. A integração não precisa ser refeita, porém a conta migrada não é a mesma vinculada à integração. O ideal é realizar a migração somente após a integração ou, se já tiver sido feita, vincular manualmente a conta migrada à conta Asaas integrada.
+Responsabilidades e suporte
+O acompanhamento da migração e integração Asaas → ADVBOX é realizado conjuntamente pelas equipes de:
+1
+Configuração
+Responsável pela migração de dados, formatação e importação.
+2
+Suporte Técnico e Implantação
+Responsáveis por orientar sobre a configuração da integração e validar a comunicação entre os sistemas.
+Em caso de dúvidas específicas, o cliente será contatado pela implantadora responsável pelo processo.
+Resumo técnico — Asaas e ADVBOX
+A migração é possível apenas para o módulo Financeiro
+O processo de migração depende do envio do relatório Excel exportado pelo cliente e 
+é retroativo
+, trazendo o histórico financeiro existente até a data da exportação
+A integração automática, por sua vez, 
+não é retroativa
+: ela sincroniza apenas os lançamentos feitos a partir da sua ativação, sem trazer dados anteriores
+Boletos já gerados são mantidos apenas como lançamentos financeiros, sem atualização automática
+A migração entre Asaas e ADVBOX deve ser configurada após a INTEGRAÇÃO, preferencialmente na sequência
+Caso a migração ocorra antes da integração, verifique se há duplicidade de contas Asaas
+Dica:
+ Mantenha contato próximo com a equipe de implantação para garantir que todos os dados sejam exportados corretamente antes de iniciar o processo de migração.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Guia de Migração de Dados - ADVBOX
+ Próximo ›
+ Migração por tribunais
+ Navegação Interna

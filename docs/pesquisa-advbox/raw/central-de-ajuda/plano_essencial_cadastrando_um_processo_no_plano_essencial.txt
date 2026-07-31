@@ -1,0 +1,87 @@
+Cadastrando um processo no Plano Essencial
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 06/03/2026 13:38
+ Navegação Interna
+Neste artigo, você vai aprender como cadastrar um processo no Plano Essencial da ADVBOX, desde o acesso ao atalho de cadastro até os erros mais comuns a evitar durante o registro.
+Como cadastrar um processo no Plano Essencial
+No Plano Essencial da ADVBOX, o cadastro de processos é realizado através da criação de um novo atendimento, que posteriormente se transforma em processo dentro do sistema. Esse cadastro permite registrar as informações principais do caso, organizar as atividades relacionadas e acompanhar o andamento processual dentro do sistema.
+Passo a passo para cadastrar um processo
+1. Acesse o atalho Adicionar
+1
+Localize o botão ADICIONAR
+Em qualquer tela do sistema, localize o botão 
+ADICIONAR
+, identificado pela cor azul no canto superior direito da tela.
+2
+Clique no botão
+Clique nesse botão para visualizar as opções de cadastro disponíveis. Esse atalho permite iniciar rapidamente novos registros dentro do sistema.
+2. Clique em Novo Atendimento
+1
+Selecione a opção Novo Atendimento
+Após clicar em Adicionar, selecione a opção 
+Novo Atendimento
+.
+2
+Aguarde o pop-up de cadastro
+Um pop-up será exibido na tela para iniciar o cadastro. No Plano Essencial, o processo é criado a partir de um atendimento, permitindo registrar as informações iniciais do caso.
+3. Preencha os dados do processo
+1
+Preencha os campos obrigatórios
+No formulário exibido, preencha os campos obrigatórios com as informações do processo, incluindo: Cliente, Parte contrária, Tipo de ação, Área do direito e demais informações solicitadas no formulário. Essas informações ajudam a organizar corretamente o processo dentro do sistema.
+4. Salve o processo
+1
+Clique em Criar novo processo
+Após preencher todas as informações, clique no botão 
+Criar novo processo
+. O sistema irá salvar os dados e o processo ficará disponível para acompanhamento e gestão das atividades relacionadas.
+Cadastro automático vinculado ao cliente
+Caso você cadastre primeiro um novo cliente, o sistema irá sugerir automaticamente a criação de um processo vinculado a esse cliente. Nesse momento:
+Uma nova janela será aberta.
+Preencha as informações do processo.
+Confirme o cadastro para concluir.
+Importante:
+ Isso agiliza o registro do processo e mantém todas as informações vinculadas corretamente.
+Erros comuns ao cadastrar um processo
+Alguns erros podem impedir o cadastro correto do processo ou gerar dúvidas na organização das informações. Veja os mais comuns:
+1
+Não preencher os campos obrigatórios
+Se algum campo obrigatório não for preenchido, o sistema pode impedir a criação do processo. Sempre verifique se todos os campos necessários foram completados antes de salvar.
+2
+Selecionar o cliente errado
+Pode acontecer de selecionar um cliente com nome parecido. Sempre confirme se o cliente selecionado é o correto antes de salvar o processo.
+3
+Não vincular corretamente a parte contrária
+A parte contrária é uma informação importante para o registro do processo. Certifique-se de que essa informação foi preenchida corretamente.
+4
+Criar processos duplicados
+Pode acontecer de um processo ser cadastrado mais de uma vez por usuários diferentes. Antes de cadastrar um novo processo, utilize a busca do sistema para verificar se ele já existe.
+5
+Não revisar as informações antes de salvar
+Informações preenchidas de forma incorreta podem gerar problemas no acompanhamento do processo. Sempre revise os dados antes de clicar em 
+Criar novo processo
+.
+Dica:
+ Manter os processos cadastrados corretamente ajuda no controle de tarefas, prazos e organização das atividades do escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ O que você precisa saber - Plano Essencial
+ Navegação Interna

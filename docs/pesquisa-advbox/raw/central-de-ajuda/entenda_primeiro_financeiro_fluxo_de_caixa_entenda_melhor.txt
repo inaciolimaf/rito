@@ -1,0 +1,107 @@
+Fluxo de Caixa, entenda melhor.
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 04/03/2026 18:25
+ Navegação Interna
+Neste artigo, você vai aprender como usar o fluxo de caixa da ADVBOX na prática: o que ele mostra, como configurar o modo correto de visualização e como criar uma rotina de análise financeira para manter seu escritório saudável.
+O que é fluxo de caixa na ADVBOX
+Muitos escritórios olham apenas para o faturamento. Mas o que mantém o escritório saudável não é o quanto você fatura — é o quanto você tem em caixa. O fluxo de caixa é a visualização financeira baseada na 
+data de pagamento
+. Ele mostra:
+O que realmente entrou
+O que realmente saiu
+O saldo real das suas contas
+Se você quer saber quanto dinheiro tem disponível, deve analisar no modo 
+Por pagamento
+.
+Como usar o Fluxo de Caixa na ADVBOX
+Use o modo correto
+1
+Acesse o Menu Financeiro
+Dentro do Menu Financeiro, localize a opção de visualização.
+2
+Selecione o modo "Por pagamento"
+Altere a visualização para 
+Por pagamento
+. Esse modo considera apenas valores que já possuem data de pagamento preenchida.
+Importante:
+ Se não houver data de pagamento preenchida, o valor não entra no fluxo. Apenas lançamentos efetivamente pagos ou recebidos são considerados.
+Entenda o que o fluxo responde
+O fluxo de caixa responde perguntas como:
+Quanto entrou este mês?
+Quanto saiu este mês?
+Estou gastando mais do que recebo?
+Qual é meu saldo real disponível?
+Quanto já paguei de despesas fixas?
+Ele 
+não
+ responde:
+Quanto eu deveria receber (isso é vencimento)
+Qual foi meu lucro contábil (isso é competência/DRE)
+Use o fluxo para decisões reais
+1
+Controlar gastos
+Se as saídas estão maiores que as entradas por vários meses consecutivos, seu caixa está sendo consumido. O fluxo mostra isso com clareza.
+2
+Avaliar capacidade de investimento
+Antes de contratar alguém, investir em marketing ou fazer uma compra grande, verifique: você tem caixa real para isso? Ou está contando com valores que ainda não entraram?
+3
+Identificar meses críticos
+Alguns meses concentram muitas despesas fixas, menos recebimentos e pagamento de tributos. O fluxo ajuda você a prever esses períodos e se preparar com antecedência.
+Crie uma rotina de análise
+1
+Diariamente
+Verifique se todos os pagamentos e recebimentos foram baixados.
+2
+Semanalmente
+Analise entradas x saídas da semana.
+3
+Mensalmente
+Compare:
+Total de entradas
+Total de saídas
+Variação de saldo
+Se o saldo final está menor que o inicial por vários meses, você precisa ajustar sua estrutura.
+Erros comuns ao analisar o Fluxo de Caixa
+1
+Analisar no modo errado
+Por vencimento
+ → exibe previsão futura
+Por competência
+ → exibe resultado contábil
+Por pagamento
+ → exibe o fluxo de caixa real ✓
+Para fluxo real, use sempre o modo 
+Por pagamento
+.
+2
+Confundir fluxo de caixa com lucro
+Você pode ter lucro contábil positivo e fluxo de caixa negativo ao mesmo tempo. Isso acontece quando clientes atrasam pagamento, você parcela despesas ou há diferença entre competência e pagamento. Por isso, 
+fluxo e DRE devem ser analisados juntos
+.
+Importante:
+ Quando você acompanha o fluxo de caixa corretamente, ganha clareza, segurança e poder de decisão — e evita surpresas bancárias, falta de capital de giro e decisões baseadas em "achismo".
+Dica:
+ Use o fluxo de caixa semanalmente — não apenas quando houver problema. O fluxo de caixa é a visão da realidade: ele mostra o dinheiro que realmente entrou e saiu do seu escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Erros comuns no Menu Financeiro
+ Próximo ›
+ Nenhum
+ Navegação Interna

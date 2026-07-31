@@ -1,0 +1,93 @@
+Relatórios Planos Banca Max e Banca Jurídica
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 02/03/2026 12:45
+ Navegação Interna
+Neste artigo, você vai aprender como acessar e utilizar o menu Relatórios para acompanhar produtividade, desempenho da equipe e indicadores estratégicos do escritório. Este recurso está disponível nos planos Banca Jurídica e Banca Max.
+Visão Geral da Gestão
+Ao acessar o menu Relatórios, você visualizará o painel de Gestão, que apresenta os principais indicadores do escritório.
+Gráfico de Agilidade
+O gráfico demonstra o desempenho das tarefas com base em três indicadores:
+Concluídas em dia
+Concluídas em atraso
+Pendentes
+Esse gráfico permite avaliar rapidamente o nível de organização e cumprimento de prazos da equipe.
+Indicadores Laterais
+Ao lado do gráfico principal, no lado direito da tela, você verá:
+Tarefas com mais atrasos
+Colaboradores com mais tarefas atrasadas
+Agilidade geral do escritório
+Esses dados ajudam a identificar gargalos e oportunidades de melhoria na gestão.
+Filtros Disponíveis
+Os relatórios podem ser personalizados utilizando os filtros disponíveis na tela.
+Filtro por Produtividade
+Permite analisar:
+Tarefas atrasadas
+Registro de acesso
+Filtro por Quantidade
+Permite visualizar indicadores como:
+Novos clientes
+Novos processos
+Processos ganhos
+Processos perdidos
+Filtro por Colaborador
+Permite visualizar os dados individualmente por membro da equipe.
+Filtro por Período
+Permite definir o intervalo de tempo que será analisado no relatório.
+Como gerar o Relatório de Registro de Acesso
+1
+Acessar o menu Relatórios
+Acesse o menu 
+Relatórios
+ no painel lateral.
+2
+Localizar os filtros
+Role a tela para baixo até localizar os filtros disponíveis.
+3
+Selecionar Registro de Acesso
+No filtro 
+Produtividade
+, selecione a opção 
+Registro de Acesso
+.
+4
+Filtrar por colaborador (opcional)
+Se desejar visualizar os dados por colaborador, selecione o nome no campo 
+Filtrar por colaborador
+.
+5
+Definir o período
+Escolha o período desejado para a análise.
+6
+Exportar o relatório
+Clique em 
+Exportar
+ e selecione o formato desejado:
+Excel
+PDF
+Importante:
+ A exportação para Excel está disponível apenas para usuários com perfil Gestor ou Administrador. A impressão ou salvamento em PDF está disponível para todos os perfis.
+Dica:
+ Utilize os filtros combinados — por produtividade, colaborador e período — para obter relatórios mais precisos e personalizados para a realidade do seu escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

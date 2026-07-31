@@ -1,0 +1,140 @@
+Entendendo o Menu CRM
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 14/01/2026 14:49
+ Navegação Interna
+CRM é a sigla para Customer Relationship Management, ou Gestão de Relacionamento com o Cliente. O CRM da ADVBOX é um painel visual que organiza e acompanha seus processos ou atendimentos em formato de Kanban (colunas e cards). Ele permite que o escritório visualize o andamento de cada demanda, identifique gargalos, distribua tarefas e otimize o trabalho da equipe.
+Tudo é centralizado em um único lugar: fases, etapas, tarefas, documentos, responsáveis e prazos. É a ferramenta ideal para quem quer ter controle completo da operação, sem complicações.
+Importante:
+ O Menu CRM está disponível exclusivamente para os planos CRM, Banca Max e Elite. O plano Banca Jurídica não possui acesso a este módulo.
+Contadores do CRM
+Na parte superior do seu quadro Kanban no CRM, sempre que você clica em uma fase, aparecem 4 contadores importantes. Eles servem para te dar, de forma rápida e visual, um resumo da quantidade de processos e do andamento daquela fase.
+O que cada Contador significa?
+1
+Processos
+Mostra a quantidade total de processos que estão na fase selecionada. Este número leva em conta se está ou não aplicado o filtro de responsável.
+2
+Recebidos este mês
+Mostra quantos processos chegaram nessa fase somente no mês atual. Conta qualquer processo que foi movido para essa fase, baseado na data de movimentação.
+3
+R$ (Honorários estimados)
+Soma dos valores informados no campo "Valor dos honorários" dos processos visíveis na fase. Esse valor é apenas para controle interno, não tem ligação com o módulo financeiro da ADVBOX, serve como uma estimativa, para gestão.
+4
+Estagnados
+Mostra quantos processos estão parados por mais tempo do que o permitido na etapa configurada. Isso só aparece se você configurou o tempo de estagnação nas etapas dessa fase.
+Importante:
+ Os contadores mudam automaticamente de acordo com o que está filtrado na tela, especialmente o filtro de responsável e outros filtros que você ativar.
+Processos Estagnados: o que são e como gerenciar?
+Na ADVBOX, um processo estagnado é aquele que ficou parado na mesma etapa, além do prazo definido, sem movimentações internas relevantes.
+Movimentações que zeram a estagnação
+Criação de nova tarefa vinculada ao processo
+Movimentação manual entre fases ou etapas
+O que 
+NÃO
+ zera a estagnação
+Andamentos judiciais automáticos
+Outras movimentações internas
+Sinalizações visuais:
+Barra vermelha vertical na lateral do card do processo
+Número de dias parados antes do nome da parte principal
+Essa sinalização aparece apenas em etapas com configuração ativa de estagnação
+Filtro Responsável
+É ativado automaticamente ao abrir o Menu CRM. Por padrão, o sistema exibe os processos atribuídos ao usuário logado e os processos nos quais esse usuário possui tarefas vinculadas.
+Informações visíveis nos Cards
+Cada card representa um processo ou atendimento. Nele você vê: nome do cliente, número do processo (CNJ), grupo de ação, tipo de ação, valor da causa (se preenchido), ícone do responsável e contingenciamento (provável, possível ou remota).
+Ícones de atalhos rápidos, dentro dos Cards
+1
+Atribuir nova tarefa
+2
+Gerar documento
+3
+Abrir histórico
+Visualizar tarefas, intimações e andamentos do processo.
+Movimentações em Massa
+A funcionalidade "Mover etapas em massa" permite movimentar diversos processos ao mesmo tempo dentro do Menu CRM da ADVBOX. Está disponível apenas para usuários com perfil de 
+administrador ou gestor
+.
+Essa ação pode ser realizada entre etapas da mesma fase ou, quando necessário, movimentar o processo também entre fases diferentes, respeitando sempre os filtros aplicados no momento da ação.
+Comportamentos específicos:
+A etapa de destino precisa estar previamente configurada dentro da fase processual, com nome e ordem válidos
+Notificações automáticas por SMS e E-mail não são disparadas nesse tipo de movimentação. Para informar o cliente, é necessário realizar a movimentação de forma individual
+Importante:
+ Esta é uma ação irreversível. Após digitar a frase de segurança e confirmar a operação, os processos serão movidos de forma 
+definitiva, sem opção de desfazer
+.
+Contato com o cliente: notificações automáticas de movimentação
+O CRM da ADVBOX oferece a funcionalidade de envio automático de notificações por SMS e e-mail, sempre que um processo for movimentado entre fases ou etapas. Essa ferramenta permite informar o cliente proativamente sobre o andamento de sua demanda, mesmo antes de ele entrar em contato.
+Importante:
+ O uso da notificação automática não gera custos.
+Formas de envio:
+Durante a movimentação manual do processo no Kanban
+Dentro do formulário do processo
+Durante a atribuição de tarefas (se a nova tarefa for vinculada a uma fase diferente da atual)
+Todas as notificações enviadas são registradas na aba Tarefas do Histórico do processo, com o nome do usuário responsável pela ação.
+Como funciona o envio da Notificação
+As notificações automáticas da ADVBOX podem ser enviadas por SMS, por e-mail ou por ambos os canais, dependendo das informações disponíveis no cadastro da parte principal do processo.
+Características do envio
+O envio não é obrigatório nos dois canais simultaneamente
+O sistema enviará a notificação apenas pelos canais disponíveis e válidos
+Disponível em todos os planos da ADVBOX, incluindo o plano CRM
+Não gera nenhum custo adicional
+As mensagens são geradas automaticamente e não permitem edição
+SMS
+Será enviado se o campo de telefone celular estiver preenchido corretamente.
+E-mail
+Será enviado se o campo de e-mail estiver informado corretamente.
+Exemplos de mensagens e informações sobre limitações técnicas
+As notificações enviadas ao cliente são compostas automaticamente pela ADVBOX e seguem modelos padronizados. O conteúdo não pode ser editado e é gerado com base nos dados cadastrados no processo e na ficha do cliente.
+Notificação por SMS
+Enviada para o número de celular cadastrado no cliente (parte principal do processo).
+"ADVBOX: João Silva seu processo está na Fase Judicial etapa Aguardando despacho. Escritório XXXX"
+Composição da mensagem SMS:
+Nome do cliente
+Fase atual
+Etapa atual
+Nome do escritório
+Limite:
+ 160 caracteres. Caso os nomes sejam muito longos, o conteúdo pode ser cortado.
+Notificação por E-mail
+A notificação por e-mail permite uma comunicação mais estruturada, mas também segue um modelo padronizado. É enviada para o e-mail cadastrado no cliente (parte principal).
+Assunto:
+ Atualização do seu processo
+Olá João Silva,
+Seu processo número 1234567-89.2023.8.26.0001 (Ação de Cobrança) está na fase Judicial, na etapa Aguardando despacho.
+Estamos atentos a qualquer atualização.
+Aguarde novidades!
+Atenciosamente,
+Escritório XYZ
+Caso tenha alguma dúvida, entre em contato conosco.
+(11) 91234-5678 | contato@escritorioxyz.com.br
+Composição da mensagem de e-mail:
+Nome do cliente
+Número do processo
+Tipo de ação
+Nome da fase atual
+Etapa atual
+Nome e dados de contato do escritório
+Dica:
+ O CRM da ADVBOX oferece controle completo sobre seus processos, com ferramentas visuais e automações que otimizam o trabalho do escritório e melhoram a comunicação com os clientes.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

@@ -1,0 +1,125 @@
+Relatórios CRM
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 14/01/2026 15:00
+ Navegação Interna
+Neste artigo, você vai aprender como gerar relatórios no CRM da ADVBOX, especificamente de processos estagnados e por tipo de ação.
+Como gerar relatório de Processos Estagnados
+1
+Acessar o CRM
+Acesse o menu 
+CRM
+.
+2
+Configurar Filtro de Usuário
+Limpe o filtro por 
+usuário responsável
+ (caso queira filtrar por responsável, basta selecionar o colaborador desejado).
+3
+Aplicar Filtro Inicial
+Clique em 
+Filtrar
+.
+4
+Selecionar Processos Estagnados
+No campo 
+Todos os processos
+, selecione 
+Somente Processos Estagnados
+.
+5
+Aplicar Filtros
+Clique no botão azul 
+Aplicar filtros
+.
+6
+Visualizar Resultados
+A listagem com os processos estagnados será exibida automaticamente.
+Exportar o relatório:
+1
+Iniciar Exportação
+Clique em 
+Exportar
+.
+2
+Escolher Formato
+Escolha o formato desejado: 
+Excel
+ ou 
+PDF
+, conforme sua 
+permissão de usuário
+.
+⚠️ Importante:
+ O filtro irá respeitar a 
+fase em exibição
+: Marketing, Negociação, Consultoria, Administrativo, Judicial, Recursal, Execução, Financeiro e Arquivamento.
+Relatório de Processos por Tipo de Ação 
+1
+Acessar o CRM
+Acesse o menu 
+CRM
+.
+2
+Configurar Filtro de Usuário
+Limpe o filtro por 
+usuário responsável
+.
+3
+Aplicar Filtro Inicial
+Clique em 
+Filtrar
+.
+4
+Selecionar Tipo de Ação
+No campo 
+Tipo de Ação
+, selecione o(s) tipo(s) desejado(s) — é possível selecionar mais de um.
+5
+Aplicar Filtros
+Clique no botão azul 
+Aplicar filtros
+.
+6
+Visualizar Resultados
+O sistema exibirá a listagem com os processos de acordo com os filtros escolhidos.
+Exportar o relatório:
+1
+Iniciar Exportação
+Clique em 
+Exportar
+.
+2
+Escolher Formato
+Escolha entre 
+Excel
+ ou 
+PDF
+, conforme sua 
+permissão de usuário
+.
+Dica:
+ O sistema irá respeitar a fase atual Exibida na tela. Para relatório completo de processos - 
+Clique aqui para mais informações.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Dicas práticas para usar o menu CRM 
+ Próximo ›
+ Nenhum
+ Navegação Interna

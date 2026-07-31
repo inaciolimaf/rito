@@ -1,0 +1,87 @@
+Como utilizar o Menu CRM na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 30/09/2025 18:17
+ Navegação Interna
+Este guia aborda as principais configurações do CRM para otimizar seu fluxo de trabalho. Certifique-se de ter as permissões adequadas (Gestor ou Administrador) para realizar as alterações.
+Como Configurar Seu CRM
+Configure as etapas do seu CRM de acordo com a rotina do seu escritório:
+1
+Acesse o Menu CRM
+Entre no sistema e analise as fases disponíveis. Escolha a fase que deseja configurar.
+2
+Selecione a Fase Desejada
+Clique na fase que você quer trabalhar.
+Importante:
+ As Fases são padrões e não podem ser editadas, diferente das etapas.
+3
+Edite a Etapa
+Clique nos três pontinhos (⋮) ao lado do nome da etapa e selecione 
+"Editar etapa"
+. Renomeie a etapa conforme sua rotina de trabalho.
+Como Gerenciar Filtros por Responsável
+Controle a visualização dos processos por responsável:
+1
+Remover ou Alterar Filtro
+Clique em 
+"Responsável"
+ no topo do CRM para:
+Remover o filtro atual (visualizar todos os processos)
+Selecionar outro membro da equipe
+Filtrar por múltiplos responsáveis
+Como Configurar Alertas de Estagnação
+Configure alertas automáticos para processos que ficam parados por muito tempo:
+1
+Acesse o Menu CRM
+Entre no sistema e visualize o quadro Kanban.
+2
+Abra as Configurações da Etapa
+Vá até a fase desejada, localize a etapa que você quer configurar e clique no ícone de três pontinhos (⋮) no canto superior direito da coluna.
+3
+Edite a Etapa
+No menu que aparece, escolha 
+"Editar etapa"
+.
+4
+Defina o Prazo de Estagnação
+No campo 
+"Prazo de estagnação (dias corridos)"
+, informe quantos dias o processo pode ficar parado antes de ser considerado estagnado.
+Sugestões de prazos:
+7 dias:
+ Para etapas que requerem ação rápida
+15 dias:
+ Para etapas de análise ou aguardo
+30 dias:
+ Para etapas de longo prazo
+5
+Salvar Configuração
+Clique em 
+"Salvar"
+ ou 
+"Confirmar"
+ para aplicar a configuração.
+Dica:
+ Configure prazos realistas baseados na rotina do seu escritório. Monitore regularmente os processos estagnados, ajuste os prazos conforme necessário após observar o fluxo e use os alertas como ferramenta de gestão, não de cobrança. Com essas configurações, seu CRM estará otimizado para acompanhar o fluxo de trabalho do seu escritório e identificar gargalos automaticamente.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

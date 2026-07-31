@@ -1,0 +1,82 @@
+Notificações: veja como esse recurso facilita a rotina do escritório
+Ygor Gabriel Combi
+ •
+Atualizado em: 10/06/2026 18:53
+ Navegação Interna
+Neste artigo, você vai aprender o que são as notificações na ADVBOX, como funcionam os diferentes tipos disponíveis e como configurá-las corretamente para manter sua equipe sempre informada sobre eventos importantes.
+O que são as Notificações?
+As notificações na ADVBOX são 
+avisos automáticos
+ exibidos no ícone de sino (localizado no canto superior da tela), sempre que ocorrem eventos importantes, como:
+Cadastro de novos clientes
+Registro de novos processos
+Compartilhamentos entre escritórios parceiros
+O objetivo é garantir que a equipe não perca movimentações relevantes, mantendo a comunicação interna organizada e eficiente.
+Atenção:
+ Intimações judiciais não geram notificação no sino. Elas são atribuídas como tarefas no painel do responsável.
+Tipos de notificações disponíveis
+1
+Novo cliente cadastrado
+Aviso exibido no sino quando um novo cliente é adicionado.
+Útil para equipes de atendimento, comercial ou qualificação.
+2
+Novo processo cadastrado
+Notificação no sino para o responsável por novos processos.
+Indicada para controladoria, gestão de produção ou área jurídica.
+3
+Compartilhamentos e Parceiros
+Avisos sempre que um processo for compartilhado ou houver nova solicitação de parceria.
+Essencial para escritórios parceiros ou controladoria.
+4
+Intimações judiciais
+Não aparece no sino.
+O responsável recebe a intimação como tarefa automática no Meu Painel (aparece no sino somente dele).
+Este campo não pode ficar vazio, pois garante que toda intimação tenha um responsável definido.
+Como configurar as Notificações
+Na ADVBOX, configurar corretamente as notificações garante que 
+nenhuma informação importante passe despercebida
+ e que 
+cada setor do escritório receba apenas os alertas relevantes para sua função
+.
+Importante:
+ A única notificação obrigatória é a de Intimações Judiciais: sempre deve haver um responsável definido, pois o sistema converte automaticamente as intimações em tarefas com prazos. Não é possível deixar esse campo em branco, nem atribuir mais de um usuário por tipo de notificação.
+1
+Organizar melhor o fluxo de trabalho
+2
+Evitar perda de informações importantes
+3
+Distribuir funções com clareza
+4
+Manter uma comunicação eficiente entre os setores
+Para outras notificações (Novo Cliente, Novo Processo, Compartilhamentos), você pode escolher qualquer usuário ativo. O ideal é definir conforme a função da equipe — por exemplo, 
+cadastros com o time comercial, novos processos com a produção jurídica ou controladoria
+.
+Revisar essas configurações com frequência, especialmente em mudanças de equipe ou férias, 
+ajuda a manter o fluxo atualizado e evita falhas de comunicação
+.
+Importante:
+ As notificações desaparecem do sino após serem visualizadas. Por isso, quem for responsável deve acompanhar o sino com frequência e agir imediatamente.
+Dica:
+ Organizar bem quem recebe o quê evita alertas desnecessários, melhora a comunicação e reforça a responsabilidade individual no uso do sistema.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Caixa de entrada: o que é, pra que serve ,como configurar
+ Próximo ›
+ Nenhum
+ Navegação Interna

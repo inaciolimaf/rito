@@ -1,0 +1,115 @@
+Exportando seu QR Code para configurar tribunais na ADVBOX
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 03/02/2026 11:51
+ Navegação Interna
+Neste artigo, você vai aprender como localizar e exportar o QR Code do Google Authenticator para utilizá-lo na configuração dos termos monitorados na ADVBOX.
+Como exportar seu QR Code do aplicativo Google Authenticator
+Se você não tem o QR Code salvo no seu dispositivo, será necessário localizá-lo dentro do próprio aplicativo Google Authenticator. Siga o passo a passo abaixo para exportar o QR Code e utilizá-lo na ADVBOX.
+1
+Abra o aplicativo Google Authenticator
+Acesse o app instalado no seu celular.
+2
+Acesse o menu de transferência
+Clique no ícone de três risquinhos na parte superior esquerda da tela.
+3
+Selecione a opção de transferência
+Clique em 
+"Transferir contas"
+ ou 
+"Transferir códigos"
+. Depois, clique em 
+"Exportar contas"
+ ou 
+"Exportar códigos"
+ (a depender da versão do aplicativo).
+4
+Selecione apenas a conta desejada
+Após esse primeiro processo, aparecerá uma listagem de tribunais com a dupla autenticação habilitada. É necessário que apenas uma opção fique selecionada, ou seja, 
+A CONTA QUE DESEJA EXPORTAR O QR CODE
+. Portanto, retire a seleção dos demais tribunais.
+Importante:
+ Caso tenham dois tribunais de mesmo nome (EPROC TJMG, por exemplo), selecione apenas O ÚLTIMO.
+5
+Capture o QR Code
+Após selecionar o tribunal correto, prossiga tirando um 
+PRINT DO QR CODE
+ que vai aparecer na sua tela. Depois recorte a imagem somente com o QR code e salve em seu computador, em formato PNG ou JPG, para usar posteriormente.
+Como inserir o QR Code na ADVBOX
+1
+Acesse sua ADVBOX
+Entre na sua conta ADVBOX.
+2
+Navegue até Termos monitorados
+Clique em 
+Configurações > Termos monitorados
+.
+3
+Edite o monitoramento
+Clique no 
+Lápis para Editar
+ o monitoramento.
+4
+Configure o QR Code
+Selecione o tribunal desejado, clique em 
+"Selecionar QRCODE"
+, insira o print que salvou e clique em 
+"Atualizar termo"
+.
+Reutilização de QR Codes por Tribunal
+Importante:
+ O mesmo QR Code pode ser reutilizado se for do mesmo tribunal. Por exemplo: para os TRF4 RS, TRF4 SC, TRF4 PR, seja de 1º ou 2º grau o QR Code é um só (o mesmo equivale para os outros TRFs do país).
+Tribunais que compartilham o mesmo QR Code:
+Nome do Tribunal
+Robôs que podem usar o mesmo QR CODE
+TRF2
+TRF2 ES - EPROC 1º GRAU
+TRF2 RJ - EPROC 1º GRAU
+TRF2 - EPROC 2º GRAU
+TRF4
+TRF4 PR - EPROC 1º GRAU
+TRF4 SC - EPROC 1º GRAU
+TRF4 RS - EPROC 1º GRAU
+TRF4 - EPROC 2º GRAU
+TRF6
+TRF6 MG - EPROC - 1º GRAU
+TRF6 MG - EPROC - 2º GRAU
+TJSC
+TJSC - EPROC - 1º GRAU
+TJSC - EPROC - 2º GRAU
+TJRS
+TJRS - EPROC - 1º GRAU
+TJRS - EPROC - 2º GRAU
+TJSP
+TJSP - EPROC - 1º GRAU
+TJSP - EPROC - 2º GRAU
+TJTO
+TJTO - EPROC - 1º GRAU
+TJTO - EPROC - 2º GRAU
+TJRJ
+TJRJ - EPROC - 1º GRAU
+TJRJ - EPROC - 2º GRAU
+Dica: O QR CODE Exportado do PJE/PDPJ é o mesmo para todos os PJE's.
+Mantenha sempre uma cópia do QR Code salva em local seguro para facilitar futuras configurações de monitoramento.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Problemas de acesso no tribunal? Saiba como recuperar QR Code, ajustar usuário/senha e configurar verificação 2F 
+ Próximo ›
+ Tudo sobre DJEN
+ Navegação Interna

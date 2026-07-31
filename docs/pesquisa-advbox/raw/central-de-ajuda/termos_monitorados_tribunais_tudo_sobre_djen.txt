@@ -1,0 +1,58 @@
+Tudo sobre DJEN
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 12/08/2025 17:13
+ Navegação Interna
+Neste artigo, você vai compreender as principais diferenças entre intimações eletrônicas capturadas diretamente dos sistemas dos tribunais e as intimações publicadas em diários oficiais como o DJEN.
+Diferença entre Intimações e DJEN
+Característica
+Intimações Eletrônicas
+Intimações em Diários
+Origem
+Capturadas direto nos sistemas dos tribunais (Projudi, PJe, Eproc, etc.).
+Publicadas no 
+DJEN
+ - Diário da Justiça Eletrônico Nacional
+Publicadas em Diários oficiais conforme o Estado
+Modo de captura
+Capturadas diretamente dos painéis dos sistemas eletrônicos dos tribunais, através de certificado A1.
+Capturadas diretamente do site oficial do DJEN e demais Diários conforme disponibilização.
+Conteúdo
+Todas as informações da intimação, a depender do sistema.
+Texto idêntico ao publicado.
+Entrega
+Limitado ao sistema eletrônico que está sendo monitorado. 
+Inclui várias  comunicações de Diários do Estado contratado.
+Vantagem
+Intimações mais completas.
+Não é necessário senha ou certificado para o acompanhamento.
+Desvantagem
+Segundo resolução do CNJ, não tem força de intimação. 
+Resolução 569/24
+Não são todos os tribunais que estão publicando de forma integral no DJEN.
+Dica:
+ Em caso de monitoramento exclusivo de Diários, CONFIRA 
+diretamente nos tribunais que você atua
+, se estão de fato publicando de forma integral no DJEN.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Exportando seu QR Code para configurar tribunais na ADVBOX
+ Próximo ›
+ Status de Monitoramento 
+ Navegação Interna

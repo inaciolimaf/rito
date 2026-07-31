@@ -1,0 +1,90 @@
+Metas: Significado, como utilizar e configurar
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 10/06/2026 12:55
+ Navegação Interna
+Neste artigo, você vai aprender o que são as Metas na ADVBOX, como elas ajudam a medir o desempenho comercial do escritório e como configurar metas mensais de fechamento.
+METAS
+As metas são uma ferramenta de gestão criada para ajudar os escritórios a acompanhar seu desempenho comercial de forma clara e objetiva.
+Especificamente, as metas se concentram em 
+quantos processos foram fechados durante o mês
+, permitindo ao escritório medir seu crescimento real e identificar rapidamente quando é preciso ajustar estratégias.
+A funcionalidade de Metas está disponível nos planos:
+Banca Jurídica
+Banca Max
+Elite
+Importante:
+ Não está disponível no plano CRM.
+Como funcionam as Metas?
+As metas são definidas mensalmente e vinculadas aos Grupos de Ação do escritório. Isso permite acompanhar o desempenho por área de atuação, como Direito de Família, Trabalhista, Penal etc.
+Como o sistema contabiliza?
+O sistema conta automaticamente quantos processos foram fechados com base em duas ações:
+Quando um processo sai da Fase de Negociação e vai para outra fase
+Quando é preenchida a Data de Fechamento no cadastro do processo
+Assim, o acompanhamento é automático e não precisa de controle manual ou planilhas externas.
+Por que ter metas de fechamento?
+Ter uma meta mensal ajuda o escritório a:
+Ter um objetivo claro de quantos processos precisa fechar por mês
+Medir o crescimento real do escritório
+Identificar rapidamente quando o desempenho está abaixo do esperado
+Tomar decisões mais rápidas e certeiras, como melhorar atendimentos, ajustar estratégias ou reforçar campanhas de captação
+Benefícios da Meta de Fechamento
+A meta de fechamento traz diversos benefícios para a gestão do escritório. Ela permite acompanhar o desempenho por área de atuação, ou seja, você consegue ver como está o fechamento de processos em cada Grupo de Ação, como Direito Trabalhista, Família, Penal etc.
+Além disso, é uma ferramenta totalmente integrada ao sistema ADVBOX, o que elimina a necessidade de usar planilhas ou outros softwares para controlar resultados.
+As metas também ajudam o escritório a tomar decisões com base em dados reais, em vez de achismos. Com elas, fica mais fácil identificar se o time está no caminho certo ou se precisa ajustar estratégias de prospecção, atendimento ou até mesmo marketing.
+Por fim, ter metas claras ajuda a manter o crescimento do escritório constante e previsível, permitindo um planejamento mais eficiente e saudável.
+Importante:
+Metas são objetivos mensais de quantos processos o escritório quer fechar
+Elas ajudam a medir o crescimento, identificar problemas e tomar decisões certas
+Na ADVBOX, as metas são ligadas aos Grupos de Ação e atualizadas automaticamente conforme os processos são fechados
+São uma ferramenta essencial para quem quer crescer com clareza e controle
+Como configurar meta mensal de fechamentos
+1
+Acessar Configurações
+Acesse o menu 
+Configurações
+ na lateral esquerda da tela.
+2
+Navegar para Metas
+Vá até a aba 
+Metas
+.
+3
+Localizar Grupo de Ação
+Localize o 
+Grupo de Ação
+ ao qual deseja atribuir uma meta.
+4
+Definir Meta
+Preencha o campo com o 
+número de fechamentos mensais
+ desejado para cada grupo.
+5
+Salvar Configurações
+Clique no botão 
+Atualizar metas
+ para salvar as configurações.
+Dica:
+ Use as metas para manter o crescimento do escritório constante e previsível. Acompanhe regularmente o desempenho por Grupo de Ação para identificar oportunidades de melhoria e ajustar estratégias rapidamente.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Temas na ADVBOX: veja as opções e aprenda a configurar
+ Próximo ›
+ Origem de pessoas: o que é, como utilizar na prática
+ Navegação Interna

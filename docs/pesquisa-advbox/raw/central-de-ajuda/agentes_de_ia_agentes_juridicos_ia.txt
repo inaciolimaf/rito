@@ -1,0 +1,149 @@
+Agentes Jurídicos IA
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 14/01/2026 13:20
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar os Agentes Jurídicos IA da ADVBOX para criar petições de forma rápida, inteligente e personalizada, transformando informações processuais em documentos prontos para uso.
+Como utilizar os Agentes de IA da ADVBOX
+Inovação na prática:
+ com os Agentes Jurídicos IA, você cria petições de forma rápida, inteligente e personalizada diretamente na ADVBOX.
+1
+Acesse o menu Conta e assinatura
+Na lateral esquerda da tela, você encontrará cinco opções:
+Dados da conta
+Plano e pagamento
+Agentes de IA
+Nossos produtos
+Termos de uso
+Clique em 
+Agentes de IA
+ para começar.
+2
+Escolha o Agente de IA
+Atualmente, os agentes disponíveis são:
+Direito do Consumidor → 
+Consu-3
+Direito Assistencial → 
+Assis-10
+Direito Tributário → 
+Tribut-7
+Direito de Trânsito → 
+Tran-7
+Direito Bancário → 
+Banc-1
+Direito Trabalhista → 
+Trab-2
+Direito Ambiental → 
+Ambien-3
+Direito Imobiliário → 
+Imob-7
+Direito Penal e Processual Penal → 
+CRIM-1
+Direito Cível Generalista → 
+Gener-4
+Direito de Responsabilidade Civil → 
+Respon-7
+Direito de Família → 
+Fami-2
+Direito Digital → 
+Digi-2
+Direito Contratual → 
+Contratu-4
+Direito Administrativo → 
+Adminis-3
+Direito Empresarial → 
+Empresa-9
+Direito Previdenciário → 
+PREV-7
+Direito da Propriedade Intelectual → 
+Intelec-2
+Direito da Saúde → 
+Sau-10
+‼️ Em nosso exemplo
+, vamos usar o agente de 
+Direito Previdenciário (PREV-7)
+ para gerar uma 
+Impugnação ao Laudo Pericial
+.
+3
+Escolha o Tipo de Peça
+De acordo com o Agente Jurídico selecionado, escolha qual o tipo de peça e preencha as informações solicitadas.
+Importante:
+ O tipo de informação irá depender da sua escolha.
+4
+Defina as Informações Iniciais
+O sistema abrirá um formulário com as opções:
+Selecione a parte
+ → Réu ou Autor
+Escolha a peça
+ que deseja gerar
+Você poderá:
+Adicionar uma petição inicial
+ já existente para preencher o formulário automaticamente, ou
+Fazer um breve resumo dos fatos do processo
+Clique em 
+Avançar
+.
+5
+Insira os Quesitos e o Laudo
+Aqui você pode:
+Anexar os quesitos do Autor e do Réu
+ em PDF, ou
+Inserir os quesitos manualmente, com bastante detalhes
+No nosso exemplo, será necessário incluir também o 
+Laudo Pericial
+, informando:
+Conclusão técnica do perito
+Objeto da perícia
+Problemas encontrados no laudo
+Clique em 
+Avançar
+.
+6
+Relatório do Assistente Técnico e Argumentação
+Nesta etapa em 
+nosso exemplo
+, você pode:
+Anexar o relatório do assistente técnico
+ para preenchimento automático, ou
+Inserir os argumentos manualmente
+Clique em 
+Avançar
+.
+7
+Geração da Petição
+Pronto! Você irá revisar as teses, ordenar, editar ou excluir e em seguida 
+GERAR O DOCUMENTO
+. Após isso, você poderá:
+Editar
+ o texto
+Baixar
+ o documento
+Copiar
+ para o seu editor de preferência
+Resultado:
+ Com poucos passos, você transforma informações processuais em uma petição pronta, personalizada e revisável. Isso mostra o potencial da ADVBOX em unir inovação e eficiência para a advocacia.
+ATENÇÃO:
+ A QUALIDADE das peças depende das informações fornecidas. Sempre forneça o máximo de detalhes para melhor aproveitamento.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ FAQ - Agentes Jurídicos ADVBOX
+ Navegação Interna

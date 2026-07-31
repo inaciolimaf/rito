@@ -1,0 +1,88 @@
+Como Utilizar o Menu Contatos na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 15/01/2026 11:15
+ Navegação Interna
+Neste artigo, você vai aprender como cadastrar novos contatos, editar informações existentes, excluir, restaurar e pesquisar contatos na ADVBOX de forma eficiente.
+Como e onde cadastrar um novo contato
+Existem dois atalhos principais para iniciar o cadastro: No canto superior direito da tela ou clicando em "Novo Contato". E no menu "Contatos", localizado na lateral esquerda, também clicando em "Novo Contato".
+1
+Inicie o cadastro
+Clique em "Novo Contato" e preencha os campos obrigatórios: 
+Nome
+ e 
+Origem da pessoa
+.
+2
+Use CPF ou CNPJ para agilizar
+Se quiser agilizar o cadastro, pode usar o CPF ou CNPJ: O sistema irá buscar automaticamente os dados na Receita Federal, preenchendo nome, e-mail e, às vezes, endereço.
+3
+Finalize o cadastro
+Preencha os demais dados, se desejar, e clique em "Criar novo contato" para finalizar.
+Cadastro de parte contrária:
+ Basta selecionar no campo "Origem da pessoa" a opção "Parte contrária".
+Como Editar, Excluir ou Restaurar um contato na ADVBOX
+Como Editar um contato na ADVBOX
+1
+Localize o contato
+Acesse o menu Contatos e localize o contato na lista (use a busca, se desejar).
+2
+Acesse as opções de edição
+Passe o mouse sobre o nome do contato ou clique no mesmo.
+3
+Edite as informações
+Clique no ícone de lápis (Editar), altere as informações que desejar, como nome, origem, telefone, e-mail, entre outros.
+4
+Salve as alterações
+Clique em "Salvar" no final da tela.
+Como Excluir um contato na ADVBOX
+1
+Localize o contato
+Acesse o menu Contatos e localize o contato na lista.
+2
+Exclua o contato
+Passe o mouse sobre o nome do contato e clique no ícone de lixeira (Excluir) que aparece.
+3
+Contato enviado para lixeira
+O contato será enviado para a lixeira (limbo).
+Como Restaurar um contato na ADVBOX
+1
+Acesse os filtros
+Acesse o menu "Contatos": no topo da tela, clique em "Filtrar".
+2
+Filtre contatos excluídos
+Marque a opção "Mostrar somente os excluídos" e clique em "Aplicar filtros".
+3
+Restaure o contato
+Encontre o contato que deseja restaurar, passe o mouse sobre o nome do contato e clique no ícone de seta para restaurar (ícone que aparece no lugar da lixeira).
+Como Pesquisar um contato na ADVBOX
+1
+Pela barra fixa no topo
+Utilize a barra de busca fixa no topo da ADVBOX para pesquisa rápida.
+2
+Dentro do menu Contatos
+A busca acontece no campo localizado logo abaixo das métricas (BUSCAR).
+Dica:
+ Use a busca por CPF, CNPJ, nome ou e-mail para localizar rapidamente qualquer contato no sistema. A pesquisa é instantânea e facilita a gestão de grandes listas de contatos.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

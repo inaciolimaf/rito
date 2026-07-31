@@ -1,0 +1,61 @@
+Registro de Acesso: o que é e como usar na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 17/09/2025 13:47
+ Navegação Interna
+O que é Habilitar Registro de Acesso
+1
+Funcionalidade de segurança
+O registro de acessos da ADVBOX é uma ferramenta essencial para reforçar a segurança no uso do sistema. Ao ser ativado, ele ajuda a proteger a integridade dos dados e conta com um mecanismo de inatividade: se o usuário ficar 
+10 minutos
+ sem interagir com a plataforma, o sistema faz o logoff automaticamente.
+Importante:
+ apenas usuários com perfil de Gestor podem ativar ou desativar essa funcionalidade.
+Como Ativar ou Desativar o Registro de Acesso
+1
+Acessar Configurações
+Acesse o 
+Menu Configurações
+ na ADVBOX > 
+Usuários
+.
+2
+Localizar Opção
+Na parte superior da página, localize a opção 
+Habilitar Registro de Acesso
+ (acima do botão de adicionar novos usuários).
+3
+Ativar/Desativar
+Clique na 
+chave ao lado da opção
+:
+Se a chave estiver 
+azul
+, está 
+ativo
+Se a chave estiver 
+cinza
+, está 
+desativado
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Times : o que é e como usar na prática
+ Próximo ›
+ Perfil de usuarios: Entenda as diferenças 
+ Navegação Interna

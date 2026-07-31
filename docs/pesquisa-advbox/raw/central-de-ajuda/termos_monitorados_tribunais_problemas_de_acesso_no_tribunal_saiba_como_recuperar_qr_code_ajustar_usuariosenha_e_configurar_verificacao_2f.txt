@@ -1,0 +1,181 @@
+Problemas de acesso no tribunal? Saiba como recuperar QR Code, ajustar usuário/senha e configurar verificação 2F 
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 12/08/2025 17:19
+ Navegação Interna
+Neste artigo, você vai aprender como recuperar QR Codes de autenticação, configurar a autenticação de 2 fatores do Projudi e resolver problemas comuns de acesso aos tribunais.
+Como recuperar um QR Code de autenticação do Eproc ou Projudi no Google Authenticator
+Importante:
+ Após a edição será necessário aguardar até o dia seguinte para que o sistema realize a captura das intimações. Durante esse período recomendamos que o responsável realize o tratamento das intimações dentro do próprio tribunal no referido dia.
+Dica:
+ Para evitar problemas de autenticação, mantenha sempre atualizados os dados de acesso aos tribunais e monitore regularmente os status dos termos monitorados. Em caso de alertas, trate as intimações manualmente no tribunal até que o problema seja resolvido.
+1
+Abra o aplicativo Google Authenticator e clique em Acessar Menu
+Toque no menu de três barras no canto superior para acessar as opções.
+2
+Selecionar Transferir
+Selecione 
+"Transferir contas"
+ (iOS) ou 
+"Transferir códigos"
+ (Android).
+3
+Exportar Contas
+Escolha a opção 
+"Exportar contas"
+.
+4
+Inserir PIN
+Insira o PIN (Senha) configurada para acessar o aplicativo.
+5
+Visualizar Autenticações
+Na tela seguinte, você verá todas as autenticações salvas no aplicativo, marcadas com bolinhas e um "✓".
+6
+Selecionar Tribunal
+Marque apenas o tribunal que deseja recuperar (Eproc ou Projudi) e clique em 
+"Próxima"
+.
+7
+Gerar QR Code
+O QR Code correspondente será gerado.
+8
+Salvar Imagem
+Tire um print da tela, recorte a imagem, envie essa imagem e salve no seu computador.
+9
+Anexar no Sistema
+Baixe a imagem e anexe o QR Code no sistema, clicando no monitoramento correto e realizando o procedimento de anexação.
+Como configurar a autenticação de 2 fatores do Projudi
+Quando houver a necessidade de realizar os ajustes de autenticação, o sistema irá emitir um alerta no formato de intimação como este exposto abaixo, e para ajustar, será necessário seguir o passo a passo.
+Importante:
+ Quando receber este alerta, o responsável deve acessar o tribunal manualmente para realizar tratamento das intimações do dia em questão.
+Preciso de um novo QR Code
+Importante:
+ É necessário cadastrar em seu dispositivo móvel o Google Authenticator para realizar a captura e habilitação do QRCode.
+1
+Acessar Tribunal
+Acesse o site do tribunal informado no corpo da intimação, insira seus dados de acesso e clique em entrar.
+2
+Código Único
+Na tela de Código único clique em 
+"Não tem o código autenticador?"
+.
+3
+Preencher Dados
+Você será direcionado para uma nova tela do PROJUDI, preencha os dados solicitados: CPF/CNPJ, senha e e-mail cadastrado no PROJUDI, Clique na opção 
+"Não sou um Robô"
+, na sequência, clique em 
+Confirmar
+.
+4
+Confirmar Reset
+Ao visualizar a mensagem alertando que você receberá um e-mail e que o seu token será reiniciado, clique em 
+Confirmar
+. O sistema apresentará uma mensagem de confirmação.
+5
+Verificar E-mail
+Acesse sua conta de e-mail cadastrada no PROJUDI. Clique no link indicado, seguindo as instruções do e-mail.
+6
+Acessar Novamente
+Acesse novamente o sistema do tribunal utilizando seu usuário e senha e clique para entrar.
+7
+Capturar QR Code
+Após acessar, o QR Code será exibido na tela. Tire um print desse qrcode, recorte a imagem e salve no computador.
+8
+Configurar Authenticator
+Abra o aplicativo Google Authenticator em seu dispositivo. Toque no ícone 
+"+"
+ e selecione a opção 
+"Ler QR Code"
+.
+9
+Escanear QR Code
+Escaneie o QR Code salvo anteriormente. A autenticação será registrada no aplicativo.
+10
+Finalizar Configuração
+No sistema do tribunal, insira o código gerado pelo Google Authenticator, informe o nome do dispositivo e clique para salvar.
+Importante:
+Para garantir que tudo está funcionando corretamente:
+Acesse novamente o sistema do tribunal com seu usuário, senha e o código gerado pelo Google Authenticator
+Se o acesso ocorrer normalmente, significa que a autenticação foi configurada com sucesso
+Caso não consiga acessar, desative a autenticação e repita o processo, seguindo o item 1 (Preciso de um novo QR Code) ou entre em contato com o suporte no ícone do "?" para que a equipe possa refazer a configuração para você
+Na ADVBOX
+1
+Acessar Termos Monitorados
+Após atualizar sua senha no site do tribunal, acesse a aba 
+termos monitorados
+ em configurações.
+2
+Editar Monitoramento
+Localize o monitoramento clique no ✏️ ao lado da OAB para editar.
+3
+Inserir Dados
+Já na janela de edição, localize os dados do tribunal, e insira as informações de login e senha.
+4
+Adicionar QR Code
+A seguir, basta clicar em 
+Adicionar QRCODE
+ e selecione o arquivo com imagem do QRCODE do seu computador, e clique em 
+atualizar termo
+.
+Importante:
+ Após a edição será necessário aguardar o período de sincronização que pode levar até 72hrs, durante esse intervalo é recomendado que o responsável realize o tratamento das intimações direto no site do tribunal.
+Falha no Usuário e senha
+Este erro significa que o sistema não conseguiu prosseguir a consulta das intimações por conta de uma falha no usuário e senha ou dificuldades no acesso do tribunal.
+Quando receber este alerta, o responsável deve acessar o tribunal manualmente para realizar tratamento das intimações do dia em questão.
+No Tribunal
+1
+Verificar Acesso
+Acesse o site do tribunal informado no corpo da intimação e realize uma tentativa de acesso com os dados de acesso que estão informados nos termos monitorados na ADVBOX.
+2
+Validar Dados
+Verifique se os dados de acesso ainda estão validos, ou se sua senha não foi expirada/bloqueada.
+3
+Atualizar Senha
+Atualize sua senha de acesso no site do tribunal e anote para não esquecer sua nova senha.
+Na ADVBOX
+1
+Acessar Termos Monitorados
+Após atualizar sua senha no site do tribunal, acesse a aba 
+termos monitorado
+ em configurações.
+2
+Editar Monitoramento
+Localize o monitoramento ao qual apresentou falha e clique no ✏️ ao lado da OAB para editar.
+3
+Atualizar Senha
+Já na janela de edição, localize os dados do tribunal e insira a nova senha que você gerou no tribunal e clique em 
+"ATUALIZAR TERMO"
+.
+Informações Importantes:
+Após a edição será necessário aguardar o período de sincronização que pode levar até 72hrs, durante esse intervalo é recomendado que o responsável realize o tratamento das intimações direto no site do tribunal
+Caso a senha se mantenha a mesma, apenas edite o monitoramento e salve sem fazer nenhuma alteração, para que os dados sejam sincronizados novamente
+Personalização no Tribunal
+Este erro significa que o sistema não conseguiu prosseguir a consulta das intimações por conta da existência de caixas fora do padrão no caixa de entrada do tribunal. Para solucionar é simples:
+1
+Acessar Tribunal
+Acesse o site do tribunal informado no corpo da intimação.
+2
+Localizar Caixas
+Localize as caixas que não sejam as padrões de "caixa de entrada" como no exemplo abaixo.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Termos Monitorados: o que é, como funciona e onde configurar
+ Próximo ›
+ Exportando seu QR Code para configurar tribunais na ADVBOX
+ Navegação Interna

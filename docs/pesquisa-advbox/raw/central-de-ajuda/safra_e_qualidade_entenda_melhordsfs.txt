@@ -1,0 +1,141 @@
+Entenda Melhor
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 14/07/2025 17:41
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar a aba Safra e Qualidade para entender o desempenho real da operação com base nos processos fechados ao longo do tempo, incluindo métricas de taxa de sucesso, análise por safra e decisões estratégicas.
+O que é a Aba Safra e Qualidade
+1
+Finalidade
+A aba Safra e Qualidade foi criada para ajudar gestores jurídicos a entender o desempenho real da operação com base nos processos fechados ao longo do tempo.
+Ela permite:
+1
+Medir a taxa de sucesso
+Ganhos e perdas por grupo de ação.
+2
+Acompanhar o ciclo de vida das ações
+Por ano de fechamento (a chamada "safra").
+3
+Identificar padrões de resultado
+Por área de atuação.
+4
+Visualizar o volume de processos
+Concluídos e em andamento, por safra.
+5
+Fazer comparações históricas
+Entre diferentes períodos.
+Conceito de "SAFRA":
+ Amplamente trabalhado no Livro Otimizado — permite que o escritório enxergue cada conjunto de processos fechados em um ano como um ciclo produtivo completo, que deve ser acompanhado até sua finalização, com trânsito em julgado e conclusão.
+Métricas
+1
+Indicadores apresentados
+A aba apresenta indicadores de taxa de sucesso jurídica por grupo de ação, com dados percentuais sobre processos ganhos e gráficos que representam a evolução dos resultados ao longo do tempo.
+Gráfico de taxa de sucesso por grupo de ação:
+1
+Dados exibidos por grupo
+Cada grupo de ação listado na visão superior da aba exibe:
+Porcentagem de sucesso (ganhos), baseada no total de processos com fechamento registrado e já concluídos
+Número absoluto de ganhos dentro do período analisado
+Um gráfico de linha, que mostra a variação da taxa e quantidade de ganho ao longo do tempo
+A análise da taxa de sucesso por grupo ajuda a responder:
+1
+Quais áreas têm maior índice de vitórias judiciais?
+2
+Onde há inconsistência nos resultados ao longo do tempo?
+3
+Quais grupos possuem taxa de perda elevada e merecem revisão?
+Essa leitura orienta:
+1
+Treinamentos jurídicos direcionados por grupo de ação
+2
+Redefinição de escopo de atuação
+3
+Apoio estratégico para gestão da reputação e qualidade da entrega final ao cliente
+Importante:
+ A análise da taxa de sucesso não considera processos em tramitação — apenas os que já foram concluídos com decisão registrada. Portanto, grupos com poucos fechamentos ou ações mais recentes podem apresentar flutuações artificiais.
+Análise por Safra de Processo
+1
+Tabela consolidada por safra
+A tabela consolidada por safra, em que cada linha representa um ano de fechamento de processos, e as colunas revelam o estágio atual desses processos dentro do seu ciclo jurídico.
+Safra por ano de fechamento:
+1
+Conceito na ADVBOX
+Na lógica da ADVBOX, "safra" é o termo utilizado para representar o conjunto de processos fechados em um mesmo ano, com base na data de fechamento registrada na linha do tempo do processo.
+Indicadores para cada ano de fechamento:
+1
+Fechamentos
+Número total de processos que compõem a safra.
+2
+Em produção
+Ainda em fase jurídica ativa (consultiva, administrativa, judicial ou recursal).
+3
+Trânsito julgado
+Processos com sentença definitiva.
+4
+Em execução
+Aguardando cumprimento de sentença ou cobrança.
+5
+Concluídos
+Arquivados com todas as fases encerradas.
+6
+Ganho (%)
+Número absoluto e percentual de processos com resultado favorável.
+7
+Perdido (%)
+Número absoluto e percentual de processos com resultado desfavorável.
+Análise por safra de processo:
+1
+Identificação de maturidade
+A partir da análise por safra, é possível identificar quão maduros estão os processos fechados em cada ano, ou seja, quantos já atingiram suas fases finais (trânsito em julgado, execução e arquivamento) e quantos ainda estão em tramitação. Isso permite avaliar o tempo médio até a conclusão e a efetividade da entrega jurídica ao cliente.
+2
+Velocidade de entrega
+Esse tipo de leitura revela a velocidade com que o escritório entrega valor real à sua carteira — um indicador de qualidade que vai além da produtividade, envolvendo estratégia, organização e controle processual.
+Filtro por Tipo de Relatório
+1
+Safra
+Exibe os dados dos processos conforme o ano de fechamento selecionado, com todas as colunas de identificação e fase processual.
+2
+Processos com inconsistência
+Lista processos que apresentam falhas nos registros necessários para cálculo, onde as datas da linha do tempo não estão em ordem cronológica.
+Importante:
+ A aba Safra e Qualidade não possui botão de exportação de dados. As informações devem ser analisadas diretamente na plataforma. Caso seja necessário exportar dados para análises externas, isso deve ser feito por meio de captura manual ou solicitação à equipe responsável pelo BI.
+Análises Possíveis e Decisões Estratégicas
+1
+Ferramenta essencial
+A aba Safra e Qualidade é uma ferramenta essencial para o gestor entender como a entrega jurídica do escritório evolui ao longo do tempo, safra por safra, grupo por grupo.
+Avaliação de qualidade jurídica por grupo de ação:
+1
+Com base no gráfico de taxa de ganho por grupo, o gestor pode:
+Identificar quais áreas jurídicas são mais consistentes em resultados positivos
+Detectar tendências de queda ou evolução da taxa de sucesso ao longo dos meses
+Priorizar ações de reforço técnico, treinamento ou revisão de escopo em grupos com desempenho abaixo da média
+2
+Essa leitura também orienta decisões comerciais, como:
+Direcionar campanhas para áreas com histórico forte de vitórias
+Ajustar a expectativa do cliente conforme o grupo de ação do processo
+Reforçando a lógica da maturação (whisky jurídico):
+ Assim como o Livro Otimizado ensina que um whisky precisa envelhecer para ser avaliado com justiça, os processos precisam concluir sua trajetória para que possamos realmente medir sua qualidade. Analisar uma safra prematuramente pode gerar percepções distorcidas. A qualidade se prova com o tempo, e o tempo se respeita com controle.
+Dica:
+ A aba Safra e Qualidade é fundamental para avaliar a verdadeira qualidade da entrega jurídica, permitindo análises estratégicas baseadas em resultados consolidados e orientando decisões de longo prazo para o escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

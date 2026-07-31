@@ -1,0 +1,114 @@
+Entendendo o Menu Atividades
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 08/10/2025 17:53
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar o Menu Atividades da ADVBOX, a central de controle de tarefas do escritório que permite visualizar, organizar, acompanhar e gerenciar todas as atividades da equipe, incluindo métricas de produtividade e filtros avançados.
+O que é o Menu Atividades
+O Menu Atividades é a central de controle de tarefas do escritório. Todos os perfis têm acesso. Ele permite visualizar, organizar, acompanhar e gerenciar todas as tarefas dos membros da equipe, sejam pendentes ou concluídas.
+É essencial para ter uma visão geral da produtividade do time, identificar pendências e garantir que prazos sejam cumpridos.
+Principais Métricas do Menu Atividades
+Na parte superior, você encontrará gráficos e métricas por usuário, de forma individual, com os seguintes dados:
+1
+Pendentes
+Tarefas ainda não concluídas e dentro do prazo.
+2
+Atrasadas
+Tarefas cujo prazo já venceu.
+3
+Resolvidas no mês
+Quantidade de tarefas finalizadas no mês corrente.
+Além disso, há um calendário lateral com marcações nas datas que possuem tarefas pendentes.
+Produtividade
+Mostra um quadro com a quantidade de tarefas pendentes por usuário, também de forma individual.
+Calendário
+Na lateral direita da tela, está disponível um calendário para facilitar o acompanhamento das tarefas diárias. Nele encontramos as seguintes funcionalidades:
+1
+Visualização do mês atual
+Mostra o mês atual de forma clara e organizada.
+2
+Identificação de datas com tarefas pendentes
+Uma bolinha vermelha acima da data
+Um número dentro da bolinha, indicando a quantidade de tarefas pendentes para aquele dia
+3
+Visualização rápida das tarefas
+Ao clicar na data desejada, o sistema exibirá a lista de tarefas pendentes daquele dia.
+Filtros Disponíveis
+1
+Filtros de Data
+Data do compromisso
+Prazo fatal
+Data de criação
+Início
+Término
+2
+Filtro por Responsável
+Permite filtrar tarefas por usuário específico.
+3
+Filtro por Situação
+Pendentes
+Resolvidas
+4
+Tipo de ação
+É possível selecionar uma ou mais opções.
+5
+Tarefa
+Não é possível selecionar mais de uma opção.
+6
+Fase do processo
+É possível selecionar uma ou mais opções.
+7
+Origem
+Que eu recebi
+Que eu enviei
+8
+Grupos de ação
+É possível selecionar uma ou mais opções.
+Filtros de Prioridade
+Logo abaixo dos filtros principais, é possível aplicar condições adicionais em relação às prioridades das tarefas:
+1
+Normal
+Tarefas com prioridade padrão.
+2
+Urgente
+Tarefas marcadas como urgentes.
+3
+Importante
+Tarefas marcadas como importantes.
+4
+Mostrar Futuras
+Inclui tarefas agendadas para datas futuras.
+Como aplicar os filtros
+1
+Configure os filtros desejados
+Selecione os critérios que deseja aplicar na busca das tarefas.
+2
+Clique em "Aplicar Filtros"
+Após configurar todos os filtros, clique no botão azul "Aplicar Filtros", localizado no canto inferior direito do formulário.
+3
+Use "Limpar Filtros" quando necessário
+Caso deseje limpar todas as opções e recomeçar, utilize o atalho "Limpar Filtros", localizado ao lado do botão azul "Aplicar Filtros".
+Dica:
+ O Menu Atividades é fundamental para o controle de produtividade do escritório. Use os filtros para ter visões específicas das tarefas e o calendário para acompanhar prazos importantes. Mantenha sempre um olho nas tarefas atrasadas para garantir que nenhum compromisso seja perdido!
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

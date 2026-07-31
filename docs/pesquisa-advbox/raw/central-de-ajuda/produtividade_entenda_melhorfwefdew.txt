@@ -1,0 +1,185 @@
+Entenda Melhor
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 19/01/2026 12:17
+ Navegação Interna
+Neste artigo, você vai aprender como utilizar a aba Produtividade para analisar e acompanhar a performance da sua equipe, incluindo métricas, relatórios e filtros disponíveis para otimizar a gestão do escritório.
+O que é a Aba Produtividade
+A Produtividade é uma aba de análise e acompanhamento da performance da equipe. É a única aba presente em todos os planos que oferecem o menu de gestão, incluindo Banca Jurídica, Banca Max e Elite.
+Métricas e Gráficos Principais
+Indicadores consolidados do escritórios no Mês atual
+1
+Tarefas atribuídas
+Mostra o número total de tarefas distribuídas para a equipe no mês atual.
+2
+Tarefas concluídas
+Apresenta o número de tarefas finalizadas no mês atual.
+3
+Tarefas atrasadas
+Exibe tarefas com data de entrega vencida e ainda não concluídas.
+4
+Prazo fatal próximos 5 dias
+Mostra tarefas com prazo fatal agendado para os próximos 5 dias.
+Gráfico "Tarefas atribuídas e concluídas nesta semana"
+1
+Período de análise
+Representa os dados de segunda a sexta-feira da semana atual.
+2
+Dados exibidos
+Mostra a quantidade diária de tarefas que foram atribuídas e concluídas.
+Filtros da Produtividade Individual
+Filtro "Classificar por"
+1
+Pontuação
+Exibe primeiro os usuários com maior pontuação acumulada no período.
+2
+Volume de tarefas
+Ordena pela quantidade total de tarefas concluídas.
+3
+Tarefas atrasadas
+Prioriza usuários com maior número de tarefas vencidas e pendentes.
+4
+Envolvimento
+Organiza pela porcentagem de participação nas tarefas atribuídas.
+Filtro "Período"
+1
+Meses do ano
+Selecione de janeiro a dezembro para acompanhamento mensal específico.
+2
+VIDA TODA (ELTV)
+Considera todos os registros do usuário desde sua criação na plataforma.
+Card Produtividade por Usuário
+Informações Básicas do Card
+1
+Dados do usuário
+Foto do usuário, nome completo e cargo informado no cadastro do colaborador.
+Indicadores Mensais
+1
+Pontuação no mês
+Soma dos pontos obtidos com base na complexidade das tarefas concluídas.
+2
+Tarefas concluídas no mês
+Número absoluto de tarefas encerradas no período.
+3
+Tarefas atrasadas
+Quantidade de tarefas vencidas atribuídas ao usuário e ainda não finalizadas.
+4
+Percentual de envolvimento
+Relação entre tarefas atribuídas ao usuário e o total de tarefas do escritório no mês, expressa em percentual.
+Dados Históricos do Colaborador
+1
+Média mensal de pontuação
+Cálculo da média de pontos acumulados por mês desde a criação do usuário.
+2
+Data de criação do usuário
+Data em que o colaborador foi adicionado à plataforma.
+Gráficos de Performance
+1
+Gráfico verde (diário)
+Mostra a pontuação obtida pelo usuário em cada dia do mês atual. Permite identificar variações diárias de desempenho.
+2
+Gráfico azul (mensal)
+Mostra o total de pontos do usuário nos últimos 6 meses, permitindo a análise da consistência e evolução da produtividade ao longo do tempo.
+Indicadores Adicionais
+Progresso do Mês
+1
+Visão macro da equipe
+Exibe o número total de tarefas atribuídas e concluídas por toda a equipe no mês vigente.
+2
+Análise de ritmo
+Permite verificar se o volume de entregas está acompanhando o ritmo de distribuição de trabalho.
+Tarefas com Mais Atrasos
+1
+Ranking de atrasos
+Exibe até 10 tarefas com maior quantidade absoluta de pendências vencidas, organizadas do maior para o menor volume.
+2
+Atualização dos dados
+A atualização ocorre a cada 8 horas e só é renovada quando um novo acesso ocorre após o ciclo completo.
+Atividades Recentes
+1
+Timeline de movimentações
+Exibe uma timeline de movimentações operacionais, com registro das tarefas recentemente atribuídas ou concluídas.
+Relatórios de Produtividade
+Importante:
+ Esses relatórios funcionam em tempo real e não seguem o intervalo de atualização dos painéis visuais.
+Tipos de Relatórios Disponíveis
+1
+Produtividade
+Apresenta todas as tarefas executadas no período selecionado. Inclui: foto do usuário, nome completo, nome do cliente, título da tarefa, pontuação registrada, data do compromisso e data de conclusão.
+2
+Tarefas cumpridas em D-1
+Exibe tarefas concluídas um dia antes do prazo fatal.
+3
+Tarefas cumpridas no prazo fatal
+Mostra tarefas concluídas exatamente no dia do vencimento do prazo fatal. Indica execução no limite do risco.
+4
+Perda de prazo fatal
+Exibe tarefas que foram concluídas após o vencimento do prazo fatal, ou seja, com atraso crítico. O ideal é que esse relatório esteja sempre vazio.
+5
+Tarefas atrasadas
+Mostra tarefas que ainda não foram concluídas e que estão com a data de entrega vencida.
+6
+Registro de acessos
+Apresenta o primeiro login e o último login de cada usuário no sistema. Útil para monitorar o uso da plataforma e identificar inatividade.
+Filtros Disponíveis nos Relatórios
+1
+Filtro por usuário
+Permite selecionar um único colaborador e visualizar exclusivamente as tarefas atribuídas a ele. Deixe em branco para exibir dados de todos os usuários ativos.
+2
+Período em dias
+Define um intervalo de tempo retroativo a partir da data atual. É possível filtrar os últimos 7, 15, 30 dias, entre outros valores personalizados.
+3
+Filtros avançados
+Inclui título da tarefa, status (resolvidas, pendentes ou ambas) e tarefas sem pontuação.
+Atenção:
+ O filtro de tarefas sem pontuação deve ser utilizado com frequência pela controladoria. Tarefas lançadas sem pontuação prejudicam os relatórios de desempenho e comprometem a lógica do Taskscore. Ao localizá-las, o ideal é que a pontuação seja atribuída ou corrigida imediatamente.
+Como Aplicar os Filtros
+1
+Limpar filtros
+Remove todos os critérios selecionados e recarrega a listagem completa.
+2
+Aplicar filtros
+Executa a filtragem com base nas opções selecionadas.
+Análises e Decisões Gerenciais
+1
+Desempenho individual
+Identifica quem é mais produtivo, quem executa tarefas mais complexas e quem está subutilizado.
+2
+Distribuição de tarefas
+Verifica se há equilíbrio ou sobrecarga entre os usuários.
+3
+Atrasos e riscos
+Permite agir preventivamente ao identificar quem entrega fora do prazo com frequência.
+4
+Ritmo da equipe
+Analisa padrões de desempenho, crescimento ou queda de produtividade ao longo do tempo.
+5
+Uso do sistema
+O relatório de acessos mostra quem não está utilizando corretamente, sinalizando baixa adesão ou necessidade de treinamento.
+6
+Qualidade dos dados
+Garante que as tarefas estejam corretamente lançadas e pontuadas, mantendo a confiabilidade dos relatórios.
+Dica:
+ A aba Produtividade é uma ferramenta estratégica que vai além do monitoramento de tarefas, fornecendo dados essenciais para tomadas de decisão gerenciais e otimização da performance do escritório.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Como utilizar o Menu Gestão / Produtividade na prática
+ Navegação Interna

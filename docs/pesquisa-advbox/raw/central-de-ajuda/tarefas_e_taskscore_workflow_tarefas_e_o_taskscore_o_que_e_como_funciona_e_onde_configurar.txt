@@ -1,0 +1,132 @@
+Tarefas e o Taskscore: o que é, como funciona e onde configurar
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 26/09/2025 18:33
+ Navegação Interna
+Neste artigo, você vai aprender o que são tarefas na ADVBOX, como funciona o Taskscore para medir produtividade, como configurar tarefas e transferir tarefas em lote.
+Tarefas e o Taskscore, o que significa
+No dia a dia de um escritório jurídico, 
+tarefas
+ são as atividades realizadas pelos colaboradores para garantir o bom funcionamento do escritório e o atendimento eficiente aos clientes.
+Exemplos de tarefas comuns:
+Audiência de conciliação
+Elaborar petição simples
+Atender cliente novo
+Organizar documentos
+Avisar cliente da Audiência
+Reunião com cliente - Online
+Importante:
+ Todas essas tarefas exigem tempo, esforço e conhecimento. Por isso, elas podem ser registradas no sistema ADVBOX e receber uma pontuação, o que ajuda a medir a produtividade de cada colaborador.
+O 
+Taskscore
+ é uma ferramenta 
+exclusiva da ADVBOX
+ que permite ao gestor medir e acompanhar a produtividade dos colaboradores e do escritório como um todo, por meio de pontos atribuídos às tarefas realizadas.
+Como funciona?
+Cada tarefa recebe uma pontuação com base em dois critérios principais:
+1. Tempo Médio
+Quanto tempo leva para concluir a tarefa
+2. Complexidade
+Qual o nível de conhecimento, análise e responsabilidade exigidos
+A partir desses dados, o sistema calcula automaticamente quantos pontos aquela tarefa vale.
+Exemplo:
+Uma tarefa simples de 15 minutos = 8 pontos
+Uma tarefa complexa de 1 hora = 150 pontos
+Funcionalidades do Taskscore:
+Calculadora embutida: sugere a pontuação ideal da tarefa com base no tempo e na complexidade
+Tarefas personalizáveis: você pode criar, editar ou excluir tarefas conforme a rotina do seu escritório
+Metas claras: ajuda a estabelecer metas de produtividade para os colaboradores
+Incentivos: permite criar bonificações, gratificações ou premiações com base nos pontos conquistados
+Benefícios:
+Promove meritocracia: quem produz mais e melhor é reconhecido
+Aumenta o engajamento e a motivação da equipe
+Oferece transparência no acompanhamento do desempenho
+Facilita a tomada de decisões com base em dados reais
+Resumindo:
+Tarefas são todas as atividades realizadas no escritório
+O Taskscore é uma ferramenta que transforma essas tarefas em pontos, com base no tempo e na complexidade
+Com isso, fica mais fácil acompanhar o desempenho, definir metas e reconhecer o esforço de cada colaborador
+Como Configurar e Editar Tarefas
+1
+Acessar Configurações
+No menu lateral, clique em 
+Configurações
+ e acesse a aba 
+Tarefas
+.
+2
+Criar Nova Tarefa
+Clique no botão 
+Nova tarefa
+.
+3
+Preencher Formulário
+Preencha o formulário com as seguintes informações:
+Nome da tarefa
+Fase do processo
+ (selecione uma ou todas)
+Complexidade
+Tempo médio de execução
+4
+Ajustar Pontuação
+O sistema irá sugerir uma pontuação, mas você pode ajustá-la manualmente se preferir.
+5
+Salvar Configurações
+Revise os dados e clique em 
+Salvar
+.
+Importante:
+ Apenas usuários com perfil de 
+Gestor
+ podem criar ou editar tarefas.
+Como transferir Tarefas em Lote
+1
+Acessar Usuários
+Acesse 
+Configurações
+ > 
+Usuários
+.
+2
+Localizar Usuário
+Localize o usuário que deseja transferir as tarefas.
+3
+Abrir Painel de Ação
+Clique na seta ao lado do nome para abrir o painel de ação rápida.
+4
+Selecionar Opção
+Selecione a opção 
+Mover Tarefas em Lote
+.
+5
+Escolher Destinatário
+Escolha o usuário que receberá as tarefas.
+6
+Confirmar Ação
+Digite 
+CONFIRMAR
+ e conclua a ação.
+Dica:
+ O Taskscore é uma ferramenta poderosa para medir produtividade e motivar sua equipe. Configure as tarefas de acordo com a realidade do seu escritório e use os pontos para reconhecer o desempenho dos colaboradores.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Workflow da ADVBOX: o que é, como funciona e onde configurar
+ Navegação Interna

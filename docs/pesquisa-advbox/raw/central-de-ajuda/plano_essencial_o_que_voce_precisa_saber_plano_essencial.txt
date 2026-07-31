@@ -1,0 +1,79 @@
+O que você precisa saber - Plano Essencial
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 05/03/2026 16:11
+ Navegação Interna
+Neste artigo, você vai conhecer o Plano Essencial da ADVBOX: o que está disponível, quais são os limites operacionais e como ele pode ajudar na organização da rotina jurídica do seu escritório.
+Informações importantes sobre o Plano Essencial
+O Plano Essencial da ADVBOX foi desenvolvido para escritórios que desejam organizar sua rotina jurídica de forma simples, prática e centralizada, utilizando ferramentas essenciais para gestão de tarefas, clientes e demandas do escritório.
+Com esse plano, é possível acompanhar o andamento das demandas do escritório, organizar compromissos, registrar atividades e padronizar documentos, garantindo mais controle sobre a operação do dia a dia.
+O que está disponível no Plano Essencial
+O plano inclui os principais recursos para organização da rotina jurídica:
+1
+CRM
+Permite organizar e acompanhar demandas ou processos em formato Kanban, com colunas e cartões que representam cada etapa do trabalho.
+2
+Tarefas
+Ferramenta utilizada para organizar atividades do usuário, ajudando no controle de prioridades e produtividade.
+3
+Atividades
+Central que reúne todas as tarefas realizadas no escritório, permitindo acompanhar o andamento do trabalho da equipe.
+4
+Agenda
+Utilizada para gerenciar compromissos, prazos e atividades importantes do escritório.
+5
+Contatos
+Permite cadastrar e organizar clientes, partes contrárias e testemunhas, facilitando o acesso às informações.
+6
+Modelos
+Permite criar modelos de documentos jurídicos, agilizando a produção de peças e padronizando documentos do escritório.
+7
+Configurações
+Menu utilizado para organizar a estrutura do escritório dentro da plataforma, incluindo:
+Usuários
+Termos monitorados
+Tarefas
+Grupos de ação
+Tipos de ação
+Integrações e API
+Limites do Plano Essencial
+O plano possui algumas limitações em relação aos planos mais avançados. Entre os principais pontos que não estão disponíveis no Plano Essencial estão:
+Controle financeiro
+Menu específico de processos
+Automação de workflow
+Gestão de times
+Painéis de Business Intelligence (BI)
+Relatórios estratégicos de produtividade e desempenho
+Limites operacionais do plano
+O Plano Essencial possui os seguintes limites:
+Até 2.000 processos ativos
+Até 4.000 contatos.
+50 GB de armazenamento em nuvem
+Onboarding com treinamento gravado
+Migração simplificada de processos realizada pela equipe ADVBOX
+Importante:
+ A migração inclui apenas dados públicos disponíveis nos tribunais, como número do processo, partes, tribunal e datas principais.
+Dica:
+ Caso seu escritório precise de recursos mais avançados, como controle financeiro, gestão de intimações ou automação de workflows, consulte os planos superiores da ADVBOX.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Cadastrando um processo no Plano Essencial
+ Próximo ›
+ CRM - Plano Essencial
+ Navegação Interna

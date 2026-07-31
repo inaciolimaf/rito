@@ -1,0 +1,154 @@
+Como utilizar o Menu Gestão / Produtividade na prática
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 05/08/2025 16:54
+ Navegação Interna
+Neste artigo, você vai aprender como exportar relatórios de produtividade geral e individual, além de filtrar por períodos específicos e tarefas resolvidas.
+Como exportar um relatório de produtividade geral do escritório
+1
+Acesse o menu de produtividade
+Acesse o menu 
+Gestão B.I > Produtividade
+.
+2
+Remova o filtro de colaborador
+Retire o filtro de colaborador clicando no 
+X
+.
+3
+Limpe os campos de período
+Limpe os campos de 
+início do cadastro
+ e 
+término do cadastro
+.
+4
+Exporte o relatório
+O sistema irá trazer a listagem automaticamente. Para exportar, clique em 
+Exportar
+ e selecione 
+Excel
+ ou 
+PDF
+ de acordo com sua permissão de usuário.
+Como exportar um relatório de produtividade individual
+1
+Acesse o menu de produtividade
+Acesse o menu 
+Gestão B.I > Produtividade
+.
+2
+Selecione o colaborador desejado
+Selecione o 
+nome do colaborador
+ desejado.
+3
+Limpe os campos de período
+Limpe os campos de 
+início do cadastro
+ e 
+término do cadastro
+.
+4
+Exporte o relatório
+O sistema irá trazer a listagem automaticamente. Para exportar, clique em 
+Exportar
+ e selecione 
+Excel
+ ou 
+PDF
+ de acordo com sua permissão de usuário.
+Como exportar um relatório de produtividade individual por período específico
+1
+Acesse o menu de produtividade
+Acesse o menu 
+Gestão B.I > Produtividade
+.
+2
+Selecione o colaborador desejado
+Selecione o 
+nome do colaborador
+ desejado.
+3
+Defina o período desejado
+Preencha os campos de 
+início do cadastro
+ e 
+término do cadastro
+.
+4
+Exporte o relatório
+O sistema irá trazer a listagem automaticamente. Para exportar, clique em 
+Exportar
+ e selecione 
+Excel
+ ou 
+PDF
+ de acordo com sua permissão de usuário.
+Como exportar um relatório de uma tarefa específica resolvidas no mês
+1
+Acesse o menu de produtividade
+Acesse o menu 
+Gestão B.I > Produtividade
+.
+2
+Remova o filtro de colaborador
+Retire o filtro de colaborador clicando no 
+X
+.
+3
+Defina o período desejado
+Preencha os campos de 
+início do cadastro
+ e 
+término do cadastro
+ com o período desejado.
+4
+Configure os filtros específicos
+Vá em 
+Filtrar
+ e selecione a 
+tarefa
+ desejada e marque 
+resolvidas
+. Caso queira visualizar tarefas sem pontuação, marque o campo 
+"Mostrar tarefa sem pontuação"
+.
+5
+Aplique os filtros
+Clique em 
+"Aplicar filtros"
+ (botão azul).
+6
+Exporte o relatório
+Para exportar, clique em 
+Exportar
+ e selecione 
+Excel
+ ou 
+PDF
+ de acordo com sua permissão de usuário.
+Dica:
+ Os relatórios de produtividade são ferramentas essenciais para acompanhar o desempenho individual e geral do escritório, permitindo uma gestão mais eficiente dos recursos e identificação de oportunidades de melhoria.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Entenda Melhor
+ Próximo ›
+ Nenhum
+ Navegação Interna

@@ -1,0 +1,306 @@
+Flowter: guia técnico
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 12/02/2026 20:25
+ Navegação Interna
+Neste artigo, você vai entender como o Flowter funciona na prática, o que é o "retorno", a estrutura do Payload enviado, e a diferença entre os gatilhos de Tarefa Concluída e Mudança de Etapa.
+Como o Flowter funciona na prática
+O Flowter na ADVBOX funciona a partir de gatilhos internos. Ele fica aguardando que uma ação específica aconteça dentro da ADVBOX, como por exemplo:
+Concluir uma tarefa específica
+Movimentar um processo para uma etapa específica
+Quando essa ação ocorre, a ADVBOX envia automaticamente um Payload (JSON padronizado) para o sistema que foi configurado pelo usuário (ex: N8N, CRM externo, ERP, etc.).
+Esse envio funciona como um webhook.
+Importante:
+ A ADVBOX apenas envia os dados. O sistema externo não precisa devolver nenhum retorno para o Flowter. Ou seja, trata-se de um envio de dados (webhook outbound).
+O que é o "retorno" na prática?
+No contexto do Flowter na ADVBOX, o que chamamos de "retorno" é, na verdade, o Payload enviado quando o gatilho configurado é acionado.
+A ação acontece dentro da ADVBOX
+O Flowter detecta essa ação
+A ADVBOX envia um JSON padronizado
+O sistema externo decide o que fazer com essas informações
+Não existe obrigatoriamente uma resposta de volta para a ADVBOX.
+Estrutura do Payload
+A estrutura enviada é padronizada. Os campos destacados na documentação (em amarelo) são iguais para todos os envios.
+A partir dessas informações, o sistema de destino pode:
+Criar registros
+Atualizar dados
+Disparar automações
+Gerar relatórios
+Executar fluxos internos
+Ponto Técnico Importante
+Essa integração exige conhecimento técnico. Por quê? Porque:
+O envio é feito em formato JSON
+A estrutura é padronizada
+Pode ser necessário mapear campos
+Pode ser necessário "traduzir" dados entre plataformas
+O sistema externo precisa estar preparado para receber e interpretar esse payload
+Se o sistema de destino não estiver configurado corretamente, a automação pode não funcionar como esperado.
+Importante:
+ Não é uma integração plug-and-play — ela depende de configuração técnica adequada.
+O Flowter também pode agir dentro da própria ADVBOX
+Além de enviar dados para sistemas externos, o Flowter também pode executar ações internas na ADVBOX.
+Ao concluir uma tarefa específica, o sistema pode:
+Criar automaticamente outra tarefa
+Definir responsáveis
+Inserir informações pré-configuradas
+Dica:
+ O Flowter pode ser usado tanto para integrações externas quanto para automações internas.
+Retorno quando é Tarefa Concluída
+O que aconteceu no sistema?
+ Uma tarefa específica foi marcada como concluída. O Flowter identifica esse evento e envia o payload correspondente.
+Estrutura esperada (exemplo):
+{
+ "id": 987654321,
+ "process_owner": 456789,
+ "accounts_id": 12,
+ "sender": 123456,
+ "date": "2025-03-15 00:00:00",
+ "date_deadline": "2025-03-20 00:00:00",
+ "task": "Revisar contrato de prestação de serviços",
+ "notes": "Cliente solicitou análise urgente das cláusulas contratuais",
+ "local": "Escritório Central",
+ "lawsuits_id": 5432198,
+ "created_at": "2025-03-15 10:30:45",
+ "token": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+ "lawsuit": {
+ "id": 5432198,
+ "process_number": "1234567-89.2025.8.26.0100",
+ "protocol_number": "PROT-2025-0315",
+ "lawsuit_owner": 456789,
+ "customers": [
+ {
+ "customer_id": 8765432,
+ "name": "MARIA SILVA SOUZA",
+ "identification": "123.456.789-00",
+ "customers_origins_id": 101,
+ "origin": "Indicação",
+ "cellphone": "(11) 98765-4321",
+ "phone": "(11) 3456-7890",
+ "email": "maria.silva@email.com"
+ }
+ ]
+ },
+ "users": [
+ {
+ "user_id": 123456,
+ "name": "JOÃO CARLOS SANTOS",
+ "completed": "2025-03-15 14:25:30",
+ "important": 1,
+ "urgent": 1
+ }
+ ]
+}
+O que isso significa?
+Um item operacional foi finalizado
+Não altera necessariamente o fluxo principal do processo
+É uma ação pontual
+Pode disparar automações internas ou externas
+É algo mais micro dentro da rotina.
+Retorno quando é Mudança de Etapa
+O que aconteceu no sistema?
+ O processo (ou card) foi movido para outra etapa do fluxo. O Flowter identifica essa movimentação e envia payload correspondente.
+Estrutura esperada (exemplo):
+{
+ "id": 8765432,
+ "lawsuits_id": 8765432,
+ "process_owner": 345678,
+ "process_number": null,
+ "protocol_number": "54321",
+ "notes": "Audiência inicial agendada para 15/03/2025. Cliente informado sobre necessidade de documentação complementar. Prazo para contestação: 20/03/2025.",
+ "customers": [
+ {
+ "customer_id": 9876543,
+ "name": "SILVA & ASSOCIADOS ADVOCACIA",
+ "identification": "12.345.678/0001-90",
+ "customers_origins_id": 112233,
+ "origin": "INDICAÇÃO",
+ "cellphone": "(11) 98765-4321",
+ "phone": "(11) 3456-7890",
+ "email": "CONTATO@SILVAASSOCIADOS.COM.BR"
+ }
+ ]
+}
+O que isso significa?
+O fluxo do processo avançou (ou retrocedeu)
+Impacta o pipeline/CRM
+Pode disparar novas automações
+Pode gerar integrações externas
+É algo mais macro, ligado ao andamento do processo.
+Diferença prática resumida
+Tarefa Concluída
+Mudança de Etapa
+Ação operacional
+Ação estrutural
+Afeta uma tarefa
+Afeta o processo inteiro
+Evento pontual
+Evento estratégico no fluxo
+Impacto micro
+Impacto macro
+Pensando em automação
+Tarefa concluída
+ → Ideal para notificações, registro de produtividade ou criação automática de novas tarefas.
+Mudança de etapa
+ → Ideal para integração com CRM, financeiro, envio de e-mails automáticos, ou disparo de fluxos estratégicos.
+Resumo final
+Tarefa Concluída
+ → Indica que uma atividade específica foi finalizada. É uma ação pontual, ligada à execução de uma tarefa.
+Mudança de Etapa
+ → Indica que o processo foi movido dentro do fluxo (kanban). É uma ação estrutural, que altera o andamento do processo.
+Dica:
+ Tarefa concluída impacta uma atividade. Mudança de etapa impacta o fluxo do processo inteiro.
+Descrição dos Campos – Evento: Tarefa Concluída
+Abaixo está a descrição técnica dos principais campos enviados no payload quando uma tarefa é concluída.
+Campos de Identificação da Tarefa
+Campo
+Descrição
+id
+ID interno da tarefa na ADVBOX.
+task
+Título/descrição da tarefa.
+notes
+Observações registradas na tarefa.
+created_at
+Data e hora de criação da tarefa.
+date
+Data vinculada à tarefa.
+date_deadline
+Prazo definido para a tarefa.
+local
+Local associado à execução da tarefa (quando aplicável).
+Campos de Responsabilidade e Usuário
+Campo
+Descrição
+sender
+ID do usuário que executou a ação (ex: quem concluiu a tarefa).
+process_owner
+ID do usuário responsável pelo processo vinculado à tarefa.
+users
+Lista de usuários relacionados à tarefa.
+Dentro de 
+users
+:
+user_id
+ID do usuário
+name
+Nome do usuário
+completed
+Data e hora da conclusão da tarefa
+important
+Indicador se a tarefa está marcada como importante (1 = sim / 0 = não)
+urgent
+Indicador se a tarefa está marcada como urgente (1 = sim / 0 = não)
+Campos de Conta e Estrutura
+Campo
+Descrição
+accounts_id
+ID da conta/escritório na ADVBO
+Campos Relacionados ao Processo
+Campo
+Descrição
+lawsuits_id
+ID interno do processo vinculado à tarefa.
+Objeto 
+lawsuit
+ — Contém as informações do processo relacionado:
+id
+ID interno do processo
+process_number
+Número do processo judicial
+protocol_number
+Número de protocolo
+lawsuit_owner
+ID do responsável pelo processo
+Objeto 
+customers
+ — Lista de clientes vinculados ao processo:
+customer_id
+ID interno do cliente
+name
+Nome do cliente
+identification
+CPF ou CNPJ
+customers_origins_id
+ID da origem do cliente
+origin
+Descrição da origem (ex: Indicação)
+cellphone
+Celular
+phone
+Telefone fixo
+email
+E-mail
+Descrição dos Campos – Evento: Mudança de Etapa
+Abaixo está a descrição técnica dos campos enviados quando um processo é movido dentro do fluxo (kanban).
+Campos de Identificação do Processo
+Campo
+Descrição
+id
+ID interno do processo na ADVBOX.
+lawsuits_id
+ID interno do processo (referência estrutural).
+process_number
+Número do processo judicial (quando houver).
+protocol_number
+Número de protocolo vinculado ao processo.
+notes
+Observações registradas no processo no momento da movimentação.
+Campos de Responsabilidade
+Campo
+Descrição
+process_owner
+ID do usuário responsável pelo processo.
+Campos Relacionados aos Clientes
+Objeto 
+customers
+ — Lista de clientes vinculados ao processo:
+customer_id
+ID interno do cliente
+name
+Nome do cliente
+identification
+CPF ou CNPJ
+customers_origins_id
+ID da origem do cliente
+origin
+Descrição da origem
+cellphone
+Celular
+phone
+Telefone
+email
+E-mail
+Observação Técnica Importante
+Todos os IDs são internos da ADVBOX.
+A estrutura do payload é padronizada.
+O sistema que recebe os dados deve estar preparado para:
+Interpretar a estrutura JSON
+Mapear os campos necessários
+Tratar dados nulos (ex: 
+process_number: null
+)
+Implementar regras próprias de negócio
+Dica:
+ Antes de configurar o Flowter, mapeie com antecedência quais campos do payload serão utilizados pelo sistema de destino. Isso evita retrabalho e garante que a integração funcione corretamente desde o início.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Flowter
+ Próximo ›
+ Nenhum
+ Navegação Interna

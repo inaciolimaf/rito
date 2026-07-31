@@ -1,0 +1,140 @@
+Exportação de Dados
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 20/07/2026 16:59
+ Navegação Interna
+Neste artigo, você vai aprender como exportar relatórios de todos os clientes, processos, tarefas cadastradas e todos lançamentos financeiros.
+Como exportar um relatório de todos os clientes cadastrados
+1
+Acessar Contatos
+Acesse o menu de 
+Contatos
+.
+2
+Configurar Filtro por Clientes
+Selecione 
+Filtrar
+ > 
+Filtrar por clientes
+ e preencha os campos 
+"Início do cadastro"
+ e 
+"Término do cadastro"
+ com o período desejado.
+3
+Aplicar Filtros
+Clique no botão azul 
+"Aplicar Filtros"
+.
+4
+Exportar Relatório
+Clique em 
+"Exportar"
+ e selecione 
+Excel
+ ou 
+PDF
+ de acordo com sua permissão de usuário.
+Como exportar um relatório de todos os processos
+1
+Acessar Menu Processos
+No menu 
+Processos
+, clique em 
+Todos os processos
+.
+2
+Filtrar
+Clique em Filtrar, selecione o filtro desejado. 
+Exemplo: No campo fases, selecione arquivado ; Caso queira um relatório específico de processos arquivados. 
+Você também poderá selecionar várias fases, para que seu relatório fique completo.
+3
+Aplicar Filtros
+Clique em Aplicar filtros > botão AZUL. 
+4
+Exportar relatório
+Clique em Exportar > selecione Excel . O relatório será enviado por email (seu email cadastrado na ADVBOX)
+Relatório de processos em Excel
+O relatório em Excel exporta todas as informações da aba de Dados do processo conforme o filtro ativo. Este formato é ideal para análises mais detalhadas e manipulação dos dados.
+Como exportar relatório de todas as tarefas 
+1
+Acessar Filtros
+Clique em 
+"Filtrar"
+ e selecione 
+"Limpar filtros"
+.
+2
+Configurar Responsável
+No campo 
+"Responsável"
+, selecione a opção 
+"Todos"
+ (ou deixe em branco).
+3
+Definir Situação e Período
+Em 
+"Situação" limpe os filtros
+, isso deixará o campo em branco. Utilizando dessa forma você terá um relatório de todas as tarefas do escritório, pendentes ou concluídas. 
+Caso prefira poderá selecionar um ou outro, mas, nossa recomendação é DEIXAR EM BRANCO.
+5
+Exportar relatório
+Clique em Exportar > selecione Excel. O relatório será enviado por email (seu email cadastrado na ADVBOX).
+Como gerar e exportar um relatório de todos os lançamentos financeiros
+1
+Acesse o menu Financeiro
+Acesse o menu 
+"Financeiro"
+ no painel lateral.
+2
+Acesse os Filtros
+Clique em 
+"Filtrar"
+ para abrir as opções de filtragem.
+3
+Limpar Filtros Anteriores
+Clique em 
+"Limpar Filtros"
+ para garantir que não há filtros anteriores aplicados e que você visualizará todos os lançamentos.
+4
+Aplicar Filtros
+Clique no botão azul 
+"Aplicar Filtros"
+ para carregar todos os lançamentos financeiros.
+5
+Exportar Relatório
+Caso deseje exportar, clique em 
+"Exportar"
+ e selecione 
+Excel.
+Importante:
+ A exportação para Excel está disponível apenas para usuários com perfil Gestor ou Administrador. Todos os perfis podem exportar ou imprimir em PDF... A exportação em Excel será enviada por email, (seu email cadastrado na ADVBOX).
+Listagens têm paginação automática, e há limites por relatório; 
+BJ:
+ até 500 linhas  
+Banca Max:
+ até 1.000 linhas | 
+Elite:
+ até 5.000 linhas (necessário paginar e extrair em partes se passar disso).
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Reativação de Assinatura: Tudo que você precisa saber
+ Próximo ›
+ Segunda via boleto
+ Navegação Interna

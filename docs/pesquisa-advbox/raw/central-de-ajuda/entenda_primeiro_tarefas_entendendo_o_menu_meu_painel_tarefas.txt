@@ -1,0 +1,85 @@
+Entendendo o menu Meu Painel/Tarefas
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 22/04/2026 13:03
+ Navegação Interna
+O Meu Painel é onde você organiza tudo o que precisa fazer no dia dentro da ADVBOX. É por aqui que você acompanha suas tarefas, identifica o que está atrasado, define prioridades e começa o seu trabalho diário.
+Meu Painel
+Use esse painel sempre no início do expediente. Com ele você:
+Acompanha suas tarefas
+Identifica o que está atrasado
+Define prioridades
+Começa o seu trabalho diário
+Onde encontrar o Meu Painel
+Você pode acessar o Meu Painel pelo menu principal do sistema. Assim que abrir, você já verá suas tarefas organizadas.
+O que fazer ao abrir o painel
+Para aproveitar melhor o Meu Painel, siga este fluxo simples:
+1
+Veja suas tarefas do dia
+2
+Identifique tarefas atrasadas
+3
+Priorize o que é mais urgente
+4
+Comece pela primeira tarefa da lista
+Importante:
+ Isso evita esquecimentos e melhora sua organização.
+Buscar tarefas rapidamente
+Use a busca rápida quando precisar encontrar algo específico. Você pode buscar por:
+Nome do cliente
+Número do processo
+Descrição da tarefa
+Dica:
+ Digite o nome do cliente para localizar rapidamente todas as tarefas relacionadas a ele.
+Organizar e filtrar tarefas
+O painel permite aplicar filtros para facilitar sua visualização. Você pode:
+Visualizar tarefas por período
+Filtrar por responsável
+Ajustar a forma como as tarefas aparecem
+Importante:
+ Use os filtros para focar apenas no que é relevante no momento.
+Acompanhar prazos e status
+No Meu Painel, você consegue visualizar:
+Tarefas do dia
+Tarefas atrasadas
+Tarefas futuras
+Isso ajuda você a:
+Não perder prazos
+Se antecipar a demandas
+Manter o controle da rotina
+Outras funções do painel
+Além das tarefas, você também pode acessar recursos como:
+Relatórios
+Exportação de informações
+Notificações (como aniversariantes e intimações)
+Importante:
+ Use essas funções conforme a necessidade do seu dia a dia.
+Resumo
+O Meu Painel é o seu ponto de partida na ADVBOX. Se usar corretamente, você:
+Ganha produtividade
+Reduz erros
+Trabalha com mais clareza
+Dica:
+ Use o Meu Painel todos os dias como sua agenda de trabalho dentro da ADVBOX. Se você começar por ele, fica muito mais fácil manter organização, evitar atrasos e ter controle das suas atividades.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Nenhum
+ Próximo ›
+ Nenhum
+ Navegação Interna

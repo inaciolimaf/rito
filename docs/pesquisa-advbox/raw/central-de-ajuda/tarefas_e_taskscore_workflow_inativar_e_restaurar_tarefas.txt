@@ -1,0 +1,79 @@
+Inativar e Restaurar Tarefas
+Thassiely De AraÚjo Fernandes Moreira
+ •
+Atualizado em: 11/11/2025 19:14
+ Navegação Interna
+Neste artigo, você vai aprender como inativar e restaurar tarefas no sistema ADVBOX, garantindo melhor organização sem perder o histórico.
+Pré-requisitos:
+ Apenas Gestores têm acesso à Configurações de Tarefas. 
+Como Inativar uma Tarefa na ADVBOX
+1
+Acessar o sistema
+Faça login na ADVBOX com seu usuário e senha.
+No menu lateral, clique em 
+Configurações
+.
+Em seguida, selecione o submenu 
+Tarefas
+.
+2
+Localizar a tarefa desejada
+Na tela de 
+Configurações > Tarefas
+, localize a tarefa que deseja inativar.
+3
+Inativar a tarefa
+Passe o cursor do mouse sobre a tarefa desejada.
+Clique no 
+ícone de lixeira
+ que aparecerá ao lado.
+Confirme a exclusão quando o sistema solicitar.
+Como Restaurar uma Tarefa Inativa na ADVBOX
+1
+Acessar tarefas inativas
+Ainda no menu 
+Configurações > Tarefas
+, selecione a opção 
+Inativos
+.
+2
+Localizar a tarefa
+Localize a tarefa que deseja restaurar.
+3
+Restaurar a tarefa
+Passe o cursor sobre a tarefa e clique em 
+Restaurar
+.
+Confirme a restauração quando o sistema solicitar.
+Impactos da Inativação
+Importante:
+ Se algum usuário estiver com a tarefa que foi inativada pendente, ele poderá concluí-la, mas não conseguirá editá-la. As tarefas inativadas permanecem no histórico dos processos normalmente, garantindo a rastreabilidade.
+Ao inativar uma tarefa no sistema ADVBOX:
+Nenhuma informação é apagada do histórico — apenas o tipo de tarefa deixa de estar disponível para novas atribuições.
+Usuários com tarefas pendentes do tipo inativado ainda podem concluí-las, mas não podem editá-las.
+O histórico completo é mantido, garantindo rastreabilidade e conformidade.
+Após restaurar, a tarefa volta a ficar disponível para uso imediato.
+Dica:
+ Somente Gestores podem inativar ou restaurar tarefas no sistema. A inativação é útil para organizar o sistema sem perder o histórico de atividades relacionadas.
+Avalie este post:
+ 0">
+ (
+)
+ Obrigado por avaliar!
+Estou com problema
+ Reportar problema
+ Encontrou algum erro ou tem dificuldade com este conteúdo? Descreva o problema abaixo.
+ Informações do seu dispositivo serão capturadas automaticamente para nos ajudar a resolver.
+ Descreva o problema *
+ Cancelar
+Enviar
+ Enviando...
+ Nos conte o que pode ser melhorado
+*
+ 0 && !hasRated" x-transition class="mt-3 flex items-center gap-3">
+ Cancelar
+ ‹ Anterior
+ Transferir tarefas em lote para outro usuário
+ Próximo ›
+ Nenhum
+ Navegação Interna

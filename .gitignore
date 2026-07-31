@@ -38,3 +38,7 @@ Thumbs.db
 postgres-data/
 redis-data/
 minio-data/
+
+# Claude Code local
+.claude/settings.local.json
+.claude/*.tmp.*

@@ -11,7 +11,12 @@ run_backend() {
 	cd backend
 	# Migration aplicada uma vez por invocação da suíte, antes dos workers do -n auto
 	# subirem — spec 009 regra 3 ("template database criada uma vez por sessão").
-	uv run alembic upgrade head
+	# Tem que migrar o banco de TESTE (rito_test via TEST_MIGRATIONS_DATABASE_URL), não o
+	# de dev — tests/conftest.py::pytest_configure só troca MIGRATIONS_DATABASE_URL dentro
+	# do processo do pytest; este `alembic upgrade head` roda antes, como subprocesso
+	# separado, e herdaria a URL de dev sem este override explícito.
+	MIGRATIONS_DATABASE_URL="${TEST_MIGRATIONS_DATABASE_URL:-$MIGRATIONS_DATABASE_URL}" \
+		uv run alembic upgrade head
 	if [ -n "${PYTEST_ALLOW_HOSTS:-}" ]; then
 		uv run pytest -n auto --allow-hosts="$PYTEST_ALLOW_HOSTS"
 	else

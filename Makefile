@@ -28,7 +28,7 @@ test:
 	@bash scripts/run-tests.sh
 
 test-backend:
-	cd backend && uv run alembic upgrade head
+	cd backend && MIGRATIONS_DATABASE_URL="$${TEST_MIGRATIONS_DATABASE_URL:-$$MIGRATIONS_DATABASE_URL}" uv run alembic upgrade head
 	cd backend && uv run pytest -n auto $(if $(PYTEST_ALLOW_HOSTS),--allow-hosts=$(PYTEST_ALLOW_HOSTS))
 
 test-frontend:

@@ -127,11 +127,23 @@ repo com um wall-clock sintético a cada execução. Um wrapper pytest
 (`test_runner_gate.py`) só invoca esse shell script via `subprocess`, para que ele rode
 junto com `pytest -n auto` como os demais.
 
-**GitHub Actions criado, mas ainda não validado no remoto.** `.github/workflows/ci.yml` sobe
-Postgres 16 + Redis 7 como serviços, cria a role `rito_app` e o banco `rito_test`, instala
-uv/Python 3.12 e Node 22 com cache, roda `make lint` e `make test`, e publica
-`test-timing.json` no step summary. Só será confirmado verde depois do push (este sandbox
-não executa Actions localmente).
+**GitHub Actions criado e validado no remoto — pegou um bug real de primeira.** A primeira
+run de `.github/workflows/ci.yml` (Postgres 16 + Redis 7 como serviços, banco `rito` e
+`rito_test` separados de verdade) falhou com `UndefinedFunctionError: function
+uuid_generate_v4() does not exist` em `rito_test`. Causa: `run_backend()` chama
+`uv run alembic upgrade head` como **subprocesso**, antes do pytest subir — isso herda o
+`MIGRATIONS_DATABASE_URL` do ambiente (apontando para o banco de **dev**, `rito`), não o
+`TEST_MIGRATIONS_DATABASE_URL`. `tests/conftest.py::pytest_configure` só sobrescreve a
+variável **dentro do processo do pytest**, tarde demais para esse `alembic upgrade` externo.
+No sandbox de desenvolvimento local isso não apareceu porque `rito` e `rito_test` foram
+apontados pro mesmo banco físico em alguns testes manuais — só o CI, com dois bancos de
+verdade, expôs o bug. **Corrigido** em `scripts/run-tests.sh` e `Makefile` (`test-backend`):
+`alembic upgrade head` agora roda com
+`MIGRATIONS_DATABASE_URL="${TEST_MIGRATIONS_DATABASE_URL:-$MIGRATIONS_DATABASE_URL}"`, e a
+correção foi confirmada localmente derrubando e recriando `rito_test` do zero antes de rodar
+`make test`/`make test-backend` de novo. Isso valida a decisão de ter CI real desde a
+spec 009: um ambiente com dois bancos de verdade (não um só reaproveitado) pegou algo que a
+verificação manual não pegaria.
 
 ## 10. Definição de pronto
 

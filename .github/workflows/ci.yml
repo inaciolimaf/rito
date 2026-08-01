@@ -16,6 +16,16 @@ env:
   TEST_REDIS_URL: redis://localhost:6379/15
   CORS_ALLOWED_ORIGINS: http://localhost:5173
   VITE_API_BASE_URL: http://localhost:8000
+  S3_ENDPOINT_URL: http://localhost:9000
+  S3_ACCESS_KEY: minioadmin
+  S3_SECRET_KEY: minioadmin
+  S3_BUCKET: rito
+  S3_REGION: us-east-1
+  TEST_S3_ENDPOINT_URL: http://localhost:9000
+  TEST_S3_ACCESS_KEY: minioadmin
+  TEST_S3_SECRET_KEY: minioadmin
+  TEST_S3_BUCKET: rito-test
+  TEST_S3_REGION: us-east-1
 
 jobs:
   test:
@@ -43,6 +53,16 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # bitnami/minio (não minio/minio): a imagem oficial precisa do comando `server /data`,
+      # que o bloco `services:` do Actions não tem como passar (só aceita `options` — flags
+      # de `docker create`, não um override de CMD). bitnami/minio já sobe pronto só com as
+      # env vars de usuário/senha (spec 011).
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports: ["9000:9000"]
 
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +73,18 @@ jobs:
             "CREATE ROLE rito_app LOGIN PASSWORD 'rito_app';"
           PGPASSWORD=rito psql -h localhost -U rito -d rito -c \
             "CREATE DATABASE rito_test OWNER rito;"
+
+      - name: Aguarda o MinIO ficar pronto
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
+              echo "MinIO pronto"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO não respondeu a tempo" >&2
+          exit 1
 
       - name: Instala uv
         uses: astral-sh/setup-uv@v4

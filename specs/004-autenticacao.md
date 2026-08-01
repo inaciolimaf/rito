@@ -1,7 +1,7 @@
 # 004 — Autenticação
 
 **Fase:** 0 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 003 · **Status:** ⬜ pendente
+**Depende de:** 003 · **Status:** ✅ concluída
 
 ---
 
@@ -118,11 +118,57 @@ Nenhum (a tela vem em 006).
 
 ## 9. Descobertas
 
-*(preencher)*
+- **`X-Tenant-Id` continua obrigatório em TODOS os endpoints pré-autenticação** (login,
+  refresh, logout, forgot-password, reset-password), não só no login. A spec mostra os
+  contratos de entrada sem nenhum campo de tenant no corpo (`{email, password}`,
+  `{refresh_token}`, etc.) — como e-mail só é único *por tenant* e `users`/`refresh_tokens`/
+  `password_reset_tokens` têm RLS `FORCE`, não existe forma de localizar a linha certa sem
+  saber o tenant antes da query (não dá pra "descobrir" o tenant a partir de uma chave
+  globalmente única sem antes ligar `app.tenant_id`, e ligar via bypass de RLS violaria a
+  regra 6 da 003). A leitura mais coerente com o resto do desenho: o front-end sempre sabe o
+  tenant atual (subdomínio/seleção de escritório) e manda o header até obter um JWT válido;
+  só a partir daí (`get_current_user`) o tenant passa a vir do claim, como a regra 8 pede.
+- **Papel de aplicação de verdade importa de novo aqui.** `Base.type_annotation_map` precisou
+  mapear `datetime` → `DateTime(timezone=True)` — sem isso o SQLAlchemy infere coluna "naive"
+  a partir de `Mapped[datetime]`, e o asyncpg rejeita qualquer `datetime.now(UTC)` (tz-aware)
+  contra ela. Isso também estava latente desde a 003 em `Tenant`/futuros campos de data —
+  corrigido na `Base` de uma vez, não por tabela.
+- **Revogação de família precisa de commit explícito.** Quando o `/auth/refresh` detecta
+  reuso, `revoke_family()` roda dentro da MESMA transação da requisição (`get_session` da
+  003 commita no sucesso e faz rollback em qualquer exceção). Como a resposta desse caso é
+  sempre um 401 (uma exceção de domínio convertida em `HTTPException`), o rollback automático
+  desfaria a revogação — o efeito de segurança mais importante do fluxo desapareceria
+  silenciosamente. `AuthService.refresh()` chama `await self.session.commit()` explicitamente
+  logo após `revoke_family`, antes de levantar a exceção; testado com 4 chamadas HTTP em
+  sequência (login → refresh → reuso do token antigo → tentativa com o token rotacionado,
+  que também precisa estar morto).
+- **`X-Tenant-Id`/header nos testes vs. JWT no `/me`.** `test_auth_tenant.py` cobre os dois
+  ângulos da regra 8: mesmo e-mail em dois tenants (isolados só pelo header) e "o token só
+  resolve seu próprio tenant" (via `/auth/me`, que ignora qualquer header e usa só o claim).
+- **Sem envio real de e-mail.** `forgot_password` gera e guarda o hash do token e devolve o
+  token bruto só para quem chamou o *service* diretamente — o router HTTP nunca repassa esse
+  valor na resposta (sempre 202 sem corpo), senão a rota vira um oráculo de "esse e-mail
+  existe". Envio de e-mail de verdade (SMTP, template) fica para uma spec de notificações —
+  não há infraestrutura de e-mail no projeto ainda e a 004 não detalhou nenhuma. O teste de
+  reset usa o token chamando `AuthService.forgot_password` fora do HTTP, já que não existe
+  outra forma de obter o token bruto sem um servidor de e-mail fake.
+- **`app/core/errors.py` ganhou uma convenção nova**: `HTTPException(detail={"detail": "...",
+  "errors": [...]})` agora é reconhecido pelo handler RFC 7807 e vira `errors` no corpo da
+  resposta — usado por `WeakPasswordError` (422 do reset-password) para listar cada critério
+  de senha que falhou, igual ao formato que `RequestValidationError` já usava. Reutilizável
+  por qualquer spec futura que precise de 422 com lista de erros de negócio (não só de schema).
+- `User` ficou em `app/domain/users/` (não em `app/domain/auth/`) mesmo só com os campos
+  mínimos de login — a 012 (Usuários) vai *adicionar* colunas na mesma tabela/módulo, não
+  criar um novo. `RefreshToken`/`PasswordResetToken` (efêmeros, só de auth) ficaram em
+  `app/domain/auth/`.
+- Nenhum RBAC, tela de login ou cadastro de usuário foi implementado — confirma o "fora de
+  escopo" da spec (005, 006, 012 respectivamente).
 
 ## 10. Definição de pronto
 
-- [ ] Ciclo completo funcionando
-- [ ] Detecção de reuso testada
-- [ ] Parâmetros do Argon2 reduzidos só em teste
-- [ ] Commit `feat(004): autenticação`
+- [x] Ciclo completo funcionando (login → `/me` → refresh → logout, testado ponta a ponta)
+- [x] Detecção de reuso testada (reuso revoga a família inteira, incluindo o token que ainda
+      era válido)
+- [x] Parâmetros do Argon2 reduzidos só em teste (`ARGON2_TIME_COST`/`MEMORY_COST` via
+      `TEST_*`; teste dedicado garante que o *default* da `Settings` continua em 3/65536)
+- [x] Commit `feat(004): autenticação`

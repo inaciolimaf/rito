@@ -14,6 +14,10 @@
     "003": {
       "wall_clock_seconds": 5,
       "notes": "17 testes backend (5 RLS de isolamento de tenant, BaseRepository, enable_rls, + os 9 da 002) + 1 smoke frontend, com -n auto. E2E ainda sem jornadas."
+    },
+    "004": {
+      "wall_clock_seconds": 5,
+      "notes": "39 testes backend (login/refresh/logout, reuso de refresh revoga família, usuário inativo, mesmo e-mail em 2 tenants, token só resolve seu tenant, reset de senha single-use, rate limit de login, política de senha, Argon2 + os 17 anteriores) + 1 smoke frontend, com -n auto. E2E ainda sem jornadas."
     }
   }
 }

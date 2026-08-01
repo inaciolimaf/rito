@@ -12,8 +12,8 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 003 de 100 concluída.** Monorepo, esqueleto do backend e multi-tenancy com Row Level
-Security — próxima é a 004 (autenticação).
+🚧 **Spec 004 de 100 concluída.** Monorepo, esqueleto do backend, multi-tenancy com RLS e
+autenticação (login/refresh/logout, reset de senha) — próxima é a 005 (RBAC).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

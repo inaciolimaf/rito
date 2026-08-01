@@ -69,10 +69,19 @@ async def handle_validation_error(request: Request, exc: Exception) -> JSONRespo
 
 async def handle_http_exception(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)
+    detail: Any = exc.detail
+    errors: Sequence[Any] | None = None
+    # Convenção para validação de negócio (não de schema): raise HTTPException(
+    # detail={"detail": "...", "errors": [...]}) quando 1 mensagem não basta
+    # (ex.: política de senha listando cada critério que falhou).
+    if isinstance(detail, dict) and "errors" in detail:
+        errors = detail.get("errors")
+        detail = detail.get("detail", "Erro de validação.")
     return _problem_response(
         status_code=exc.status_code,
-        detail=str(exc.detail),
+        detail=str(detail),
         instance=request.url.path,
+        errors=errors,
     )
 
 

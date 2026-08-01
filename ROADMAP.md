@@ -23,7 +23,7 @@ FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic Settings, healthcheck, error ha
 Tabela `tenants`; `tenant_id` + política RLS; `set_tenant_context()` na sessão; middleware que resolve tenant; `BaseRepository`.
 **Aceite:** tenant A não lê linha de tenant B nem com query crua. **t:** 5 s. **Deps:** 002
 
-### ⬜ 004 — Autenticação
+### ✅ 004 — Autenticação
 `users`, hash Argon2, login, JWT access + refresh, rotação, logout, recuperação de senha, política de senha (8+, número, minúscula, maiúscula, especial).
 **Aceite:** ciclo completo de login/refresh/logout; senha fraca rejeitada. **t:** 6 s. **Deps:** 003
 

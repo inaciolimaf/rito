@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
 
+    argon2_time_cost: int = 3
+    argon2_memory_cost: int = 65536
+    argon2_parallelism: int = 4
+
     database_url: str
     migrations_database_url: str | None = None
     redis_url: str

@@ -17,6 +17,7 @@ from app.core.health import router as health_router
 from app.core.logging import configure_logging
 from app.core.middleware import RequestIDMiddleware
 from app.core.redis import create_redis_client
+from app.domain.auth.router import router as auth_router
 
 
 @asynccontextmanager
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, handle_unhandled_exception)
 
     app.include_router(health_router)
+    app.include_router(auth_router, prefix="/api/v1")
 
     return app
 

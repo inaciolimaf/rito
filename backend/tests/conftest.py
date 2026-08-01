@@ -24,6 +24,8 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ.setdefault(
         "REDIS_URL", os.environ.get("TEST_REDIS_URL", "redis://localhost:6379/15")
     )
+    os.environ.setdefault("ARGON2_TIME_COST", os.environ.get("TEST_ARGON2_TIME_COST", "1"))
+    os.environ.setdefault("ARGON2_MEMORY_COST", os.environ.get("TEST_ARGON2_MEMORY_COST", "8192"))
 
 
 @pytest.fixture

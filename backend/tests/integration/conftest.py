@@ -1,4 +1,6 @@
-from collections.abc import AsyncGenerator
+import uuid
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from dataclasses import dataclass
 
 import pytest
 from sqlalchemy import text
@@ -6,7 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
 from app.core.db import create_engine_from_url, create_session_factory
-from app.core.rls import enable_rls_statements
+from app.core.models import Tenant
+from app.core.rls import enable_rls_statements, set_tenant_context
+from app.core.security import hash_password
+from app.domain.users.models import User
 
 
 @pytest.fixture
@@ -53,3 +58,53 @@ async def tenant_probe_table(admin_engine: AsyncEngine, worker_id: str) -> Async
 
     async with admin_engine.begin() as conn:
         await conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+
+
+@dataclass
+class SeededUser:
+    tenant_id: uuid.UUID
+    user_id: uuid.UUID
+    email: str
+    password: str
+
+
+@pytest.fixture
+def make_user(
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> Callable[..., Awaitable[SeededUser]]:
+    """Cria tenant (se novo) + usuário direto no banco — não há endpoint de cadastro (spec 012)."""
+
+    async def _make(
+        *,
+        tenant_id: uuid.UUID | None = None,
+        email: str | None = None,
+        password: str = "SenhaForte123!",
+        is_active: bool = True,
+    ) -> SeededUser:
+        tenant_id = tenant_id or uuid.uuid4()
+        email = email or f"{uuid.uuid4()}@example.com"
+
+        async with app_session_factory() as session, session.begin():
+            existing_tenant = await session.get(Tenant, tenant_id)
+            if existing_tenant is None:
+                session.add(
+                    Tenant(id=tenant_id, slug=f"tenant-{tenant_id}", name="Tenant de teste")
+                )
+
+        user_id = uuid.uuid4()
+        async with app_session_factory() as session, session.begin():
+            await set_tenant_context(session, tenant_id)
+            session.add(
+                User(
+                    id=user_id,
+                    tenant_id=tenant_id,
+                    email=email,
+                    password_hash=hash_password(password),
+                    name="Usuário de Teste",
+                    is_active=is_active,
+                )
+            )
+
+        return SeededUser(tenant_id=tenant_id, user_id=user_id, email=email, password=password)
+
+    return _make

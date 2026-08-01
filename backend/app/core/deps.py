@@ -1,7 +1,9 @@
 from collections.abc import AsyncGenerator
+from typing import cast
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, Request
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rls import set_tenant_context
@@ -10,7 +12,10 @@ from app.core.rls import set_tenant_context
 async def get_tenant_id(x_tenant_id: str | None = Header(default=None)) -> UUID:
     """Resolve o tenant pelo header X-Tenant-Id.
 
-    Provisório: a partir da 004 o tenant passa a vir do JWT.
+    Usado só pelos endpoints de autenticação (login, refresh, forgot/reset-password)
+    — antes de existir um JWT não há outra forma de saber o tenant. Toda rota
+    autenticada usa `get_current_user` (app/domain/auth/deps.py), que tira o
+    tenant do claim do token em vez do header (spec 004, regra 8).
     """
     if x_tenant_id is None:
         raise HTTPException(status_code=400, detail="Cabeçalho X-Tenant-Id é obrigatório.")
@@ -32,3 +37,7 @@ async def get_session(
     async with session_factory() as session, session.begin():
         await set_tenant_context(session, tenant_id)
         yield session
+
+
+async def get_redis(request: Request) -> Redis:
+    return cast(Redis, request.app.state.redis)

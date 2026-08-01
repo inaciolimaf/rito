@@ -71,7 +71,7 @@ CRUD de times com membros; atribuição de tarefa a time inteiro (preparo).
 `groups` (6 padrão) com responsável por intimações; `type_lawsuits` vinculados a grupo; transferência em lote.
 **Aceite:** tipo herda grupo; transferência remaneja processos. **t:** 4 s. **Deps:** 011
 
-### ⬜ 015 — Fases e etapas
+### ✅ 015 — Fases e etapas
 `steps` (9 fixas, seed imutável); `stages` (59 padrão) com fase, `enable_stagnant_days`, `stagnant_days`, workflow sugerido; transferência em lote.
 **Aceite:** etapa sempre pertence a uma fase; estagnação configurável. **t:** 4 s. **Deps:** 014
 

@@ -12,7 +12,7 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 014 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
+🚧 **Spec 015 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
 RBAC) + frontend com login real, design system de domínio e o app shell navegável
 (sidebar de 15 itens, busca global, breadcrumbs) + pipeline de testes com gate de 120s
 executável (rede real bloqueada, contador de jornadas e2e, CI no GitHub Actions) + pente
@@ -23,8 +23,10 @@ logotipo com redimensionamento, storage S3/MinIO atrás de interface) + gestão 
 administrador", listagem paginada por keyset com filtros) + times/squads (CRUD, membros
 reconciliados no PUT, abas Colaboradores/Times na mesma tela de Usuários) + grupos e tipos
 de ação (taxonomia que classifica processos por área do direito, 6 grupos/10 tipos padrão,
-responsável por intimações opcional por grupo, transferência em lote antes de excluir) —
-próxima é a 015 (Fases e etapas).
+responsável por intimações opcional por grupo, transferência em lote antes de excluir) +
+fases e etapas (9 fases fixas do funil processual, 59 etapas configuráveis com estagnação
+condicional e reordenação por drag-and-drop dentro da fase) — próxima é a 016 (Origem de
+pessoas).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

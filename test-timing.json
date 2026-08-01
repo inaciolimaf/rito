@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 32,
+  "last_measured_wall_clock_seconds": 35,
   "last_measured_at": "2026-08-01",
   "specs": {
     "001": {
@@ -58,6 +58,10 @@
     "014": {
       "wall_clock_seconds": 32,
       "notes": "196 testes backend (173 anteriores + 23 novos: CRUD completo de action_groups/lawsuit_types, nome duplicado ignorando acento → 409, excluir grupo com tipo vinculado sem transferir → 409, transferência migra e é transacional, transferência com ids iguais/grupo inexistente → 422, tipos filtrados por grupo, Colaborador → 403, RLS entre tenants, 404 em PUT/DELETE inexistente, listagem filtra por status e por busca textual separadamente) — cobertura de app/domain/action_groups em 100%. 54 testes frontend (53 anteriores + 1 novo: LawsuitTypesListPage filtra por grupo). 3 e2e (inalterado — plano da spec não pedia jornada nova; fluxo de transferência verificado manualmente em navegador via Playwright ad-hoc não commitado). Migration 014 introduz immutable_unaccent(text) — wrapper IMMUTABLE sobre o unaccent() nativo (STABLE), necessário porque Postgres exige IMMUTABLE em expressão de índice; substitui o UNIQUE(tenant_id, name) simples da seção 4 da spec por um índice único funcional. Novo componente reutilizável components/domain/TransferBeforeDeleteDialog.tsx (spec 015/016 herdam)."
+    },
+    "015": {
+      "wall_clock_seconds": 35,
+      "notes": "219 testes backend (196 anteriores + 1 unit + 22 novos de integração: as 9 fases são somente leitura (POST /steps → 405), CRUD de etapas, estagnação sem dias → 422/com dias aceita, excluir etapa não bloqueia ainda, reordenação persiste e é transacional, reordenar com fases diferentes → 422, reordenar com id inexistente → 422, transferência com ids iguais/etapa inexistente → 422/válidos → 200, Colaborador → 403, RLS entre tenants, 404 em PUT/DELETE inexistente, renomear para nome existente NA MESMA FASE → 409, mesmo nome em fases diferentes é permitido, criar com fase inexistente → 422, mudar de fase reposiciona no fim da nova fase, listagem filtra por fase/status/busca; 1 unit testa que o seed das 59 etapas da migration mapeia cada uma às 9 fases, carregando o módulo da migration via alembic ScriptDirectory — não dá pra verificar isso via HTTP porque o seed só atinge tenants que já existiam quando a migration rodou) — cobertura de app/domain/stages em 100%. 55 testes frontend (54 anteriores + 1 novo: StageForm condiciona `stagnant_days` a `enable_stagnant_days` via refine cross-campo do Zod). 3 e2e (inalterado — plano da spec não pedia jornada nova; CRUD/reordenação/estagnação verificados manualmente em navegador via Playwright ad-hoc não commitado). Descoberta ao seedar as 59 etapas: a fonte real (docs/ADVBOX §3.2) é uma lista flat sem indicar fase, e repete \"PLANEJAMENTO\" em duas fases (Negociação e Marketing) — o UNIQUE(tenant_id, name) da seção 4 da spec foi corrigido para UNIQUE(tenant_id, step_id, name) (mesmo padrão de índice funcional com immutable_unaccent da 014). Bug pego durante verificação manual em navegador: etapas novas nasciam todas com position=0 (ordem entre elas ficava a critério do Postgs, não da regra 5) — corrigido com StageRepository.next_position (fim da fase) tanto no create quanto ao mudar de fase no update. Regras 4 e 8 (\"etapa em uso\"/\"processo mudando de fase\") não têm como ser aplicadas de verdade ainda — lawsuits só chega na spec 022; o endpoint de transferência valida e não move nada (mesmo padrão do lawsuit_types da spec 014), e TransferBeforeDeleteDialog não foi plugado na tela ainda (excluir é incondicional) para não fingir uma trava que não existe."
     }
   }
 }

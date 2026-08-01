@@ -12,15 +12,5 @@ class ActionGroupInUseError(Exception):
     pass
 
 
-class LawsuitTypeNotFoundError(Exception):
-    pass
-
-
 class LawsuitTypeNameAlreadyExistsError(Exception):
-    pass
-
-
-class InvalidTransferError(Exception):
-    """from_id/to_id iguais, ou algum dos dois não existe no tenant."""
-
     pass

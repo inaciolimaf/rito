@@ -1,5 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
@@ -7,6 +6,7 @@ import { DataTable } from "@/components/domain/DataTable";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
 import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
+import { useCrudResource } from "@/components/domain/useCrudResource";
 import { useFilters } from "@/components/domain/useFilters";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,60 +41,35 @@ const FILTER_FIELDS: FilterFieldDef[] = [
 export function CustomerOriginsListPage(): JSX.Element {
   const { user } = useAuth();
   const isGestor = user?.role === "GESTOR";
-  const queryClient = useQueryClient();
 
   const { values } = useFilters(FILTER_FIELDS);
   const status =
     typeof values.status === "string" ? (values.status as "active" | "inactive") : undefined;
   const q = typeof values.q === "string" ? values.q : undefined;
 
-  const [editingOrigin, setEditingOrigin] = React.useState<CustomerOriginData | null>(null);
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const [formError, setFormError] = React.useState<ApiError | null>(null);
-  const [pendingDelete, setPendingDelete] = React.useState<CustomerOriginData | null>(null);
-
   const { data, isLoading, error } = useQuery({
     queryKey: ["customer-origins", { status, q }],
     queryFn: () => listCustomerOrigins({ status, q }),
   });
 
-  function openCreateModal(): void {
-    setEditingOrigin(null);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  function openEditModal(origin: CustomerOriginData): void {
-    setEditingOrigin(origin);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  async function handleSubmit(values: CustomerOriginFormValues): Promise<void> {
-    setFormError(null);
-    try {
-      if (editingOrigin) {
-        await updateCustomerOrigin(editingOrigin.id, {
-          ...values,
-          is_active: editingOrigin.is_active,
-        });
-      } else {
-        await createCustomerOrigin(values);
-      }
-      setModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["customer-origins"] });
-    } catch (submitError) {
-      setFormError(submitError instanceof ApiError ? submitError : null);
-      throw submitError;
-    }
-  }
-
-  async function handleConfirmDelete(): Promise<void> {
-    if (!pendingDelete) return;
-    await deleteCustomerOrigin(pendingDelete.id);
-    setPendingDelete(null);
-    await queryClient.invalidateQueries({ queryKey: ["customer-origins"] });
-  }
+  const {
+    editing: editingOrigin,
+    modalOpen,
+    setModalOpen,
+    formError,
+    pendingDelete,
+    setPendingDelete,
+    openCreateModal,
+    openEditModal,
+    handleSubmit,
+    handleConfirmDelete,
+  } = useCrudResource<CustomerOriginData, CustomerOriginFormValues>({
+    queryKey: ["customer-origins"],
+    create: createCustomerOrigin,
+    update: (origin, values) =>
+      updateCustomerOrigin(origin.id, { ...values, is_active: origin.is_active }),
+    remove: (origin) => deleteCustomerOrigin(origin.id),
+  });
 
   const columns: DataTableColumn<CustomerOriginData>[] = [
     { id: "name", header: "Origem", cell: (row) => row.name },

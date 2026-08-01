@@ -91,7 +91,7 @@ Validação real de CPF/CNPJ com bloqueio de duplicidade; CEP `99999-999`; consu
 `DataTable` com filtros (tipo, estado, cidade, origem, período, arquivados); dashboard Top Origens, Faixa etária, Top Profissões; aniversariantes; export.
 **Aceite:** filtros combinam com AND; export gera xlsx. **t:** 6 s. **Deps:** 018, 007
 
-### ⬜ 020 — 🔧 REFATORAÇÃO — Cadastros
+### ✅ 020 — 🔧 REFATORAÇÃO — Cadastros
 **t:** −
 
 ---

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFi
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_file_storage
+from app.core.http import get_or_404
 from app.core.image_processing import InvalidImageError
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
@@ -227,9 +228,7 @@ async def get_customer(
     storage: FileStorage = Depends(get_file_storage),
 ) -> CustomerResponse:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id)
-    customer = await service.get(customer_id)
-    if customer is None:
-        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+    customer = await get_or_404(lambda: service.get(customer_id), "Contato não encontrado.")
     return _customer_to_response(customer, storage)
 
 
@@ -242,9 +241,7 @@ async def update_customer(
     storage: FileStorage = Depends(get_file_storage),
 ) -> CustomerResponse:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id)
-    customer = await service.get(customer_id)
-    if customer is None:
-        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+    customer = await get_or_404(lambda: service.get(customer_id), "Contato não encontrado.")
 
     try:
         updated = await service.update(customer, payload)
@@ -262,9 +259,7 @@ async def archive_customer(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> None:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id)
-    customer = await service.get(customer_id)
-    if customer is None:
-        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+    customer = await get_or_404(lambda: service.get(customer_id), "Contato não encontrado.")
     await service.archive(customer)
 
 
@@ -277,9 +272,7 @@ async def upload_customer_photo(
     storage: FileStorage = Depends(get_file_storage),
 ) -> CustomerResponse:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id)
-    customer = await service.get(customer_id)
-    if customer is None:
-        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+    customer = await get_or_404(lambda: service.get(customer_id), "Contato não encontrado.")
 
     content = await file.read()
     content_type = file.content_type or "application/octet-stream"

@@ -1,5 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
@@ -7,6 +6,7 @@ import { DataTable } from "@/components/domain/DataTable";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
 import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
+import { useCrudResource } from "@/components/domain/useCrudResource";
 import { useFilters } from "@/components/domain/useFilters";
 import { listActionGroups } from "@/features/action-groups/api";
 import {
@@ -28,7 +28,6 @@ import { useAuth } from "@/providers/AuthProvider";
 export function LawsuitTypesListPage(): JSX.Element {
   const { user } = useAuth();
   const isGestor = user?.role === "GESTOR";
-  const queryClient = useQueryClient();
 
   const { data: groupsPage } = useQuery({
     queryKey: ["action-groups", "for-lawsuit-type-filter"],
@@ -61,50 +60,29 @@ export function LawsuitTypesListPage(): JSX.Element {
     typeof values.status === "string" ? (values.status as "active" | "inactive") : undefined;
   const q = typeof values.q === "string" ? values.q : undefined;
 
-  const [editingType, setEditingType] = React.useState<LawsuitTypeData | null>(null);
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const [formError, setFormError] = React.useState<ApiError | null>(null);
-  const [pendingDelete, setPendingDelete] = React.useState<LawsuitTypeData | null>(null);
-
   const { data, isLoading, error } = useQuery({
     queryKey: ["lawsuit-types", { groupId, status, q }],
     queryFn: () => listLawsuitTypes({ group_id: groupId, status, q }),
   });
 
-  function openCreateModal(): void {
-    setEditingType(null);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  function openEditModal(lawsuitType: LawsuitTypeData): void {
-    setEditingType(lawsuitType);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  async function handleSubmit(values: LawsuitTypeFormValues): Promise<void> {
-    setFormError(null);
-    try {
-      if (editingType) {
-        await updateLawsuitType(editingType.id, { ...values, is_active: editingType.is_active });
-      } else {
-        await createLawsuitType(values);
-      }
-      setModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["lawsuit-types"] });
-    } catch (submitError) {
-      setFormError(submitError instanceof ApiError ? submitError : null);
-      throw submitError;
-    }
-  }
-
-  async function handleConfirmDelete(): Promise<void> {
-    if (!pendingDelete) return;
-    await deleteLawsuitType(pendingDelete.id);
-    setPendingDelete(null);
-    await queryClient.invalidateQueries({ queryKey: ["lawsuit-types"] });
-  }
+  const {
+    editing: editingType,
+    modalOpen,
+    setModalOpen,
+    formError,
+    pendingDelete,
+    setPendingDelete,
+    openCreateModal,
+    openEditModal,
+    handleSubmit,
+    handleConfirmDelete,
+  } = useCrudResource<LawsuitTypeData, LawsuitTypeFormValues>({
+    queryKey: ["lawsuit-types"],
+    create: createLawsuitType,
+    update: (lawsuitType, values) =>
+      updateLawsuitType(lawsuitType.id, { ...values, is_active: lawsuitType.is_active }),
+    remove: (lawsuitType) => deleteLawsuitType(lawsuitType.id),
+  });
 
   const columns: DataTableColumn<LawsuitTypeData>[] = [
     { id: "name", header: "Nome", cell: (row) => row.name },

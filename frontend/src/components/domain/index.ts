@@ -9,5 +9,6 @@ export { FormModal, mapApiErrorToFields } from "@/components/domain/FormModal";
 export { StatCard } from "@/components/domain/StatCard";
 export { TransferBeforeDeleteDialog } from "@/components/domain/TransferBeforeDeleteDialog";
 export * from "@/components/domain/types";
+export { useCrudResource } from "@/components/domain/useCrudResource";
 export { useDataTable } from "@/components/domain/useDataTable";
 export { useFilters } from "@/components/domain/useFilters";

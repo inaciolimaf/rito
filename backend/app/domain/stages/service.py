@@ -2,9 +2,9 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.transfer import validated_transfer
 from app.domain.stages.exceptions import (
     InvalidReorderError,
-    InvalidTransferError,
     StageNameAlreadyExistsError,
     StepNotFoundError,
 )
@@ -97,13 +97,12 @@ class StageService:
         # Regra 4: "excluir etapa em uso exige transferência". Nada referencia stage_id
         # ainda (spec 015, Descobertas) — a validação é real, a migração de dados é um
         # no-op até a spec 022 (lawsuits.stage_id) existir.
-        if from_id == to_id:
-            raise InvalidTransferError
-        from_stage = await self.stages.get_by_id(from_id)
-        to_stage = await self.stages.get_by_id(to_id)
-        if from_stage is None or to_stage is None:
-            raise InvalidTransferError
-        return 0
+        async def reassign() -> int:
+            return 0
+
+        return await validated_transfer(
+            from_id=from_id, to_id=to_id, get_by_id=self.stages.get_by_id, reassign=reassign
+        )
 
     async def _step_name(self, step_id: int) -> str:
         step = await self.steps.get_by_step_id(step_id)

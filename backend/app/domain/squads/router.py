@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_file_storage
+from app.core.http import get_or_404, parse_active_status
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.squads.exceptions import SquadNameAlreadyExistsError
@@ -54,10 +55,9 @@ async def list_squads(
     session: AsyncSession = Depends(get_session_for_current_user),
     storage: FileStorage = Depends(get_file_storage),
 ) -> SquadListResponse:
-    is_active = {"active": True, "inactive": False}.get(status_) if status_ else None
     service = SquadService(session=session, tenant_id=current_user.tenant_id)
     items, next_cursor, total = await service.list_squads(
-        is_active=is_active, query=q, cursor=cursor, limit=limit
+        is_active=parse_active_status(status_), query=q, cursor=cursor, limit=limit
     )
     return SquadListResponse(
         items=[_to_response(squad, members, storage) for squad, members in items],
@@ -89,10 +89,7 @@ async def get_squad(
     storage: FileStorage = Depends(get_file_storage),
 ) -> SquadResponse:
     service = SquadService(session=session, tenant_id=current_user.tenant_id)
-    found = await service.get(squad_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail="Time não encontrado.")
-    squad, members = found
+    squad, members = await get_or_404(lambda: service.get(squad_id), "Time não encontrado.")
     return _to_response(squad, members, storage)
 
 
@@ -105,10 +102,7 @@ async def update_squad(
     storage: FileStorage = Depends(get_file_storage),
 ) -> SquadResponse:
     service = SquadService(session=session, tenant_id=current_user.tenant_id)
-    found = await service.get(squad_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail="Time não encontrado.")
-    squad, _ = found
+    squad, _ = await get_or_404(lambda: service.get(squad_id), "Time não encontrado.")
 
     try:
         updated_squad, members = await service.update(squad, payload)
@@ -124,8 +118,5 @@ async def delete_squad(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> None:
     service = SquadService(session=session, tenant_id=current_user.tenant_id)
-    found = await service.get(squad_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail="Time não encontrado.")
-    squad, _ = found
+    squad, _ = await get_or_404(lambda: service.get(squad_id), "Time não encontrado.")
     await service.delete(squad)

@@ -7,6 +7,7 @@ import { DataTable } from "@/components/domain/DataTable";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
 import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
+import { useCrudResource } from "@/components/domain/useCrudResource";
 import { useFilters } from "@/components/domain/useFilters";
 import {
   createStage,
@@ -26,6 +27,20 @@ import {
 } from "@/features/stages/schema";
 import { ApiError } from "@/lib/errors";
 import { useAuth } from "@/providers/AuthProvider";
+
+function toStagePayload(values: StageFormValues): {
+  name: string;
+  step_id: number;
+  enable_stagnant_days: boolean;
+  stagnant_days: number | null;
+} {
+  return {
+    name: values.name,
+    step_id: Number(values.step_id),
+    enable_stagnant_days: values.enable_stagnant_days,
+    stagnant_days: values.enable_stagnant_days ? Number(values.stagnant_days) : null,
+  };
+}
 
 export function StagesListPage(): JSX.Element {
   const { user } = useAuth();
@@ -61,10 +76,6 @@ export function StagesListPage(): JSX.Element {
   const q = typeof values.q === "string" ? values.q : undefined;
 
   const [reorderMode, setReorderMode] = React.useState(false);
-  const [editingStage, setEditingStage] = React.useState<StageData | null>(null);
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const [formError, setFormError] = React.useState<ApiError | null>(null);
-  const [pendingDelete, setPendingDelete] = React.useState<StageData | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["stages", { stepId, status, q }],
@@ -72,46 +83,24 @@ export function StagesListPage(): JSX.Element {
   });
   const stages = data?.items ?? [];
 
-  function openCreateModal(): void {
-    setEditingStage(null);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  function openEditModal(stage: StageData): void {
-    setEditingStage(stage);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  async function handleSubmit(values: StageFormValues): Promise<void> {
-    setFormError(null);
-    const payload = {
-      name: values.name,
-      step_id: Number(values.step_id),
-      enable_stagnant_days: values.enable_stagnant_days,
-      stagnant_days: values.enable_stagnant_days ? Number(values.stagnant_days) : null,
-    };
-    try {
-      if (editingStage) {
-        await updateStage(editingStage.id, { ...payload, is_active: editingStage.is_active });
-      } else {
-        await createStage(payload);
-      }
-      setModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["stages"] });
-    } catch (submitError) {
-      setFormError(submitError instanceof ApiError ? submitError : null);
-      throw submitError;
-    }
-  }
-
-  async function handleConfirmDelete(): Promise<void> {
-    if (!pendingDelete) return;
-    await deleteStage(pendingDelete.id);
-    setPendingDelete(null);
-    await queryClient.invalidateQueries({ queryKey: ["stages"] });
-  }
+  const {
+    editing: editingStage,
+    modalOpen,
+    setModalOpen,
+    formError,
+    pendingDelete,
+    setPendingDelete,
+    openCreateModal,
+    openEditModal,
+    handleSubmit,
+    handleConfirmDelete,
+  } = useCrudResource<StageData, StageFormValues>({
+    queryKey: ["stages"],
+    create: (values) => createStage(toStagePayload(values)),
+    update: (stage, values) =>
+      updateStage(stage.id, { ...toStagePayload(values), is_active: stage.is_active }),
+    remove: (stage) => deleteStage(stage.id),
+  });
 
   async function handleReorder(orderedIds: string[]): Promise<void> {
     await reorderStages(orderedIds);

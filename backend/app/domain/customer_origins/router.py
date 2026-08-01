@@ -4,12 +4,11 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import InvalidTransferError
+from app.core.http import get_or_404, parse_active_status
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
-from app.domain.customer_origins.exceptions import (
-    CustomerOriginNameAlreadyExistsError,
-    InvalidTransferError,
-)
+from app.domain.customer_origins.exceptions import CustomerOriginNameAlreadyExistsError
 from app.domain.customer_origins.models import CustomerOrigin
 from app.domain.customer_origins.schemas import (
     CustomerOriginCreateRequest,
@@ -22,6 +21,8 @@ from app.domain.customer_origins.service import CustomerOriginService
 from app.domain.users.models import User
 
 router = APIRouter(prefix="/customer-origins", tags=["customer-origins"])
+
+_NOT_FOUND_DETAIL = "Origem não encontrada."
 
 
 def _origin_to_response(origin: CustomerOrigin) -> CustomerOriginResponse:
@@ -37,9 +38,8 @@ async def list_customer_origins(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> CustomerOriginListResponse:
-    is_active = {"active": True, "inactive": False}.get(status_) if status_ else None
     service = CustomerOriginService(session=session, tenant_id=current_user.tenant_id)
-    items = await service.list_origins(is_active=is_active, query=q)
+    items = await service.list_origins(is_active=parse_active_status(status_), query=q)
     return CustomerOriginListResponse(
         items=[_origin_to_response(item) for item in items], total=len(items)
     )
@@ -67,9 +67,7 @@ async def update_customer_origin(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> CustomerOriginResponse:
     service = CustomerOriginService(session=session, tenant_id=current_user.tenant_id)
-    origin = await service.get(origin_id)
-    if origin is None:
-        raise HTTPException(status_code=404, detail="Origem não encontrada.")
+    origin = await get_or_404(lambda: service.get(origin_id), _NOT_FOUND_DETAIL)
 
     try:
         updated = await service.update(origin, payload)
@@ -85,9 +83,7 @@ async def delete_customer_origin(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> None:
     service = CustomerOriginService(session=session, tenant_id=current_user.tenant_id)
-    origin = await service.get(origin_id)
-    if origin is None:
-        raise HTTPException(status_code=404, detail="Origem não encontrada.")
+    origin = await get_or_404(lambda: service.get(origin_id), _NOT_FOUND_DETAIL)
     await service.delete(origin)
 
 

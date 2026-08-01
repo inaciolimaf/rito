@@ -4,11 +4,12 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import InvalidTransferError
+from app.core.http import get_or_404, parse_active_status
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.stages.exceptions import (
     InvalidReorderError,
-    InvalidTransferError,
     StageNameAlreadyExistsError,
     StepNotFoundError,
 )
@@ -62,9 +63,10 @@ async def list_stages(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> StageListResponse:
-    is_active = {"active": True, "inactive": False}.get(status_) if status_ else None
     service = StageService(session=session, tenant_id=current_user.tenant_id)
-    items = await service.list_stages(step_id=step_id, is_active=is_active, query=q)
+    items = await service.list_stages(
+        step_id=step_id, is_active=parse_active_status(status_), query=q
+    )
     return StageListResponse(
         items=[_stage_to_response(stage, step_name) for stage, step_name in items],
         total=len(items),
@@ -97,10 +99,7 @@ async def update_stage(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> StageResponse:
     service = StageService(session=session, tenant_id=current_user.tenant_id)
-    found = await service.get(stage_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail="Etapa não encontrada.")
-    stage, _ = found
+    stage, _ = await get_or_404(lambda: service.get(stage_id), "Etapa não encontrada.")
 
     try:
         updated, step_name = await service.update(stage, payload)
@@ -120,10 +119,7 @@ async def delete_stage(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> None:
     service = StageService(session=session, tenant_id=current_user.tenant_id)
-    found = await service.get(stage_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail="Etapa não encontrada.")
-    stage, _ = found
+    stage, _ = await get_or_404(lambda: service.get(stage_id), "Etapa não encontrada.")
     await service.delete(stage)
 
 

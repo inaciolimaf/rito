@@ -8,6 +8,7 @@ import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
 import { TransferBeforeDeleteDialog } from "@/components/domain/TransferBeforeDeleteDialog";
 import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
+import { useCrudResource } from "@/components/domain/useCrudResource";
 import { useFilters } from "@/components/domain/useFilters";
 import {
   createActionGroup,
@@ -50,10 +51,6 @@ export function ActionGroupsListPage(): JSX.Element {
     typeof values.status === "string" ? (values.status as "active" | "inactive") : undefined;
   const q = typeof values.q === "string" ? values.q : undefined;
 
-  const [editingGroup, setEditingGroup] = React.useState<ActionGroupData | null>(null);
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const [formError, setFormError] = React.useState<ApiError | null>(null);
-  const [pendingDelete, setPendingDelete] = React.useState<ActionGroupData | null>(null);
   const [transferDialogOpen, setTransferDialogOpen] = React.useState(false);
   const [transferError, setTransferError] = React.useState<ApiError | null>(null);
 
@@ -69,54 +66,36 @@ export function ActionGroupsListPage(): JSX.Element {
   });
   const users = usersPage?.items ?? [];
 
+  const {
+    editing: editingGroup,
+    modalOpen,
+    setModalOpen,
+    formError,
+    pendingDelete,
+    setPendingDelete,
+    openCreateModal,
+    openEditModal,
+    handleSubmit,
+    handleConfirmDelete,
+  } = useCrudResource<ActionGroupData, ActionGroupFormValues>({
+    queryKey: ["action-groups"],
+    create: createActionGroup,
+    update: (group, values) =>
+      updateActionGroup(group.id, { ...values, is_active: group.is_active }),
+    remove: (group) => deleteActionGroup(group.id),
+  });
+
   async function searchUsers(query: string): Promise<EntityOption[]> {
     const page = await listUsers({ q: query, limit: 20 });
     return page.items.map((item) => ({ id: item.id, label: item.name }));
   }
 
-  function openCreateModal(): void {
-    setEditingGroup(null);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  function openEditModal(group: ActionGroupData): void {
-    setEditingGroup(group);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  async function handleSubmit(values: ActionGroupFormValues): Promise<void> {
-    setFormError(null);
-    try {
-      if (editingGroup) {
-        await updateActionGroup(editingGroup.id, { ...values, is_active: editingGroup.is_active });
-      } else {
-        await createActionGroup(values);
-      }
-      setModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["action-groups"] });
-    } catch (submitError) {
-      setFormError(submitError instanceof ApiError ? submitError : null);
-      throw submitError;
-    }
-  }
-
   function requestDelete(group: ActionGroupData): void {
     setTransferError(null);
+    setPendingDelete(group);
     if (group.lawsuit_types_count > 0) {
-      setPendingDelete(group);
       setTransferDialogOpen(true);
-    } else {
-      setPendingDelete(group);
     }
-  }
-
-  async function handleConfirmDelete(): Promise<void> {
-    if (!pendingDelete) return;
-    await deleteActionGroup(pendingDelete.id);
-    setPendingDelete(null);
-    await queryClient.invalidateQueries({ queryKey: ["action-groups"] });
   }
 
   async function handleTransferAndDelete(destinationId: string): Promise<void> {

@@ -9,12 +9,6 @@ class StageNameAlreadyExistsError(Exception):
     pass
 
 
-class InvalidTransferError(Exception):
-    """from_id/to_id iguais, ou algum dos dois não existe no tenant."""
-
-    pass
-
-
 class InvalidReorderError(Exception):
     """Algum id não existe no tenant, ou os ids não pertencem todos à mesma fase (regra 5:
     "ordenação é por position dentro da fase")."""

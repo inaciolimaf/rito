@@ -1,11 +1,11 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
 import { FormModal } from "@/components/domain/FormModal";
 import type { DataTableColumn } from "@/components/domain/types";
+import { useCrudResource } from "@/components/domain/useCrudResource";
 import {
   createSquad,
   deleteSquad,
@@ -28,11 +28,6 @@ const MAX_AVATARS_SHOWN = 3;
 export function SquadsListPage(): JSX.Element {
   const { user: currentUser } = useAuth();
   const isAdministrador = currentUser?.role === "ADMINISTRADOR" || currentUser?.role === "GESTOR";
-  const queryClient = useQueryClient();
-  const [editingSquad, setEditingSquad] = React.useState<SquadData | null>(null);
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const [formError, setFormError] = React.useState<ApiError | null>(null);
-  const [pendingDelete, setPendingDelete] = React.useState<SquadData | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["squads"],
@@ -45,40 +40,23 @@ export function SquadsListPage(): JSX.Element {
   });
   const users = usersPage?.items ?? [];
 
-  function openCreateModal(): void {
-    setEditingSquad(null);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  function openEditModal(squad: SquadData): void {
-    setEditingSquad(squad);
-    setFormError(null);
-    setModalOpen(true);
-  }
-
-  async function handleSubmit(values: SquadFormValues): Promise<void> {
-    setFormError(null);
-    try {
-      if (editingSquad) {
-        await updateSquad(editingSquad.id, { ...values, is_active: editingSquad.is_active });
-      } else {
-        await createSquad(values);
-      }
-      setModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["squads"] });
-    } catch (submitError) {
-      setFormError(submitError instanceof ApiError ? submitError : null);
-      throw submitError;
-    }
-  }
-
-  async function handleConfirmDelete(): Promise<void> {
-    if (!pendingDelete) return;
-    await deleteSquad(pendingDelete.id);
-    setPendingDelete(null);
-    await queryClient.invalidateQueries({ queryKey: ["squads"] });
-  }
+  const {
+    editing: editingSquad,
+    modalOpen,
+    setModalOpen,
+    formError,
+    pendingDelete,
+    setPendingDelete,
+    openCreateModal,
+    openEditModal,
+    handleSubmit,
+    handleConfirmDelete,
+  } = useCrudResource<SquadData, SquadFormValues>({
+    queryKey: ["squads"],
+    create: createSquad,
+    update: (squad, values) => updateSquad(squad.id, { ...values, is_active: squad.is_active }),
+    remove: (squad) => deleteSquad(squad.id),
+  });
 
   const columns: DataTableColumn<SquadData>[] = [
     { id: "name", header: "Nome do time", cell: (row) => row.name },

@@ -96,6 +96,50 @@
   do próprio gate (`test_runner.sh`) sourcing + stubs de `run_backend`/`run_frontend`/
   `run_e2e`, sem gastar minutos rodando as suítes de verdade a cada execução do teste.
 
+## Refatoração de cadastros (spec 020)
+
+- **Sem `CrudRouter` genérico de fato.** As 5 taxonomias simples (customer_origins,
+  action_groups, lawsuit_types, stages, squads) têm o MESMO esqueleto de validação/erro,
+  mas resposta e regras de negócio genuinamente diferentes por domínio (squads junta
+  membros, action_groups conta lawsuit_types, lawsuit_types injeta o nome do grupo,
+  stages calcula `position`/fase). Um único `CrudRouter` que gerasse as 4 rotas por schema
+  teria que aceitar tantos hooks por variação que deixaria de ser mais simples que os
+  routers atuais — abstração prematura, contra o espírito de "regra dos 3 usos" (extrair o
+  que É igual, não forçar o que não é). Optou-se por 3 helpers cirúrgicos que cobrem
+  exatamente a parte idêntica: `app/core/http.get_or_404`/`parse_active_status`
+  (mecânico, aplicado a 7 routers: as 5 taxonomias + customers + users) e
+  `app/core/transfer.validated_transfer` + `app/core/exceptions.InvalidTransferError`
+  (a validação de "transferir antes de excluir", idêntica nos 3 domínios que a têm —
+  customer_origins/action_groups+lawsuit_types/stages — mesmo com a reatribuição em si
+  sendo específica de cada um).
+- **`ActivatableMixin` virou uma função, não uma classe.** `is_active`/filtro por status
+  não tem estado compartilhado entre as 5 entidades, só uma transformação idêntica
+  (`parse_active_status`) — uma mixin de classe adicionaria uma camada de herança sem
+  nenhum ganho sobre uma função pura.
+- **`useCrudResource` (frontend) extrai o ciclo de vida, não o payload.** As 5 telas de
+  listagem (`CustomerOriginsListPage`, `ActionGroupsListPage`, `LawsuitTypesListPage`,
+  `StagesListPage`, `SquadsListPage`) compartilham modal/edição/erro/exclusão pendente +
+  submit/delete com invalidação de query — isso virou `components/domain/useCrudResource`.
+  O formato do payload de update (ex.: espalhar `is_active` atual, ou o transform de
+  `StagesListPage` de form values para o shape da API) continua na FEATURE, passado como
+  callback — o hook nunca decide como uma entidade vira payload, só orquestra o resto.
+  Fluxos com um passo extra antes de excluir (o diálogo de transferência de
+  `ActionGroupsListPage`) usam `setPendingDelete` exposto pelo hook em vez do
+  `handleConfirmDelete` padrão.
+- **`SettingsListPage` genérica não foi construída.** Mesma razão do `CrudRouter`: as 5
+  páginas têm colunas, filtros e ações de linha genuinamente diferentes — uma página
+  "genérica" que aceitasse schema+endpoint teria que reexpor praticamente toda a API do
+  `DataTable`/`FilterBar`/`FormModal` por fora, sem reduzir código de verdade.
+- **Nenhuma correção de comportamento entrou nesta spec**, mesmo onde o pente-fino achou
+  bugs reais (busca sem unaccent nas 5 listagens, `squads` com nome sensível a
+  maiúsculas/acento diferente das outras 4, `customer_origins.transfer`/`delete` ainda
+  sem lógica real apesar de `customers.origin_id` já existir) — CLAUDE.md §8 proíbe
+  mudança de comportamento em spec de refatoração; os três viraram itens novos em
+  `docs/DIVIDA-TECNICA.md` (#11, #12, #13) para uma spec de feature decidir.
+- **Cobertura de frontend instalada** (`@vitest/coverage-v8@3.2.7`, pinado na mesma major
+  do `vitest` já usado — a v4 do pacote quebraria o resto). `npm run test:coverage` é
+  opt-in, não entra no `make test` padrão — mesmo padrão do `pytest --cov` do backend.
+
 ## Ambiente de execução do agente (não é decisão de produto)
 
 - Este sandbox resolve Postgres/Redis via o hostname `dind` (Docker-in-Docker remoto), não

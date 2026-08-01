@@ -2,11 +2,11 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.transfer import validated_transfer
 from app.domain.action_groups.exceptions import (
     ActionGroupInUseError,
     ActionGroupNameAlreadyExistsError,
     ActionGroupNotFoundError,
-    InvalidTransferError,
     LawsuitTypeNameAlreadyExistsError,
 )
 from app.domain.action_groups.models import ActionGroup, LawsuitType
@@ -126,13 +126,12 @@ class LawsuitTypeService:
     async def transfer(self, *, from_id: uuid.UUID, to_id: uuid.UUID) -> int:
         # Regra 3/7: "os registros migram para o destino" — os registros são os
         # lawsuit_types do grupo de origem, reatribuídos ao grupo de destino.
-        if from_id == to_id:
-            raise InvalidTransferError
-        from_group = await self.groups.get_by_id(from_id)
-        to_group = await self.groups.get_by_id(to_id)
-        if from_group is None or to_group is None:
-            raise InvalidTransferError
-        return await self.types.reassign_group(from_group_id=from_id, to_group_id=to_id)
+        async def reassign() -> int:
+            return await self.types.reassign_group(from_group_id=from_id, to_group_id=to_id)
+
+        return await validated_transfer(
+            from_id=from_id, to_id=to_id, get_by_id=self.groups.get_by_id, reassign=reassign
+        )
 
     async def _group_name(self, group_id: uuid.UUID) -> str:
         group = await self.groups.get_by_id(group_id)

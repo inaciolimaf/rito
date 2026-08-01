@@ -4,12 +4,13 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import InvalidTransferError
+from app.core.http import get_or_404, parse_active_status
 from app.core.permissions import UserRole, require_role
 from app.domain.action_groups.exceptions import (
     ActionGroupInUseError,
     ActionGroupNameAlreadyExistsError,
     ActionGroupNotFoundError,
-    InvalidTransferError,
     LawsuitTypeNameAlreadyExistsError,
 )
 from app.domain.action_groups.models import ActionGroup, LawsuitType
@@ -61,9 +62,8 @@ async def list_action_groups(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> ActionGroupListResponse:
-    is_active = {"active": True, "inactive": False}.get(status_) if status_ else None
     service = ActionGroupService(session=session, tenant_id=current_user.tenant_id)
-    items = await service.list_groups(is_active=is_active, query=q)
+    items = await service.list_groups(is_active=parse_active_status(status_), query=q)
     return ActionGroupListResponse(
         items=[_group_to_response(group, count) for group, count in items], total=len(items)
     )
@@ -91,10 +91,7 @@ async def update_action_group(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> ActionGroupResponse:
     service = ActionGroupService(session=session, tenant_id=current_user.tenant_id)
-    found = await service.get(group_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail="Grupo de ação não encontrado.")
-    group, count = found
+    group, count = await get_or_404(lambda: service.get(group_id), "Grupo de ação não encontrado.")
 
     try:
         updated = await service.update(group, payload)
@@ -110,10 +107,7 @@ async def delete_action_group(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> None:
     service = ActionGroupService(session=session, tenant_id=current_user.tenant_id)
-    found = await service.get(group_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail="Grupo de ação não encontrado.")
-    group, _ = found
+    group, _ = await get_or_404(lambda: service.get(group_id), "Grupo de ação não encontrado.")
 
     try:
         await service.delete(group)
@@ -132,9 +126,10 @@ async def list_lawsuit_types(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> LawsuitTypeListResponse:
-    is_active = {"active": True, "inactive": False}.get(status_) if status_ else None
     service = LawsuitTypeService(session=session, tenant_id=current_user.tenant_id)
-    items = await service.list_types(action_group_id=group_id, is_active=is_active, query=q)
+    items = await service.list_types(
+        action_group_id=group_id, is_active=parse_active_status(status_), query=q
+    )
     return LawsuitTypeListResponse(
         items=[_type_to_response(item, group_name) for item, group_name in items], total=len(items)
     )
@@ -180,10 +175,7 @@ async def update_lawsuit_type(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> LawsuitTypeResponse:
     service = LawsuitTypeService(session=session, tenant_id=current_user.tenant_id)
-    found = await service.get(type_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail="Tipo de ação não encontrado.")
-    lawsuit_type, _ = found
+    lawsuit_type, _ = await get_or_404(lambda: service.get(type_id), "Tipo de ação não encontrado.")
 
     try:
         updated, group_name = await service.update(lawsuit_type, payload)
@@ -201,8 +193,5 @@ async def delete_lawsuit_type(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> None:
     service = LawsuitTypeService(session=session, tenant_id=current_user.tenant_id)
-    found = await service.get(type_id)
-    if found is None:
-        raise HTTPException(status_code=404, detail="Tipo de ação não encontrado.")
-    lawsuit_type, _ = found
+    lawsuit_type, _ = await get_or_404(lambda: service.get(type_id), "Tipo de ação não encontrado.")
     await service.delete(lawsuit_type)

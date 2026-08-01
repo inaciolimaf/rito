@@ -18,16 +18,16 @@ função gêmea nova em vez de uma migração da antiga. `UserRepository.list_fi
 usa o keyset novo de verdade, com filtros de `role`/`is_active`/busca textual + `COUNT`
 para o `total`.
 
-## 2. Frontend sem ferramenta de cobertura instalada
+## 2. ~~Frontend sem ferramenta de cobertura instalada~~ — RESOLVIDO na spec 020
 
-`@vitest/coverage-v8` não está nas devDependencies — não dá para medir cobertura numérica
-do frontend hoje. Os caminhos de erro mais críticos (`apiRequest`, `toApiError`) já têm
-teste dedicado (revisado manualmente nesta spec), mas não há um número para acompanhar
-regressão silenciosa de cobertura.
-
-**Spec-alvo:** 020 (próxima refatoração). Decidir lá se vale a pena instalar (custo: mais
-uma dependência de teste, tempo de instrumentação no orçamento de 90 s) ou manter revisão
-manual enquanto o frontend for pequeno.
+`@vitest/coverage-v8@3.2.7` (mesma major do `vitest` já usado — a versão `4.x` mais
+recente do pacote exige `vitest@4`, que quebraria o resto do projeto) entrou como
+devDependency, com um script `test:coverage` separado (`vitest run --coverage`) — não
+plugado em `npm run test`/`make test` por padrão, mesmo padrão do backend (`pytest --cov`
+também é opt-in via flag, não faz parte do `addopts` default). Overhead medido: ~4-5 s
+sobre os ~18-19 s da suíte sem cobertura — cabe folgado no orçamento de 90 s da spec 020.
+Estado inicial: 63% de statements/lines, 74% de branches, 57% de functions — número para
+acompanhar regressão a partir de agora, não uma meta a bater nesta spec.
 
 ## 3. `AuthService.reset_password` tem um branch defensivo inalcançável
 
@@ -112,3 +112,59 @@ tinha um único sub-item e pôde redirecionar direto). `/settings/users` e
 **Spec-alvo:** a spec que desenhar a página-índice de Configurações (ainda sem número no
 roadmap) — ela precisa linkar para `/settings/users` e para os módulos de configuração
 das specs 013+.
+
+## 11. `squads` é a única das 5 taxonomias simples (013-019) com nome único sensível a
+    maiúsculas/acento
+
+`uq_squads_tenant_name` (spec 013) é `UNIQUE(tenant_id, name)` puro — as outras 4
+(`action_groups`/`lawsuit_types` da 014, `stages` da 015, `customer_origins` da 016) usam
+`UNIQUE(tenant_id, immutable_unaccent(lower(name)))`, convenção introduzida justamente na
+014 (spec 013 é anterior a ela). Hoje "Time A" e "TIME A" coexistem como times distintos no
+mesmo tenant, diferente de qualquer outra taxonomia do sistema. Não foi corrigido na spec
+020 porque mudar o índice único MUDA COMPORTAMENTO observável (dois registros hoje válidos
+passariam a colidir com 409) — proibido em spec de refatoração (CLAUDE.md §8).
+
+**Spec-alvo:** nenhuma spec de feature ainda toca `squads` de novo; resolver na próxima
+spec que mexer no CRUD de times, com uma migration de dado (decidir o que fazer com times
+duplicados que já existem) além do índice.
+
+## 12. Busca textual das 5 taxonomias simples (013-019) não ignora acento, diferente de
+    `customers` (019)
+
+`CustomerOriginRepository.list_filtered`, `ActionGroupRepository.list_filtered`,
+`LawsuitTypeRepository.list_filtered`, `StageRepository.list_filtered` e
+`SquadRepository.list_filtered` filtram o campo `q` com `Model.name.ilike(f"%{query}%")`
+puro — a checagem de duplicidade (`get_by_name`) dessas mesmas entidades já usa
+`func.unaccent(func.lower(...))` (regra 1 de cada spec), só a busca da listagem ficou de
+fora. `CustomerRepository.list_filtered` (spec 019) é o único que unaccenta os dois lados
+da comparação. Não unificado na spec 020: ampliar o que a busca encontra é, em espírito,
+uma mudança de comportamento (mesmo não quebrando nenhum teste hoje — nenhum teste
+existente depende da busca NÃO encontrar uma variante acentuada), e a extração de um
+`unaccented_search_filter` só vale a pena junto da correção, não separada dela.
+
+**Spec-alvo:** a próxima spec que tocar qualquer uma dessas 5 telas de listagem — aplicar
+`func.unaccent(func.lower(Model.name)).ilike(func.concat("%", func.unaccent(func.lower(literal(query))), "%"))`
+(mesmo padrão de `app/domain/customers/repository.py`) nas 5 de uma vez, com teste
+dedicado por entidade.
+
+## 13. `CustomerOriginService.transfer`/`delete` continuam sem lógica real, mesmo com
+    `customers.origin_id` já existindo desde a spec 017
+
+Documentado como no-op nas Descobertas da spec 016 ("nada referencia `origin_id` ainda —
+`customers` só chega na spec 017"). A spec 017 chegou, `customers.origin_id` é uma FK real
+desde então, e a 019 até consome origens no dashboard — mas `transfer()` continua sempre
+retornando `0` (não reatribui `customers.origin_id` de verdade) e `delete()` continua sem
+guarda de "em uso" (excluir uma origem referenciada por um `customer` hoje estoura
+`IntegrityError` não tratado → 500, em vez de um 409 com a mensagem de "transfira antes").
+Mesma razão dos itens 11/12 para não resolver na 020: implementar a reatribuição real e o
+guard de "em uso" é a definição de "mudar comportamento" (o teste
+`test_excluir_nao_bloqueia_ainda` documenta e prova o no-op atual) — cabe a uma spec de
+feature, não a este pente-fino. Comparar com `LawsuitTypeService.transfer` (spec 014, real
+desde o início porque `lawsuit_types` e `action_groups` nasceram juntos) e
+`StageService.transfer` (spec 015, no-op igual a este, mas ainda genuinamente bloqueado —
+`lawsuits.stage_id` só chega na spec 022).
+
+**Spec-alvo:** a spec que criar o consumidor real de `origin_id` além de `customers` (já
+existe) — ou uma spec de correção dedicada, já que a dependência que faltava (017) já
+chegou. Renomear/atualizar o comentário e o teste
+`test_excluir_nao_bloqueia_ainda`/`test_transferencia_com_ids_validos_retorna_200` junto.

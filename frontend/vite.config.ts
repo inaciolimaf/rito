@@ -15,5 +15,11 @@ export default defineConfig({
     globals: true,
     css: true,
     setupFiles: ["./src/test/setup.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text-summary"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/test/**", "src/mocks/**"],
+    },
   },
 });

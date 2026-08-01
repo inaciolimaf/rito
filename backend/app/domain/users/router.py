@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_file_storage, get_session, get_tenant_id
+from app.core.http import get_or_404, parse_active_status
 from app.core.image_processing import InvalidImageError
 from app.core.permissions import FinancialAccess, UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
@@ -92,10 +93,9 @@ async def list_users(
     session: AsyncSession = Depends(get_session_for_current_user),
     storage: FileStorage = Depends(get_file_storage),
 ) -> UserListResponse:
-    is_active = {"active": True, "inactive": False}.get(status_) if status_ else None
     service = UserService(session=session, tenant_id=current_user.tenant_id)
     items, next_cursor, total = await service.list_users(
-        role=role, is_active=is_active, query=q, cursor=cursor, limit=limit
+        role=role, is_active=parse_active_status(status_), query=q, cursor=cursor, limit=limit
     )
     return UserListResponse(
         items=[_to_user_response(item, requester=current_user, storage=storage) for item in items],
@@ -136,9 +136,7 @@ async def get_user(
 ) -> UserResponse:
     _ensure_self_or_administrator(current_user, user_id)
     service = UserService(session=session, tenant_id=current_user.tenant_id)
-    user = await service.get(user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    user = await get_or_404(lambda: service.get(user_id), "Usuário não encontrado.")
     return _to_user_response(user, requester=current_user, storage=storage)
 
 
@@ -152,9 +150,7 @@ async def update_user(
 ) -> UserResponse:
     _ensure_self_or_administrator(current_user, user_id)
     service = UserService(session=session, tenant_id=current_user.tenant_id)
-    target = await service.get(user_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    target = await get_or_404(lambda: service.get(user_id), "Usuário não encontrado.")
 
     try:
         updated = await service.update(actor=current_user, target=target, payload=payload)
@@ -174,9 +170,7 @@ async def deactivate_user(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> None:
     service = UserService(session=session, tenant_id=current_user.tenant_id)
-    target = await service.get(user_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    target = await get_or_404(lambda: service.get(user_id), "Usuário não encontrado.")
 
     try:
         await service.deactivate(target)
@@ -196,9 +190,7 @@ async def upload_user_avatar(
 ) -> UserResponse:
     _ensure_self_or_administrator(current_user, user_id)
     service = UserService(session=session, tenant_id=current_user.tenant_id)
-    target = await service.get(user_id)
-    if target is None:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    target = await get_or_404(lambda: service.get(user_id), "Usuário não encontrado.")
 
     content = await file.read()
     content_type = file.content_type or "application/octet-stream"

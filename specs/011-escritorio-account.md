@@ -168,6 +168,17 @@ spec 010 cobra.
 feature — GET/PUT/upload já são cobertos por integração, e o componente por teste de
 frontend. Máximo de 25 jornadas: continua 2/25.
 
+**CI precisou de MinIO — duas tentativas até acertar a imagem.** `.github/workflows/ci.yml`
+só tinha Postgres e Redis; os testes de `FileStorage` (real, sem fake, mesmo padrão de
+Postgres/Redis) quebravam sem MinIO. Primeira tentativa, `bitnami/minio:latest` — falhou
+com `manifest unknown`: a Bitnami descontinuou tags `:latest` gratuitas nas imagens
+"Secure Images" em 2025. Segunda: `minio/minio` oficial, mas o bloco `services:` do
+GitHub Actions só aceita `image`/`env`/`ports`/`options` — não tem como sobrescrever o
+`CMD` do container, e a imagem do MinIO exige `server /data` como comando (sem isso só
+mostra o help e nunca sobe o servidor). Resolvido subindo o MinIO com `docker run -d`
+manual num step, antes do `make test` — mesmo padrão do `docker-compose.yml` local, só
+que como step em vez de serviço. Confirmado verde no remoto (run 30708602291).
+
 ## 10. Definição de pronto
 
 - [x] Migration `011_accounts.py` aplicada, RLS ligado, sem índice redundante

@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 5,
+  "last_measured_wall_clock_seconds": 27,
   "last_measured_at": "2026-08-01",
   "specs": {
     "001": {
@@ -34,6 +34,10 @@
     "008": {
       "wall_clock_seconds": 21,
       "notes": "54 testes backend (inalterado) + 39 testes frontend (Sidebar, GlobalSearch, QuickAddMenu, AppLayout + os 30 da 007) + 2 jornadas e2e (jornada 1 ajustada para o novo menu do usuário + jornada 2 nova: navegar pelos 10 módulos sem capability e 404 dentro do layout). Máximo de 25 jornadas: 2/25 usadas."
+    },
+    "009": {
+      "wall_clock_seconds": 20,
+      "notes": "59 testes backend (54 anteriores + 5 meta: bloqueio de rede real via pytest-socket, banco de teste já na head antes do teste rodar, budget de @pytest.mark.slow, gate de run-tests.sh cobrindo falha de suíte e estouro de wall-clock) + 39 testes frontend (inalterado) + 3 e2e (as 2 jornadas anteriores + meta de contagem de jornadas ≤ 25). scripts/run-tests.sh agora roda `alembic upgrade head` uma vez por invocação antes do -n auto, expõe main() sourceable para o teste do gate, e auto-atualiza last_measured_*. Makefile ganhou test-backend/test-frontend/test-e2e granulares."
     }
   }
 }

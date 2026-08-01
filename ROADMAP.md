@@ -43,7 +43,7 @@ Vite + React + TS strict + Tailwind + shadcn/ui; design tokens; **dark mode**; T
 Sidebar com os 15 itens, header, busca global (Tudo/Pessoas/Processos), dropdown "Adicionar", breadcrumbs, layout responsivo, rotas protegidas.
 **Aceite:** navegação completa entre módulos com placeholders. **t:** 5 s. **Deps:** 007
 
-### ⬜ 009 — Pipeline de testes e gate de 120 s
+### ✅ 009 — Pipeline de testes e gate de 120 s
 `pytest -n auto` + template DB + rollback por teste; Vitest threads; Playwright sharded; `make test` roda as 3 concorrentes; script que **falha se wall-clock > 120 s**; GitHub Actions.
 **Aceite:** CI verde e reporta wall-clock. **t:** 0 s (é a própria infra). **Deps:** 002, 006
 

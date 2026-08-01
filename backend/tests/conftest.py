@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -34,3 +35,28 @@ async def client() -> AsyncGenerator[AsyncClient]:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac
+
+
+@pytest.fixture
+async def admin_engine() -> AsyncGenerator[AsyncEngine]:
+    """Engine com o superusuário (MIGRATIONS_DATABASE_URL) — bypassa RLS, só para setup/
+    verificação de teste (DDL, tabelas de sonda, conferir estado de migration)."""
+    from app.core.config import get_settings
+    from app.core.db import create_engine_from_url
+
+    url = get_settings().migrations_database_url
+    assert url is not None, "MIGRATIONS_DATABASE_URL não configurada para os testes"
+    engine = create_engine_from_url(url)
+    yield engine
+    await engine.dispose()
+
+
+@pytest.fixture
+async def app_session_factory() -> AsyncGenerator[async_sessionmaker[AsyncSession]]:
+    """Engine com a role de aplicação (rito_app, sem BYPASSRLS) — RLS vale de verdade."""
+    from app.core.config import get_settings
+    from app.core.db import create_engine_from_url, create_session_factory
+
+    engine = create_engine_from_url(get_settings().database_url)
+    yield create_session_factory(engine)
+    await engine.dispose()

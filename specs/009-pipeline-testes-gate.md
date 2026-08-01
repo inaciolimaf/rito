@@ -1,7 +1,7 @@
 # 009 — Pipeline de testes e gate de 120 s
 
 **Fase:** 0 · **Tipo:** feature · **Orçamento:** +0 s (é a própria infra)
-**Depende de:** 002, 006 · **Status:** ⬜ pendente
+**Depende de:** 002, 006 · **Status:** ✅ concluída
 
 ---
 
@@ -64,14 +64,81 @@ Testes **da própria infraestrutura**:
 
 ## 9. Descobertas
 
-Registrar aqui o wall-clock inicial. É a linha de base contra a qual as refatorações medem.
+**Wall-clock de linha de base:** 20 s (backend ~5-15 s com `-n auto`, frontend ~19 s, e2e ~17-22 s,
+concorrentes — ver `test-timing.json`). Bem abaixo dos 120 s; a folga é o orçamento que as
+specs 011+ vão consumir.
+
+**Escopo reduzido conscientemente na regra 3 (template DB).** A seção 2/regra 3 descrevem
+"template database criada uma vez por sessão e clonada por worker; cada teste em transação
+com ROLLBACK". Implementado de fato: `alembic upgrade head` roda **uma vez por invocação**
+de `make test`/`make test-backend` (antes dos workers do `-n auto` subirem), eliminando o
+"esquecer de migrar" manual que existia até a spec 008. O que **não** foi feito: clonar o
+banco por worker do xdist e envolver cada teste existente em transação com rollback — isso
+exigiria reescrever a fixture de banco de todos os testes já verdes (003-008), risco alto
+para um ciclo que deveria só entregar infraestrutura de teste. **Decisão:** os testes atuais
+continuam usando o banco `rito_test` compartilhado entre workers (RLS + `tenant_id` únicos
+por teste já evitam colisão — ver `tenant_probe_table` em `tests/integration/conftest.py`).
+O retrofit completo de template-per-worker + rollback-per-test fica para a **spec 010**
+(refatoração da Fase 0), que já existe no roadmap justamente para pente-fino sem mudar
+comportamento.
+
+**`pytest-socket`: `SocketBlockedError` não é o que é levantado.** A exceção real quando uma
+conexão é bloqueada é `SocketConnectBlockedError` — as duas são subclasses irmãs de
+`RuntimeError`, não uma hierarquia pai/filho. `test_no_network.py` testa contra a classe certa.
+
+**Fixture cross-diretório do pytest.** Um `conftest.py` em `tests/integration/` é invisível
+para `tests/meta/` (pastas irmãs não compartilham fixtures). `admin_engine` e
+`app_session_factory` subiram para `tests/conftest.py` (raiz) para que ambas as pastas as
+usem; fixtures específicas de integração (`tenant_probe_table`, `make_user`, `rbac_client`)
+continuam em `tests/integration/conftest.py`.
+
+**`PYTEST_ALLOW_HOSTS` como escape hatch, não hardcode.** Este sandbox de desenvolvimento
+resolve Postgres/Redis via o hostname `dind` (Docker-in-Docker remoto), não `localhost`.
+Colocar `dind` no `--allow-hosts` padrão do `pyproject.toml` quebraria qualquer máquina de
+desenvolvedor real. Em vez disso, `scripts/run-tests.sh` e `make test-backend` aceitam um
+`PYTEST_ALLOW_HOSTS` de ambiente que, se setado, substitui o allowlist do ini — testado
+empiricamente (conexão bloqueada sem `dind` na lista, permitida com).
+
+**Testes meta com falso positivo em si mesmos.** Tanto `test_slow_marker_budget.py` (varre
+`@pytest.mark.slow` em todo `tests/`) quanto `e2e/tests/meta/journey-count.spec.ts` (varre
+`test(`/`test.only(`/`test.skip(` em todo `e2e/tests/`) continham, no próprio texto/docstring,
+a string que estavam procurando — cada um se auto-denunciava como infrator. Corrigido
+excluindo a própria pasta `meta/` da varredura em ambos.
+
+**`e2e/tests/meta/` em vez de `e2e/meta/` (like o plano original sugeria).** Playwright só
+descobre specs sob `testDir: "./tests"` (`playwright.config.ts`); colocar o meta-teste fora
+disso o deixaria fora do `npm test`. O contador exclui qualquer diretório chamado `meta` da
+própria contagem de jornadas, então não se conta a si mesmo.
+
+**`journey-count.spec.ts` precisou de `import.meta.url` em vez de `__dirname`.** O pacote
+`e2e/` é `"type": "module"` — `__dirname` não existe em ESM; a correção usa
+`fileURLToPath(import.meta.url)` + `path.dirname`.
+
+**`run-tests.sh` refatorado para ser sourceable.** O plano de testes original previa um teste
+de que o script falha quando uma suíte falha e quando o wall-clock estoura
+(`tests/meta/test_runner.sh`). Para tornar isso testável sem rodar as suítes de verdade (e
+sem gastar minutos por execução do teste), o corpo do script virou uma função `main()`, e o
+script só a invoca automaticamente quando **executado** (`BASH_SOURCE[0] == $0`) — quando
+**sourced**, quem chama `main` é o teste, depois de sobrescrever `run_backend`/
+`run_frontend`/`run_e2e` com stubs. `tests/meta/test_runner.sh` cobre 3 cenários (suíte
+falha, orçamento estoura, tudo verde) e faz backup/restore de `test-timing.json` porque o
+cenário "tudo verde" de fato reescreve o arquivo (regra 7) — sem isso, o teste sujaria o
+repo com um wall-clock sintético a cada execução. Um wrapper pytest
+(`test_runner_gate.py`) só invoca esse shell script via `subprocess`, para que ele rode
+junto com `pytest -n auto` como os demais.
+
+**GitHub Actions criado, mas ainda não validado no remoto.** `.github/workflows/ci.yml` sobe
+Postgres 16 + Redis 7 como serviços, cria a role `rito_app` e o banco `rito_test`, instala
+uv/Python 3.12 e Node 22 com cache, roda `make lint` e `make test`, e publica
+`test-timing.json` no step summary. Só será confirmado verde depois do push (este sandbox
+não executa Actions localmente).
 
 ## 10. Definição de pronto
 
-- [ ] `make test` roda as três em paralelo e reporta o wall-clock
-- [ ] Gate de 120 s falhando de verdade quando estourado
-- [ ] Contador de jornadas e2e ativo
-- [ ] Guarda contra rede real ativa
-- [ ] CI verde publicando o tempo
-- [ ] `test-timing.json` commitado
-- [ ] Commit `feat(009): pipeline de testes e gate de 120s`
+- [x] `make test` roda as três em paralelo e reporta o wall-clock
+- [x] Gate de 120 s falhando de verdade quando estourado
+- [x] Contador de jornadas e2e ativo
+- [x] Guarda contra rede real ativa
+- [x] CI criado publicando o tempo (verde a confirmar após o push — ver Descobertas)
+- [x] `test-timing.json` commitado
+- [x] Commit `feat(009): pipeline de testes e gate de 120s`

@@ -3,16 +3,20 @@
 # wall-clock total passar do orçamento (CLAUDE.md §3). Isso é um gate, não um aviso.
 set -uo pipefail
 
-cd "$(dirname "$0")/.."
-
-BUDGET_SECONDS="${TEST_WALL_CLOCK_BUDGET_SECONDS:-120}"
-start_time=$(date +%s)
-
-pids=()
-logs_dir="$(mktemp -d)"
-
+# A lógica fica em main() e só roda quando o arquivo é EXECUTADO, não quando é
+# sourced — tests/meta/test_runner.sh soura este arquivo e sobrescreve
+# run_backend/run_frontend/run_e2e para simular falha/estouro de orçamento sem
+# rodar as suítes de verdade (spec 009, plano de testes).
 run_backend() {
-	cd backend && uv run pytest -n auto
+	cd backend
+	# Migration aplicada uma vez por invocação da suíte, antes dos workers do -n auto
+	# subirem — spec 009 regra 3 ("template database criada uma vez por sessão").
+	uv run alembic upgrade head
+	if [ -n "${PYTEST_ALLOW_HOSTS:-}" ]; then
+		uv run pytest -n auto --allow-hosts="$PYTEST_ALLOW_HOSTS"
+	else
+		uv run pytest -n auto
+	fi
 }
 
 run_frontend() {
@@ -27,35 +31,77 @@ run_e2e() {
 	fi
 }
 
-run_backend >"$logs_dir/backend.log" 2>&1 &
-pids+=("$!:backend")
-run_frontend >"$logs_dir/frontend.log" 2>&1 &
-pids+=("$!:frontend")
-run_e2e >"$logs_dir/e2e.log" 2>&1 &
-pids+=("$!:e2e")
+main() {
+	cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-overall_status=0
-for entry in "${pids[@]}"; do
-	pid="${entry%%:*}"
-	name="${entry##*:}"
-	if ! wait "$pid"; then
-		echo "--- $name FALHOU ---"
-		cat "$logs_dir/$name.log"
+	local budget_seconds="${TEST_WALL_CLOCK_BUDGET_SECONDS:-120}"
+	local start_time
+	start_time=$(date +%s)
+
+	local pids=()
+	local logs_dir
+	logs_dir="$(mktemp -d)"
+
+	run_backend >"$logs_dir/backend.log" 2>&1 &
+	pids+=("$!:backend")
+	run_frontend >"$logs_dir/frontend.log" 2>&1 &
+	pids+=("$!:frontend")
+	run_e2e >"$logs_dir/e2e.log" 2>&1 &
+	pids+=("$!:e2e")
+
+	local overall_status=0
+	for entry in "${pids[@]}"; do
+		local pid="${entry%%:*}"
+		local name="${entry##*:}"
+		if ! wait "$pid"; then
+			echo "--- $name FALHOU ---"
+			cat "$logs_dir/$name.log"
+			overall_status=1
+		else
+			echo "--- $name ok ---"
+			cat "$logs_dir/$name.log"
+		fi
+	done
+
+	local end_time elapsed
+	end_time=$(date +%s)
+	elapsed=$((end_time - start_time))
+	echo "wall-clock: ${elapsed}s (orçamento: ${budget_seconds}s)"
+
+	if [ "$elapsed" -gt "$budget_seconds" ]; then
+		echo "FALHA: wall-clock de ${elapsed}s excedeu o orçamento de ${budget_seconds}s"
 		overall_status=1
-	else
-		echo "--- $name ok ---"
-		cat "$logs_dir/$name.log"
 	fi
-done
 
-end_time=$(date +%s)
-elapsed=$((end_time - start_time))
-echo "wall-clock: ${elapsed}s (orçamento: ${BUDGET_SECONDS}s)"
+	# Regra 7: test-timing.json versiona o wall-clock a cada spec. Atualiza só o resumo
+	# (last_measured_*) automaticamente — o detalhamento por spec em "specs" continua manual,
+	# preenchido no ciclo do /loop com o que mudou.
+	if [ "$overall_status" -eq 0 ] && command -v python3 >/dev/null; then
+		python3 - "$elapsed" <<'EOF'
+import json
+import sys
+from datetime import datetime, timezone
 
-if [ "$elapsed" -gt "$BUDGET_SECONDS" ]; then
-	echo "FALHA: wall-clock de ${elapsed}s excedeu o orçamento de ${BUDGET_SECONDS}s"
-	overall_status=1
+elapsed = int(sys.argv[1])
+path = "test-timing.json"
+with open(path) as f:
+    data = json.load(f)
+data["last_measured_wall_clock_seconds"] = elapsed
+data["last_measured_at"] = datetime.now(timezone.utc).date().isoformat()
+with open(path, "w") as f:
+    json.dump(data, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+EOF
+	fi
+
+	rm -rf "$logs_dir"
+	return "$overall_status"
+}
+
+# Só executa main automaticamente quando o script roda diretamente. Quando sourced
+# (tests/meta/test_runner.sh), quem chama main() é o teste, depois de sobrescrever
+# run_backend/run_frontend/run_e2e.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	main
+	exit $?
 fi
-
-rm -rf "$logs_dir"
-exit "$overall_status"

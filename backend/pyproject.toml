@@ -30,6 +30,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-xdist>=3.6",
     "pytest-cov>=6.0",
+    "pytest-socket>=0.7",
 ]
 
 [tool.ruff]
@@ -53,6 +54,14 @@ exclude = ["alembic/"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Regra 4 da spec 009: nenhum teste toca rede real. Postgres/Redis locais continuam liberados
+# (não é "rede externa"); LLM/DJEN/DataJud (specs 041+) terão fixture gravada, nunca --allow-hosts.
+# --allow-hosts pode ser sobrescrito na linha de comando (scripts/run-tests.sh via
+# $PYTEST_ALLOW_HOSTS) para ambientes onde Postgres/Redis não estão em localhost.
+addopts = "--disable-socket --allow-hosts=127.0.0.1,::1,localhost"
+markers = [
+    "slow: teste que passa de 1s — precisa de comentário explicando por quê; máx. 5 no projeto (spec 009, regra 6)",
+]
 
 [build-system]
 requires = ["hatchling"]

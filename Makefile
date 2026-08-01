@@ -1,4 +1,4 @@
-.PHONY: up down migrate seed dev test lint
+.PHONY: up down migrate seed dev test test-backend test-frontend test-e2e lint
 
 up:
 	docker compose up -d --wait
@@ -26,6 +26,16 @@ dev-frontend:
 
 test:
 	@bash scripts/run-tests.sh
+
+test-backend:
+	cd backend && uv run alembic upgrade head
+	cd backend && uv run pytest -n auto $(if $(PYTEST_ALLOW_HOSTS),--allow-hosts=$(PYTEST_ALLOW_HOSTS))
+
+test-frontend:
+	cd frontend && npm run test
+
+test-e2e:
+	cd e2e && npm test
 
 lint:
 	cd backend && uv run ruff check . && uv run black --check . && uv run mypy .

@@ -7,28 +7,14 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.core.config import get_settings
-from app.core.db import create_engine_from_url, create_session_factory
 from app.core.models import Tenant
 from app.core.rls import enable_rls_statements, set_tenant_context
 from app.core.security import hash_password
 from app.domain.users.models import FinancialAccess, User, UserRole
 
-
-@pytest.fixture
-async def admin_engine() -> AsyncGenerator[AsyncEngine]:
-    url = get_settings().migrations_database_url
-    assert url is not None, "MIGRATIONS_DATABASE_URL não configurada para os testes"
-    engine = create_engine_from_url(url)
-    yield engine
-    await engine.dispose()
-
-
-@pytest.fixture
-async def app_session_factory() -> AsyncGenerator[async_sessionmaker[AsyncSession]]:
-    engine = create_engine_from_url(get_settings().database_url)
-    yield create_session_factory(engine)
-    await engine.dispose()
+# admin_engine / app_session_factory viraram fixtures compartilhadas em tests/conftest.py
+# (spec 009) — tests/meta/ também precisa delas e um conftest de subpasta não é visível
+# para pastas irmãs.
 
 
 @pytest.fixture

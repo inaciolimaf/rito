@@ -12,9 +12,11 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 008 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação, RBAC) +
+🚧 **Spec 009 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação, RBAC) +
 frontend com login real, design system de domínio e o app shell navegável (sidebar de 15
-itens, busca global, breadcrumbs) — próxima é a 009 (pipeline de testes e gate de 120s).
+itens, busca global, breadcrumbs) + pipeline de testes com gate de 120s executável (rede
+real bloqueada, contador de jornadas e2e, CI no GitHub Actions) — próxima é a 010
+(refatoração da Fase 0).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

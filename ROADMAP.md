@@ -63,7 +63,7 @@ Dados do escritório: razão social, fantasia, CNPJ, endereço, e-mails principa
 CRUD, convite por e-mail, 66 cargos, OAB/UF, jornada (`work_start`/`interval`/`end`), salário, admissão/demissão, meta de pontos, ativo/inativo.
 **Aceite:** convite gera cadastro pendente; jornada valida. **t:** 6 s. **Deps:** 011
 
-### ⬜ 013 — Times (squads)
+### ✅ 013 — Times (squads)
 CRUD de times com membros; atribuição de tarefa a time inteiro (preparo).
 **Aceite:** time com N membros; remoção não apaga usuário. **t:** 3 s. **Deps:** 012
 

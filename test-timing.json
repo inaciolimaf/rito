@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 28,
+  "last_measured_wall_clock_seconds": 40,
   "last_measured_at": "2026-08-01",
   "specs": {
     "001": {
@@ -50,6 +50,10 @@
     "012": {
       "wall_clock_seconds": 28,
       "notes": "160 testes backend (102 anteriores + 58 novos: occupations seedadas (67 nomes), convite→aceite→login, convite expirado, e-mail duplicado no tenant, mesmo e-mail em outro tenant, reenvio invalida o anterior, isolamento de tenant em user_invitations, senha fraca no aceite, inativar último Gestor, usuário não muda o próprio role, salário oculto/visível por financial_access, OAB obrigatória para cargo de advogado, upload de avatar válido/inválido/404, listagem com filtro por role/status/busca textual + paginação por cursor + isolamento de tenant, validação de OAB/jornada/admissão-demissão em unit tests) — cobertura de app/ em 99% (só as 3 exceções já documentadas em docs/DIVIDA-TECNICA.md #6/#7/#8 ficam de fora). 48 testes frontend (43 anteriores + 5 novos: UserForm com 4 casos + listagem filtrando por perfil/status). 3 e2e (inalterado — plano da spec não pedia jornada nova). BaseRepository ganhou o keyset completo (build_sorted_keyset_query, encode/decode_cursor) — resolve docs/DIVIDA-TECNICA.md #1. app/core/image_processing.py extraído de account/logo.py (agora reusado por avatares de usuário)."
+    },
+    "013": {
+      "wall_clock_seconds": 40,
+      "notes": "173 testes backend (160 anteriores + 13 novos: CRUD completo de squads, nome duplicado/renomeado para nome existente → 409, reconciliação de membros no PUT, excluir time e remover membro não apagam usuário, isolamento de tenant, Colaborador lista mas não cria, time criado vazio, filtro por status/busca textual, 404 em PUT/DELETE inexistente) — cobertura de app/ em 99% (mesmas exceções documentadas). 53 testes frontend (48 anteriores + 5 novos: SquadForm com 3 casos de seleção múltipla, tabs Colaboradores/Times com 2 casos). 3 e2e (inalterado — plano da spec não pedia jornada nova). Descoberta: reconcile_members (SELECT dentro do service) dispara autoflush do UPDATE pendente de name/is_active, expirando updated_at (onupdate=func.now()) — sem um refresh() explícito, o acesso síncrono a esse atributo na serialização da resposta quebrava com MissingGreenlet; corrigido com session.refresh(squad) após reconciliar. squad_members usa PK surrogate (id UUID + UNIQUE) em vez da PK composta da spec, para ficar consistente com Base (toda outra tabela do projeto)."
     }
   }
 }

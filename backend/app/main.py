@@ -20,6 +20,7 @@ from app.core.middleware import RequestIDMiddleware
 from app.core.redis import create_redis_client
 from app.domain.account.router import router as account_router
 from app.domain.auth.router import router as auth_router
+from app.domain.squads.router import router as squads_router
 from app.domain.users.router import invitations_router, occupations_router, users_router
 from app.integrations.storage.s3 import create_file_storage
 
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(users_router, prefix="/api/v1")
     app.include_router(occupations_router, prefix="/api/v1")
     app.include_router(invitations_router, prefix="/api/v1")
+    app.include_router(squads_router, prefix="/api/v1")
 
     return app
 

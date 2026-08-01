@@ -2,6 +2,7 @@ import { ApiError, toApiError } from "@/lib/errors";
 
 const BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 const REFRESH_TOKEN_KEY = "rito.refresh_token";
+const TENANT_ID_KEY = "rito.tenant_id";
 
 /** Disparado quando o refresh falha e a sessão precisa ser encerrada (regra 2). */
 export const SESSION_EXPIRED_EVENT = "rito:session-expired";
@@ -9,6 +10,7 @@ export const SESSION_EXPIRED_EVENT = "rito:session-expired";
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
+  tenantId: string;
 }
 
 // Token de acesso só em memória; refresh em localStorage (regra 5). Recarregar a página
@@ -19,13 +21,22 @@ export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
+// O backend exige X-Tenant-Id em /auth/refresh e /auth/logout (spec 004: pré-autenticação
+// sempre resolve o tenant pelo header, nunca pelo corpo) — sem persistir isso ao lado do
+// refresh token, o refresh em silêncio ao carregar a página falha com 400.
+export function getStoredTenantId(): string | null {
+  return localStorage.getItem(TENANT_ID_KEY);
+}
+
 export function setSession(tokens: TokenPair | null): void {
   if (tokens) {
     accessToken = tokens.accessToken;
     localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    localStorage.setItem(TENANT_ID_KEY, tokens.tenantId);
   } else {
     accessToken = null;
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(TENANT_ID_KEY);
   }
 }
 
@@ -39,15 +50,27 @@ interface RefreshResponseBody {
 // as demais esperam nesta mesma promise e reexecutam depois (regra 1).
 let pendingRefresh: Promise<string | null> | null = null;
 
+// Endpoints pré-autenticação: um 401 aqui é sempre um erro de credencial/token em si, nunca
+// "sessão expirada" — tentar refresh nesses casos é sem sentido (ou recursivo, no caso do
+// próprio /refresh). Todo o resto — incluindo /auth/me SEM access token, o caso normal de
+// reautenticação silenciosa ao carregar a página — deve tentar refresh.
+const NO_REFRESH_PATHS = [
+  "/api/v1/auth/login",
+  "/api/v1/auth/refresh",
+  "/api/v1/auth/forgot-password",
+  "/api/v1/auth/reset-password",
+];
+
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken();
-  if (!refreshToken) {
+  const tenantId = getStoredTenantId();
+  if (!refreshToken || !tenantId) {
     return null;
   }
 
   const response = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId },
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
 
@@ -57,7 +80,7 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 
   const body = (await response.json()) as RefreshResponseBody;
-  setSession({ accessToken: body.access_token, refreshToken: body.refresh_token });
+  setSession({ accessToken: body.access_token, refreshToken: body.refresh_token, tenantId });
   return body.access_token;
 }
 
@@ -77,7 +100,6 @@ export async function apiRequest<T>(
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
-  const wasAuthenticated = headers.has("Authorization");
 
   const response = await fetch(`${BASE_URL}${path}`, {
     method: options.method ?? "GET",
@@ -85,9 +107,7 @@ export async function apiRequest<T>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  // Só tenta refresh se a requisição tinha Bearer token — um 401 de /auth/login (sem
-  // token nenhum) é credencial errada, não sessão expirada, e nunca deve virar refresh.
-  if (response.status === 401 && !_isRetry && wasAuthenticated) {
+  if (response.status === 401 && !_isRetry && !NO_REFRESH_PATHS.includes(path)) {
     if (!pendingRefresh) {
       pendingRefresh = refreshAccessToken().finally(() => {
         pendingRefresh = null;

@@ -50,6 +50,22 @@ function unauthorized(instance: string, detail: string) {
   );
 }
 
+// O backend (spec 004) exige X-Tenant-Id em TODO endpoint pré-autenticação, incluindo
+// /refresh e /logout — não só /login. Reproduzido aqui porque um mock que não valida isso
+// deixa passar um bug real (visto na spec 008: o frontend não mandava o header no refresh).
+function missingTenantId(instance: string) {
+  return HttpResponse.json(
+    {
+      type: "https://rito.app/errors/bad-request",
+      title: "Requisição inválida",
+      status: 400,
+      detail: "Cabeçalho X-Tenant-Id é obrigatório.",
+      instance,
+    },
+    { status: 400 },
+  );
+}
+
 export const handlers = [
   http.post(`${BASE_URL}/api/v1/auth/login`, async ({ request }) => {
     const body = (await request.json()) as { email: string; password: string };
@@ -71,6 +87,10 @@ export const handlers = [
   }),
 
   http.post(`${BASE_URL}/api/v1/auth/refresh`, async ({ request }) => {
+    if (!request.headers.get("X-Tenant-Id")) {
+      return missingTenantId("/api/v1/auth/refresh");
+    }
+
     refreshCallCount += 1;
     const body = (await request.json()) as { refresh_token: string };
 
@@ -96,5 +116,10 @@ export const handlers = [
     return HttpResponse.json(validUser);
   }),
 
-  http.post(`${BASE_URL}/api/v1/auth/logout`, () => new HttpResponse(null, { status: 204 })),
+  http.post(`${BASE_URL}/api/v1/auth/logout`, ({ request }) => {
+    if (!request.headers.get("X-Tenant-Id")) {
+      return missingTenantId("/api/v1/auth/logout");
+    }
+    return new HttpResponse(null, { status: 204 });
+  }),
 ];

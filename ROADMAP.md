@@ -39,7 +39,7 @@ Vite + React + TS strict + Tailwind + shadcn/ui; design tokens; **dark mode**; T
 `DataTable` (ordenação, paginação keyset, seleção, ações de linha, export xlsx/pdf), `FilterBar` declarativo, `FormModal` por schema Zod, `EntityPicker`, `StatCard`, `EmptyState`, `ConfirmDialog`.
 **Aceite:** cada componente com stories e testes; usados por uma tela de demonstração. **t:** 12 s. **Deps:** 006
 
-### ⬜ 008 — App shell
+### ✅ 008 — App shell
 Sidebar com os 15 itens, header, busca global (Tudo/Pessoas/Processos), dropdown "Adicionar", breadcrumbs, layout responsivo, rotas protegidas.
 **Aceite:** navegação completa entre módulos com placeholders. **t:** 5 s. **Deps:** 007
 

@@ -3,7 +3,10 @@ import { Navigate, Route, BrowserRouter, Routes } from "react-router-dom";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppLayout } from "@/components/shell/AppLayout";
+import { ModulePlaceholderPage } from "@/components/shell/ModulePlaceholderPage";
+import { NotFoundPage } from "@/components/shell/NotFoundPage";
+import { ROUTABLE_NAV_ITEMS } from "@/components/shell/navItems";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
 import { useAuth, AuthProvider } from "@/providers/AuthProvider";
@@ -19,23 +22,8 @@ const queryClient = new QueryClient({
 });
 
 function HomePage(): JSX.Element {
-  const { user, logout } = useAuth();
-
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface text-primary">
-      <p>Bem-vindo, {user?.name}.</p>
-      <div className="flex gap-2">
-        <ThemeToggle />
-        <button
-          type="button"
-          onClick={() => void logout()}
-          className="rounded border border-default px-3 py-2 text-sm hover:bg-surface-muted"
-        >
-          Sair
-        </button>
-      </div>
-    </div>
-  );
+  const { user } = useAuth();
+  return <ModulePlaceholderPage title={`Meu Painel — bem-vindo, ${user?.name ?? ""}`} />;
 }
 
 export function App(): JSX.Element {
@@ -51,9 +39,19 @@ export function App(): JSX.Element {
                   <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
                 )}
                 <Route element={<ProtectedRoute />}>
-                  <Route path="/" element={<HomePage />} />
+                  <Route element={<AppLayout />}>
+                    <Route path="/" element={<Navigate to="/home" replace />} />
+                    <Route path="/home" element={<HomePage />} />
+                    {ROUTABLE_NAV_ITEMS.filter((item) => item.path !== "/home").map((item) => (
+                      <Route
+                        key={item.path}
+                        path={item.path}
+                        element={<ModulePlaceholderPage title={item.label} />}
+                      />
+                    ))}
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Route>
                 </Route>
-                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </AuthProvider>
           </BrowserRouter>

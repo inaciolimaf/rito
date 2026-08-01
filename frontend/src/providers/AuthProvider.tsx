@@ -1,6 +1,12 @@
 import * as React from "react";
 
-import { SESSION_EXPIRED_EVENT, apiRequest, getRefreshToken, setSession } from "@/lib/api";
+import {
+  SESSION_EXPIRED_EVENT,
+  apiRequest,
+  getRefreshToken,
+  getStoredTenantId,
+  setSession,
+} from "@/lib/api";
 
 export interface AuthUser {
   id: string;
@@ -92,7 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
         headers: { "X-Tenant-Id": tenantId },
         body: { email, password },
       });
-      setSession({ accessToken: response.access_token, refreshToken: response.refresh_token });
+      setSession({
+        accessToken: response.access_token,
+        refreshToken: response.refresh_token,
+        tenantId,
+      });
       await loadCurrentUser();
     },
     [loadCurrentUser],
@@ -100,9 +110,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
 
   const logout = React.useCallback(async (): Promise<void> => {
     const refreshToken = getRefreshToken();
-    if (refreshToken) {
+    const tenantId = getStoredTenantId();
+    if (refreshToken && tenantId) {
       await apiRequest("/api/v1/auth/logout", {
         method: "POST",
+        headers: { "X-Tenant-Id": tenantId },
         body: { refresh_token: refreshToken },
       }).catch(() => undefined);
     }

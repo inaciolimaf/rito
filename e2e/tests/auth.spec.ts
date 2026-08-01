@@ -14,7 +14,8 @@ test("jornada 1/25: login → home → logout", async ({ page }) => {
 
   await expect(page.getByText(/bem-vindo/i)).toBeVisible();
 
-  await page.getByRole("button", { name: "Sair" }).click();
+  await page.getByRole("button", { name: "Usuário E2E" }).click();
+  await page.getByRole("menuitem", { name: "Sair" }).click();
 
   await expect(page).toHaveURL(/\/login/);
 });

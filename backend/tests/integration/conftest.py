@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -11,7 +12,7 @@ from app.core.db import create_engine_from_url, create_session_factory
 from app.core.models import Tenant
 from app.core.rls import enable_rls_statements, set_tenant_context
 from app.core.security import hash_password
-from app.domain.users.models import User
+from app.domain.users.models import FinancialAccess, User, UserRole
 
 
 @pytest.fixture
@@ -66,6 +67,8 @@ class SeededUser:
     user_id: uuid.UUID
     email: str
     password: str
+    role: UserRole
+    financial_access: FinancialAccess
 
 
 @pytest.fixture
@@ -80,6 +83,8 @@ def make_user(
         email: str | None = None,
         password: str = "SenhaForte123!",
         is_active: bool = True,
+        role: UserRole = UserRole.COLABORADOR,
+        financial_access: FinancialAccess = FinancialAccess.NONE,
     ) -> SeededUser:
         tenant_id = tenant_id or uuid.uuid4()
         email = email or f"{uuid.uuid4()}@example.com"
@@ -102,9 +107,66 @@ def make_user(
                     password_hash=hash_password(password),
                     name="Usuário de Teste",
                     is_active=is_active,
+                    role=role,
+                    financial_access=financial_access,
                 )
             )
 
-        return SeededUser(tenant_id=tenant_id, user_id=user_id, email=email, password=password)
+        return SeededUser(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            email=email,
+            password=password,
+            role=role,
+            financial_access=financial_access,
+        )
 
     return _make
+
+
+@pytest.fixture
+async def rbac_client() -> AsyncGenerator[AsyncClient]:
+    """App FastAPI separado só com rotas de exemplo para exercitar require_role/require_financial.
+
+    Não há endpoint de domínio protegido ainda (as specs de negócio começam na 011) — este é
+    o mesmo padrão de app descartável usado em tests/integration/test_errors.py.
+    """
+    from fastapi import APIRouter, Depends
+
+    from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
+    from app.main import create_app
+
+    test_app = create_app()
+    router = APIRouter()
+
+    @router.get("/rbac-test/gestor-only", dependencies=[Depends(require_role(UserRole.GESTOR))])
+    async def gestor_only() -> dict[str, bool]:
+        return {"ok": True}
+
+    @router.get(
+        "/rbac-test/administrador-or-above",
+        dependencies=[Depends(require_role(UserRole.ADMINISTRADOR))],
+    )
+    async def administrador_or_above() -> dict[str, bool]:
+        return {"ok": True}
+
+    @router.get(
+        "/rbac-test/financial-read",
+        dependencies=[Depends(require_financial(FinancialAccess.READ_ONLY))],
+    )
+    async def financial_read() -> dict[str, bool]:
+        return {"ok": True}
+
+    @router.post(
+        "/rbac-test/financial-write",
+        dependencies=[Depends(require_financial(FinancialAccess.FULL))],
+    )
+    async def financial_write() -> dict[str, bool]:
+        return {"ok": True}
+
+    test_app.include_router(router, prefix="/api/v1")
+
+    async with test_app.router.lifespan_context(test_app):
+        transport = ASGITransport(app=test_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            yield ac

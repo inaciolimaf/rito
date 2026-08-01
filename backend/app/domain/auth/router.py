@@ -5,6 +5,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_redis, get_session, get_tenant_id
+from app.core.permissions import capabilities_for
 from app.domain.auth.deps import get_current_user
 from app.domain.auth.exceptions import (
     InvalidCredentialsError,
@@ -88,6 +89,9 @@ async def me(current_user: User = Depends(get_current_user)) -> MeResponse:
         name=current_user.name,
         email=str(current_user.email),
         tenant=current_user.tenant_id,
+        role=current_user.role,
+        financial_access=current_user.financial_access,
+        capabilities=capabilities_for(current_user.role, current_user.financial_access),
     )
 
 

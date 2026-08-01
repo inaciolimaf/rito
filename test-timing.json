@@ -18,6 +18,10 @@
     "004": {
       "wall_clock_seconds": 5,
       "notes": "39 testes backend (login/refresh/logout, reuso de refresh revoga família, usuário inativo, mesmo e-mail em 2 tenants, token só resolve seu tenant, reset de senha single-use, rate limit de login, política de senha, Argon2 + os 17 anteriores) + 1 smoke frontend, com -n auto. E2E ainda sem jornadas."
+    },
+    "005": {
+      "wall_clock_seconds": 7,
+      "notes": "54 testes backend (RBAC: Colaborador/Gestor/Administrador, financeiro NONE/READ_ONLY/FULL ortogonal ao perfil, cobertura de permissão em toda rota /api/v1, matriz de capabilities + os 39 anteriores) + 1 smoke frontend, com -n auto. E2E ainda sem jornadas."
     }
   }
 }

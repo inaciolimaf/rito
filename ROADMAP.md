@@ -27,7 +27,7 @@ Tabela `tenants`; `tenant_id` + política RLS; `set_tenant_context()` na sessão
 `users`, hash Argon2, login, JWT access + refresh, rotação, logout, recuperação de senha, política de senha (8+, número, minúscula, maiúscula, especial).
 **Aceite:** ciclo completo de login/refresh/logout; senha fraca rejeitada. **t:** 6 s. **Deps:** 003
 
-### ⬜ 005 — RBAC e acesso financeiro
+### ✅ 005 — RBAC e acesso financeiro
 Perfis Gestor/Administrador/Colaborador; dimensão independente de acesso financeiro (Sem acesso / Somente visualizador / Acesso completo); dependency `require_role` / `require_financial`.
 **Aceite:** Colaborador recebe 403 em rota de Gestor; financeiro respeitado nos 3 níveis. **t:** 4 s. **Deps:** 004
 

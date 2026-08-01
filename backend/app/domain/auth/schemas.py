@@ -2,6 +2,8 @@ import uuid
 
 from pydantic import BaseModel, EmailStr
 
+from app.domain.users.models import FinancialAccess, UserRole
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -36,3 +38,6 @@ class MeResponse(BaseModel):
     name: str
     email: str
     tenant: uuid.UUID
+    role: UserRole
+    financial_access: FinancialAccess
+    capabilities: list[str]

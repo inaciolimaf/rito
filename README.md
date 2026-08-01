@@ -12,8 +12,8 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 004 de 100 concluída.** Monorepo, esqueleto do backend, multi-tenancy com RLS e
-autenticação (login/refresh/logout, reset de senha) — próxima é a 005 (RBAC).
+🚧 **Spec 005 de 100 concluída.** Monorepo, esqueleto do backend, multi-tenancy com RLS,
+autenticação e RBAC com acesso financeiro ortogonal — próxima é a 006 (esqueleto do frontend).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

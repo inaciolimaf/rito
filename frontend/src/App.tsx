@@ -11,6 +11,7 @@ import { AccountPage } from "@/features/account/AccountPage";
 import { ActionGroupsListPage } from "@/features/action-groups/ActionGroupsListPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { CustomerOriginsListPage } from "@/features/customer-origins/CustomerOriginsListPage";
+import { CustomersPage } from "@/features/customers/CustomersPage";
 import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
 import { LawsuitTypesListPage } from "@/features/lawsuit-types/LawsuitTypesListPage";
 import { StagesListPage } from "@/features/stages/StagesListPage";
@@ -56,8 +57,12 @@ export function App(): JSX.Element {
                     <Route path="/settings/lawsuit-types" element={<LawsuitTypesListPage />} />
                     <Route path="/settings/stages" element={<StagesListPage />} />
                     <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
+                    <Route path="/customers" element={<CustomersPage />} />
                     {ROUTABLE_NAV_ITEMS.filter(
-                      (item) => item.path !== "/home" && item.path !== "/subscription/account",
+                      (item) =>
+                        item.path !== "/home" &&
+                        item.path !== "/subscription/account" &&
+                        item.path !== "/customers",
                     ).map((item) => (
                       <Route
                         key={item.path}

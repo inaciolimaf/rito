@@ -119,8 +119,64 @@ Campos por tipo:
 
 ## 9. Descobertas
 
-*(preencher)*
+- **`process_image` (spec 011) precisou virar parametrizável.** Regra 6 pede limites
+  diferentes dos já usados por logo (spec 011) e avatar (spec 012): 5 MB/400px/sem SVG, contra
+  2 MB/512px/com SVG dos outros dois. Em vez de duplicar a função (regra dos 3 usos: este é o
+  3º chamador), `app/core/image_processing.py::process_image` ganhou parâmetros opcionais
+  (`max_size_bytes`, `max_dimension_px`, `allowed_content_types`, `invalid_format_message`),
+  todos com default idêntico ao comportamento anterior — logo/avatar não mudaram nada, só o
+  upload de foto de contato passa seus próprios valores explicitamente.
+- **Bug pego na verificação manual em navegador (não em teste automatizado):**
+  `DialogContent` (`components/ui/dialog.tsx`, usado por `FormModal`/`ConfirmDialog` em todo o
+  app) não tinha `max-height` nem scroll — um formulário tão grande quanto o de contato (30+
+  campos) ficava com metade dos campos inacessíveis, sem como rolar até eles nem confirmar a
+  seleção de origem no `EntityPicker` (a lista de opções ficava fora da área visível e não
+  scrollável). Como nenhum modal anterior era grande o suficiente para expor isso, o bug era
+  latente desde a spec 007. Corrigido com `max-h-[85vh] overflow-y-auto` no `DialogContent` —
+  afeta todo modal do app (mudança mínima, verificada contra os testes existentes de
+  `FormModal`/`ConfirmDialog`/`a11y`, todos continuam verdes sem edição).
+- **"Sem origem → 422" não precisou de exceção customizada.** `origin_id` é campo obrigatório
+  sem default no schema Pydantic — a ausência já vira 422 automático antes de chegar no
+  service. Diferente das specs 014/015 (onde havia um teste explícito para "grupo/fase
+  inexistente" apontado por um id que não existe), a spec 017 só pede testar a AUSÊNCIA de
+  origem, não a referência a um id inválido — por isso não há uma `OriginNotFoundError`
+  dedicada aqui. Uma referência a um `origin_id`/`marital_status_id` que não existe de fato
+  vira `IntegrityError` não tratada (500) — aceitável porque a única forma de enviar esses
+  campos pela UI é via `EntityPicker`/`<select>`, que só oferecem ids reais.
+- **Regra 2 (alternar PF↔PJ limpa campos exclusivos) é aplicada nos dois lados.** No frontend,
+  um `useEffect` no `CustomerForm` limpa os campos de PF assim que `type` muda para `PJ`
+  (cobre a UX, testado). No backend, `CustomerService.create`/`update` também força esses
+  campos para `None` quando `type == PJ`, **independente do que o cliente enviar** — garante
+  que a regra vale mesmo se alguém chamar a API direto, não só via formulário.
+- **Sem listagem ainda (spec 019).** A rota `/customers` desta spec só hospeda o modal de
+  criação/edição (seção 6: "Rota: modal sobre /customers") — não há grid, paginação nem
+  filtros; o card do último contato criado/editado na sessão existe só para dar acesso ao
+  upload de foto e ao botão "Editar" sem precisar de uma lista de verdade.
+- **`EntityPicker` para `origin_id`, `<select>` nativo para `marital_status_id`/`gender`** —
+  origem é uma lista que cresce livremente (CRUD da spec 016), estado civil e sexo são listas
+  fixas pequenas (6 e 2 valores), mesmo critério já usado nas specs 014/015/016.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Commit `feat(017): contatos — modelo e CRUD`
+- [x] Migration `017_customers` aplica e reverte de forma limpa (testada contra `rito_test` do
+      zero e contra o banco de dev).
+- [x] 6 estados civis semeados (tabela global e imutável, mesmo padrão de `occupations`/`steps`).
+- [x] RLS ligado em `customers` (não em `marital_statuses`, que é global) + teste de isolamento
+      entre tenants.
+- [x] CRUD completo (PF e PJ), soft delete via `is_archived`, upload de foto com limites
+      próprios (5 MB/400px/PNG+JPG), unicidade de `identification` por tenant via índice
+      parcial, índice trigram para busca por nome.
+- [x] 255 testes de integração cobrindo o plano da spec (mais os casos extras de cobertura:
+      renomear identification duplicada, gender inválido, limpeza de campos PF→PJ, foto
+      inválida/grande demais/contato inexistente) — 100% de cobertura em
+      `app/domain/customers/`.
+- [x] Frontend: `CustomerForm` (alternância PF/PJ), `RepresentativeFields`, `PhotoUploader` —
+      os 3 componentes que a spec pedia para criar. Testes "alternar PF/PJ mostra e limpa
+      campos" e "representante abre e valida" verdes (~1,1 s no total).
+- [x] `make lint` verde (ruff, black, mypy, eslint, tsc, prettier).
+- [x] `make test` verde — 255 backend / 57 frontend / 3 e2e, wall-clock 43 s (orçamento 120 s).
+- [x] Verificado manualmente em navegador (Playwright ad-hoc, não commitado) — CRUD PF/PJ,
+      upload de foto e alternância PF/PJ funcionando ponta a ponta (achado e corrigido o bug
+      do `DialogContent` durante essa verificação).
+
+Commit `feat(017): contatos — modelo e CRUD`

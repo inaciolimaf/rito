@@ -1,0 +1,166 @@
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.deps import get_file_storage
+from app.core.image_processing import InvalidImageError
+from app.core.permissions import UserRole, require_role
+from app.domain.auth.deps import get_session_for_current_user
+from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsError
+from app.domain.customers.models import Customer
+from app.domain.customers.repository import MaritalStatusRepository
+from app.domain.customers.schemas import (
+    CustomerCreateRequest,
+    CustomerResponse,
+    CustomerUpdateRequest,
+    MaritalStatusResponse,
+)
+from app.domain.customers.service import CustomerService
+from app.domain.users.models import User
+from app.integrations.storage.base import FileStorage
+
+customers_router = APIRouter(prefix="/customers", tags=["customers"])
+marital_statuses_router = APIRouter(prefix="/marital-statuses", tags=["marital-statuses"])
+
+
+def _customer_to_response(customer: Customer, storage: FileStorage) -> CustomerResponse:
+    return CustomerResponse(
+        id=customer.id,
+        type=customer.type,
+        name=customer.name,
+        identification=customer.identification,
+        document=customer.document,
+        origin_id=customer.origin_id,
+        notes=customer.notes,
+        birthdate=customer.birthdate,
+        marital_status_id=customer.marital_status_id,
+        occupation=customer.occupation,
+        gender=customer.gender,
+        nationality=customer.nationality,
+        mother_name=customer.mother_name,
+        cellphone=customer.cellphone,
+        phone=customer.phone,
+        email=customer.email,
+        country=customer.country,
+        postal_code=customer.postal_code,
+        state=customer.state,
+        city=customer.city,
+        street=customer.street,
+        region=customer.region,
+        number_pis=customer.number_pis,
+        number_ctps=customer.number_ctps,
+        number_cid=customer.number_cid,
+        photo_url=storage.public_url(customer.photo_key) if customer.photo_key else None,
+        has_representative=customer.has_representative,
+        rep_name=customer.rep_name,
+        rep_identification=customer.rep_identification,
+        rep_document=customer.rep_document,
+        rep_birthdate=customer.rep_birthdate,
+        rep_country=customer.rep_country,
+        rep_state=customer.rep_state,
+        rep_city=customer.rep_city,
+        rep_street=customer.rep_street,
+        rep_region=customer.rep_region,
+        rep_postal_code=customer.rep_postal_code,
+        is_archived=customer.is_archived,
+        created_at=customer.created_at,
+        updated_at=customer.updated_at,
+    )
+
+
+@customers_router.post("", status_code=201)
+async def create_customer(
+    payload: CustomerCreateRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> CustomerResponse:
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    try:
+        customer = await service.create(payload)
+    except CustomerIdentificationAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=409, detail="Já existe um contato com esse CPF/CNPJ."
+        ) from exc
+    return _customer_to_response(customer, storage)
+
+
+@customers_router.get("/{customer_id}")
+async def get_customer(
+    customer_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> CustomerResponse:
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    customer = await service.get(customer_id)
+    if customer is None:
+        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+    return _customer_to_response(customer, storage)
+
+
+@customers_router.put("/{customer_id}")
+async def update_customer(
+    customer_id: uuid.UUID,
+    payload: CustomerUpdateRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> CustomerResponse:
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    customer = await service.get(customer_id)
+    if customer is None:
+        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+
+    try:
+        updated = await service.update(customer, payload)
+    except CustomerIdentificationAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=409, detail="Já existe um contato com esse CPF/CNPJ."
+        ) from exc
+    return _customer_to_response(updated, storage)
+
+
+@customers_router.delete("/{customer_id}", status_code=204)
+async def archive_customer(
+    customer_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> None:
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    customer = await service.get(customer_id)
+    if customer is None:
+        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+    await service.archive(customer)
+
+
+@customers_router.post("/{customer_id}/photo")
+async def upload_customer_photo(
+    customer_id: uuid.UUID,
+    file: UploadFile,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> CustomerResponse:
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    customer = await service.get(customer_id)
+    if customer is None:
+        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+
+    content = await file.read()
+    content_type = file.content_type or "application/octet-stream"
+    try:
+        updated = await service.upload_photo(customer, content, content_type, storage)
+    except InvalidImageError as exc:
+        raise HTTPException(status_code=422, detail=exc.message) from exc
+    return _customer_to_response(updated, storage)
+
+
+@marital_statuses_router.get("")
+async def list_marital_statuses(
+    _current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> list[MaritalStatusResponse]:
+    statuses = await MaritalStatusRepository(session).list_all()
+    return [MaritalStatusResponse(id=item.id, name=item.name) for item in statuses]

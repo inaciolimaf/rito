@@ -79,7 +79,7 @@ CRUD de times com membros; atribuição de tarefa a time inteiro (preparo).
 CRUD das origens (8 padrão) + transferência em lote.
 **Aceite:** origem em uso não é apagada sem transferência. **t:** 2 s. **Deps:** 011
 
-### ⬜ 017 — Contatos: modelo e CRUD
+### ✅ 017 — Contatos: modelo e CRUD
 PF/PJ no mesmo modelo com discriminador; todos os campos do levantamento; bloco de representante legal.
 **Aceite:** PF e PJ com validações distintas; representante opcional. **t:** 6 s. **Deps:** 016
 

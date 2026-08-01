@@ -12,7 +12,7 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 016 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
+🚧 **Spec 017 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
 RBAC) + frontend com login real, design system de domínio e o app shell navegável
 (sidebar de 15 itens, busca global, breadcrumbs) + pipeline de testes com gate de 120s
 executável (rede real bloqueada, contador de jornadas e2e, CI no GitHub Actions) + pente
@@ -26,7 +26,9 @@ de ação (taxonomia que classifica processos por área do direito, 6 grupos/10 
 responsável por intimações opcional por grupo, transferência em lote antes de excluir) +
 fases e etapas (9 fases fixas do funil processual, 59 etapas configuráveis com estagnação
 condicional e reordenação por drag-and-drop dentro da fase) + origem de pessoas (8 origens
-padrão, CRUD, transferência em lote) — próxima é a 017 (Contatos: modelo e CRUD).
+padrão, CRUD, transferência em lote) + contatos (PF/PJ no mesmo modelo, bloco de
+representante legal, upload de foto, estados civis) — próxima é a 018 (Contatos: validação e
+endereço).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

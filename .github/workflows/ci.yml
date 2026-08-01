@@ -53,17 +53,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-      # bitnami/minio (não minio/minio): a imagem oficial precisa do comando `server /data`,
-      # que o bloco `services:` do Actions não tem como passar (só aceita `options` — flags
-      # de `docker create`, não um override de CMD). bitnami/minio já sobe pronto só com as
-      # env vars de usuário/senha (spec 011).
-      minio:
-        image: bitnami/minio:latest
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        ports: ["9000:9000"]
-
     steps:
       - uses: actions/checkout@v4
 
@@ -73,6 +62,16 @@ jobs:
             "CREATE ROLE rito_app LOGIN PASSWORD 'rito_app';"
           PGPASSWORD=rito psql -h localhost -U rito -d rito -c \
             "CREATE DATABASE rito_test OWNER rito;"
+
+      # MinIO precisa do comando `server /data` (igual docker-compose.yml) — o bloco
+      # `services:` do Actions não tem como passar um CMD, só `options` (flags de
+      # `docker create`). `docker run` manual, como um processo em background, é o
+      # workaround padrão para isso (spec 011).
+      - name: Sobe o MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio server /data
 
       - name: Aguarda o MinIO ficar pronto
         run: |

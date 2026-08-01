@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
+    # CSV de origens permitidas (CORS) — o frontend roda em porta diferente do backend em dev.
+    cors_allowed_origins: str = "http://localhost:5173"
+
 
 @lru_cache
 def get_settings() -> Settings:

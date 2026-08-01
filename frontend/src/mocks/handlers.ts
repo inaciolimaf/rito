@@ -1,0 +1,100 @@
+import { http, HttpResponse } from "msw";
+
+export const BASE_URL = "http://localhost:8000";
+
+export const validCredentials = {
+  tenantId: "11111111-1111-1111-1111-111111111111",
+  email: "user@example.com",
+  password: "SenhaForte123!",
+};
+
+export const validUser = {
+  id: "22222222-2222-2222-2222-222222222222",
+  name: "Usuário de Teste",
+  email: validCredentials.email,
+  tenant: validCredentials.tenantId,
+  role: "COLABORADOR",
+  financial_access: "NONE",
+  capabilities: ["tasks.view"],
+};
+
+const VALID_ACCESS_TOKENS = new Set(["access-token-1", "access-token-2"]);
+const VALID_REFRESH_TOKENS = new Set(["refresh-token-1", "refresh-token-2"]);
+
+let refreshCallCount = 0;
+
+export function resetMswState(): void {
+  refreshCallCount = 0;
+  VALID_ACCESS_TOKENS.clear();
+  VALID_ACCESS_TOKENS.add("access-token-1");
+  VALID_ACCESS_TOKENS.add("access-token-2");
+  VALID_REFRESH_TOKENS.clear();
+  VALID_REFRESH_TOKENS.add("refresh-token-1");
+  VALID_REFRESH_TOKENS.add("refresh-token-2");
+}
+
+export function getRefreshCallCount(): number {
+  return refreshCallCount;
+}
+
+function unauthorized(instance: string, detail: string) {
+  return HttpResponse.json(
+    {
+      type: "https://rito.app/errors/unauthorized",
+      title: "Não autenticado",
+      status: 401,
+      detail,
+      instance,
+    },
+    { status: 401 },
+  );
+}
+
+export const handlers = [
+  http.post(`${BASE_URL}/api/v1/auth/login`, async ({ request }) => {
+    const body = (await request.json()) as { email: string; password: string };
+    const tenantId = request.headers.get("X-Tenant-Id");
+
+    if (
+      tenantId !== validCredentials.tenantId ||
+      body.email !== validCredentials.email ||
+      body.password !== validCredentials.password
+    ) {
+      return unauthorized("/api/v1/auth/login", "E-mail ou senha inválidos.");
+    }
+
+    return HttpResponse.json({
+      access_token: "access-token-1",
+      refresh_token: "refresh-token-1",
+      expires_in: 900,
+    });
+  }),
+
+  http.post(`${BASE_URL}/api/v1/auth/refresh`, async ({ request }) => {
+    refreshCallCount += 1;
+    const body = (await request.json()) as { refresh_token: string };
+
+    if (!VALID_REFRESH_TOKENS.has(body.refresh_token)) {
+      return unauthorized("/api/v1/auth/refresh", "Refresh token inválido.");
+    }
+
+    return HttpResponse.json({
+      access_token: "access-token-2",
+      refresh_token: "refresh-token-2",
+      expires_in: 900,
+    });
+  }),
+
+  http.get(`${BASE_URL}/api/v1/auth/me`, ({ request }) => {
+    const authorization = request.headers.get("Authorization") ?? "";
+    const token = authorization.replace("Bearer ", "");
+
+    if (!VALID_ACCESS_TOKENS.has(token)) {
+      return unauthorized("/api/v1/auth/me", "Não autenticado.");
+    }
+
+    return HttpResponse.json(validUser);
+  }),
+
+  http.post(`${BASE_URL}/api/v1/auth/logout`, () => new HttpResponse(null, { status: 204 })),
+];

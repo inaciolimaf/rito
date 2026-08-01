@@ -31,7 +31,7 @@ Tabela `tenants`; `tenant_id` + política RLS; `set_tenant_context()` na sessão
 Perfis Gestor/Administrador/Colaborador; dimensão independente de acesso financeiro (Sem acesso / Somente visualizador / Acesso completo); dependency `require_role` / `require_financial`.
 **Aceite:** Colaborador recebe 403 em rota de Gestor; financeiro respeitado nos 3 níveis. **t:** 4 s. **Deps:** 004
 
-### ⬜ 006 — Esqueleto do frontend
+### ✅ 006 — Esqueleto do frontend
 Vite + React + TS strict + Tailwind + shadcn/ui; design tokens; **dark mode**; TanStack Query; React Router; client de API com refresh automático; tela de login.
 **Aceite:** login funcional; alternância de tema persiste. **t:** 8 s. **Deps:** 004
 

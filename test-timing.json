@@ -22,6 +22,10 @@
     "005": {
       "wall_clock_seconds": 7,
       "notes": "54 testes backend (RBAC: Colaborador/Gestor/Administrador, financeiro NONE/READ_ONLY/FULL ortogonal ao perfil, cobertura de permissão em toda rota /api/v1, matriz de capabilities + os 39 anteriores) + 1 smoke frontend, com -n auto. E2E ainda sem jornadas."
+    },
+    "006": {
+      "wall_clock_seconds": 11,
+      "notes": "54 testes backend (inalterado) + 10 testes frontend (login, refresh/fila de concorrência, ApiError, ProtectedRoute, ThemeToggle) com MSW + 1ª jornada e2e real (login → home → logout) contra backend/frontend/Postgres/Redis de verdade via Playwright webServer. Máximo de 25 jornadas: 1/25 usada."
     }
   }
 }

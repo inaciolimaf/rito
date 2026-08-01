@@ -35,11 +35,13 @@ async def app_session_factory() -> AsyncGenerator[async_sessionmaker[AsyncSessio
 async def tenant_probe_table(admin_engine: AsyncEngine, worker_id: str) -> AsyncGenerator[str]:
     """Tabela de exemplo só para os testes de isolamento (spec 003, seção 4).
 
-    O nome carrega o `worker_id` do pytest-xdist porque `-n auto` roda os testes
-    deste arquivo em processos concorrentes contra o mesmo `rito_test` — sem
-    isso, dois workers criando/derrubando a mesma tabela colidem.
+    O nome carrega o `worker_id` do pytest-xdist (`-n auto` roda vários processos
+    contra o mesmo `rito_test`) E um sufixo aleatório — o worker_id sozinho não é
+    garantia suficiente: sob carga concorrente pesada (`make test` com e2e/frontend
+    rodando ao mesmo tempo, spec 006 descoberta), o nome só por worker ainda colidia
+    entre execuções/latências diferentes. Um sufixo uuid4 elimina a colisão de vez.
     """
-    table_name = f"tenant_probe_{worker_id}"
+    table_name = f"tenant_probe_{worker_id}_{uuid.uuid4().hex[:8]}"
     ddl = (
         f"CREATE TABLE IF NOT EXISTS {table_name} ("
         "id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), "

@@ -2,6 +2,9 @@ import type { UseFormReturn } from "react-hook-form";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CpfCnpjField } from "@/features/customers/CpfCnpjField";
+import { PostalCodeField } from "@/features/customers/PostalCodeField";
+import { StateCitySelect } from "@/features/customers/StateCitySelect";
 import type { CustomerFormValues } from "@/features/customers/schema";
 
 export interface RepresentativeFieldsProps {
@@ -9,10 +12,15 @@ export interface RepresentativeFieldsProps {
 }
 
 /** Bloco de representante legal (regra 4: `rep_name` obrigatório quando ativado) —
- * mostrado só quando `has_representative` está marcado. */
+ * mostrado só quando `has_representative` está marcado. Representante não tem um "tipo"
+ * próprio na spec (PF/PJ é só do contato principal) — `CpfCnpjField` assume PF aqui, a
+ * imensa maioria dos casos reais (representante de menor/incapaz, procurador). */
 export function RepresentativeFields({ form }: RepresentativeFieldsProps): JSX.Element {
   const {
     register,
+    watch,
+    setValue,
+    control,
     formState: { errors },
   } = form;
 
@@ -27,10 +35,13 @@ export function RepresentativeFields({ form }: RepresentativeFieldsProps): JSX.E
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label htmlFor="rep_identification">CPF/CNPJ do representante</Label>
-          <Input id="rep_identification" {...register("rep_identification")} />
-        </div>
+        <CpfCnpjField
+          control={control}
+          name="rep_identification"
+          personType="PF"
+          label="CPF/CNPJ do representante"
+          id="rep_identification"
+        />
         <div className="space-y-1">
           <Label htmlFor="rep_document">RG do representante</Label>
           <Input id="rep_document" {...register("rep_document")} />
@@ -47,31 +58,36 @@ export function RepresentativeFields({ form }: RepresentativeFieldsProps): JSX.E
           <Label htmlFor="rep_country">País</Label>
           <Input id="rep_country" {...register("rep_country")} />
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="rep_state">Estado</Label>
-          <Input id="rep_state" maxLength={2} {...register("rep_state")} />
-        </div>
+        <PostalCodeField
+          control={control}
+          name="rep_postal_code"
+          id="rep_postal_code"
+          onFound={(result) => {
+            setValue("rep_state", result.state, { shouldDirty: true });
+            setValue("rep_city", result.city, { shouldDirty: true });
+            setValue("rep_street", result.street, { shouldDirty: true });
+            setValue("rep_region", result.region, { shouldDirty: true });
+          }}
+        />
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="rep_city">Cidade</Label>
-        <Input id="rep_city" {...register("rep_city")} />
-      </div>
+      <StateCitySelect
+        control={control}
+        setValue={setValue}
+        stateName="rep_state"
+        cityName="rep_city"
+        stateValue={watch("rep_state") ?? ""}
+        cityValue={watch("rep_city") ?? ""}
+      />
 
       <div className="space-y-1">
         <Label htmlFor="rep_street">Endereço</Label>
         <Input id="rep_street" {...register("rep_street")} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label htmlFor="rep_region">Bairro</Label>
-          <Input id="rep_region" {...register("rep_region")} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="rep_postal_code">CEP</Label>
-          <Input id="rep_postal_code" {...register("rep_postal_code")} />
-        </div>
+      <div className="space-y-1">
+        <Label htmlFor="rep_region">Bairro</Label>
+        <Input id="rep_region" {...register("rep_region")} />
       </div>
     </fieldset>
   );

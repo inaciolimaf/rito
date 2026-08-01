@@ -128,12 +128,22 @@ async def test_cpf_duplicado_no_tenant_retorna_409(
 
     await client.post(
         "/api/v1/customers",
-        json={"type": "PF", "name": "Primeiro", "origin_id": origin_id, "identification": "123"},
+        json={
+            "type": "PF",
+            "name": "Primeiro",
+            "origin_id": origin_id,
+            "identification": "12345678909",
+        },
         headers=headers,
     )
     response = await client.post(
         "/api/v1/customers",
-        json={"type": "PF", "name": "Segundo", "origin_id": origin_id, "identification": "123"},
+        json={
+            "type": "PF",
+            "name": "Segundo",
+            "origin_id": origin_id,
+            "identification": "12345678909",
+        },
         headers=headers,
     )
 
@@ -149,19 +159,34 @@ async def test_renomear_identification_para_uma_ja_usada_retorna_409(
 
     await client.post(
         "/api/v1/customers",
-        json={"type": "PF", "name": "Primeiro", "origin_id": origin_id, "identification": "111"},
+        json={
+            "type": "PF",
+            "name": "Primeiro",
+            "origin_id": origin_id,
+            "identification": "11144477735",
+        },
         headers=headers,
     )
     second = await client.post(
         "/api/v1/customers",
-        json={"type": "PF", "name": "Segundo", "origin_id": origin_id, "identification": "222"},
+        json={
+            "type": "PF",
+            "name": "Segundo",
+            "origin_id": origin_id,
+            "identification": "98765432100",
+        },
         headers=headers,
     )
     second_id = second.json()["id"]
 
     response = await client.put(
         f"/api/v1/customers/{second_id}",
-        json={"type": "PF", "name": "Segundo", "origin_id": origin_id, "identification": "111"},
+        json={
+            "type": "PF",
+            "name": "Segundo",
+            "origin_id": origin_id,
+            "identification": "11144477735",
+        },
         headers=headers,
     )
 
@@ -184,7 +209,7 @@ async def test_mesmo_cpf_em_outro_tenant_e_aceito(
             "type": "PF",
             "name": "Cliente A",
             "origin_id": origin_a,
-            "identification": "999",
+            "identification": "11122233396",
         },
         headers=headers_a,
     )
@@ -194,7 +219,7 @@ async def test_mesmo_cpf_em_outro_tenant_e_aceito(
             "type": "PF",
             "name": "Cliente B",
             "origin_id": origin_b,
-            "identification": "999",
+            "identification": "11122233396",
         },
         headers=headers_b,
     )
@@ -516,6 +541,237 @@ async def test_upload_foto_contato_inexistente_retorna_404(
     )
 
     assert response.status_code == 404
+
+
+async def test_cpf_invalido_retorna_422(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Regra 1/2 (spec 018): dígito verificador real, não só tamanho."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem")
+
+    response = await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": "CPF Errado",
+            "origin_id": origin_id,
+            "identification": "11144477736",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+async def test_cpf_com_mascara_e_aceito_e_guardado_so_com_digitos(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Regra 3: máscara aceita na entrada; o banco guarda só dígitos."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem")
+
+    response = await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": "Com Máscara",
+            "origin_id": origin_id,
+            "identification": "111.444.777-35",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["identification"] == "11144477735"
+
+
+async def test_telefone_invalido_retorna_422(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem")
+
+    response = await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": "Telefone Com DDI",
+            "origin_id": origin_id,
+            "cellphone": "5511999998888",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+async def test_telefone_valido_e_guardado_so_com_digitos(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem")
+
+    response = await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": "Telefone Válido",
+            "origin_id": origin_id,
+            "cellphone": "(11) 99999-8888",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["cellphone"] == "11999998888"
+
+
+async def test_cep_invalido_retorna_422(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem")
+
+    response = await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": "CEP Errado",
+            "origin_id": origin_id,
+            "postal_code": "123",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+async def test_cep_e_normalizado_para_99999_999(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem")
+
+    response = await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": "CEP Sem Máscara",
+            "origin_id": origin_id,
+            "postal_code": "01310100",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["postal_code"] == "01310-100"
+
+
+async def test_campos_opcionais_vazios_sao_aceitos(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """identification/cellphone/phone/postal_code explicitamente vazios (não omitidos)
+    também passam — os validadores tratam string vazia como "não informado"."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem")
+
+    response = await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": "Campos Vazios",
+            "origin_id": origin_id,
+            "identification": "",
+            "cellphone": "",
+            "phone": "",
+            "postal_code": "",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+
+
+async def test_representante_com_identificacao_e_cep_validos(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem")
+
+    response = await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": "Com Representante Completo",
+            "origin_id": origin_id,
+            "has_representative": True,
+            "rep_name": "Representante Legal",
+            "rep_identification": "111.444.777-35",
+            "rep_postal_code": "01310100",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["rep_identification"] == "11144477735"
+    assert body["rep_postal_code"] == "01310-100"
+
+
+async def test_check_duplicate_encontra_por_nome_e_nascimento(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem")
+
+    await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": "João Duplicado",
+            "origin_id": origin_id,
+            "birthdate": "1985-03-10",
+        },
+        headers=headers,
+    )
+
+    response = await client.get(
+        "/api/v1/customers/check-duplicate",
+        params={"name": "joão duplicado", "birthdate": "1985-03-10"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["has_duplicate"] is True
+    assert len(body["candidates"]) == 1
+
+
+async def test_check_duplicate_sem_correspondencia(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    gestor = await make_user(role=UserRole.GESTOR)
+
+    response = await client.get(
+        "/api/v1/customers/check-duplicate",
+        params={"name": "Ninguém", "birthdate": "2000-01-01"},
+        headers=_auth_header(gestor),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["has_duplicate"] is False
+    assert body["candidates"] == []
 
 
 async def test_marital_statuses_lista_as_6_opcoes(

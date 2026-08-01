@@ -86,3 +86,22 @@ export async function uploadCustomerPhoto(id: string, file: File): Promise<Custo
     body: formData,
   });
 }
+
+export interface DuplicateCandidate {
+  id: string;
+  name: string;
+}
+
+export interface CheckDuplicateResult {
+  has_duplicate: boolean;
+  candidates: DuplicateCandidate[];
+}
+
+/** Regra 9 (spec 018): aviso não bloqueante — nunca impede o submit, só informa. */
+export async function checkDuplicateCustomer(
+  name: string,
+  birthdate: string,
+): Promise<CheckDuplicateResult> {
+  const params = new URLSearchParams({ name, birthdate });
+  return apiRequest<CheckDuplicateResult>(`/api/v1/customers/check-duplicate?${params}`);
+}

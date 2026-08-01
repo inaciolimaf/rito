@@ -1,6 +1,7 @@
 import uuid
+from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_file_storage
@@ -11,9 +12,11 @@ from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsE
 from app.domain.customers.models import Customer
 from app.domain.customers.repository import MaritalStatusRepository
 from app.domain.customers.schemas import (
+    CheckDuplicateResponse,
     CustomerCreateRequest,
     CustomerResponse,
     CustomerUpdateRequest,
+    DuplicateCandidateResponse,
     MaritalStatusResponse,
 )
 from app.domain.customers.service import CustomerService
@@ -84,6 +87,27 @@ async def create_customer(
             status_code=409, detail="Já existe um contato com esse CPF/CNPJ."
         ) from exc
     return _customer_to_response(customer, storage)
+
+
+@customers_router.get("/check-duplicate")
+async def check_duplicate_customer(
+    name: str = Query(...),
+    birthdate: date = Query(...),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> CheckDuplicateResponse:
+    """Regra 9 — registrado antes de `/{customer_id}` para não ser interpretado como um
+    id (`check-duplicate` não é um UUID válido, mas a ordem de registro do FastAPI importa
+    quando um path literal e um path parametrizado convivem no mesmo prefixo)."""
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    candidates = await service.find_duplicates(name=name, birthdate=birthdate)
+    return CheckDuplicateResponse(
+        has_duplicate=len(candidates) > 0,
+        candidates=[
+            DuplicateCandidateResponse(id=candidate.id, name=candidate.name)
+            for candidate in candidates
+        ],
+    )
 
 
 @customers_router.get("/{customer_id}")

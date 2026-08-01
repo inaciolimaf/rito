@@ -83,7 +83,7 @@ CRUD das origens (8 padrão) + transferência em lote.
 PF/PJ no mesmo modelo com discriminador; todos os campos do levantamento; bloco de representante legal.
 **Aceite:** PF e PJ com validações distintas; representante opcional. **t:** 6 s. **Deps:** 016
 
-### ⬜ 018 — Contatos: validação e endereço
+### ✅ 018 — Contatos: validação e endereço
 Validação real de CPF/CNPJ com bloqueio de duplicidade; CEP `99999-999`; consulta ViaCEP; telefone com DDD e sem DDI; estados e cidades.
 **Aceite:** CPF inválido rejeitado; duplicidade bloqueada; ViaCEP mockado. **t:** 4 s. **Deps:** 017
 

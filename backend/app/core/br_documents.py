@@ -49,6 +49,30 @@ def is_valid_cpf_or_cnpj(value: str) -> bool:
     return False
 
 
+def is_valid_phone(value: str) -> bool:
+    """Regra 4 (spec 018): 10 dígitos (fixo) ou 11 (celular, terceiro dígito = 9), com DDD,
+    sem DDI. Um DDI (`55`/`+`) ou a ausência de DDD sempre resultam em 8, 9, 12 ou 13
+    dígitos — nunca 10 ou 11 — então a checagem de tamanho já rejeita os dois casos sem
+    precisar detectar o prefixo explicitamente."""
+    digits = strip_document_mask(value)
+    if len(digits) == 10:
+        return True
+    if len(digits) == 11:
+        return digits[2] == "9"
+    return False
+
+
+def is_valid_postal_code(value: str) -> bool:
+    """Regra 5 (spec 018): CEP tem 8 dígitos numéricos."""
+    return len(strip_document_mask(value)) == 8
+
+
+def format_postal_code(value: str) -> str:
+    """Normaliza para `99999-999` (regra 5) — chamar só depois de `is_valid_postal_code`."""
+    digits = strip_document_mask(value)
+    return f"{digits[:5]}-{digits[5:]}"
+
+
 # Os 26 estados + Distrito Federal (docs/ADVBOX-ESPECIFICACAO-COMPLETA.md linha 817:
 # "Todos os 27 estados + DF" — usado por account (011) e OAB/UF de usuários (012).
 BRAZILIAN_UFS = frozenset(

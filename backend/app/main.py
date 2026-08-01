@@ -23,6 +23,7 @@ from app.domain.action_groups.router import action_groups_router, lawsuit_types_
 from app.domain.auth.router import router as auth_router
 from app.domain.customer_origins.router import router as customer_origins_router
 from app.domain.customers.router import customers_router, marital_statuses_router
+from app.domain.locations.router import cities_router, states_router
 from app.domain.squads.router import router as squads_router
 from app.domain.stages.router import stages_router, steps_router
 from app.domain.users.router import invitations_router, occupations_router, users_router
@@ -77,6 +78,8 @@ def create_app() -> FastAPI:
     app.include_router(customer_origins_router, prefix="/api/v1")
     app.include_router(customers_router, prefix="/api/v1")
     app.include_router(marital_statuses_router, prefix="/api/v1")
+    app.include_router(states_router, prefix="/api/v1")
+    app.include_router(cities_router, prefix="/api/v1")
 
     return app
 

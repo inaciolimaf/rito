@@ -2,14 +2,60 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
+from app.core.br_documents import (
+    format_postal_code,
+    is_valid_cpf_or_cnpj,
+    is_valid_phone,
+    is_valid_postal_code,
+    strip_document_mask,
+)
 from app.domain.customers.models import PersonType
 
 
 class MaritalStatusResponse(BaseModel):
     id: int
     name: str
+
+
+class DuplicateCandidateResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class CheckDuplicateResponse(BaseModel):
+    """Regra 9: duplicata provável (mesmo nome + nascimento) — aviso não bloqueante."""
+
+    has_duplicate: bool
+    candidates: list[DuplicateCandidateResponse]
+
+
+def _validate_identification(value: str | None) -> str | None:
+    """Regras 1/2/3 (spec 018): CPF/CNPJ com DV real, banco guarda só dígitos."""
+    if not value:
+        return value
+    if not is_valid_cpf_or_cnpj(value):
+        raise ValueError("CPF/CNPJ inválido.")
+    return strip_document_mask(value)
+
+
+def _validate_phone(value: str | None) -> str | None:
+    """Regra 4: 10 ou 11 dígitos, com DDD, sem DDI."""
+    if not value:
+        return value
+    if not is_valid_phone(value):
+        raise ValueError("Telefone inválido — use DDD, sem código de país.")
+    return strip_document_mask(value)
+
+
+def _validate_postal_code(value: str | None) -> str | None:
+    """Regra 5: CEP normalizado para `99999-999`."""
+    if not value:
+        return value
+    if not is_valid_postal_code(value):
+        raise ValueError("CEP inválido — use 8 dígitos.")
+    return format_postal_code(value)
 
 
 class _RepresentativeMixin(BaseModel):
@@ -24,6 +70,16 @@ class _RepresentativeMixin(BaseModel):
     rep_street: str | None = None
     rep_region: str | None = None
     rep_postal_code: str | None = None
+
+    @field_validator("rep_identification")
+    @classmethod
+    def _check_rep_identification(cls, value: str | None) -> str | None:
+        return _validate_identification(value)
+
+    @field_validator("rep_postal_code")
+    @classmethod
+    def _check_rep_postal_code(cls, value: str | None) -> str | None:
+        return _validate_postal_code(value)
 
     @model_validator(mode="after")
     def _validate_representative(self) -> "_RepresentativeMixin":
@@ -59,6 +115,21 @@ class CustomerCreateRequest(_RepresentativeMixin):
     number_pis: str | None = None
     number_ctps: str | None = None
     number_cid: str | None = None
+
+    @field_validator("identification")
+    @classmethod
+    def _check_identification(cls, value: str | None) -> str | None:
+        return _validate_identification(value)
+
+    @field_validator("cellphone", "phone")
+    @classmethod
+    def _check_phone(cls, value: str | None) -> str | None:
+        return _validate_phone(value)
+
+    @field_validator("postal_code")
+    @classmethod
+    def _check_postal_code(cls, value: str | None) -> str | None:
+        return _validate_postal_code(value)
 
 
 class CustomerUpdateRequest(CustomerCreateRequest):

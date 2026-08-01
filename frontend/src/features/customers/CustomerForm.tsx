@@ -5,7 +5,12 @@ import { EntityPicker } from "@/components/domain/EntityPicker";
 import type { EntityOption } from "@/components/domain/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { checkDuplicateCustomer } from "@/features/customers/api";
+import { CpfCnpjField } from "@/features/customers/CpfCnpjField";
+import { PhoneField } from "@/features/customers/PhoneField";
+import { PostalCodeField } from "@/features/customers/PostalCodeField";
 import { RepresentativeFields } from "@/features/customers/RepresentativeFields";
+import { StateCitySelect } from "@/features/customers/StateCitySelect";
 import {
   DEFAULT_CUSTOMER_FORM_VALUES,
   PF_ONLY_FIELDS,
@@ -37,12 +42,15 @@ export function CustomerForm({
     register,
     watch,
     setValue,
+    control,
     formState: { errors },
   } = form;
 
   const type = watch("type");
   const hasRepresentative = watch("has_representative");
   const originId = watch("origin_id");
+  const name = watch("name");
+  const birthdate = watch("birthdate");
   const isPJ = type === "PJ";
 
   React.useEffect(() => {
@@ -52,6 +60,19 @@ export function CustomerForm({
       }
     }
   }, [isPJ, setValue]);
+
+  const [duplicateName, setDuplicateName] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setDuplicateName(null);
+    if (isPJ || !name.trim() || !birthdate) return;
+    const timeout = setTimeout(() => {
+      void checkDuplicateCustomer(name, birthdate).then((result) => {
+        if (result.has_duplicate) setDuplicateName(result.candidates[0]?.name ?? name);
+      });
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [isPJ, name, birthdate]);
 
   const selectedOrigin: EntityOption[] =
     originId && currentOrigin?.id === originId ? [currentOrigin] : [];
@@ -74,6 +95,12 @@ export function CustomerForm({
         <Label htmlFor="customer-name">{isPJ ? "Razão social" : "Nome"}</Label>
         <Input id="customer-name" {...register("name")} />
         {errors.name && <p className="text-sm text-danger">{errors.name.message}</p>}
+        {duplicateName && (
+          <p className="text-sm text-warning">
+            Possível contato duplicado: já existe um contato chamado &ldquo;{duplicateName}&rdquo;
+            com a mesma data de nascimento.
+          </p>
+        )}
       </div>
 
       <div className="space-y-1">
@@ -88,10 +115,7 @@ export function CustomerForm({
         {errors.origin_id && <p className="text-sm text-danger">{errors.origin_id.message}</p>}
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="identification">{isPJ ? "CNPJ" : "CPF"}</Label>
-        <Input id="identification" {...register("identification")} />
-      </div>
+      <CpfCnpjField control={control} name="identification" personType={isPJ ? "PJ" : "PF"} />
 
       {!isPJ && (
         <>
@@ -170,14 +194,8 @@ export function CustomerForm({
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label htmlFor="cellphone">Celular</Label>
-          <Input id="cellphone" {...register("cellphone")} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="phone">Telefone</Label>
-          <Input id="phone" {...register("phone")} />
-        </div>
+        <PhoneField control={control} name="cellphone" label="Celular" id="cellphone" />
+        <PhoneField control={control} name="phone" label="Telefone" id="phone" />
       </div>
 
       <div className="space-y-1">
@@ -190,22 +208,26 @@ export function CustomerForm({
           <Label htmlFor="country">País</Label>
           <Input id="country" {...register("country")} />
         </div>
-        <div className="space-y-1">
-          <Label htmlFor="postal_code">CEP</Label>
-          <Input id="postal_code" {...register("postal_code")} />
-        </div>
+        <PostalCodeField
+          control={control}
+          name="postal_code"
+          onFound={(result) => {
+            setValue("state", result.state, { shouldDirty: true });
+            setValue("city", result.city, { shouldDirty: true });
+            setValue("street", result.street, { shouldDirty: true });
+            setValue("region", result.region, { shouldDirty: true });
+          }}
+        />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label htmlFor="state">Estado</Label>
-          <Input id="state" maxLength={2} {...register("state")} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="city">Cidade</Label>
-          <Input id="city" {...register("city")} />
-        </div>
-      </div>
+      <StateCitySelect
+        control={control}
+        setValue={setValue}
+        stateName="state"
+        cityName="city"
+        stateValue={watch("state") ?? ""}
+        cityValue={watch("city") ?? ""}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">

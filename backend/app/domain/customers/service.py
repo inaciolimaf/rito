@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +37,9 @@ class CustomerService:
 
     async def get(self, customer_id: uuid.UUID) -> Customer | None:
         return await self.customers.get_by_id(customer_id)
+
+    async def find_duplicates(self, *, name: str, birthdate: date) -> list[Customer]:
+        return list(await self.customers.find_duplicates(name=name, birthdate=birthdate))
 
     async def create(self, payload: CustomerCreateRequest) -> Customer:
         if payload.identification and (

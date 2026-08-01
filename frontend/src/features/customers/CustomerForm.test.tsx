@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useForm } from "react-hook-form";
@@ -12,6 +13,13 @@ import {
   type CustomerFormValues,
 } from "@/features/customers/schema";
 
+// StateCitySelect busca estados via useQuery — mockado para não depender de rede/MSW
+// nestes testes, que não exercitam o seletor de estado/cidade.
+vi.mock("@/features/locations/api", () => ({
+  listStates: vi.fn().mockResolvedValue([]),
+  listCities: vi.fn().mockResolvedValue([]),
+}));
+
 const MARITAL_STATUSES = [
   { id: 1, name: "SOLTEIRO(A)" },
   { id: 2, name: "CASADO(A)" },
@@ -24,17 +32,20 @@ function Harness({ onSubmit }: { onSubmit: (values: CustomerFormValues) => void 
     resolver: zodResolver(customerFormSchema),
     defaultValues: DEFAULT_CUSTOMER_FORM_VALUES,
   });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   return (
-    <form onSubmit={(event) => void form.handleSubmit(onSubmit)(event)}>
-      <CustomerForm
-        form={form}
-        maritalStatuses={MARITAL_STATUSES}
-        onSearchOrigins={async () => [ORIGIN_OPTION]}
-        currentOrigin={null}
-      />
-      <button type="submit">Salvar</button>
-    </form>
+    <QueryClientProvider client={queryClient}>
+      <form onSubmit={(event) => void form.handleSubmit(onSubmit)(event)}>
+        <CustomerForm
+          form={form}
+          maritalStatuses={MARITAL_STATUSES}
+          onSearchOrigins={async () => [ORIGIN_OPTION]}
+          currentOrigin={null}
+        />
+        <button type="submit">Salvar</button>
+      </form>
+    </QueryClientProvider>
   );
 }
 

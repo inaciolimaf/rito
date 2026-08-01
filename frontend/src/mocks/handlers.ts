@@ -66,7 +66,23 @@ function missingTenantId(instance: string) {
   );
 }
 
+// spec 011, regra 2: CEP conhecido pelos testes do AccountForm.
+export const VIACEP_KNOWN_CEP = "01310-100";
+
 export const handlers = [
+  http.get(`https://viacep.com.br/ws/:cep/json/`, ({ params }) => {
+    const digits = String(params.cep).replace(/\D/g, "");
+    if (digits !== VIACEP_KNOWN_CEP.replace(/\D/g, "")) {
+      return HttpResponse.json({ erro: true });
+    }
+    return HttpResponse.json({
+      uf: "SP",
+      localidade: "São Paulo",
+      logradouro: "Av. Paulista",
+      bairro: "Bela Vista",
+    });
+  }),
+
   http.post(`${BASE_URL}/api/v1/auth/login`, async ({ request }) => {
     const body = (await request.json()) as { email: string; password: string };
     const tenantId = request.headers.get("X-Tenant-Id");

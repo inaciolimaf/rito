@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 20,
+  "last_measured_wall_clock_seconds": 28,
   "last_measured_at": "2026-08-01",
   "specs": {
     "001": {
@@ -42,6 +42,10 @@
     "010": {
       "wall_clock_seconds": 27,
       "notes": "Refatoração (sem mudança de comportamento). 73 testes backend (59 anteriores + 14 novos de cobertura de erro: X-Tenant-Id ausente/inválido, get_current_user sem token/token inválido/usuário inativo, refresh com token desconhecido/expirado, reset-password com senha fraca, isolamento de tenant em refresh_tokens/password_reset_tokens, BaseRepository.list_paginated/delete via Postgres real, exceção formatada no log) — cobertura de `app/` foi de 96% para 99%, os 2 pontos restantes são branches estruturalmente inalcançáveis/não instrumentáveis, documentados em docs/DIVIDA-TECNICA.md. 39 testes frontend (inalterado) + 3 e2e (inalterado). Migration 006 adiciona 3 índices faltando (FK/filtro sem índice). Todos os 59 testes pré-existentes passaram sem edição."
+    },
+    "011": {
+      "wall_clock_seconds": 28,
+      "notes": "102 testes backend (73 anteriores + 29 novos: CRUD completo de accounts, CNPJ inválido, CEP fora do formato, Colaborador 403 no PUT/consegue ler, timezone fora da lista, RLS entre tenants, upload de logo válido/acima de 2MB/sem conta configurada, criação de bucket no MinIO, validação de CPF/CNPJ e redimensionamento de logo em unit tests) — cobertura de app/ em 99% (só 2 branches de corrida/subprocesso documentados em docs/DIVIDA-TECNICA.md #6 e #8 ficam de fora). 43 testes frontend (39 anteriores + 4 do AccountForm) + 3 e2e (inalterado — nenhuma jornada nova, o plano da spec não pedia). Descoberto e corrigido en passant: o upgrade do FastAPI (>=0.115, agora 0.141) trocou o mecanismo de include_router para roteamento preguiçoso (_IncludedRouter), o que deixava test_permission_coverage.py silenciosamente vazio (0 rotas encontradas) para QUALQUER rota registrada via include_router — corrigido usando fastapi.routing.iter_route_contexts."
     }
   }
 }

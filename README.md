@@ -12,13 +12,14 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 010 de 100 concluída — Fase 0 (Fundação) fechada.** Backend completo
+🚧 **Spec 011 de 100 concluída — Fase 1 (Cadastros base) iniciada.** Backend completo
 (multi-tenancy, RLS, autenticação, RBAC) + frontend com login real, design system de
 domínio e o app shell navegável (sidebar de 15 itens, busca global, breadcrumbs) + pipeline
 de testes com gate de 120s executável (rede real bloqueada, contador de jornadas e2e, CI no
 GitHub Actions) + pente fino de refatoração (99% de cobertura, índices de FK, `mypy --strict`
-e `tsc` verdes, decisões arquiteturais documentadas em `docs/DECISOES.md`) — próxima é a 011
-(Escritório/account), início da Fase 1.
+e `tsc` verdes) + cadastro do Escritório (CRUD, CPF/CNPJ validado, autofill de CEP via
+ViaCEP, upload de logotipo com redimensionamento, storage S3/MinIO atrás de interface) —
+próxima é a 012 (Usuários).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

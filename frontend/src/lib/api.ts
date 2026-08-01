@@ -95,16 +95,27 @@ export async function apiRequest<T>(
   options: RequestOptions = {},
   _isRetry = false,
 ): Promise<T> {
+  const isFormData = options.body instanceof FormData;
   const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
+  // FormData (upload de arquivo, spec 011): o browser define o Content-Type sozinho, com
+  // o boundary do multipart — setar "application/json" aqui quebraria o parse no servidor.
+  if (!isFormData) {
+    headers.set("Content-Type", "application/json");
+  }
   if (accessToken) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
+  const body = isFormData
+    ? (options.body as FormData)
+    : options.body !== undefined
+      ? JSON.stringify(options.body)
+      : undefined;
+
   const response = await fetch(`${BASE_URL}${path}`, {
     method: options.method ?? "GET",
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body,
   });
 
   if (response.status === 401 && !_isRetry && !NO_REFRESH_PATHS.includes(path)) {

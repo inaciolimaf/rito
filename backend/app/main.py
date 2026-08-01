@@ -18,7 +18,9 @@ from app.core.health import router as health_router
 from app.core.logging import configure_logging
 from app.core.middleware import RequestIDMiddleware
 from app.core.redis import create_redis_client
+from app.domain.account.router import router as account_router
 from app.domain.auth.router import router as auth_router
+from app.integrations.storage.s3 import create_file_storage
 
 
 @asynccontextmanager
@@ -30,6 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
     app.state.redis = create_redis_client()
+    app.state.file_storage = create_file_storage()
 
     yield
 
@@ -56,6 +59,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(account_router, prefix="/api/v1")
 
     return app
 

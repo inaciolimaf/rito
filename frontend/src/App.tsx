@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/shell/AppLayout";
 import { ModulePlaceholderPage } from "@/components/shell/ModulePlaceholderPage";
 import { NotFoundPage } from "@/components/shell/NotFoundPage";
 import { ROUTABLE_NAV_ITEMS } from "@/components/shell/navItems";
+import { AccountPage } from "@/features/account/AccountPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
 import { useAuth, AuthProvider } from "@/providers/AuthProvider";
@@ -42,7 +43,10 @@ export function App(): JSX.Element {
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Navigate to="/home" replace />} />
                     <Route path="/home" element={<HomePage />} />
-                    {ROUTABLE_NAV_ITEMS.filter((item) => item.path !== "/home").map((item) => (
+                    <Route path="/subscription/account" element={<AccountPage />} />
+                    {ROUTABLE_NAV_ITEMS.filter(
+                      (item) => item.path !== "/home" && item.path !== "/subscription/account",
+                    ).map((item) => (
                       <Route
                         key={item.path}
                         path={item.path}

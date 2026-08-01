@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rls import set_tenant_context
+from app.integrations.storage.base import FileStorage
 
 
 async def get_tenant_id(x_tenant_id: str | None = Header(default=None)) -> UUID:
@@ -41,3 +42,7 @@ async def get_session(
 
 async def get_redis(request: Request) -> Redis:
     return cast(Redis, request.app.state.redis)
+
+
+async def get_file_storage(request: Request) -> FileStorage:
+    return cast(FileStorage, request.app.state.file_storage)

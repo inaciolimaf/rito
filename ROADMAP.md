@@ -55,7 +55,7 @@ Pente fino em 001–009: cobertura, SOLID, duplicação, tipos frouxos, tempo de
 
 ## Fase 1 — Cadastros base (011–020)
 
-### ⬜ 011 — Escritório (account)
+### ✅ 011 — Escritório (account)
 Dados do escritório: razão social, fantasia, CNPJ, endereço, e-mails principal e financeiro, site, logotipo, **timezone** (8 opções BR/PT).
 **Aceite:** CRUD + upload de logo. **t:** 3 s. **Deps:** 005
 

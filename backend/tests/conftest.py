@@ -25,6 +25,13 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ["REDIS_URL"] = os.environ.get("TEST_REDIS_URL", "redis://localhost:6379/15")
     os.environ["ARGON2_TIME_COST"] = os.environ.get("TEST_ARGON2_TIME_COST", "1")
     os.environ["ARGON2_MEMORY_COST"] = os.environ.get("TEST_ARGON2_MEMORY_COST", "8192")
+    # MinIO é infra local (como Postgres/Redis) — testes de logo (spec 011) usam o serviço
+    # de verdade do docker-compose, só num bucket separado do de dev, nunca um fake.
+    os.environ["S3_ENDPOINT_URL"] = os.environ.get("TEST_S3_ENDPOINT_URL", "http://localhost:9000")
+    os.environ["S3_ACCESS_KEY"] = os.environ.get("TEST_S3_ACCESS_KEY", "minioadmin")
+    os.environ["S3_SECRET_KEY"] = os.environ.get("TEST_S3_SECRET_KEY", "minioadmin")
+    os.environ["S3_BUCKET"] = os.environ.get("TEST_S3_BUCKET", "rito-test")
+    os.environ["S3_REGION"] = os.environ.get("TEST_S3_REGION", "us-east-1")
 
 
 @pytest.fixture

@@ -77,3 +77,14 @@ cobertura de linha, o retorno de instalar uma ferramenta dedicada ainda é baixo
 
 **Spec-alvo:** reavaliar na 020 ou quando a base de código crescer o suficiente para
 inspeção manual deixar de ser confiável.
+
+## 8. `S3FileStorage._ensure_bucket` não cobre o branch de corrida (`BucketAlreadyOwnedByYou`)
+
+O `create_bucket` só roda quando `head_bucket` falha (bucket não existe) — testado com um
+nome de bucket nunca visto (spec 011). O catch de `BucketAlreadyOwnedByYou`/
+`BucketAlreadyExists` (dois workers de `pytest -n auto` tentando criar o mesmo bucket ao
+mesmo tempo) exigiria forçar uma corrida de verdade entre processos, o que não é
+determinístico o suficiente para um teste confiável.
+
+**Spec-alvo:** nenhuma — aceito, mesma categoria do item 6 (código correto, caminho de
+erro só exercitável por condição de corrida real).

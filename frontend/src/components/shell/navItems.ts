@@ -42,7 +42,9 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Configurações", path: "/settings", icon: Settings, capability: "settings.manage" },
   {
     label: "Conta e assinatura",
-    path: "/subscription",
+    // Só "Dados da conta" existe até aqui (spec 011) — plano/assinatura é fora do clone
+    // (CLAUDE.md, spec 011 seção 3), então o item já aponta direto pro sub-caminho real.
+    path: "/subscription/account",
     icon: CreditCard,
     capability: "settings.manage",
   },

@@ -1,11 +1,15 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 2,
+  "last_measured_wall_clock_seconds": 3,
   "last_measured_at": "2026-08-01",
   "specs": {
     "001": {
       "wall_clock_seconds": 2,
       "notes": "Só smoke tests (1 backend, 1 frontend). E2E ainda sem jornadas."
+    },
+    "002": {
+      "wall_clock_seconds": 3,
+      "notes": "9 testes backend (health, errors RFC7807, config, logging) + 1 smoke frontend. E2E ainda sem jornadas."
     }
   }
 }

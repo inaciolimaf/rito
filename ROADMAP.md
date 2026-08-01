@@ -15,7 +15,7 @@ A soma de todos os acréscimos não pode levar o total acima de **120 s**.
 Estrutura `backend/`, `frontend/`, `e2e/`; Docker Compose com Postgres 16 + Redis 7; Makefile com todos os alvos; `.env.example`; pre-commit (ruff, black, eslint, prettier).
 **Aceite:** `make up && make dev` sobe tudo do zero em máquina limpa. **t:** 0 s. **Deps:** —
 
-### ⬜ 002 — Esqueleto do backend
+### ✅ 002 — Esqueleto do backend
 FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic Settings, healthcheck, error handler RFC 7807, logging estruturado.
 **Aceite:** `GET /health` retorna 200; migration inicial aplica. **t:** 3 s. **Deps:** 001
 

@@ -12,7 +12,8 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 001 de 100 concluída.** Monorepo, Docker Compose e tooling no chão — próxima é a 002.
+🚧 **Spec 002 de 100 concluída.** Monorepo e esqueleto do backend (FastAPI, Alembic, health) —
+próxima é a 003 (multi-tenancy com RLS).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

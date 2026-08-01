@@ -1,7 +1,7 @@
 # 002 — Esqueleto do backend
 
 **Fase:** 0 · **Tipo:** feature · **Orçamento:** +3 s
-**Depende de:** 001 · **Status:** ⬜ pendente
+**Depende de:** 001 · **Status:** ✅ concluída
 
 ---
 
@@ -79,11 +79,29 @@ Nenhum.
 
 ## 9. Descobertas
 
-*(preencher)*
+- Healthchecks usam `request.app.state.session_factory`/`request.app.state.redis`, criados no
+  `lifespan` do `main.py` — nenhum outro módulo instancia engine/cliente próprio (regra 5).
+- Handlers RFC 7807 (`app/core/errors.py`) registrados para `RequestValidationError`,
+  `StarletteHTTPException` e `Exception` (catch-all). Testados com uma app FastAPI descartável
+  em `tests/integration/test_errors.py`, já que a 002 não cria nenhum endpoint de domínio para
+  exercitar validação de payload.
+- `jsonable_encoder` é usado antes de montar o `JSONResponse` do erro porque
+  `RequestValidationError.errors()` pode conter objetos não serializáveis (`ctx.error` do
+  Pydantic v2 embala a exceção original) — `json.dumps` puro quebraria nesse caso.
+- **Ambiente de execução do agente:** o Docker deste sandbox roda via um sidecar
+  Docker-in-Docker (`DOCKER_HOST=tcp://dind:2375`) que não compartilha namespace de rede com o
+  shell — portas publicadas em `localhost` pelo `docker-compose.yml` não são alcançáveis daqui;
+  o host correto *só neste ambiente* é `dind` (ex.: `postgresql+asyncpg://rito:rito@dind:5432/rito_test`).
+  Isso é peculiaridade local do sandbox, não do projeto: `.env.example` continua correto com
+  `localhost` para qualquer máquina real. Para rodar os testes de integração aqui, exportei
+  `TEST_DATABASE_URL`/`TEST_REDIS_URL` apontando para `dind` antes de `make test` — os próximos
+  ciclos do loop vão precisar do mesmo ajuste sempre que os testes tocarem Postgres/Redis.
+- Nenhuma tabela de domínio, tenancy ou auth foi tocada — confirma o "fora de escopo" da spec.
 
 ## 10. Definição de pronto
 
-- [ ] `alembic upgrade head` do zero funciona
-- [ ] Healthchecks corretos
-- [ ] `make test` verde
-- [ ] Commit `feat(002): esqueleto do backend`
+- [x] `alembic upgrade head` do zero funciona (validado em `rito` e `rito_test`)
+- [x] Healthchecks corretos (`/health` sempre 200; `/health/ready` 503 quando Postgres ou
+      Redis estão fora, testado isoladamente para Redis)
+- [x] `make test` verde — 9 testes, wall-clock ~3s (orçamento 120s)
+- [x] Commit `feat(002): esqueleto do backend`

@@ -12,7 +12,7 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 001 de 100.** Nada implementado ainda — o repositório contém a especificação completa.
+🚧 **Spec 001 de 100 concluída.** Monorepo, Docker Compose e tooling no chão — próxima é a 002.
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

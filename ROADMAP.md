@@ -11,7 +11,7 @@ A soma de todos os acréscimos não pode levar o total acima de **120 s**.
 
 ## Fase 0 — Fundação (001–010)
 
-### ⬜ 001 — Monorepo, tooling e ambiente
+### ✅ 001 — Monorepo, tooling e ambiente
 Estrutura `backend/`, `frontend/`, `e2e/`; Docker Compose com Postgres 16 + Redis 7; Makefile com todos os alvos; `.env.example`; pre-commit (ruff, black, eslint, prettier).
 **Aceite:** `make up && make dev` sobe tudo do zero em máquina limpa. **t:** 0 s. **Deps:** —
 

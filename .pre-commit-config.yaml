@@ -1,0 +1,36 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        files: ^backend/
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        files: ^backend/
+        additional_dependencies: [pydantic>=2.9]
+
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: bash -c 'cd frontend && npx eslint .'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      - id: prettier
+        name: prettier
+        entry: bash -c 'cd frontend && npx prettier --check .'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|css|json)$
+        pass_filenames: false

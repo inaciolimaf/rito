@@ -1,7 +1,7 @@
 # 003 — Multi-tenancy com Row Level Security
 
 **Fase:** 0 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 002 · **Status:** ⬜ pendente
+**Depende de:** 002 · **Status:** ✅ concluída
 
 ---
 
@@ -87,11 +87,62 @@ Nenhum.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Role de aplicação de verdade, não decorativa.** `POSTGRES_USER=rito` (docker-compose) vira
+  superusuário do cluster no imagem oficial do Postgres — superusuário **sempre** ignora RLS,
+  mesmo com `FORCE ROW LEVEL SECURITY`. Se os testes continuassem conectando como `rito`, os 5
+  testes de isolamento passariam ou falhariam por acidente, sem nunca exercitar a política de
+  fato. Por isso a migration cria a role `rito_app` (sem `BYPASSRLS`, sem `SUPERUSER`) e o
+  runtime/testes passaram a usar duas connection strings: `DATABASE_URL` (role `rito_app`, RLS
+  vale) e `MIGRATIONS_DATABASE_URL` (superusuário `rito`, só para `alembic upgrade`, que precisa
+  criar tabela/role/policy). `.env.example` documenta as duas, com os pares `TEST_*` equivalentes.
+- `CREATE ROLE` é operação de **cluster**, não de banco — `rito` e `rito_test` são dois bancos
+  no mesmo cluster Postgres. A migration usa um bloco `DO $$ ... IF NOT EXISTS ... $$` para criar
+  a role de forma idempotente (ela só é criada da primeira vez, em qualquer um dos dois bancos
+  que rodar a migration primeiro); os `GRANT`s, esses sim por banco, rodam sempre.
+- `SET LOCAL app.tenant_id = ...` não aceita bind parameter no asyncpg (comando `SET` não passa
+  pelo protocolo estendido do Postgres). O helper `set_tenant_context` usa
+  `SELECT set_config('app.tenant_id', :tenant_id, true)` em vez disso — `set_config` é uma
+  função normal, aceita parâmetro ligado, e `is_local=true` tem o mesmo efeito transacional do
+  `SET LOCAL`.
+- **GUC customizado "resetado" não é NULL depois do primeiro uso na conexão.** Descoberto no
+  teste de "sem contexto → 0 linhas": a primeira vez que uma conexão nunca tocou
+  `current_setting('app.tenant_id', true)` ele devolve `NULL`; mas depois que a MESMA conexão
+  física já rodou `set_config(...)` uma vez (mesmo com `is_local=true`, mesmo já tendo
+  commitado), o Postgres cria um placeholder para o GUC cujo valor "resetado" passa a ser `''`
+  (string vazia) para o resto da vida daquela conexão — e `''::uuid` levanta erro em vez de
+  devolver `NULL`. Isso é seguro nos dois formatos (nunca vaza linha), só muda o sintoma (0
+  linhas vs. exceção). O teste
+  `test_query_without_tenant_context_returns_zero_rows` aceita ambos; comentário no próprio
+  teste explica o porquê.
+- **Corrida entre workers do `pytest -n auto`.** A tabela de exemplo `tenant_probe` (só para os
+  5 testes de RLS) precisou de um nome único por worker do xdist
+  (`tenant_probe_{worker_id}`, via a fixture nativa `worker_id` do `pytest-xdist`) — sem isso,
+  workers concorrentes criando/derrubando a mesma tabela colidiam de forma não-determinística
+  (`4 workers`, falhas diferentes a cada rodada). Rodei a suíte 4x seguidas com `-n auto` para
+  confirmar que a corrida sumiu.
+- `get_tenant_id`/`get_session` (dependências FastAPI em `app/core/deps.py`) ainda não têm
+  nenhum router de domínio para exercitá-los ponta a ponta — não há teste HTTP direto deles
+  nesta spec porque o plano de testes não pedia (só os 5 de RLS + 2 unit). Cobertura real via
+  HTTP chega com o primeiro CRUD de domínio (011+). `health.py` continua usando
+  `request.app.state.session_factory` direto, sem tenant — decisão deliberada, health check não
+  toca tabela nenhuma sujeita a RLS.
+- `downgrade()` da migration não tenta apagar a role `rito_app`: ela é compartilhada entre
+  `rito` e `rito_test` no mesmo cluster, e `DROP ROLE` falha com "objects depend on it" se
+  houver qualquer grant pendente em QUALQUER banco do cluster, não só o que está rodando o
+  downgrade. O downgrade só desfaz os grants daquele banco e derruba a tabela `tenants` — a
+  role, se for realmente preciso removê-la, é uma ação manual fora de migration.
+- Removi `get_session_from_factory` (`app/core/db.py`), que sobrou da 002 sem nenhum uso —
+  substituído por `create_engine_from_url` (usado pelos testes para instanciar engines com
+  `MIGRATIONS_DATABASE_URL`/`DATABASE_URL` explícitas, fora do `get_settings()` cacheado).
+  `BaseRepository`/`build_keyset_query` usam a nova sintaxe de generics do Python 3.12
+  (`class BaseRepository[ModelT: Base]`) em vez de `TypeVar`+`Generic` — `ruff` (regra `UP046`/
+  `UP047`) sinalizou a forma antiga como código a modernizar.
 
 ## 10. Definição de pronto
 
-- [ ] Os 5 testes de RLS passam
-- [ ] Helper `enable_rls` pronto para as specs seguintes
-- [ ] `BaseRepository` documentado no `CLAUDE.md` se a interface mudar
-- [ ] Commit `feat(003): multi-tenancy com RLS`
+- [x] Os 5 testes de RLS passam (rodado 4x com `-n auto` para validar contra corrida entre
+      workers)
+- [x] Helper `enable_rls`/`enable_rls_statements` pronto para as specs seguintes
+- [x] `BaseRepository` — interface bate com o que o `CLAUDE.md` já descreve (CRUD + paginação
+      keyset); nada a atualizar lá
+- [x] Commit `feat(003): multi-tenancy com RLS`

@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = 30
 
     database_url: str
+    migrations_database_url: str | None = None
     redis_url: str
 
     s3_endpoint_url: str | None = None

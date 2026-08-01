@@ -13,7 +13,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+_settings = get_settings()
+if _settings.migrations_database_url is None:
+    raise RuntimeError("MIGRATIONS_DATABASE_URL não configurada.")
+config.set_main_option("sqlalchemy.url", _settings.migrations_database_url)
 
 target_metadata = None
 

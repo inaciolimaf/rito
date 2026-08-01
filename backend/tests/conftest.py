@@ -11,7 +11,14 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ.setdefault(
         "DATABASE_URL",
         os.environ.get(
-            "TEST_DATABASE_URL", "postgresql+asyncpg://rito:rito@localhost:5432/rito_test"
+            "TEST_DATABASE_URL", "postgresql+asyncpg://rito_app:rito_app@localhost:5432/rito_test"
+        ),
+    )
+    os.environ.setdefault(
+        "MIGRATIONS_DATABASE_URL",
+        os.environ.get(
+            "TEST_MIGRATIONS_DATABASE_URL",
+            "postgresql+asyncpg://rito:rito@localhost:5432/rito_test",
         ),
     )
     os.environ.setdefault(

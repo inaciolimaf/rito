@@ -12,8 +12,8 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 002 de 100 concluída.** Monorepo e esqueleto do backend (FastAPI, Alembic, health) —
-próxima é a 003 (multi-tenancy com RLS).
+🚧 **Spec 003 de 100 concluída.** Monorepo, esqueleto do backend e multi-tenancy com Row Level
+Security — próxima é a 004 (autenticação).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

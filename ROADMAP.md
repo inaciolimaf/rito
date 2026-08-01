@@ -19,7 +19,7 @@ Estrutura `backend/`, `frontend/`, `e2e/`; Docker Compose com Postgres 16 + Redi
 FastAPI, SQLAlchemy 2.0 async, Alembic, Pydantic Settings, healthcheck, error handler RFC 7807, logging estruturado.
 **Aceite:** `GET /health` retorna 200; migration inicial aplica. **t:** 3 s. **Deps:** 001
 
-### ⬜ 003 — Multi-tenancy com RLS
+### ✅ 003 — Multi-tenancy com RLS
 Tabela `tenants`; `tenant_id` + política RLS; `set_tenant_context()` na sessão; middleware que resolve tenant; `BaseRepository`.
 **Aceite:** tenant A não lê linha de tenant B nem com query crua. **t:** 5 s. **Deps:** 002
 

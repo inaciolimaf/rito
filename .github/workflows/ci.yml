@@ -88,6 +88,9 @@ jobs:
         working-directory: e2e
         run: npx playwright install --with-deps chromium
 
+      - name: Aplica migrations no banco de dev (usado pelo webServer do e2e)
+        run: make migrate
+
       - name: make lint
         run: make lint
 

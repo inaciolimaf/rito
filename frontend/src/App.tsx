@@ -8,8 +8,10 @@ import { ModulePlaceholderPage } from "@/components/shell/ModulePlaceholderPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage";
 import { ROUTABLE_NAV_ITEMS } from "@/components/shell/navItems";
 import { AccountPage } from "@/features/account/AccountPage";
+import { ActionGroupsListPage } from "@/features/action-groups/ActionGroupsListPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
+import { LawsuitTypesListPage } from "@/features/lawsuit-types/LawsuitTypesListPage";
 import { UserDetailPage } from "@/features/users/UserDetailPage";
 import { UsersSettingsPage } from "@/features/users/UsersSettingsPage";
 import { useAuth, AuthProvider } from "@/providers/AuthProvider";
@@ -48,6 +50,8 @@ export function App(): JSX.Element {
                     <Route path="/subscription/account" element={<AccountPage />} />
                     <Route path="/settings/users" element={<UsersSettingsPage />} />
                     <Route path="/settings/users/:id" element={<UserDetailPage />} />
+                    <Route path="/settings/action-groups" element={<ActionGroupsListPage />} />
+                    <Route path="/settings/lawsuit-types" element={<LawsuitTypesListPage />} />
                     {ROUTABLE_NAV_ITEMS.filter(
                       (item) => item.path !== "/home" && item.path !== "/subscription/account",
                     ).map((item) => (

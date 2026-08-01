@@ -67,7 +67,7 @@ CRUD, convite por e-mail, 66 cargos, OAB/UF, jornada (`work_start`/`interval`/`e
 CRUD de times com membros; atribuição de tarefa a time inteiro (preparo).
 **Aceite:** time com N membros; remoção não apaga usuário. **t:** 3 s. **Deps:** 012
 
-### ⬜ 014 — Grupos e tipos de ação
+### ✅ 014 — Grupos e tipos de ação
 `groups` (6 padrão) com responsável por intimações; `type_lawsuits` vinculados a grupo; transferência em lote.
 **Aceite:** tipo herda grupo; transferência remaneja processos. **t:** 4 s. **Deps:** 011
 

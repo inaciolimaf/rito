@@ -10,6 +10,7 @@ import { ROUTABLE_NAV_ITEMS } from "@/components/shell/navItems";
 import { AccountPage } from "@/features/account/AccountPage";
 import { ActionGroupsListPage } from "@/features/action-groups/ActionGroupsListPage";
 import { LoginPage } from "@/features/auth/LoginPage";
+import { CustomerOriginsListPage } from "@/features/customer-origins/CustomerOriginsListPage";
 import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
 import { LawsuitTypesListPage } from "@/features/lawsuit-types/LawsuitTypesListPage";
 import { StagesListPage } from "@/features/stages/StagesListPage";
@@ -54,6 +55,7 @@ export function App(): JSX.Element {
                     <Route path="/settings/action-groups" element={<ActionGroupsListPage />} />
                     <Route path="/settings/lawsuit-types" element={<LawsuitTypesListPage />} />
                     <Route path="/settings/stages" element={<StagesListPage />} />
+                    <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
                     {ROUTABLE_NAV_ITEMS.filter(
                       (item) => item.path !== "/home" && item.path !== "/subscription/account",
                     ).map((item) => (

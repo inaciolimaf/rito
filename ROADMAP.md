@@ -75,7 +75,7 @@ CRUD de times com membros; atribuição de tarefa a time inteiro (preparo).
 `steps` (9 fixas, seed imutável); `stages` (59 padrão) com fase, `enable_stagnant_days`, `stagnant_days`, workflow sugerido; transferência em lote.
 **Aceite:** etapa sempre pertence a uma fase; estagnação configurável. **t:** 4 s. **Deps:** 014
 
-### ⬜ 016 — Origem de pessoas
+### ✅ 016 — Origem de pessoas
 CRUD das origens (8 padrão) + transferência em lote.
 **Aceite:** origem em uso não é apagada sem transferência. **t:** 2 s. **Deps:** 011
 

@@ -37,6 +37,8 @@ def _problem_response(
     status_code: int,
     detail: str,
     instance: str,
+    # Any: cada chamador tem uma forma diferente de erro de campo (RequestValidationError
+    # do Pydantic, lista de strings da política de senha) — RFC 7807 não fixa um schema.
     errors: Sequence[Any] | None = None,
 ) -> JSONResponse:
     slug = _SLUGS_BY_STATUS.get(status_code, "error")
@@ -69,6 +71,8 @@ async def handle_validation_error(request: Request, exc: Exception) -> JSONRespo
 
 async def handle_http_exception(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)
+    # Any: starlette tipa HTTPException.detail como Any — pode ser str ou o dict
+    # {"detail", "errors"} da convenção abaixo.
     detail: Any = exc.detail
     errors: Sequence[Any] | None = None
     # Convenção para validação de negócio (não de schema): raise HTTPException(

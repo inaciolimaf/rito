@@ -7,6 +7,8 @@ import { resetMswState } from "@/mocks/handlers";
 import { server } from "@/test/msw-server";
 
 // jsdom não implementa matchMedia — ThemeProvider precisa dele para ler a preferência do SO.
+// as unknown: o polyfill só cobre os campos que o código de produção realmente lê;
+// um MediaQueryList completo exigiria stubs sem uso real neste teste.
 if (!window.matchMedia) {
   window.matchMedia = ((query: string) => ({
     matches: false,

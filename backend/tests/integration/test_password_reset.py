@@ -74,6 +74,30 @@ async def test_forgot_password_always_returns_202(
     assert unknown_email_response.status_code == 202
 
 
+async def test_reset_password_com_senha_fraca_retorna_422_com_lista_de_erros(
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    seeded = await make_user()
+    headers = {"X-Tenant-Id": str(seeded.tenant_id)}
+    redis: Redis = app.state.redis
+
+    raw_token = await _generate_reset_token(app_session_factory, redis, seeded)
+
+    response = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": raw_token, "password": "fraca"},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["detail"] == "Senha não atende à política."
+    assert isinstance(body["errors"], list)
+    assert len(body["errors"]) > 0
+
+
 async def test_login_rate_limit_after_five_attempts(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:

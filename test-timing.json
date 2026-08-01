@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 27,
+  "last_measured_wall_clock_seconds": 20,
   "last_measured_at": "2026-08-01",
   "specs": {
     "001": {
@@ -38,6 +38,10 @@
     "009": {
       "wall_clock_seconds": 20,
       "notes": "59 testes backend (54 anteriores + 5 meta: bloqueio de rede real via pytest-socket, banco de teste já na head antes do teste rodar, budget de @pytest.mark.slow, gate de run-tests.sh cobrindo falha de suíte e estouro de wall-clock) + 39 testes frontend (inalterado) + 3 e2e (as 2 jornadas anteriores + meta de contagem de jornadas ≤ 25). scripts/run-tests.sh agora roda `alembic upgrade head` uma vez por invocação antes do -n auto, expõe main() sourceable para o teste do gate, e auto-atualiza last_measured_*. Makefile ganhou test-backend/test-frontend/test-e2e granulares."
+    },
+    "010": {
+      "wall_clock_seconds": 27,
+      "notes": "Refatoração (sem mudança de comportamento). 73 testes backend (59 anteriores + 14 novos de cobertura de erro: X-Tenant-Id ausente/inválido, get_current_user sem token/token inválido/usuário inativo, refresh com token desconhecido/expirado, reset-password com senha fraca, isolamento de tenant em refresh_tokens/password_reset_tokens, BaseRepository.list_paginated/delete via Postgres real, exceção formatada no log) — cobertura de `app/` foi de 96% para 99%, os 2 pontos restantes são branches estruturalmente inalcançáveis/não instrumentáveis, documentados em docs/DIVIDA-TECNICA.md. 39 testes frontend (inalterado) + 3 e2e (inalterado). Migration 006 adiciona 3 índices faltando (FK/filtro sem índice). Todos os 59 testes pré-existentes passaram sem edição."
     }
   }
 }

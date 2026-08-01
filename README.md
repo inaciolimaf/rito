@@ -12,11 +12,13 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 009 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação, RBAC) +
-frontend com login real, design system de domínio e o app shell navegável (sidebar de 15
-itens, busca global, breadcrumbs) + pipeline de testes com gate de 120s executável (rede
-real bloqueada, contador de jornadas e2e, CI no GitHub Actions) — próxima é a 010
-(refatoração da Fase 0).
+🚧 **Spec 010 de 100 concluída — Fase 0 (Fundação) fechada.** Backend completo
+(multi-tenancy, RLS, autenticação, RBAC) + frontend com login real, design system de
+domínio e o app shell navegável (sidebar de 15 itens, busca global, breadcrumbs) + pipeline
+de testes com gate de 120s executável (rede real bloqueada, contador de jornadas e2e, CI no
+GitHub Actions) + pente fino de refatoração (99% de cobertura, índices de FK, `mypy --strict`
+e `tsc` verdes, decisões arquiteturais documentadas em `docs/DECISOES.md`) — próxima é a 011
+(Escritório/account), início da Fase 1.
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

@@ -47,7 +47,7 @@ Sidebar com os 15 itens, header, busca global (Tudo/Pessoas/Processos), dropdown
 `pytest -n auto` + template DB + rollback por teste; Vitest threads; Playwright sharded; `make test` roda as 3 concorrentes; script que **falha se wall-clock > 120 s**; GitHub Actions.
 **Aceite:** CI verde e reporta wall-clock. **t:** 0 s (é a própria infra). **Deps:** 002, 006
 
-### ⬜ 010 — 🔧 REFATORAÇÃO — Fundação
+### ✅ 010 — 🔧 REFATORAÇÃO — Fundação
 Pente fino em 001–009: cobertura, SOLID, duplicação, tipos frouxos, tempo de suíte.
 **Aceite:** sem mudança de comportamento; testes antigos passam sem edição. **t:** −
 

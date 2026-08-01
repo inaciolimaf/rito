@@ -1,6 +1,7 @@
 from httpx import AsyncClient
 from redis.asyncio import Redis
 
+from app.core.db import create_engine_from_url, create_session_factory
 from app.main import app
 
 
@@ -33,3 +34,19 @@ async def test_health_ready_returns_503_when_redis_down(client: AsyncClient) -> 
     body = response.json()
     assert body["redis"] == "error"
     assert body["database"] == "ok"
+
+
+async def test_health_ready_returns_503_when_database_down(client: AsyncClient) -> None:
+    original_factory = app.state.session_factory
+    broken_engine = create_engine_from_url("postgresql+asyncpg://x:x@localhost:1/x")
+    app.state.session_factory = create_session_factory(broken_engine)
+    try:
+        response = await client.get("/health/ready")
+    finally:
+        await broken_engine.dispose()
+        app.state.session_factory = original_factory
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["database"] == "error"
+    assert body["redis"] == "ok"

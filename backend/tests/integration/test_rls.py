@@ -33,6 +33,8 @@ async def _insert_row(
             ),
             {"tenant_id": str(tenant_id), "label": label},
         )
+        # text() é SQL não tipado — scalar_one() devolve Any; a função declara -> UUID
+        # porque é o tipo real da coluna id.
         return result.scalar_one()  # type: ignore[no-any-return]
 
 

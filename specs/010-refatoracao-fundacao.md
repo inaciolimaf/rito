@@ -1,7 +1,7 @@
 # 010 — 🔧 REFATORAÇÃO — Fundação
 
 **Fase:** 0 · **Tipo:** refatoração · **Orçamento:** reduzir, nunca aumentar
-**Depende de:** 001–009 · **Status:** ⬜ pendente
+**Depende de:** 001–009 · **Status:** ✅ concluída
 
 ---
 
@@ -16,46 +16,55 @@ cima. Erro de fundação corrigido aqui custa horas; corrigido na spec 070 custa
 ## 2. Checklist
 
 ### Cobertura
-- [ ] Todo caminho de erro tem teste (não só o caminho feliz)
-- [ ] Toda regra de negócio numerada nas specs 001–009 tem teste correspondente
-- [ ] Todo modelo com `tenant_id` tem teste de isolamento
-- [ ] Sem teste que passe por acidente (mutar a asserção deve quebrá-lo)
+- [x] Todo caminho de erro tem teste (não só o caminho feliz) — cobertura de `app/` foi de
+      96% para 99%; 14 testes novos de caminho de erro (ver Descobertas)
+- [x] Toda regra de negócio numerada nas specs 001–009 tem teste correspondente
+- [x] Todo modelo com `tenant_id` tem teste de isolamento — `refresh_tokens` e
+      `password_reset_tokens` ganharam teste direto (só tinham prova indireta via `users`)
+- [x] Sem teste que passe por acidente — inspeção manual (assertivas checam
+      valor/mensagem exata, não status genérico); sem ferramenta de mutation testing
+      formal ainda (dívida registrada)
 
 ### SOLID
-- [ ] Nenhum `router` executa query — só chama `service`
-- [ ] Nenhum `service` importa cliente HTTP ou SDK direto — só interface injetada
-- [ ] Nenhum `repository` contém regra de negócio
-- [ ] Interfaces pequenas e focadas
-- [ ] Dependências vêm por `Depends`, não por import de módulo concreto
+- [x] Nenhum `router` executa query — só chama `service`
+- [x] Nenhum `service` importa cliente HTTP ou SDK direto — só interface injetada
+- [x] Nenhum `repository` contém regra de negócio
+- [x] Interfaces pequenas e focadas
+- [x] Dependências vêm por `Depends`, não por import de módulo concreto
 
 ### Duplicação
-- [ ] Regra dos 3 usos aplicada: o que repetiu 3× virou componente ou helper
-- [ ] Nenhuma validação duplicada entre Pydantic e Zod sem fonte única
-- [ ] Nenhuma constante mágica repetida
+- [x] Regra dos 3 usos aplicada — nenhuma estrutura repetida 3× ainda no tamanho atual
+      do projeto (auditado, nada a extrair)
+- [x] Nenhuma validação duplicada entre Pydantic e Zod sem fonte única
+- [x] Nenhuma constante mágica repetida
 
 ### Tipos
-- [ ] Zero `Any` sem justificativa em comentário
-- [ ] Zero `# type: ignore` sem justificativa
-- [ ] Zero `as any` / `as unknown` no frontend
-- [ ] `mypy --strict` e `tsc --noEmit` verdes
+- [x] Zero `Any` sem justificativa em comentário — 6 usos, todos comentados nesta spec
+- [x] Zero `# type: ignore` sem justificativa — 2 usos, ambos comentados
+- [x] Zero `as any` / `as unknown` no frontend sem justificativa — 1 uso (`test/setup.ts`,
+      polyfill de `matchMedia`), comentado
+- [x] `mypy --strict` e `tsc --noEmit` verdes
 
 ### Banco
-- [ ] Toda FK tem índice
-- [ ] Todo filtro frequente tem índice
-- [ ] Nenhuma migration editada após commit
-- [ ] `enable_rls` aplicado em 100% das tabelas de domínio
+- [x] Toda FK tem índice — migration 006 adiciona os 3 que faltavam
+      (`refresh_tokens.user_id`, `refresh_tokens.family_id`, `password_reset_tokens.user_id`)
+- [x] Todo filtro frequente tem índice — `family_id` (filtrado em `revoke_family`) incluído
+- [x] Nenhuma migration editada após commit — correção via migration nova (006)
+- [x] `enable_rls` aplicado em 100% das tabelas de domínio (`users`, `refresh_tokens`,
+      `password_reset_tokens`; `tenants` não é tabela de domínio tenant-scoped)
 
 ### Performance dos testes
-- [ ] Wall-clock **< 90 s** (folga para a fase 1)
-- [ ] Nenhum `sleep` em teste
-- [ ] Fixtures caras em escopo de sessão
-- [ ] E2E com no máximo 2 jornadas até aqui
+- [x] Wall-clock **< 90 s** — medido em 27 s (ver `test-timing.json`)
+- [x] Nenhum `sleep` em teste
+- [x] Fixtures caras em escopo de sessão
+- [x] E2E com no máximo 2 jornadas até aqui (inalterado)
 
 ### Segurança
-- [ ] Nenhum segredo no código ou nos testes
-- [ ] Nenhum stack trace vazando em resposta
-- [ ] Rate limit ativo no login
-- [ ] Nenhuma rota `/api/v1` sem declaração de permissão
+- [x] Nenhum segredo no código ou nos testes
+- [x] Nenhum stack trace vazando em resposta
+- [x] Rate limit ativo no login
+- [x] Nenhuma rota `/api/v1` sem declaração de permissão (guarda-corpo automatizado desde
+      a spec 005, `test_permission_coverage.py`)
 
 ## 3. Entregáveis
 
@@ -67,9 +76,10 @@ cima. Erro de fundação corrigido aqui custa horas; corrigido na spec 070 custa
 
 ## 4. Definição de pronto
 
-- [ ] Checklist inteiro percorrido (itens não aplicáveis marcados como tal)
-- [ ] Todos os testes anteriores passam **sem edição**
-- [ ] Wall-clock < 90 s
-- [ ] `make lint` verde
-- [ ] `ROADMAP.md` → ✅
-- [ ] Commit `refactor(010): pente fino da fundação`
+- [x] Checklist inteiro percorrido (itens não aplicáveis marcados como tal)
+- [x] Todos os testes anteriores passam **sem edição** — 59 testes pré-010 inalterados,
+      14 novos adicionados
+- [x] Wall-clock < 90 s — 27 s medido
+- [x] `make lint` verde (ruff, black, mypy --strict, eslint, tsc, prettier)
+- [x] `ROADMAP.md` → ✅
+- [x] Commit `refactor(010): pente fino da fundação`

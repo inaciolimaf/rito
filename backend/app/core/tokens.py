@@ -14,6 +14,7 @@ _JWT_ALGORITHM = "HS256"
 def create_access_token(*, user_id: uuid.UUID, tenant_id: uuid.UUID) -> str:
     settings = get_settings()
     now = datetime.now(UTC)
+    # Any: jwt.encode espera dict[str, Any] (claims JWT misturam str/datetime por spec).
     payload: dict[str, Any] = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),
@@ -25,6 +26,8 @@ def create_access_token(*, user_id: uuid.UUID, tenant_id: uuid.UUID) -> str:
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
+    # Any: claims do JWT são abertos por definição — quem decodifica sabe o schema
+    # esperado (ver get_current_user), não este módulo genérico.
     settings = get_settings()
     return jwt.decode(token, settings.secret_key, algorithms=[_JWT_ALGORITHM])
 

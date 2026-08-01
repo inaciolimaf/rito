@@ -59,7 +59,7 @@ Pente fino em 001–009: cobertura, SOLID, duplicação, tipos frouxos, tempo de
 Dados do escritório: razão social, fantasia, CNPJ, endereço, e-mails principal e financeiro, site, logotipo, **timezone** (8 opções BR/PT).
 **Aceite:** CRUD + upload de logo. **t:** 3 s. **Deps:** 005
 
-### ⬜ 012 — Usuários
+### ✅ 012 — Usuários
 CRUD, convite por e-mail, 66 cargos, OAB/UF, jornada (`work_start`/`interval`/`end`), salário, admissão/demissão, meta de pontos, ativo/inativo.
 **Aceite:** convite gera cadastro pendente; jornada valida. **t:** 6 s. **Deps:** 011
 

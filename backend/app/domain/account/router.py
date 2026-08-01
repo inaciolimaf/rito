@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_file_storage
+from app.core.image_processing import InvalidImageError
 from app.core.permissions import UserRole, require_role
-from app.domain.account.exceptions import AccountNotFoundError, InvalidLogoError
+from app.domain.account.exceptions import AccountNotFoundError
 from app.domain.account.models import Account
 from app.domain.account.schemas import AccountResponse, AccountUpdateRequest
 from app.domain.account.service import AccountService
@@ -75,7 +76,7 @@ async def upload_account_logo(
     content_type = file.content_type or "application/octet-stream"
     try:
         account = await service.upload_logo(content, content_type)
-    except InvalidLogoError as exc:
+    except InvalidImageError as exc:
         raise HTTPException(status_code=422, detail=exc.message) from exc
     except AccountNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Conta ainda não configurada.") from exc

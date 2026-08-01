@@ -9,7 +9,9 @@ from app.domain.users.models import UserRole
 from app.main import app
 
 # Prefixos isentos: /health não passa por /api/v1; /auth é pré-JWT (spec 004, ver Descobertas).
-_EXEMPT_PREFIXES = ("/api/v1/auth",)
+# /invitations/accept também é pré-JWT (spec 012) — só exige X-Tenant-Id, igual /auth,
+# mas vive fora do prefixo /auth porque a spec declara a rota como recurso próprio.
+_EXEMPT_PREFIXES = ("/api/v1/auth", "/api/v1/invitations/accept")
 
 
 def _iter_dependant_calls(dependant: Any) -> Iterator[Any]:

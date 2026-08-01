@@ -63,7 +63,9 @@ class SeededUser:
 def make_user(
     app_session_factory: async_sessionmaker[AsyncSession],
 ) -> Callable[..., Awaitable[SeededUser]]:
-    """Cria tenant (se novo) + usuário direto no banco — não há endpoint de cadastro (spec 012)."""
+    """Cria tenant (se novo) + usuário direto no banco — atalho de teste mais rápido que o
+    fluxo real de convite/aceite (spec 012) para cenários que só precisam de um usuário
+    pronto, não de testar o próprio fluxo de convite."""
 
     async def _make(
         *,

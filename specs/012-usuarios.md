@@ -1,7 +1,7 @@
 # 012 — Usuários
 
 **Fase:** 1 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 011 · **Status:** ⬜ pendente
+**Depende de:** 011 · **Status:** ✅ concluída
 
 ---
 
@@ -119,8 +119,94 @@ Colunas: Nome · Perfil · Meta de pontos · Acesso financeiro · Cadastro
 
 ## 9. Descobertas
 
-*(preencher)*
+**67 cargos, não 66 — a lista real do ADVBOX tem uma duplicata.** O levantamento
+(`docs/ADVBOX-ESPECIFICACAO-COMPLETA.md` linha 365) rotula a seção "66 Cargos", mas a
+lista enumerada tem "Assistente Jurídico" duas vezes — removendo a duplicata exata sobram
+67 nomes únicos. Seedados os 67: o rótulo da fonte é uma contagem aproximada, a lista
+enumerada é o levantamento de verdade (instrução do CLAUDE.md: consultar o ADVBOX para os
+campos e regras reais, não inventar).
+
+**`user_invitations` ganhou `occupation_id`/`financial_access`, que a seção 4 não
+declarava.** O schema original só tinha `email`+`role`. Mas ADVBOX (`users/create`) mostra
+que o cargo e o acesso financeiro são escolhidos no momento do convite/criação, não
+depois — sem persistir os dois na própria invitation, essa escolha se perderia entre
+convidar e aceitar (o `User` só nasce no aceite, ver próximo item). Adicionadas as duas
+colunas, com FK e default consistentes com `users`.
+
+**Convite cria o `User` só no aceite, não no convite (Design B).** A seção 4 não tem
+`user_id` em `user_invitations` — se o `User` nascesse no convite, precisaria desse FK. A
+ausência dele no schema é o sinal de que o desenho pretendido é: convite guarda só
+e-mail/role/cargo/financeiro; `POST /invitations/accept` é quem cria a linha de `users`,
+usando o `name`+`password` que o PRÓPRIO convidado fornece. Isso diverge um pouco do fluxo
+literal do ADVBOX (`name` obrigatório já na criação, preenchido por quem convida) mas
+segue o schema como a spec declarou.
+
+**`POST /users/{id}/avatar` não estava na seção 5, mas a seção 6 pede um
+`AvatarUploader`.** Um componente de upload sem endpoint de destino não faz sentido —
+adicionado o endpoint (self ou ADMINISTRADOR, mesmo escopo de GET/PUT), reaproveitando a
+mesma validação/redimensionamento do logotipo da conta (011). Isso motivou extrair
+`app/domain/account/logo.py` para `app/core/image_processing.py` (renomeado
+`process_image`/`InvalidImageError`, genérico) — é a mesma regra de negócio (PNG/JPG/SVG,
+2 MB, 512px) em dois contextos; manter em `account/` e importar de `users/` seria
+acoplamento entre domínios, duplicar seria repetir ~50 linhas idênticas.
+
+**BaseRepository ganhou o keyset completo — resolve `docs/DIVIDA-TECNICA.md` #1.**
+`GET /api/v1/users` é o primeiro endpoint de listagem real do projeto (`account`, na 011,
+é 1:1, não precisou). `build_sorted_keyset_query` (ordena por uma coluna à escolha + `id`
+como desempate, `WHERE (coluna, id) > (valor, id)` via `tuple_()`) e
+`encode_cursor`/`decode_cursor` (base64) vivem ao lado do `build_keyset_query` antigo (só
+`id`, usado só em teste) — sem alterá-lo, para não arriscar `tests/unit/test_base_repository.py`
+sem necessidade.
+
+**"Próprio usuário ou ADMINISTRADOR" não é so um `require_role`.** `require_role` só
+expressa piso de hierarquia (GESTOR > ADMINISTRADOR > COLABORADOR), não "este usuário
+específico ou aquele papel". `GET/PUT/POST avatar /users/{id}` usam
+`require_role(COLABORADOR)` (satisfaz o scanner de permissão da spec 005/010) e depois
+uma checagem manual (`_ensure_self_or_administrator`) que aceita o próprio id OU
+ADMINISTRADOR/GESTOR — mesma hierarquia, sem duplicar `_ROLE_ORDER` (privado em
+`core/permissions.py`).
+
+**Frontend: conversão HH:MM ↔ formato da API para jornada.** `<input type="time">` nativo
+trabalha em "HH:MM"; a API espera "HH:MM:SS" para `work_start`/`work_end` e duração ISO
+8601 ("PT1H30M", o que Pydantic gera por padrão para `timedelta`) para `work_interval`.
+`features/users/timeFormat.ts` faz as duas conversões nos dois sentidos — sem isso, o
+`WorkScheduleField` não teria como preencher nem enviar esses três campos.
+
+**UF brasileira validada pela primeira vez de verdade.** `state` em `accounts` (011) só
+tinha `CHAR(2)` sem validação de conteúdo. OAB (`NNNNNN/UF`) precisa validar a UF de
+verdade — `BRAZILIAN_UFS` (26 estados + DF) foi para `app/core/br_documents.py`, ao lado
+de CPF/CNPJ (mesma categoria "validação de dado brasileiro"), reaproveitável quando
+`accounts.state`/pessoas (016+) quiserem a mesma validação.
+
+**Gaps conscientes, registrados em `docs/DIVIDA-TECNICA.md` #9 e #10** (não no escopo
+desta spec — a seção "Front-end" não pede nenhum dos dois): não há página pública de
+"aceitar convite" (o backend existe e está testado; falta infra de e-mail para o link
+fazer sentido, e as duas coisas devem nascer juntas numa spec futura); `/settings/users`
+não tem link de navegação ainda (só `/settings/users/:id` direto por URL) — `/settings`
+continua sendo o placeholder genérico até uma spec desenhar a home de Configurações.
+
+**Máximo de 25 jornadas e2e: continua 2/25.** O plano de testes da spec não pede e2e —
+GET/PUT/convite/aceite já cobertos por integração, componentes por teste de frontend.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Seed dos 66 cargos idempotente · Commit `feat(012): usuários`
+- [x] Migration `012_users_full.py` aplicada — occupations (67, seed idempotente por
+      `id` fixo), colunas de RH/jornada em `users`, `user_invitations` com RLS, índices
+      de FK (`occupation_id`, `invited_by`)
+- [x] CRUD de usuários com RBAC (ADMINISTRADOR lista, GESTOR convida/inativa, próprio
+      usuário ou ADMINISTRADOR lê/edita)
+- [x] Convite por e-mail: expira em 7 dias, reenviar invalida o anterior, aceite cria a
+      conta e ativa
+- [x] OAB validada (formato + UF), obrigatória para cargo de advogado; jornada validada
+      (fim > início, intervalo < jornada total); demissão ≥ admissão
+- [x] Último GESTOR ativo não pode ser inativado; usuário não altera o próprio
+      role/financial_access; salário oculto para quem não tem financial_access
+- [x] `UserForm`, `InviteUserModal`, `WorkScheduleField`, `AvatarUploader` criados;
+      `DataTable`/`FilterBar`/`FormModal`/`ConfirmDialog` reutilizados
+- [x] Todos os testes do plano (seção 8) escritos, mais testes adicionais de cobertura
+      de erro (404s, avatar inválido, senha fraca no aceite, busca textual na listagem)
+- [x] `make lint` verde (ruff, black, mypy --strict, eslint, tsc, prettier)
+- [x] `make test` verde, wall-clock ~28s (< 120s)
+- [x] `test-timing.json` atualizado
+- [x] `ROADMAP.md` → ✅
+- [x] Commit `feat(012): usuários`

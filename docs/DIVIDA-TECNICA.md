@@ -5,17 +5,18 @@
 > continua aqui, a próxima spec de refatoração precisa decidir: resolver agora ou
 > re-atribuir com justificativa nova.
 
-## 1. `BaseRepository.list_paginated`/`build_keyset_query` não implementam o contrato de
-   listagem do CLAUDE.md §6 ainda
+## 1. ~~`BaseRepository.list_paginated`/`build_keyset_query` não implementam o contrato de
+   listagem do CLAUDE.md §6~~ — RESOLVIDO na spec 012
 
-O contrato real (`cursor` em base64 codificando `(sort_value, id)`, `next_cursor`, `total`,
-ordenação por campo escolhido) exige um consumidor real para ter forma — hoje
-`list_paginated` só ordena por `id` e devolve uma lista crua, porque nenhum endpoint de
-listagem existe até a 009. Implementá-lo agora, sem uso, seria design especulativo.
-
-**Spec-alvo:** a primeira spec de listagem real (011 ou 012, o que vier primeiro com uma
-tela `<DataTable>` de verdade). Nessa spec, `BaseRepository` ganha o keyset completo — não
-antes.
+`GET /api/v1/users` foi o primeiro endpoint de listagem real (`account`, na 011, é 1:1 e
+não precisou). `app/core/repository.py` ganhou `build_sorted_keyset_query` (ordena por uma
+coluna escolhida + `id` como desempate, comparação de tupla `WHERE (col, id) > (v, id)`) e
+`encode_cursor`/`decode_cursor` (base64). O `build_keyset_query`/`list_paginated` antigos
+(só `id`, sem `sort_value`) foram mantidos como estão — ninguém os usa em produção, e
+mexer neles quebraria `tests/unit/test_base_repository.py` sem necessidade; viram uma
+função gêmea nova em vez de uma migração da antiga. `UserRepository.list_filtered` é quem
+usa o keyset novo de verdade, com filtros de `role`/`is_active`/busca textual + `COUNT`
+para o `total`.
 
 ## 2. Frontend sem ferramenta de cobertura instalada
 
@@ -88,3 +89,26 @@ determinístico o suficiente para um teste confiável.
 
 **Spec-alvo:** nenhuma — aceito, mesma categoria do item 6 (código correto, caminho de
 erro só exercitável por condição de corrida real).
+
+## 9. Sem página de "aceitar convite" no frontend
+
+`POST /api/v1/invitations/accept` existe e está testado (spec 012), mas a seção 6
+("Front-end") da spec só lista `/settings/users` e `/settings/users/:id` — nenhuma rota
+pública para quem recebeu o convite definir nome/senha. O fluxo é funcionalmente completo
+no backend, mas ninguém consegue *usá-lo* pela UI ainda; o link do e-mail de convite (que
+também não existe — sem infra de e-mail, ver regras 1-2) não tem para onde apontar.
+
+**Spec-alvo:** a spec que trouxer a infraestrutura de e-mail (envio real de convites/reset
+de senha) — as duas coisas (enviar o e-mail e ter uma página que recebe o clique)
+precisam nascer juntas.
+
+## 10. `/settings/users` não tem link de navegação — só acessível por URL direta
+
+`/settings` continua sendo o placeholder genérico (nenhuma spec ainda construiu uma
+"home" de Configurações com sub-navegação, diferente de "Conta e assinatura" na 011, que
+tinha um único sub-item e pôde redirecionar direto). `/settings/users` e
+`/settings/users/:id` existem e funcionam, mas exigem digitar a URL.
+
+**Spec-alvo:** a spec que desenhar a página-índice de Configurações (ainda sem número no
+roadmap) — ela precisa linkar para `/settings/users` e para os módulos de configuração
+das specs 013+.

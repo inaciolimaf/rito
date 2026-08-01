@@ -47,3 +47,38 @@ def is_valid_cpf_or_cnpj(value: str) -> bool:
     if len(digits) == 14:
         return is_valid_cnpj(digits)
     return False
+
+
+# Os 26 estados + Distrito Federal (docs/ADVBOX-ESPECIFICACAO-COMPLETA.md linha 817:
+# "Todos os 27 estados + DF" — usado por account (011) e OAB/UF de usuários (012).
+BRAZILIAN_UFS = frozenset(
+    {
+        "AC",
+        "AL",
+        "AP",
+        "AM",
+        "BA",
+        "CE",
+        "DF",
+        "ES",
+        "GO",
+        "MA",
+        "MT",
+        "MS",
+        "MG",
+        "PA",
+        "PB",
+        "PR",
+        "PE",
+        "PI",
+        "RJ",
+        "RN",
+        "RS",
+        "RO",
+        "RR",
+        "SC",
+        "SP",
+        "SE",
+        "TO",
+    }
+)

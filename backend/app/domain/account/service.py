@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.image_processing import extension_for, process_image
 from app.domain.account.exceptions import AccountNotFoundError
-from app.domain.account.logo import extension_for, process_logo
 from app.domain.account.models import Account
 from app.domain.account.repository import AccountRepository
 from app.domain.account.schemas import AccountUpdateRequest
@@ -40,7 +40,7 @@ class AccountService:
         if account is None:
             raise AccountNotFoundError
 
-        processed = process_logo(content, content_type)
+        processed = process_image(content, content_type)
         key = f"logos/{self.tenant_id}/{uuid.uuid4()}.{extension_for(content_type)}"
         await self.storage.upload(key=key, content=processed, content_type=content_type)
 

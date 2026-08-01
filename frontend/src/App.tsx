@@ -10,6 +10,8 @@ import { ROUTABLE_NAV_ITEMS } from "@/components/shell/navItems";
 import { AccountPage } from "@/features/account/AccountPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
+import { UserDetailPage } from "@/features/users/UserDetailPage";
+import { UsersListPage } from "@/features/users/UsersListPage";
 import { useAuth, AuthProvider } from "@/providers/AuthProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 
@@ -44,6 +46,8 @@ export function App(): JSX.Element {
                     <Route path="/" element={<Navigate to="/home" replace />} />
                     <Route path="/home" element={<HomePage />} />
                     <Route path="/subscription/account" element={<AccountPage />} />
+                    <Route path="/settings/users" element={<UsersListPage />} />
+                    <Route path="/settings/users/:id" element={<UserDetailPage />} />
                     {ROUTABLE_NAV_ITEMS.filter(
                       (item) => item.path !== "/home" && item.path !== "/subscription/account",
                     ).map((item) => (

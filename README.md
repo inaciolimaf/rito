@@ -12,14 +12,15 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 011 de 100 concluída — Fase 1 (Cadastros base) iniciada.** Backend completo
-(multi-tenancy, RLS, autenticação, RBAC) + frontend com login real, design system de
-domínio e o app shell navegável (sidebar de 15 itens, busca global, breadcrumbs) + pipeline
-de testes com gate de 120s executável (rede real bloqueada, contador de jornadas e2e, CI no
-GitHub Actions) + pente fino de refatoração (99% de cobertura, índices de FK, `mypy --strict`
-e `tsc` verdes) + cadastro do Escritório (CRUD, CPF/CNPJ validado, autofill de CEP via
-ViaCEP, upload de logotipo com redimensionamento, storage S3/MinIO atrás de interface) —
-próxima é a 012 (Usuários).
+🚧 **Spec 012 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
+RBAC) + frontend com login real, design system de domínio e o app shell navegável
+(sidebar de 15 itens, busca global, breadcrumbs) + pipeline de testes com gate de 120s
+executável (rede real bloqueada, contador de jornadas e2e, CI no GitHub Actions) + pente
+fino de refatoração (99% de cobertura, índices de FK, `mypy --strict` e `tsc` verdes) +
+cadastro do Escritório (CRUD, CPF/CNPJ validado, autofill de CEP via ViaCEP, upload de
+logotipo com redimensionamento, storage S3/MinIO atrás de interface) + gestão de usuários
+(convite por e-mail, 67 cargos, OAB, jornada de trabalho, RBAC fino de "próprio usuário ou
+administrador", listagem paginada por keyset com filtros) — próxima é a 013 (Times/squads).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

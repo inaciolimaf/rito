@@ -145,12 +145,21 @@ correção foi confirmada localmente derrubando e recriando `rito_test` do zero 
 spec 009: um ambiente com dois bancos de verdade (não um só reaproveitado) pegou algo que a
 verificação manual não pegaria.
 
+**Segundo bug, mesma causa raiz.** Corrigido o primeiro, o e2e passou a falhar com
+`UndefinedTableError: relation "tenants" does not exist` — o webServer do Playwright e o
+`scripts/seed_e2e.py` usam o banco de **dev** (`rito`), que nunca era migrado em lugar
+nenhum do workflow (antes, só era migrado "sem querer" pelo bug do primeiro fix). Corrigido
+adicionando um passo explícito `make migrate` no CI antes de `make lint`/`make test`,
+espelhando o fluxo real (`make up && make migrate && make dev`). Confirmado localmente
+derrubando **os dois** bancos (`rito` e `rito_test`) e recriando do zero antes de rodar
+`make migrate && make test` — e confirmado no remoto (run 30706528182, verde).
+
 ## 10. Definição de pronto
 
 - [x] `make test` roda as três em paralelo e reporta o wall-clock
 - [x] Gate de 120 s falhando de verdade quando estourado
 - [x] Contador de jornadas e2e ativo
 - [x] Guarda contra rede real ativa
-- [x] CI criado publicando o tempo (verde a confirmar após o push — ver Descobertas)
+- [x] CI verde no remoto publicando o tempo (run 30706528182, após 2 fix commits — ver Descobertas)
 - [x] `test-timing.json` commitado
 - [x] Commit `feat(009): pipeline de testes e gate de 120s`

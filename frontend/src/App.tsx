@@ -5,6 +5,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LoginPage } from "@/features/auth/LoginPage";
+import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
 import { useAuth, AuthProvider } from "@/providers/AuthProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 
@@ -46,6 +47,9 @@ export function App(): JSX.Element {
             <AuthProvider>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                {import.meta.env.DEV && (
+                  <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
+                )}
                 <Route element={<ProtectedRoute />}>
                   <Route path="/" element={<HomePage />} />
                 </Route>

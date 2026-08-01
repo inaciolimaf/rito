@@ -35,7 +35,7 @@ Perfis Gestor/Administrador/Colaborador; dimensão independente de acesso financ
 Vite + React + TS strict + Tailwind + shadcn/ui; design tokens; **dark mode**; TanStack Query; React Router; client de API com refresh automático; tela de login.
 **Aceite:** login funcional; alternância de tema persiste. **t:** 8 s. **Deps:** 004
 
-### ⬜ 007 — Design system de domínio
+### ✅ 007 — Design system de domínio
 `DataTable` (ordenação, paginação keyset, seleção, ações de linha, export xlsx/pdf), `FilterBar` declarativo, `FormModal` por schema Zod, `EntityPicker`, `StatCard`, `EmptyState`, `ConfirmDialog`.
 **Aceite:** cada componente com stories e testes; usados por uma tela de demonstração. **t:** 12 s. **Deps:** 006
 

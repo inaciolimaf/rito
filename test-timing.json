@@ -26,6 +26,10 @@
     "006": {
       "wall_clock_seconds": 11,
       "notes": "54 testes backend (inalterado) + 10 testes frontend (login, refresh/fila de concorrência, ApiError, ProtectedRoute, ThemeToggle) com MSW + 1ª jornada e2e real (login → home → logout) contra backend/frontend/Postgres/Redis de verdade via Playwright webServer. Máximo de 25 jornadas: 1/25 usada."
+    },
+    "007": {
+      "wall_clock_seconds": 16,
+      "notes": "54 testes backend (inalterado) + 30 testes frontend (DataTable, FilterBar, FormModal, EntityPicker, StatCard, ConfirmDialog, navegação por teclado + os 10 da 006) + 1 jornada e2e (inalterado). Sem e2e novo — os 7 componentes de components/domain/ se testam com Vitest, mais barato."
     }
   }
 }

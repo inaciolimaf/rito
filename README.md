@@ -12,9 +12,9 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 006 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação, RBAC) +
-frontend com login real, dark mode e refresh de sessão com fila — próxima é a 007 (design
-system de domínio).
+🚧 **Spec 007 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação, RBAC) +
+frontend com login real e os sete componentes de `components/domain/` (DataTable, FilterBar,
+FormModal, EntityPicker, StatCard, EmptyState, ConfirmDialog) — próxima é a 008 (app shell).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

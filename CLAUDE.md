@@ -144,6 +144,21 @@ Toda spec deve declarar quais componentes reutiliza e quais cria.
 
 No backend, o equivalente: `BaseRepository` com CRUD + filtros + paginação. Repositório novo herda.
 
+### Contrato de listagem (toda spec de listagem segue isto)
+
+```
+GET /api/v1/<recurso>?cursor=&limit=&sort=&order=&<filtros>
+200 { "items": [...], "next_cursor": "...|null", "total": 123 }
+```
+
+- **Keyset, nunca offset** — offset quebra em volume. `cursor` codifica `(sort_value, id)` em base64.
+- `<DataTable>` nunca faz fetch sozinho — recebe `data`/`pagination`/callbacks; quem busca é a feature.
+- Filtros vivem na URL (`useFilters`) — recarregar a página preserva o estado, o link é compartilhável.
+- Export respeita os filtros ativos, não a página visível.
+- Ver `specs/007-design-system-dominio.md` para os sete componentes de `components/domain/`
+  (`DataTable`, `FilterBar`, `FormModal`, `EntityPicker`, `StatCard`, `EmptyState`, `ConfirmDialog`)
+  e os hooks `useDataTable`/`useFilters` que os sustentam.
+
 ---
 
 ## 7. IA — regras duras

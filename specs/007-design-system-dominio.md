@@ -1,7 +1,7 @@
 # 007 — Design system de domínio
 
 **Fase:** 0 · **Tipo:** feature · **Orçamento:** +12 s
-**Depende de:** 006 · **Status:** ⬜ pendente
+**Depende de:** 006 · **Status:** ✅ concluída
 
 ---
 
@@ -86,12 +86,47 @@ Sem e2e — componente puro se testa com Vitest, mais barato e mais estável.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Bug real de reatividade do react-hook-form, achado pelo teste de dirty guard.**
+  `FormModal.requestClose()` lia `form.formState.isDirty` dentro do próprio event handler e
+  sempre via `false`, mesmo depois de digitar no campo (confirmado via um teste descartável:
+  o MESMO `form.formState.isDirty`, lido durante o *render* do `children(form)`, retornava
+  `true`; lido dentro do handler do botão Cancelar, `false`). RHF só mantém `formState`
+  reativo para os campos efetivamente lidos durante o render do componente que chamou
+  `useForm` — ler só dentro de uma closure de evento não "assina" a atualização. Corrigido
+  desestruturando `const { isDirty } = form.formState` no corpo de `FormModal` (fora de
+  qualquer handler) e usando essa variável local em `requestClose`. Vale para qualquer futuro
+  componente que leia `formState.*` fora do render.
+- **Sem `@tanstack/react-table` ou combobox de terceiros.** `DataTable` usa `<table>` nativo
+  (sort/seleção via `<button>`/`<input type="checkbox">`, navegação por teclado de graça) e
+  `EntityPicker` implementa um combobox mínimo à mão (`role="combobox"`/`role="listbox"`,
+  `aria-activedescendant` via índice ativo, Arrow/Enter/Escape) em vez de puxar uma lib de
+  combobox — mantém o design system sem dependência extra para o que só precisava de HTML
+  semântico bem feito.
+- **Multiselect do `FilterBar` usa `<select multiple>` nativo**, não um dropdown de checkboxes
+  customizado — acessível de graça (teclado, leitor de tela) e evita mais uma dependência
+  Radix só para isso. Puro texto/select/date usam `<Input type="date">`/`<select>` também
+  nativos pela mesma razão.
+- **`components.json`/tokens do shadcn continuam os 8 semânticos da spec 006** (`surface`,
+  `primary`, `muted`, `default`, `accent`, `danger`, `warning`, `success`) — `Dialog` e
+  `Checkbox` (novos nesta spec) seguem a mesma convenção, sem introduzir `background`/`card`/
+  `destructive` do shadcn padrão.
+- **Kitchen sink é gated por `import.meta.env.DEV`** — a rota `/kitchen-sink` não entra no
+  bundle de produção (Vite faz tree-shaking do branch morto no build). Testado manualmente
+  num navegador real (Playwright ad hoc, não commitado): claro/escuro, abrir `FormModal`,
+  buscar e selecionar no `EntityPicker` — sem erros de console, screenshots conferidas.
+- **`FormModal`/`ConfirmDialog` são genéricos sobre `z.ZodType<any, any, any>`** com
+  `eslint-disable` pontual para `no-explicit-any` — é o preço de expor um componente
+  genuinamente genérico por schema Zod (`z.infer<TSchema>` não function sem esse bound). Não é
+  um `any` "de preguiça": é a única forma de o TypeScript aceitar qualquer schema Zod como
+  parâmetro de tipo.
+- Nenhum `KanbanBoard`/`AIActionPreview` foi tocado — confirma o "fora de escopo" (051, 084).
 
 ## 10. Definição de pronto
 
-- [ ] Sete componentes com testes
-- [ ] Kitchen sink exercitando todos
-- [ ] Contrato de listagem keyset documentado no `CLAUDE.md`
-- [ ] Navegação por teclado verificada
-- [ ] Commit `feat(007): design system de domínio`
+- [x] Sete componentes com testes (`DataTable`, `FilterBar`, `FormModal`, `EntityPicker`,
+      `StatCard`, `EmptyState`, `ConfirmDialog` — `EmptyState` coberto indiretamente via os
+      testes de estado vazio/erro do `DataTable`, que o usa internamente)
+- [x] Kitchen sink exercitando todos (`/kitchen-sink`, dev-only, verificado num navegador real)
+- [x] Contrato de listagem keyset documentado no `CLAUDE.md` (§6, nova subseção)
+- [x] Navegação por teclado verificada (`a11y.test.tsx` + checagem manual no navegador)
+- [x] Commit `feat(007): design system de domínio`

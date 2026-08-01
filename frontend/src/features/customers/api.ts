@@ -1,4 +1,5 @@
-import { apiRequest } from "@/lib/api";
+import type { ListResponse } from "@/components/domain/types";
+import { apiRequest, apiRequestBlob } from "@/lib/api";
 
 export interface CustomerData {
   id: string;
@@ -104,4 +105,106 @@ export async function checkDuplicateCustomer(
 ): Promise<CheckDuplicateResult> {
   const params = new URLSearchParams({ name, birthdate });
   return apiRequest<CheckDuplicateResult>(`/api/v1/customers/check-duplicate?${params}`);
+}
+
+export interface CustomerListItem {
+  id: string;
+  type: "PF" | "PJ";
+  name: string;
+  cellphone: string | null;
+  whatsapp_link: string | null;
+  city: string | null;
+  birthdate: string | null;
+  is_archived: boolean;
+  created_at: string;
+}
+
+export interface ListCustomersParams {
+  q?: string;
+  type?: "PF" | "PJ";
+  state?: string;
+  city?: string;
+  origin_id?: string;
+  created_from?: string;
+  created_to?: string;
+  has_active_lawsuit?: boolean;
+  birthdays?: "day" | "month";
+  archived?: boolean;
+  sort?: "name" | "created_at";
+  order?: "asc" | "desc";
+  cursor?: string;
+  limit?: number;
+}
+
+export async function listCustomers(
+  params: ListCustomersParams,
+): Promise<ListResponse<CustomerListItem>> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const queryString = query.toString();
+  return apiRequest<ListResponse<CustomerListItem>>(
+    `/api/v1/customers${queryString ? `?${queryString}` : ""}`,
+  );
+}
+
+export interface CountedItem {
+  name: string;
+  count: number;
+}
+
+export interface CustomerStats {
+  total: number;
+  variation_vs_last_month: number;
+  with_active_lawsuit: number;
+  without_active_lawsuit: number;
+  top_origins: CountedItem[];
+  age_ranges: CountedItem[];
+  top_occupations: CountedItem[];
+}
+
+export async function getCustomerStats(): Promise<CustomerStats> {
+  return apiRequest<CustomerStats>("/api/v1/customers/stats");
+}
+
+export interface BirthdayItem {
+  id: string;
+  name: string;
+  birthdate: string;
+}
+
+export async function getCustomerBirthdays(scope: "day" | "month"): Promise<BirthdayItem[]> {
+  return apiRequest<BirthdayItem[]>(`/api/v1/customers/birthdays?scope=${scope}`);
+}
+
+export interface CustomerExportFilters {
+  q?: string;
+  type?: "PF" | "PJ";
+  state?: string;
+  city?: string;
+  origin_id?: string;
+  created_from?: string;
+  created_to?: string;
+  has_active_lawsuit?: boolean;
+  birthdays?: "day" | "month";
+  archived?: boolean;
+}
+
+/** Regra 7: respeita os filtros ativos, não a página visível. Dispara o download no
+ * browser — não há uma tela de "arquivo pronto", o navegador que decide onde salvar. */
+export async function exportCustomers(
+  format: "xlsx" | "pdf",
+  filters: CustomerExportFilters,
+): Promise<void> {
+  const blob = await apiRequestBlob("/api/v1/customers/export", {
+    method: "POST",
+    body: { format, filters },
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `contatos.${format}`;
+  link.click();
+  URL.revokeObjectURL(url);
 }

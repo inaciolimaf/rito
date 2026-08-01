@@ -20,6 +20,8 @@ dependencies = [
     "python-multipart>=0.0.12",
     "boto3>=1.35",
     "pillow>=11.0",
+    "openpyxl>=3.1.5",
+    "fpdf2>=2.8.7",
 ]
 
 [dependency-groups]
@@ -33,6 +35,7 @@ dev = [
     "pytest-cov>=6.0",
     "pytest-socket>=0.7",
     "boto3-stubs[s3]>=1.35",
+    "types-openpyxl>=3.1.5.20260724",
 ]
 
 [tool.ruff]

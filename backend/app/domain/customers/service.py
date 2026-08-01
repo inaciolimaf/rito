@@ -1,14 +1,25 @@
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.image_processing import extension_for, process_image
+from app.core.repository import decode_cursor, encode_cursor
 from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsError
+from app.domain.customers.export import build_pdf, build_xlsx
 from app.domain.customers.models import Customer, PersonType
 from app.domain.customers.repository import CustomerRepository
-from app.domain.customers.schemas import CustomerCreateRequest, CustomerUpdateRequest
+from app.domain.customers.schemas import (
+    CountedItem,
+    CustomerCreateRequest,
+    CustomerFilters,
+    CustomerStatsResponse,
+    CustomerUpdateRequest,
+)
 from app.integrations.storage.base import FileStorage
+
+_EXPORT_ROW_CAP = 50_000
 
 _MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024
 _MAX_PHOTO_DIMENSION_PX = 400
@@ -92,3 +103,88 @@ class CustomerService:
         customer.photo_key = key
         customer.updated_at = datetime.now(UTC)
         return customer
+
+    async def list_customers(
+        self,
+        *,
+        filters: CustomerFilters,
+        sort: str,
+        order: Literal["asc", "desc"],
+        cursor: str | None,
+        limit: int,
+    ) -> tuple[list[Customer], str | None, int]:
+        decoded_cursor = decode_cursor(cursor) if cursor else None
+        items, total = await self.customers.list_filtered(
+            query=filters.q,
+            person_type=filters.type,
+            state=filters.state,
+            city=filters.city,
+            origin_id=filters.origin_id,
+            created_from=filters.created_from,
+            created_to=filters.created_to,
+            has_active_lawsuit=filters.has_active_lawsuit,
+            birthdays=filters.birthdays,
+            archived=filters.archived,
+            sort=sort,
+            descending=order == "desc",
+            cursor=decoded_cursor,
+            limit=limit,
+        )
+        next_cursor = None
+        if len(items) == limit:
+            last = items[-1]
+            last_sort_value = last.name if sort == "name" else last.created_at.isoformat()
+            next_cursor = encode_cursor(last_sort_value, last.id)
+        return list(items), next_cursor, total
+
+    async def get_birthdays(self, *, scope: Literal["day", "month"]) -> list[Customer]:
+        return list(await self.customers.get_birthdays(scope=scope))
+
+    async def get_stats(self) -> CustomerStatsResponse:
+        today = date.today()
+        this_month_start = today.replace(day=1)
+        last_month_end = this_month_start - timedelta(days=1)
+        last_month_start = last_month_end.replace(day=1)
+
+        total = await self.customers.count_active()
+        this_month_count = await self.customers.count_created_between(this_month_start, today)
+        last_month_count = await self.customers.count_created_between(
+            last_month_start, last_month_end
+        )
+        if last_month_count > 0:
+            variation = (this_month_count - last_month_count) / last_month_count * 100
+        else:
+            variation = 100.0 if this_month_count > 0 else 0.0
+
+        top_origins = await self.customers.top_origins()
+        top_occupations = await self.customers.top_occupations()
+        age_ranges = await self.customers.age_ranges()
+
+        return CustomerStatsResponse(
+            total=total,
+            variation_vs_last_month=round(variation, 2),
+            with_active_lawsuit=0,
+            without_active_lawsuit=total,
+            top_origins=[CountedItem(name=name, count=count) for name, count in top_origins],
+            age_ranges=[CountedItem(name=name, count=count) for name, count in age_ranges],
+            top_occupations=[
+                CountedItem(name=name, count=count) for name, count in top_occupations
+            ],
+        )
+
+    async def export(self, *, format_: Literal["xlsx", "pdf"], filters: CustomerFilters) -> bytes:
+        # Regra 7: respeita os filtros ativos, não a página visível; teto de 50.000 linhas.
+        items, _total = await self.customers.list_filtered(
+            query=filters.q,
+            person_type=filters.type,
+            state=filters.state,
+            city=filters.city,
+            origin_id=filters.origin_id,
+            created_from=filters.created_from,
+            created_to=filters.created_to,
+            has_active_lawsuit=filters.has_active_lawsuit,
+            birthdays=filters.birthdays,
+            archived=filters.archived,
+            limit=_EXPORT_ROW_CAP,
+        )
+        return build_xlsx(list(items)) if format_ == "xlsx" else build_pdf(list(items))

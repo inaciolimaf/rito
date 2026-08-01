@@ -87,7 +87,7 @@ PF/PJ no mesmo modelo com discriminador; todos os campos do levantamento; bloco 
 Validação real de CPF/CNPJ com bloqueio de duplicidade; CEP `99999-999`; consulta ViaCEP; telefone com DDD e sem DDI; estados e cidades.
 **Aceite:** CPF inválido rejeitado; duplicidade bloqueada; ViaCEP mockado. **t:** 4 s. **Deps:** 017
 
-### ⬜ 019 — Contatos: listagem e dashboard
+### ✅ 019 — Contatos: listagem e dashboard
 `DataTable` com filtros (tipo, estado, cidade, origem, período, arquivados); dashboard Top Origens, Faixa etária, Top Profissões; aniversariantes; export.
 **Aceite:** filtros combinam com AND; export gera xlsx. **t:** 6 s. **Deps:** 018, 007
 

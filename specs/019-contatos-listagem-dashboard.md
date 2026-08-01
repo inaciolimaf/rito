@@ -92,8 +92,45 @@ Aniversariantes do dia / do mês), estado, cidade, origem, período de cadastro,
 
 ## 9. Descobertas
 
-*(preencher)*
+- **"Clientes vs Partes contrárias" e "com/sem processo ativo" adiados.** Ambos dependem de
+  `lawsuits`/`lawsuit_customer` (N:N com flag de parte contrária, ADVBOX §3.5), que só chega na
+  spec 022 — mesmo padrão de stub das specs 014/015/016/018: `has_active_lawsuit=true` sempre
+  retorna vazio, `false`/omitido é no-op, e `with_active_lawsuit`/`without_active_lawsuit` em
+  `/stats` ficam fixos em `0`/`total`. O filtro `type` da listagem foi reinterpretado como o
+  campo PF/PJ já existente desde a spec 017, não o conceito combinado do ADVBOX.
+- **Dependências novas:** `openpyxl` + `fpdf2` (export xlsx/pdf) e `types-openpyxl` (stub para
+  mypy). Sem lib de gráfico — `DonutChart`/`BarChart` são SVG artesanal em
+  `components/domain/`, dado que só há 2 tipos simples (minimalismo do CLAUDE.md).
+- **`lib/api.ts`** ganhou `apiRequestBlob`, compartilhando o `fetchWithAuth` interno com
+  `apiRequest` (mesma lógica de retry/refresh de token, sem duplicar) — necessário para os
+  downloads binários de export.
+- **`CustomersPage.tsx`** (spec 017, tela single-record) foi deletada — `CustomerListPage.tsx`
+  a supersede por completo na rota `/customers`, preservando o upload de foto embutido no
+  `FormModal` de edição.
+- **Lacuna de provisionamento exposta pela jornada e2e nova:** a migration 016 só semeia as 8
+  origens padrão para tenants que já existiam no momento em que ela rodou (limitação já
+  documentada ali). O tenant e2e nasce depois, via `scripts/seed_e2e.py`, e ficaria sem nenhuma
+  origem para o formulário de contato escolher. Corrigido semeando a origem "INDICAÇÃO" em
+  `seed_e2e.py` com o mesmo `INSERT ... ON CONFLICT (tenant_id, immutable_unaccent(lower(name)))`
+  da migration — não por um id fixo comparado por igualdade exata, que colidia com a variante em
+  maiúsculas já existente no banco.
+- **`scripts/seed_e2e.py`** também passou o usuário e2e para `GESTOR` (antes ficava em
+  `COLABORADOR` implícito, default do model) porque a nova jornada arquiva um contato, e
+  arquivar exige `ADMINISTRADOR` ou `GESTOR`. Nenhum teste e2e existente dependia do papel
+  anterior.
+- **Operacional:** rodar a suíte backend fora do `make test` (ex. `uv run pytest` direto) exige
+  passar `--allow-hosts` explicitamente — a env var `PYTEST_ALLOW_HOSTS` só é lida pelo
+  Makefile/`run-tests.sh`, o plugin `pytest-socket` não a lê sozinho — e exportar
+  `TEST_S3_ENDPOINT_URL` apontando para o MinIO real (senão os testes de upload tentam
+  `localhost:9000`).
 
 ## 10. Definição de pronto
 
-Checklist padrão · Nenhum componente de tabela ou filtro escrito à mão · Commit `feat(019): contatos — listagem e dashboard`
+- [x] Checklist padrão (lint + testes verdes, dentro do orçamento)
+- [x] Nenhum componente de tabela ou filtro escrito à mão (`DataTable`, `FilterBar`, `FormModal`,
+      `EntityPicker`, `EmptyState`, `ConfirmDialog`, `StatCard` reutilizados; `DonutChart`/
+      `BarChart` novos, únicos usos de gráfico no projeto)
+- [x] Teste de isolamento de tenant cobre a listagem/stats/export (herdado da RLS de `customers`
+      desde a spec 017, exercido pelos filtros novos)
+- [x] Jornada e2e 3/25 commitada: criar contato → filtrar → editar → arquivar
+- [x] Commit `feat(019): contatos — listagem e dashboard`

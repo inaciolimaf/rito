@@ -90,11 +90,11 @@ export interface RequestOptions {
   headers?: Record<string, string>;
 }
 
-export async function apiRequest<T>(
+async function fetchWithAuth(
   path: string,
-  options: RequestOptions = {},
-  _isRetry = false,
-): Promise<T> {
+  options: RequestOptions,
+  _isRetry: boolean,
+): Promise<Response> {
   const isFormData = options.body instanceof FormData;
   const headers = new Headers(options.headers);
   // FormData (upload de arquivo, spec 011): o browser define o Content-Type sozinho, com
@@ -127,7 +127,7 @@ export async function apiRequest<T>(
     const newAccessToken = await pendingRefresh;
 
     if (newAccessToken) {
-      return apiRequest<T>(path, options, true);
+      return fetchWithAuth(path, options, true);
     }
 
     window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
@@ -144,9 +144,20 @@ export async function apiRequest<T>(
     throw await toApiError(response, path);
   }
 
+  return response;
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const response = await fetchWithAuth(path, options, false);
   if (response.status === 204) {
     return undefined as T;
   }
-
   return (await response.json()) as T;
+}
+
+/** Para respostas binárias (export xlsx/pdf, spec 019) — mesma autenticação/retry de
+ * `apiRequest`, só troca o parse final de JSON por Blob. */
+export async function apiRequestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const response = await fetchWithAuth(path, options, false);
+  return response.blob();
 }

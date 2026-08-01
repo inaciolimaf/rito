@@ -1,5 +1,7 @@
+export { BarChart } from "@/components/domain/BarChart";
 export { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 export { DataTable } from "@/components/domain/DataTable";
+export { DonutChart } from "@/components/domain/DonutChart";
 export { EmptyState } from "@/components/domain/EmptyState";
 export { EntityPicker } from "@/components/domain/EntityPicker";
 export { FilterBar } from "@/components/domain/FilterBar";

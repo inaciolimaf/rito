@@ -12,7 +12,7 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 018 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
+🚧 **Spec 019 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
 RBAC) + frontend com login real, design system de domínio e o app shell navegável
 (sidebar de 15 itens, busca global, breadcrumbs) + pipeline de testes com gate de 120s
 executável (rede real bloqueada, contador de jornadas e2e, CI no GitHub Actions) + pente
@@ -29,7 +29,9 @@ condicional e reordenação por drag-and-drop dentro da fase) + origem de pessoa
 padrão, CRUD, transferência em lote) + contatos (PF/PJ no mesmo modelo, bloco de
 representante legal, upload de foto, estados civis) + validação e endereço (CPF/CNPJ com
 dígito verificador real, telefone e CEP validados, 27 estados e 5.571 municípios reais do
-IBGE, autofill de endereço via ViaCEP) — próxima é a 019 (Contatos: listagem e dashboard).
+IBGE, autofill de endereço via ViaCEP) + listagem e dashboard de contatos (`DataTable` com
+filtros combináveis, dashboard com Top Origens/Faixa etária/Top Profissões, aniversariantes,
+export xlsx/pdf respeitando filtros) — próxima é a 020 (🔧 refatoração — Cadastros).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.br_documents import (
     format_postal_code,
@@ -134,6 +134,65 @@ class CustomerCreateRequest(_RepresentativeMixin):
 
 class CustomerUpdateRequest(CustomerCreateRequest):
     pass
+
+
+class CustomerListItemResponse(BaseModel):
+    id: uuid.UUID
+    type: PersonType
+    name: str
+    cellphone: str | None
+    whatsapp_link: str | None
+    city: str | None
+    birthdate: date | None
+    is_archived: bool
+    created_at: datetime
+
+
+class CustomerListResponse(BaseModel):
+    items: list[CustomerListItemResponse]
+    next_cursor: str | None = None
+    total: int
+
+
+class BirthdayItemResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    birthdate: date
+
+
+class CountedItem(BaseModel):
+    name: str
+    count: int
+
+
+class CustomerStatsResponse(BaseModel):
+    """Seção 5: `stats` do dashboard de Contatos (ADVBOX §4.5)."""
+
+    total: int
+    variation_vs_last_month: float
+    with_active_lawsuit: int
+    without_active_lawsuit: int
+    top_origins: list[CountedItem]
+    age_ranges: list[CountedItem]
+    top_occupations: list[CountedItem]
+
+
+class CustomerFilters(BaseModel):
+    q: str | None = None
+    type: PersonType | None = None
+    state: str | None = None
+    city: str | None = None
+    origin_id: uuid.UUID | None = None
+    created_from: date | None = None
+    created_to: date | None = None
+    has_active_lawsuit: bool | None = None
+    birthdays: Literal["day", "month"] | None = None
+    archived: bool = False
+
+
+class CustomerExportRequest(BaseModel):
+    format: Literal["xlsx", "pdf"]
+    filters: CustomerFilters = Field(default_factory=CustomerFilters)
 
 
 class CustomerResponse(BaseModel):

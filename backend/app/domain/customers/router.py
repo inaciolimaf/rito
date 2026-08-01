@@ -1,7 +1,8 @@
 import uuid
 from datetime import date
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_file_storage
@@ -9,12 +10,18 @@ from app.core.image_processing import InvalidImageError
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsError
-from app.domain.customers.models import Customer
+from app.domain.customers.models import Customer, PersonType
 from app.domain.customers.repository import MaritalStatusRepository
 from app.domain.customers.schemas import (
+    BirthdayItemResponse,
     CheckDuplicateResponse,
     CustomerCreateRequest,
+    CustomerExportRequest,
+    CustomerFilters,
+    CustomerListItemResponse,
+    CustomerListResponse,
     CustomerResponse,
+    CustomerStatsResponse,
     CustomerUpdateRequest,
     DuplicateCandidateResponse,
     MaritalStatusResponse,
@@ -22,6 +29,8 @@ from app.domain.customers.schemas import (
 from app.domain.customers.service import CustomerService
 from app.domain.users.models import User
 from app.integrations.storage.base import FileStorage
+
+_DEFAULT_PAGE_SIZE = 20
 
 customers_router = APIRouter(prefix="/customers", tags=["customers"])
 marital_statuses_router = APIRouter(prefix="/marital-statuses", tags=["marital-statuses"])
@@ -87,6 +96,106 @@ async def create_customer(
             status_code=409, detail="Já existe um contato com esse CPF/CNPJ."
         ) from exc
     return _customer_to_response(customer, storage)
+
+
+def _item_to_response(customer: Customer) -> CustomerListItemResponse:
+    whatsapp_link = f"https://wa.me/55{customer.cellphone}" if customer.cellphone else None
+    return CustomerListItemResponse(
+        id=customer.id,
+        type=customer.type,
+        name=customer.name,
+        cellphone=customer.cellphone,
+        whatsapp_link=whatsapp_link,
+        city=customer.city,
+        birthdate=customer.birthdate,
+        is_archived=customer.is_archived,
+        created_at=customer.created_at,
+    )
+
+
+@customers_router.get("")
+async def list_customers(
+    q: str | None = Query(default=None),
+    type_: PersonType | None = Query(default=None, alias="type"),
+    state: str | None = Query(default=None),
+    city: str | None = Query(default=None),
+    origin_id: uuid.UUID | None = Query(default=None),
+    created_from: date | None = Query(default=None),
+    created_to: date | None = Query(default=None),
+    has_active_lawsuit: bool | None = Query(default=None),
+    birthdays: Literal["day", "month"] | None = Query(default=None),
+    archived: bool = Query(default=False),
+    sort: Literal["name", "created_at"] = Query(default="created_at"),
+    order: Literal["asc", "desc"] = Query(default="desc"),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=100),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> CustomerListResponse:
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    filters = CustomerFilters(
+        q=q,
+        type=type_,
+        state=state,
+        city=city,
+        origin_id=origin_id,
+        created_from=created_from,
+        created_to=created_to,
+        has_active_lawsuit=has_active_lawsuit,
+        birthdays=birthdays,
+        archived=archived,
+    )
+    items, next_cursor, total = await service.list_customers(
+        filters=filters, sort=sort, order=order, cursor=cursor, limit=limit
+    )
+    return CustomerListResponse(
+        items=[_item_to_response(item) for item in items], next_cursor=next_cursor, total=total
+    )
+
+
+@customers_router.get("/stats")
+async def get_customer_stats(
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> CustomerStatsResponse:
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    return await service.get_stats()
+
+
+@customers_router.get("/birthdays")
+async def get_customer_birthdays(
+    scope: Literal["day", "month"] = Query(...),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> list[BirthdayItemResponse]:
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    customers = await service.get_birthdays(scope=scope)
+    return [
+        BirthdayItemResponse(id=c.id, name=c.name, birthdate=c.birthdate)
+        for c in customers
+        if c.birthdate is not None
+    ]
+
+
+@customers_router.post("/export")
+async def export_customers(
+    payload: CustomerExportRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> Response:
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    content = await service.export(format_=payload.format, filters=payload.filters)
+    media_type = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if payload.format == "xlsx"
+        else "application/pdf"
+    )
+    filename = f"contatos.{payload.format}"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @customers_router.get("/check-duplicate")

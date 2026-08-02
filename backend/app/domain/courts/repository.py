@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy import func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.courts.models import Court, CourtSegment, CourtSystem
+from app.domain.courts.models import Court, CourtSegment, CourtSystem, CourtSystemLink
 
 
 class CourtRepository:
@@ -35,6 +35,19 @@ class CourtRepository:
         if state is not None:
             stmt = stmt.where(Court.state_code == state)
         return (await self.session.scalars(stmt)).all()
+
+    async def is_system_compatible(self, *, court_id: int, system_id: int) -> bool:
+        """Regra 8 (spec 022): um tribunal com algum vínculo cadastrado só aceita um dos
+        sistemas vinculados; um tribunal sem nenhum vínculo (a maioria — spec 021,
+        Descobertas) não restringe o sistema."""
+        linked_systems = (
+            await self.session.scalars(
+                select(CourtSystemLink.system_id).where(CourtSystemLink.court_id == court_id)
+            )
+        ).all()
+        if not linked_systems:
+            return True
+        return system_id in linked_systems
 
 
 class CourtSystemRepository:

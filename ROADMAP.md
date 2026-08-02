@@ -102,7 +102,7 @@ Validação real de CPF/CNPJ com bloqueio de duplicidade; CEP `99999-999`; consu
 Seed dos **182 tribunais** e **13 sistemas processuais**; relação tribunal↔sistema.
 **Aceite:** seed idempotente; busca por sigla. **t:** 2 s. **Deps:** 011
 
-### ⬜ 022 — Processos: modelo e CRUD
+### ✅ 022 — Processos: modelo e CRUD
 Todos os campos do levantamento; `folder` (30 chars); protocolo; processo originário; anotações.
 **Aceite:** CRUD completo; campos derivados (`group`, `step`) nunca aceitos do cliente. **t:** 6 s. **Deps:** 021, 015
 

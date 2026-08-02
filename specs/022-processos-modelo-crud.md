@@ -1,7 +1,7 @@
 # 022 — Processos: modelo e CRUD
 
 **Fase:** 2 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 021, 015 · **Status:** ⬜ pendente
+**Depende de:** 021, 015 · **Status:** ✅ concluída
 
 ---
 
@@ -106,8 +106,47 @@ RLS ligado. Migration `022_lawsuits.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **`courts`/`court_systems` (spec 021) vivem numa `DeclarativeBase` própria** (`CourtBase`,
+  `MetaData` separada de `Base`) — `ForeignKey("courts.id")` por string só resolve dentro da
+  `MetaData` da própria tabela sendo declarada, então `lawsuits.court_id`/`court_system_id`
+  precisaram de `ForeignKey(Court.id)`/`ForeignKey(CourtSystem.id)` (a coluna real, não uma
+  string) para o SQLAlchemy achar a tabela alvo ao ordenar as dependências do flush.
+  `lawsuits` é o primeiro consumidor real desse cruzamento entre as duas `MetaData`.
+- **Mesma classe de bug já documentada na spec 013 (`squads`)**: `_with_derived` faz
+  `SELECT`s (tipo→grupo, etapa→fase) depois de mutar o objeto em `update()`, o que dispara
+  autoflush do `UPDATE` pendente e expira `updated_at` (`onupdate=func.now()`) — a leitura
+  síncrona em `_to_response` quebrava com `MissingGreenlet`. Corrigido setando
+  `lawsuit.updated_at = datetime.now(UTC)` explicitamente antes das consultas, mesmo padrão
+  já usado em `customers.upload_photo` (spec 017).
+- **Regra 8 (sistema × tribunal) só restringe quando o tribunal tem vínculo cadastrado.**
+  `court_system_links` (spec 021) cobre só as 23 variantes de sistema — os outros 159
+  tribunais não têm nenhum vínculo. Tratar "sem vínculo" como "nenhum sistema permitido"
+  bloquearia o campo para quase todo o catálogo; a leitura adotada (documentada também em
+  `CourtRepository.is_system_compatible`) é: tribunal sem vínculo aceita qualquer sistema,
+  tribunal com vínculo só aceita um dos vinculados. `court_system_links` ganhou aqui seu
+  primeiro consumidor real — modelo ORM `CourtSystemLink` novo em `courts/models.py` (a
+  tabela já existia desde a 021, só sem mapeamento ORM).
+- **Frontend sem listagem** (spec 027 é quem entrega): `LawsuitsPage` segue o mesmo padrão
+  de tela single-record que `CustomersPage` (spec 017) usou antes de `CustomerListPage`
+  chegar na 019. Grupo de ação e fase são filtros locais (`useState`) só para popular os
+  seletores em cascata (tipo filtra por grupo, etapa filtra por fase) — nunca campos do
+  formulário nem do payload, coerente com a regra 2 (campos derivados nunca aceitos do
+  cliente).
+- `court_id`/`court_system_id` não validam existência no service (diferente de
+  `lawsuit_type_id`/`stage_id`, que são obrigatórios e tenant-scoped) — mesmo padrão já
+  aceito em `publications_user_id` (spec 014): um id inválido vira `IntegrityError` não
+  tratada (500), aceitável porque nada na UI permite enviar um id que não existe
+  (`CourtSelect`/`<select>` só oferecem ids reais).
 
 ## 10. Definição de pronto
 
-Checklist padrão · Commit `feat(022): processos — modelo e CRUD`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste
+- [x] Teste de isolamento por tenant (tabela nova `lawsuits`)
+- [x] `make test` verde e wall-clock < 120 s (60 s medidos)
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] Componentes reutilizáveis extraídos quando bateu 3 usos (nenhum novo padrão repetido
+      3 vezes nesta spec)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(022): processos — modelo e CRUD`

@@ -42,3 +42,13 @@ class CourtSystem(CourtBase):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
     name: Mapped[str] = mapped_column(unique=True)
+
+
+class CourtSystemLink(CourtBase):
+    """Qual sistema roda em qual tribunal (spec 021 §4) — só as 23 variantes de sistema
+    têm vínculo aqui; os demais tribunais não restringem o sistema (spec 022, regra 8)."""
+
+    __tablename__ = "court_system_links"
+
+    court_id: Mapped[int] = mapped_column(ForeignKey("courts.id"), primary_key=True)
+    system_id: Mapped[int] = mapped_column(ForeignKey("court_systems.id"), primary_key=True)

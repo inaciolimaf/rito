@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 79,
+  "last_measured_wall_clock_seconds": 113,
   "last_measured_at": "2026-08-02",
   "specs": {
     "001": {
@@ -122,6 +122,10 @@
     "030": {
       "wall_clock_seconds": 79,
       "notes": "444 testes backend (442 anteriores + 2 novos: ck_cycle rejeitando trânsito < fechamento e arquivamento < trânsito DIRETO no banco — a 024 cobria só a camada Pydantic). 92 frontend e 5 e2e inalterados — zero edição em testes das specs 021–029 (regra da refatoração), só adições. Refatoração: app/core/listing.py (paginate_keyset, datetime_range/date_range, QuickViews) e app/core/export.py (TableExport[ExportColumn]) extraídos de customers/lawsuits; LawsuitService 505→308 linhas com PartiesService/MovementsService novos (list_timeline mantida como delegação — o budget test da 026 a chama direto); _to_filters virou filters_from_query em listing.py; useListPage + ListPageLayout em components/domain com as duas telas migradas (CustomerListPage passou no teste de página sem edição). ListQueryBuilder NÃO virou builder — predicados são bespoke por domínio (decisão registrada na spec). EXPLAIN das visões: seq scan é ótimo no volume atual, índices conferidos — revalidação com massa na 098 (dívida #14); enums TS manuais (dívida #15); demonstração '<80 linhas' na 036 (dívida #16). Ruff exige PEP 695 (UP046/UP047) — generics novos com sintaxe de type parameter."
+    },
+    "031": {
+      "wall_clock_seconds": 113,
+      "notes": "479 testes backend (444 anteriores + 35 novos: 25 parametrizados da matriz 5×5 + ancoragem (simples/15min=8, alta/1h=150), 2 de integridade do catálogo (149 nomes únicos + 3 sistêmicas; 19 pontuações observadas ⊆ catálogo), 1 unit da guarda 'em uso → TaskTypeInUseError' com repositório fake (a tabela tasks só chega na 032), 6 integração (CRUD com sugestão da matriz e valor manual vencendo, ADMIN → 403 na escrita com 200 na leitura, sistêmica não exclui/não renomeia/muda pontos, reward negativo → 422, transfer valida ids + exclui depois, RLS)). 94 frontend (92 + 2 da calculadora ao vivo: troca de selects atualiza sugestão; valor manual prevalece). 5 e2e (inalterado). ALERTA: wall-clock 113 s — backend oscilou 74→108 s com latência espalhada (~1,2 s/teste, o dobro do normal) apontando contenção do host dind, não regressão (perfil sem outlier ligado à spec). Descoberta da fonte: o levantamento titula '152 tarefas' mas lista 149 nomes únicos — 149+3 sistêmicas=152 linhas; as 19 pontuações observadas não pertencem à matriz (reward é livre) e 5 nomes divergem de grafia (1 é typo real do ADVBOX, 'DIGILITALIZAÇÃO', preservado). create_table emite CREATE TYPE dos enums (lição da 023 reincidente — criar explícito duplica)."
     }
   }
 }

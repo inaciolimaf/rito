@@ -1,7 +1,7 @@
 # 031 — Catálogo de tarefas e Taskscore
 
 **Fase:** 3 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 015 · **Status:** ⬜ pendente
+**Depende de:** 015 · **Status:** ✅ concluída
 
 ---
 
@@ -116,7 +116,46 @@ Colunas: Tarefa · Pontuação · Última atribuição · Fase · Cadastro
 
 ## 9. Descobertas
 
-*(preencher)*
+- **O levantamento titula "152" mas lista 149 nomes únicos.** Seedamos os 149
+  documentados — 149 + 3 sistêmicas = 152 linhas por tenant, provável origem do número
+  no título da fonte. Nenhum nome foi inventado para "completar" 152. O teste de seed
+  do plano ("152 + 3") virou teste de integridade do catálogo (149 + 3).
+- **O levantamento não tem complexidade/duração por tarefa** — só nomes e 19 pontuações
+  observadas. "As demais saem da matriz" (§4) não era executável sem inventar
+  classificação: as 130 sem pontuação observada nascem com `reward = 0` (regra 8: zero
+  é válido) e complexity/duration NULL; o gestor classifica ao usar.
+- **As 19 pontuações observadas não pertencem à matriz** (80, 100, 200… não são valores
+  da grade 5×5) — evidência de que `reward` é valor livre e a matriz só sugere. O
+  mapeamento nome→pontos exigiu normalização: 4 dos 19 nomes divergem da grafia do
+  catálogo ("ATENDIMENTO AO CLIENTE - EXTERNO" × "…EXTERNO", "DEVOLUÇÃO DE
+  DOCUMENTOS/PROCESSO", "FAZER RELATÓRIO DE COMISSÃO MENSAL DO PARCEIRO", "GERENCIAR
+  ANÚNCIOS DO ESCRITÓRIO SEMANAL") e 1 é typo da fonte preservado de propósito
+  ("DIGILITALIZAÇÃO" — grafia real do ADVBOX).
+- **"Em uso → 409" não é testável em integração até a 032** (não existe `tasks`). A
+  guarda ficou armada em `TaskTypeService.delete`/`transfer` com `usage_count`/
+  `reassign` no repositório (hoje sempre 0); o caminho do 409 está coberto por teste
+  unitário com repositório fake (LSP), e a 032 só pluga a contagem real — sem mudar
+  contrato. Mesmo padrão documentado das taxonomias da 014/015 (dívida #13).
+- **Ruff/black no `make lint`:** enums em migration com `create_table` emitem CREATE
+  TYPE sozinhos (reincidência da lição da 023 — a tentativa de criar explícito deixou
+  tipo órfão no primeiro run e exigiu DROP + re-run).
+- **Wall-clock:** 113 s (teto 120 s) — a suíte backend oscilou 74→108 s nesta rodada
+  com todos os testes ~1,0–1,4 s (normal 0,3–0,5 s): contenção do host Docker
+  compartilhado, não regressão de código (o perfil mostra o aumento espalhado, sem
+  outlier ligado à 031). Observar a tendência na 040.
+
+## 10. Definição de pronto
+
+- [x] Spec escrita seguindo o template (já existia do ciclo de planejamento)
+- [x] Escopo implementado: `task_types` + enums + matriz 5×5 + seed (149+3) + CRUD com
+      RBAC GESTOR + suggest-reward + transfer + tela /settings/task-types
+- [x] Testes do plano escritos e verdes (26 unit de matriz/ancoragem, 2 unit catálogo,
+      1 unit guarda regra 5, 6 integração, 2 frontend) — **matriz com 25 casos testados** ✅
+- [x] `make lint` verde
+- [x] `make test` verde em 113 s (< 120 s)
+- [x] `test-timing.json` atualizado
+- [x] ROADMAP marcado ✅
+- [x] Commit `feat(031): catálogo de tarefas e Taskscore`
 
 ## 10. Definição de pronto
 

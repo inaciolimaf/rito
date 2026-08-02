@@ -141,7 +141,7 @@ Campo `folder` com autocomplete, agrupamento por pasta, busca.
 
 ## Fase 3 — Tarefas e Taskscore (031–040)
 
-### ⬜ 031 — Catálogo de tarefas e Taskscore
+### ✅ 031 — Catálogo de tarefas e Taskscore
 152 tarefas padrão; complexidade (5 níveis) × tempo médio (5 faixas) → **calculadora de pontuação** com sugestão editável; vínculo com fase; só Gestor edita.
 **Aceite:** matriz de pontuação determinística e testada célula a célula. **t:** 4 s. **Deps:** 015
 

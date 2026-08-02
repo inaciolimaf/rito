@@ -17,6 +17,7 @@ import { LawsuitTypesListPage } from "@/features/lawsuit-types/LawsuitTypesListP
 import { LawsuitsPage } from "@/features/lawsuits/LawsuitsPage";
 import { LawsuitDetailPage } from "@/features/lawsuits/LawsuitDetailPage";
 import { StagesListPage } from "@/features/stages/StagesListPage";
+import { TaskTypesListPage } from "@/features/task-types/TaskTypesListPage";
 import { UserDetailPage } from "@/features/users/UserDetailPage";
 import { UsersSettingsPage } from "@/features/users/UsersSettingsPage";
 import { useAuth, AuthProvider } from "@/providers/AuthProvider";
@@ -58,6 +59,7 @@ export function App(): JSX.Element {
                     <Route path="/settings/action-groups" element={<ActionGroupsListPage />} />
                     <Route path="/settings/lawsuit-types" element={<LawsuitTypesListPage />} />
                     <Route path="/settings/stages" element={<StagesListPage />} />
+                    <Route path="/settings/task-types" element={<TaskTypesListPage />} />
                     <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
                     <Route path="/customers" element={<CustomerListPage />} />
                     <Route path="/lawsuits" element={<LawsuitsPage />} />

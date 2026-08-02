@@ -6,6 +6,8 @@ export { EmptyState } from "@/components/domain/EmptyState";
 export { EntityPicker } from "@/components/domain/EntityPicker";
 export { FilterBar } from "@/components/domain/FilterBar";
 export { FormModal, mapApiErrorToFields } from "@/components/domain/FormModal";
+export { MoneyField } from "@/components/domain/MoneyField";
+export { PercentField } from "@/components/domain/PercentField";
 export { StatCard } from "@/components/domain/StatCard";
 export { TransferBeforeDeleteDialog } from "@/components/domain/TransferBeforeDeleteDialog";
 export * from "@/components/domain/types";

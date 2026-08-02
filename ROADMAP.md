@@ -110,7 +110,7 @@ Todos os campos do levantamento; `folder` (30 chars); protocolo; processo origin
 N:N com contatos e **polo** (ativo / passivo / parte contrária); mínimo 1 parte.
 **Aceite:** processo sem parte é rejeitado; mesma pessoa em polos distintos. **t:** 4 s. **Deps:** 022, 017
 
-### ⬜ 024 — Processos: honorários e ciclo
+### ✅ 024 — Processos: honorários e ciclo
 `fees_expec`, `fees_money`, `fees_percentage`, contingenciamento (3 níveis); datas `status_closure`, `exit_production`, `exit_execution`.
 **Aceite:** valores monetários corretos; datas de ciclo coerentes entre si. **t:** 3 s. **Deps:** 022
 

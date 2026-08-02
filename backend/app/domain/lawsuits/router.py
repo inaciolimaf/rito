@@ -17,6 +17,7 @@ from app.domain.lawsuits.exceptions import (
     StageNotFoundError,
 )
 from app.domain.lawsuits.schemas import (
+    FinancialSummaryResponse,
     LawsuitCreateRequest,
     LawsuitResponse,
     LawsuitUpdateRequest,
@@ -80,6 +81,14 @@ def _to_response(detail: LawsuitDetail) -> LawsuitResponse:
         court_division=lawsuit.court_division,
         process_date=lawsuit.process_date,
         notes=lawsuit.notes,
+        case_value=lawsuit.case_value,
+        fees_value=lawsuit.fees_value,
+        fees_percentage=lawsuit.fees_percentage,
+        contingency=lawsuit.contingency,
+        closure_date=lawsuit.closure_date,
+        transit_date=lawsuit.transit_date,
+        archived_date=lawsuit.archived_date,
+        outcome=lawsuit.outcome,
         is_archived=lawsuit.is_archived,
         created_at=lawsuit.created_at,
         updated_at=lawsuit.updated_at,
@@ -158,6 +167,25 @@ async def delete_lawsuit(
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
     await service.delete(detail.lawsuit)
+
+
+@router.get("/{lawsuit_id}/financial-summary")
+async def get_financial_summary(
+    lawsuit_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> FinancialSummaryResponse:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    summary = service.financial_summary(detail.lawsuit)
+    return FinancialSummaryResponse(
+        case_value=summary.case_value,
+        fees_value=summary.fees_value,
+        received=summary.received,
+        to_receive=summary.to_receive,
+        expenses=summary.expenses,
+        net_result=summary.net_result,
+    )
 
 
 @router.get("/{lawsuit_id}/parties")

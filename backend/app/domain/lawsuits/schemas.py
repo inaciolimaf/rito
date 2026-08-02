@@ -1,9 +1,16 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
 
-from app.domain.lawsuits.models import PartyPole
+from app.domain.lawsuits.models import ContingencyLevel, LawsuitOutcome, PartyPole
+
+# Regra 1 (spec 024): a API devolve dinheiro como NÚMERO JSON — o default do Pydantic v2
+# para Decimal é string. O float round-trips exato até 15 dígitos significativos, e
+# NUMERIC(14,2) tem no máximo 14.
+JsonDecimal = Annotated[Decimal, PlainSerializer(lambda value: float(value), return_type=float)]
 
 
 class LawsuitBaseRequest(BaseModel):
@@ -26,6 +33,39 @@ class LawsuitBaseRequest(BaseModel):
     court_division: str | None = None
     process_date: date | None = None
     notes: str | None = None
+    # Honorários e ciclo (spec 024). Regra 7: negativos → 422 (ge=0).
+    # Regra 2: percentual entre 0 e 100.
+    case_value: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    fees_value: Decimal | None = Field(default=None, ge=0, max_digits=14, decimal_places=2)
+    fees_percentage: Decimal | None = Field(
+        default=None, ge=0, le=100, max_digits=5, decimal_places=2
+    )
+    contingency: ContingencyLevel | None = None
+    closure_date: date | None = None
+    transit_date: date | None = None
+    archived_date: date | None = None
+    outcome: LawsuitOutcome | None = None
+
+    @model_validator(mode="after")
+    def _validate_cycle(self) -> "LawsuitBaseRequest":
+        # Regra 3: fechamento ≤ trânsito ≤ arquivamento (o banco tem a mesma trava em
+        # ck_cycle; aqui o erro vira 422 em vez de 500).
+        if (
+            self.closure_date is not None
+            and self.transit_date is not None
+            and self.transit_date < self.closure_date
+        ):
+            raise ValueError("Trânsito em julgado não pode ser anterior ao fechamento.")
+        if (
+            self.transit_date is not None
+            and self.archived_date is not None
+            and self.archived_date < self.transit_date
+        ):
+            raise ValueError("Arquivamento não pode ser anterior ao trânsito em julgado.")
+        # Regra 4: resultado exige processo fechado.
+        if self.outcome is not None and self.closure_date is None:
+            raise ValueError("Resultado só é aceito com a data de fechamento preenchida.")
+        return self
 
 
 class PartyInput(BaseModel):
@@ -83,9 +123,30 @@ class LawsuitResponse(BaseModel):
     court_division: str | None
     process_date: date | None
     notes: str | None
+    case_value: JsonDecimal | None
+    fees_value: JsonDecimal | None
+    fees_percentage: JsonDecimal | None
+    contingency: ContingencyLevel | None
+    closure_date: date | None
+    transit_date: date | None
+    archived_date: date | None
+    outcome: LawsuitOutcome | None
     is_archived: bool
     created_at: datetime
     updated_at: datetime
+
+
+class FinancialSummaryResponse(BaseModel):
+    """Resumo financeiro do processo (spec 024 §5). Os agregados de lançamentos
+    (`received`, `to_receive`, `expenses`, `net_result`) ficam zerados até a spec 056
+    introduzir a tabela financeira."""
+
+    case_value: JsonDecimal | None
+    fees_value: JsonDecimal | None
+    received: JsonDecimal
+    to_receive: JsonDecimal
+    expenses: JsonDecimal
+    net_result: JsonDecimal
 
 
 class PartyResponse(BaseModel):

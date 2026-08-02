@@ -4,12 +4,15 @@ import type { UseFormReturn } from "react-hook-form";
 
 import { CourtSelect } from "@/features/courts/CourtSelect";
 import { EntityPicker } from "@/components/domain/EntityPicker";
+import { MoneyField } from "@/components/domain/MoneyField";
+import { PercentField } from "@/components/domain/PercentField";
 import type { EntityOption } from "@/components/domain/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { listActionGroups } from "@/features/action-groups/api";
 import { listCourtSystems } from "@/features/courts/api";
 import { listLawsuitTypes } from "@/features/lawsuit-types/api";
+import { ContingencySelect } from "@/features/lawsuits/ContingencySelect";
 import { PartySelector } from "@/features/lawsuits/PartySelector";
 import { StageStepSelect } from "@/features/lawsuits/StageStepSelect";
 import type { LawsuitFormValues } from "@/features/lawsuits/schema";
@@ -45,6 +48,7 @@ export function LawsuitForm({
     register,
     watch,
     setValue,
+    control,
     formState: { errors },
   } = form;
 
@@ -223,6 +227,51 @@ export function LawsuitForm({
         <Label htmlFor="court_division">Vara</Label>
         <Input id="court_division" {...register("court_division")} />
       </div>
+
+      <fieldset className="space-y-3 rounded border border-default p-3">
+        <legend className="px-1 text-sm font-medium text-muted">Honorários e ciclo</legend>
+
+        <div className="grid grid-cols-3 gap-3">
+          <MoneyField control={control} name="case_value" label="Valor da causa" />
+          <MoneyField control={control} name="fees_value" label="Honorários" />
+          <PercentField control={control} name="fees_percentage" label="Honorários (%)" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <ContingencySelect form={form} />
+          <div className="space-y-1">
+            <Label htmlFor="outcome">Resultado</Label>
+            <select id="outcome" className={SELECT_CLASS} {...register("outcome")}>
+              <option value="">Selecione</option>
+              <option value="GANHO">Ganho</option>
+              <option value="PERDIDO">Perdido</option>
+              <option value="ACORDO">Acordo</option>
+            </select>
+            {errors.outcome && <p className="text-sm text-danger">{errors.outcome.message}</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="closure_date">Fechamento</Label>
+            <Input id="closure_date" type="date" {...register("closure_date")} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="transit_date">Trânsito em julgado</Label>
+            <Input id="transit_date" type="date" {...register("transit_date")} />
+            {errors.transit_date && (
+              <p className="text-sm text-danger">{errors.transit_date.message}</p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="archived_date">Arquivamento</Label>
+            <Input id="archived_date" type="date" {...register("archived_date")} />
+            {errors.archived_date && (
+              <p className="text-sm text-danger">{errors.archived_date.message}</p>
+            )}
+          </div>
+        </div>
+      </fieldset>
 
       <div className="space-y-1">
         <Label htmlFor="notes">Anotações</Label>

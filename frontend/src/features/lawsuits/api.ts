@@ -39,9 +39,26 @@ export interface LawsuitData {
   court_division: string | null;
   process_date: string | null;
   notes: string | null;
+  case_value: number | null;
+  fees_value: number | null;
+  fees_percentage: number | null;
+  contingency: "PROVAVEL" | "POSSIVEL" | "REMOTA" | null;
+  closure_date: string | null;
+  transit_date: string | null;
+  archived_date: string | null;
+  outcome: "GANHO" | "PERDIDO" | "ACORDO" | null;
   is_archived: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface FinancialSummary {
+  case_value: number | null;
+  fees_value: number | null;
+  received: number;
+  to_receive: number;
+  expenses: number;
+  net_result: number;
 }
 
 export interface LawsuitFormPayload {
@@ -61,6 +78,14 @@ export interface LawsuitFormPayload {
   court_division?: string | null;
   process_date?: string | null;
   notes?: string | null;
+  case_value?: number | null;
+  fees_value?: number | null;
+  fees_percentage?: number | null;
+  contingency?: "PROVAVEL" | "POSSIVEL" | "REMOTA" | null;
+  closure_date?: string | null;
+  transit_date?: string | null;
+  archived_date?: string | null;
+  outcome?: "GANHO" | "PERDIDO" | "ACORDO" | null;
   is_archived?: boolean;
 }
 
@@ -82,6 +107,10 @@ export async function deleteLawsuit(id: string): Promise<void> {
 
 export async function listParties(lawsuitId: string): Promise<PartyData[]> {
   return apiRequest<PartyData[]>(`/api/v1/lawsuits/${lawsuitId}/parties`);
+}
+
+export async function getFinancialSummary(lawsuitId: string): Promise<FinancialSummary> {
+  return apiRequest<FinancialSummary>(`/api/v1/lawsuits/${lawsuitId}/financial-summary`);
 }
 
 export async function addParty(lawsuitId: string, party: PartyInput): Promise<PartyData> {

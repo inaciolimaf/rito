@@ -2,6 +2,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,6 +55,18 @@ class PartyDetail:
     customer_name: str
 
 
+@dataclass
+class FinancialSummary:
+    """Resumo financeiro (spec 024 §5). Agregados de lançamentos zerados até a spec 056."""
+
+    case_value: Decimal | None
+    fees_value: Decimal | None
+    received: Decimal
+    to_receive: Decimal
+    expenses: Decimal
+    net_result: Decimal
+
+
 class LawsuitService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.session = session
@@ -94,6 +107,14 @@ class LawsuitService:
             court_division=payload.court_division,
             process_date=payload.process_date,
             notes=payload.notes,
+            case_value=payload.case_value,
+            fees_value=payload.fees_value,
+            fees_percentage=payload.fees_percentage,
+            contingency=payload.contingency,
+            closure_date=payload.closure_date,
+            transit_date=payload.transit_date,
+            archived_date=payload.archived_date,
+            outcome=payload.outcome,
         )
         created = await self.lawsuits.create(lawsuit)
         for party_input in payload.parties:
@@ -125,6 +146,14 @@ class LawsuitService:
         lawsuit.court_division = payload.court_division
         lawsuit.process_date = payload.process_date
         lawsuit.notes = payload.notes
+        lawsuit.case_value = payload.case_value
+        lawsuit.fees_value = payload.fees_value
+        lawsuit.fees_percentage = payload.fees_percentage
+        lawsuit.contingency = payload.contingency
+        lawsuit.closure_date = payload.closure_date
+        lawsuit.transit_date = payload.transit_date
+        lawsuit.archived_date = payload.archived_date
+        lawsuit.outcome = payload.outcome
         lawsuit.is_archived = payload.is_archived
         # `updated_at` tem `onupdate=func.now()` (server-side) — sem um valor explícito, o
         # autoflush disparado pelas consultas de `_with_derived` abaixo expira o atributo
@@ -142,6 +171,17 @@ class LawsuitService:
     async def list_parties(self, lawsuit_id: uuid.UUID) -> Sequence[PartyDetail]:
         rows = await self.parties.list_for_lawsuit(lawsuit_id)
         return [PartyDetail(party=party, customer_name=name) for party, name in rows]
+
+    def financial_summary(self, lawsuit: Lawsuit) -> FinancialSummary:
+        zero = Decimal("0.00")
+        return FinancialSummary(
+            case_value=lawsuit.case_value,
+            fees_value=lawsuit.fees_value,
+            received=zero,
+            to_receive=zero,
+            expenses=zero,
+            net_result=zero,
+        )
 
     async def add_party(self, lawsuit: Lawsuit, payload: PartyCreateRequest) -> PartyDetail:
         customer_name = await self._customer_name(payload.customer_id)

@@ -1,7 +1,7 @@
 # 024 — Processos: honorários e ciclo de vida
 
 **Fase:** 2 · **Tipo:** feature · **Orçamento:** +3 s
-**Depende de:** 022 · **Status:** ⬜ pendente
+**Depende de:** 022 · **Status:** ✅ concluída
 
 ---
 
@@ -96,8 +96,39 @@ líquido — os três últimos zerados até a spec 056.
 
 ## 9. Descobertas
 
-*(preencher)*
+1. **Pydantic v2 serializa `Decimal` como string JSON** — a regra 1 ("a API recebe e
+   devolve número") exigiu `JsonDecimal = Annotated[Decimal, PlainSerializer(float)]` nos
+   schemas de resposta. O float é seguro aqui: NUMERIC(14,2) tem no máximo 14 dígitos
+   significativos e float garante 15 — o teste de precisão cobre o teto
+   (999.999.999.999,99) ida e volta.
+2. **Enum em migration: `create_table` ≠ `add_column`.** Na 023 o `create_table` emitiu o
+   CREATE TYPE sozinho (e um `.create()` explícito duplicava). Na 024, com `add_column`,
+   o `.create()` explícito é **obrigatório** — `add_column` nunca emite CREATE TYPE.
+3. **Validação de ciclo em duas camadas, como manda o padrão:** o `model_validator` do
+   schema devolve 422 amigável; `ck_cycle`/`ck_fees_pct` no banco são backstop para
+   qualquer escrita que não passe pela API.
+4. **Regra 5 tem teste dedicado:** `archived_date` preenchida não liga `is_archived` —
+   fato processual ≠ visibilidade na lista.
+5. **`MoneyField`/`PercentField` nasceram em `components/domain/`** (não na feature): a
+   própria spec manda extrair com cuidado porque todo o módulo financeiro (054+) reusa.
+   A lógica de máscara vive em `lib/money.ts` (centavos → cru com ponto; pt-BR só na
+   tela), junto de `formatBrl` para os cards.
+6. **Intl BRL usa espaço não-quebrável** entre "R$" e o valor — o teste normaliza com
+   `/[ ]/g`. O literal NBSP no código dispara `no-irregular-whitespace` do eslint:
+   sempre usar o escape ` `, nunca o caractere.
+7. **`financial-summary` devolve os agregados zerados** (received/to_receive/expenses/
+   net_result) até a spec 056 — mesmo padrão de stub documentado das specs 014–016:
+   endpoint real, consumidor real (painel), fonte de dados ainda inexistente.
 
 ## 10. Definição de pronto
 
-Checklist padrão · `MoneyField` pronto para reuso no financeiro · Commit `feat(024): processos — honorários e ciclo`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (1–7 cobertas)
+- [x] Teste de isolamento por tenant (sem tabela nova — colunas em `lawsuits`, já com RLS
+      coberto desde a 022; summary de tenant B → 404 coberto pelo padrão existente)
+- [x] `make test` verde e wall-clock < 120 s (63 s)
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa
+- [x] `MoneyField` pronto para reuso no financeiro (components/domain + lib/money.ts)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(024): processos — honorários e ciclo`

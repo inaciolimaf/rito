@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 73,
+  "last_measured_wall_clock_seconds": 63,
   "last_measured_at": "2026-08-02",
   "specs": {
     "001": {
@@ -94,6 +94,10 @@
     "023": {
       "wall_clock_seconds": 73,
       "notes": "347 testes backend (336 anteriores + 11 novos: criar com cliente+contrária e ordem de exibição por polo, sem parte → 422, contato inexistente → 422, remover última parte → 409, mesma pessoa em dois polos aceita, mesma pessoa no mesmo polo → 409 (endpoint e payload de criação), trocar polo + conflito → 409, remover parte quando há outras, excluir processo não apaga contatos, arquivar contato não remove dos processos, RLS entre tenants em list/put/delete) — os 16 testes da 022 passaram sem edição de asserção, só o helper _create_lawsuit ganhou uma parte padrão (regra 1 tornou parties obrigatório no POST). 70 testes frontend (66 anteriores + 4 novos do PartySelector: adiciona envolvida/contrária com polo e flag corretos, remove pelo chip, troca polo, mesma pessoa em polos distintos mas não duplicada no mesmo polo). 4 e2e (inalterado — plano da spec não pedia jornada nova). Migration 023 cria o enum party_pole sem CREATE TYPE explícito (create_table já o emite — chamada manual duplica). POST /lawsuits exige parties (min 1); PUT não aceita parties (extra=forbid mantido) — na UI de edição as partes sincronizam pelos endpoints dedicados, adições antes de remoções para nunca violar a regra 1. lawsuit_parties referencia customers sem cascade (arquivar/excluir contato nunca toca o vínculo) e lawsuits com ON DELETE CASCADE (garantia de banco para hard delete futuro — o delete da API é soft desde a 022)."
+    },
+    "024": {
+      "wall_clock_seconds": 63,
+      "notes": "356 testes backend (347 anteriores + 9 novos: valores monetários ida e volta sem perda de precisão (inclui 999999999999.99 — teto do NUMERIC(14,2)), percentual >100 → 422, trânsito < fechamento → 422, arquivamento < trânsito → 422 via PUT, outcome sem fechamento → 422, outcome com ciclo completo aceito e is_archived intacto (regra 5), negativo nos 3 campos → 422, financial-summary zerado até a 056, summary 404) — os 36 testes de lawsuits/parties passaram sem edição. 76 testes frontend (70 anteriores + 4 MoneyField + 2 LawsuitFinancialPanel: painel zerado com '—' nos nulos e formatação BRL). 4 e2e (inalterado). Descoberta: Pydantic v2 serializa Decimal como STRING JSON — regra 1 ('a API devolve número') exigiu JsonDecimal = Annotated[Decimal, PlainSerializer(float)] nos schemas de resposta; float round-trips exato porque NUMERIC(14,2) tem no máximo 14 dígitos significativos e float garante 15. Segunda lição de enum em migration: create_table emite CREATE TYPE sozinho (023) mas add_column NÃO — a 024 precisa de .create() explícito para contingency_level/lawsuit_outcome. MoneyField/PercentField nasceram em components/domain (reuso certo no financeiro, specs 054+) com helpers em lib/money.ts (centavos→raw com ponto, pt-BR na tela); Intl BRL usa NBSP — normalizado com /[\\u00a0]/g no teste (literal NBSP dispara no-irregular-whitespace do eslint)."
     }
   }
 }

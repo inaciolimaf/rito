@@ -11,6 +11,7 @@ import {
   addParty,
   createLawsuit,
   deleteLawsuit,
+  getFinancialSummary,
   getLawsuit,
   listParties,
   removeParty,
@@ -19,6 +20,7 @@ import {
   type LawsuitFormPayload,
   type PartyData,
 } from "@/features/lawsuits/api";
+import { LawsuitFinancialPanel } from "@/features/lawsuits/LawsuitFinancialPanel";
 import { LawsuitForm } from "@/features/lawsuits/LawsuitForm";
 import type { PartyFormValue } from "@/features/lawsuits/PartySelector";
 import {
@@ -51,7 +53,20 @@ function toPayload(values: LawsuitFormValues): LawsuitFormPayload {
     court_division: values.court_division || null,
     process_date: values.process_date || null,
     notes: values.notes || null,
+    case_value: values.case_value ? Number(values.case_value) : null,
+    fees_value: values.fees_value ? Number(values.fees_value) : null,
+    fees_percentage: values.fees_percentage ? Number(values.fees_percentage) : null,
+    contingency: values.contingency || null,
+    closure_date: values.closure_date || null,
+    transit_date: values.transit_date || null,
+    archived_date: values.archived_date || null,
+    outcome: values.outcome || null,
   };
+}
+
+/** Decimal da API vem como número ("1234.56"); o campo mascarado guarda o cru com ponto. */
+function decimalToRaw(value: number | null): string {
+  return value != null ? value.toFixed(2) : "";
 }
 
 function toFormValues(lawsuit: LawsuitData, parties: PartyData[]): LawsuitFormValues {
@@ -77,6 +92,14 @@ function toFormValues(lawsuit: LawsuitData, parties: PartyData[]): LawsuitFormVa
     court_division: lawsuit.court_division ?? "",
     process_date: lawsuit.process_date ?? "",
     notes: lawsuit.notes ?? "",
+    case_value: decimalToRaw(lawsuit.case_value),
+    fees_value: decimalToRaw(lawsuit.fees_value),
+    fees_percentage: decimalToRaw(lawsuit.fees_percentage),
+    contingency: lawsuit.contingency ?? "",
+    closure_date: lawsuit.closure_date ?? "",
+    transit_date: lawsuit.transit_date ?? "",
+    archived_date: lawsuit.archived_date ?? "",
+    outcome: lawsuit.outcome ?? "",
   };
 }
 
@@ -98,6 +121,12 @@ export function LawsuitsPage(): JSX.Element {
   const { data: responsible = null } = useQuery({
     queryKey: ["users", lastLawsuit?.user_id],
     queryFn: () => getUser(lastLawsuit!.user_id),
+    enabled: !!lastLawsuit,
+  });
+
+  const { data: financialSummary = null } = useQuery({
+    queryKey: ["lawsuits", lastLawsuit?.id, "financial-summary"],
+    queryFn: () => getFinancialSummary(lastLawsuit!.id),
     enabled: !!lastLawsuit,
   });
 
@@ -231,6 +260,7 @@ export function LawsuitsPage(): JSX.Element {
               )}
             </div>
           </div>
+          {financialSummary && <LawsuitFinancialPanel summary={financialSummary} />}
         </div>
       ) : (
         <p className="text-sm text-muted">Nenhum processo criado ainda nesta sessão.</p>

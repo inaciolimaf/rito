@@ -1,14 +1,39 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, UniqueConstraint, func, text
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    Numeric,
+    SmallInteger,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base, TenantMixin
 from app.domain.courts.models import Court, CourtSystem
+
+
+class ContingencyLevel(StrEnum):
+    """Nível de contingenciamento (spec 024) — insumo de BI, sem cálculo aqui (regra 6)."""
+
+    PROVAVEL = "PROVAVEL"
+    POSSIVEL = "POSSIVEL"
+    REMOTA = "REMOTA"
+
+
+class LawsuitOutcome(StrEnum):
+    """Resultado do processo (spec 024) — só é aceito com `closure_date` (regra 4)."""
+
+    GANHO = "GANHO"
+    PERDIDO = "PERDIDO"
+    ACORDO = "ACORDO"
 
 
 class Lawsuit(TenantMixin, Base):
@@ -19,6 +44,15 @@ class Lawsuit(TenantMixin, Base):
     __tablename__ = "lawsuits"
     __table_args__ = (
         CheckConstraint("folder IS NULL OR length(folder) <= 30", name="ck_lawsuits_folder_length"),
+        CheckConstraint(
+            "fees_percentage IS NULL OR fees_percentage BETWEEN 0 AND 100", name="ck_fees_pct"
+        ),
+        # Regra 3: fechamento ≤ trânsito em julgado ≤ arquivamento.
+        CheckConstraint(
+            "(transit_date IS NULL OR closure_date IS NULL OR transit_date >= closure_date) "
+            "AND (archived_date IS NULL OR transit_date IS NULL OR archived_date >= transit_date)",
+            name="ck_cycle",
+        ),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
@@ -45,6 +79,19 @@ class Lawsuit(TenantMixin, Base):
     court_division: Mapped[str | None] = mapped_column(default=None)
     process_date: Mapped[date | None] = mapped_column(default=None)
     notes: Mapped[str | None] = mapped_column(default=None)
+    # Honorários e ciclo de vida (spec 024) — base de todo o BI das specs 074–077.
+    case_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), default=None)
+    fees_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), default=None)
+    fees_percentage: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), default=None)
+    contingency: Mapped[ContingencyLevel | None] = mapped_column(
+        PGENUM(ContingencyLevel, name="contingency_level", create_type=False), default=None
+    )
+    closure_date: Mapped[date | None] = mapped_column(default=None)
+    transit_date: Mapped[date | None] = mapped_column(default=None)
+    archived_date: Mapped[date | None] = mapped_column(default=None)
+    outcome: Mapped[LawsuitOutcome | None] = mapped_column(
+        PGENUM(LawsuitOutcome, name="lawsuit_outcome", create_type=False), default=None
+    )
     is_archived: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

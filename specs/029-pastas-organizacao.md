@@ -1,7 +1,7 @@
 # 029 — Pastas e organização
 
 **Fase:** 2 · **Tipo:** feature · **Orçamento:** +3 s
-**Depende de:** 027 · **Status:** ⬜ pendente
+**Depende de:** 027 · **Status:** ✅ concluída
 
 ---
 
@@ -71,8 +71,39 @@ Migration `029_folder_index.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Fusão é por igualdade normalizada, não por string exata.** Renomear "Origem" para
+  "destino" quando existe "Destino" funde (regra 4 lida com regra 2). A grafia que
+  prevalece é a do alvo já armazenado — a digitada só vence se casar exata. Renomear
+  para a mesma pasta com grafia diferente ("pasta" → "Pasta") só regrava a grafia, sem
+  pedir confirmação de fusão.
+- **`from`/`to` do rename precisam de alias no Pydantic** — `from` é palavra reservada;
+  `from_name: str = Field(alias="from")` com `populate_by_name=True`.
+- **O padrão do autocomplete também é normalizado** (`immutable_unaccent(lower(:q))`) —
+  ilike sozinho não dobra acento: "acao" não acharia "Ação". O escape de `%`/`_` vem
+  antes de embrulhar com os curingas.
+- **Agrupamento em 2 statements:** contagem por pasta (NULL vira o grupo "Sem pasta" —
+  `PARTITION BY folder` agrupa NULLs na mesma partição) + `ROW_NUMBER()` para os 10
+  primeiros de cada pasta. Teto de 50 grupos; a lista completa fica no `?folder=` da
+  listagem, que a página passou a honrar (o "Ver todos" dependia disso).
+- **Índice trgm é parcial (`WHERE folder IS NOT NULL`)** e cobre o ILIKE do
+  autocomplete; a igualdade normalizada do rename não usa índice novo — volume por
+  tenant não justifica (se a 030 medir lentidão, um índice de expressão sobre
+  `immutable_unaccent(lower(folder))` resolve sem mudar contrato).
+- **Frontend:** `FolderAutocomplete` é controlado — o teste de "valor novo" precisa de
+  harness com estado; com `value` fixo o input controlado zera a cada tecla e o
+  `onChange` recebe 1 caractere por vez. O click na sugestão usa `onMouseDown` +
+  `preventDefault` para ganhar do `onBlur` que fecha o dropdown.
+- `GET /lawsuits/folders` registrado **antes** de `/{lawsuit_id}` (mesma armadilha da
+  028: "folders" casaria como UUID e daria 422 de path).
 
 ## 10. Definição de pronto
 
-Checklist padrão · Commit `feat(029): pastas e organização`
+- [x] Spec escrita seguindo o template (já existia do ciclo de planejamento)
+- [x] Escopo implementado: autocomplete, visão agrupada, rename em lote com fusão
+      confirmada, contador por pasta; índice trgm na migration 029
+- [x] Testes do plano escritos e verdes (6 backend, 2 frontend)
+- [x] `make lint` verde
+- [x] `make test` verde em 77 s (< 120 s)
+- [x] `test-timing.json` atualizado
+- [x] ROADMAP marcado ✅
+- [x] Commit `feat(029): pastas e organização`

@@ -35,3 +35,16 @@ class TribunalMovementImmutableError(Exception):
 class MovementNotAuthorError(Exception):
     """Regra 4 (spec 026): movimentação manual só é editável/excluível por quem criou
     ou por ADMINISTRADOR."""
+
+
+class FolderNotFoundError(Exception):
+    """Spec 029: renomear uma pasta sem nenhum processo é 404."""
+
+
+class FolderMergeNotConfirmedError(Exception):
+    """Regra 4 (spec 029): renomear para uma pasta existente funde as duas — sem
+    `merge: true` no payload, é 409 e a UI pede confirmação explícita."""
+
+    def __init__(self, target: str) -> None:
+        super().__init__(target)
+        self.target = target

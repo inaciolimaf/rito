@@ -130,7 +130,7 @@ Agrega tarefas, movimentações (auto e manual), publicações e lançamentos fi
 Cards de ativos, fechamentos com variação, arquivados no mês; gráfico volume por fase; meta de fechamentos.
 **Aceite:** números conferem com seed determinístico. **t:** 4 s. **Deps:** 027
 
-### ⬜ 029 — Pastas e organização
+### ✅ 029 — Pastas e organização
 Campo `folder` com autocomplete, agrupamento por pasta, busca.
 **Aceite:** agrupamento e busca funcionam. **t:** 3 s. **Deps:** 027
 

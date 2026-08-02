@@ -284,6 +284,47 @@ class LawsuitStatsResponse(BaseModel):
     closure_goal: None = None
 
 
+class FolderSuggestionResponse(BaseModel):
+    """Sugestão do autocomplete de pasta (spec 029 §5) — nome na grafia armazenada."""
+
+    name: str
+    count: int
+
+
+class FolderRenameRequest(BaseModel):
+    """Renomear em lote (regra 3). `merge` é a confirmação explícita da fusão (regra 4);
+    nomes limitados a 30 caracteres como o campo (regra 5)."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    from_name: str = Field(min_length=1, max_length=30, alias="from")
+    to_name: str = Field(min_length=1, max_length=30, alias="to")
+    merge: bool = False
+
+
+class FolderRenameResponse(BaseModel):
+    folder: str
+    updated: int
+    merged: bool
+
+
+class FolderGroupItemResponse(BaseModel):
+    id: uuid.UUID
+    process_number: str | None
+    is_archived: bool
+    created_at: datetime
+
+
+class FolderGroupResponse(BaseModel):
+    name: str
+    count: int
+    items: list[FolderGroupItemResponse]
+
+
+class LawsuitGroupsResponse(BaseModel):
+    groups: list[FolderGroupResponse]
+
+
 class LawsuitFiltersQuery(BaseModel):
     """Filtros da listagem (spec 027 §5) — usado tanto como modelo de query string do
     GET `/lawsuits` (FastAPI 0.115+: `Annotated[..., Query()]`) quanto como corpo do

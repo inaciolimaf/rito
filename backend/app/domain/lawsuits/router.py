@@ -15,6 +15,8 @@ from app.domain.lawsuits.cnj import SEGMENT_NAMES, CNJValidationError
 from app.domain.lawsuits.exceptions import (
     CourtSystemIncompatibleError,
     DuplicatePartyError,
+    FolderMergeNotConfirmedError,
+    FolderNotFoundError,
     LastPartyError,
     LawsuitTypeNotFoundError,
     MovementNotAuthorError,
@@ -24,15 +26,22 @@ from app.domain.lawsuits.exceptions import (
     TribunalMovementImmutableError,
 )
 from app.domain.lawsuits.export import build_pdf, build_xlsx
+from app.domain.lawsuits.folders import FolderService
 from app.domain.lawsuits.listing import LawsuitListRow
 from app.domain.lawsuits.models import LawsuitMovement
 from app.domain.lawsuits.repository import TIMELINE_KINDS
 from app.domain.lawsuits.schemas import (
     FinancialSummaryResponse,
+    FolderGroupItemResponse,
+    FolderGroupResponse,
+    FolderRenameRequest,
+    FolderRenameResponse,
+    FolderSuggestionResponse,
     InferredCourtResponse,
     LawsuitCreateRequest,
     LawsuitExportRequest,
     LawsuitFiltersQuery,
+    LawsuitGroupsResponse,
     LawsuitListItemResponse,
     LawsuitListResponse,
     LawsuitResponse,
@@ -171,9 +180,33 @@ async def list_lawsuits(
     order: Literal["asc", "desc"] = Query(default="desc"),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
+    group_by: Literal["folder"] | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
-) -> LawsuitListResponse:
+) -> LawsuitListResponse | LawsuitGroupsResponse:
+    if group_by == "folder":
+        # Visão agrupada por pasta (spec 029 §5) — grupos por contagem decrescente,
+        # com "Sem pasta" para os sem valor (regra 6).
+        folder_service = FolderService(session)
+        groups = await folder_service.group_by_folder()
+        return LawsuitGroupsResponse(
+            groups=[
+                FolderGroupResponse(
+                    name=group.name,
+                    count=group.count,
+                    items=[
+                        FolderGroupItemResponse(
+                            id=item.id,
+                            process_number=item.process_number,
+                            is_archived=item.is_archived,
+                            created_at=item.created_at,
+                        )
+                        for item in group.items
+                    ],
+                )
+                for group in groups
+            ]
+        )
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     items, next_cursor, total = await service.list_lawsuits(
         payload=filters, order=order, cursor=cursor, limit=limit
@@ -183,6 +216,40 @@ async def list_lawsuits(
         next_cursor=next_cursor,
         total=total,
     )
+
+
+@router.get("/folders")
+async def list_folders(
+    q: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=20),
+    _current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> list[FolderSuggestionResponse]:
+    # Antes de "/{lawsuit_id}" — senão "folders" casaria como UUID e daria 422 de path.
+    service = FolderService(session)
+    suggestions = await service.search(query=q, limit=limit)
+    return [FolderSuggestionResponse(name=str(item.name), count=item.count) for item in suggestions]
+
+
+@router.post("/folders/rename")
+async def rename_folder(
+    payload: FolderRenameRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> FolderRenameResponse:
+    service = FolderService(session)
+    try:
+        result = await service.rename(
+            from_name=payload.from_name, to_name=payload.to_name, merge=payload.merge
+        )
+    except FolderNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Pasta não encontrada.") from exc
+    except FolderMergeNotConfirmedError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Já existe a pasta '{exc.target}' — confirme a fusão das duas.",
+        ) from exc
+    return FolderRenameResponse(folder=result.folder, updated=result.updated, merged=result.merged)
 
 
 @router.get("/stats")

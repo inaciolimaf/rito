@@ -261,6 +261,7 @@ export interface ListLawsuitsParams {
   archived?: boolean;
   created_from?: string;
   created_to?: string;
+  folder?: string;
   cursor?: string;
   limit?: number;
 }
@@ -326,4 +327,52 @@ export interface LawsuitStats {
 export async function getLawsuitStats(month?: string): Promise<LawsuitStats> {
   const query = month ? `?month=${month}` : "";
   return apiRequest<LawsuitStats>(`/api/v1/lawsuits/stats${query}`);
+}
+
+// ---- Pastas (spec 029) ----
+
+export interface FolderSuggestion {
+  name: string;
+  count: number;
+}
+
+export async function getLawsuitFolders(q?: string): Promise<FolderSuggestion[]> {
+  const query = q ? `?q=${encodeURIComponent(q)}` : "";
+  return apiRequest<FolderSuggestion[]>(`/api/v1/lawsuits/folders${query}`);
+}
+
+export interface FolderRenameResult {
+  folder: string;
+  updated: number;
+  merged: boolean;
+}
+
+/** Regra 4: sem `merge: true`, renomear para pasta existente responde 409 — a UI
+ * mostra o ConfirmDialog e repete com a confirmação. */
+export async function renameLawsuitFolder(
+  from: string,
+  to: string,
+  merge = false,
+): Promise<FolderRenameResult> {
+  return apiRequest<FolderRenameResult>("/api/v1/lawsuits/folders/rename", {
+    method: "POST",
+    body: { from, to, merge },
+  });
+}
+
+export interface FolderGroupItem {
+  id: string;
+  process_number: string | null;
+  is_archived: boolean;
+  created_at: string;
+}
+
+export interface FolderGroup {
+  name: string;
+  count: number;
+  items: FolderGroupItem[];
+}
+
+export async function listLawsuitGroups(): Promise<{ groups: FolderGroup[] }> {
+  return apiRequest<{ groups: FolderGroup[] }>("/api/v1/lawsuits?group_by=folder");
 }

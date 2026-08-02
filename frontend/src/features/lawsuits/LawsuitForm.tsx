@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
-import type { UseFormReturn } from "react-hook-form";
+import { Controller, type UseFormReturn } from "react-hook-form";
 
 import { CourtSelect } from "@/features/courts/CourtSelect";
 import { EntityPicker } from "@/components/domain/EntityPicker";
@@ -13,6 +13,7 @@ import { listActionGroups } from "@/features/action-groups/api";
 import { listCourtSystems } from "@/features/courts/api";
 import { listLawsuitTypes } from "@/features/lawsuit-types/api";
 import { ContingencySelect } from "@/features/lawsuits/ContingencySelect";
+import { FolderAutocomplete } from "@/features/lawsuits/FolderAutocomplete";
 import { PartySelector } from "@/features/lawsuits/PartySelector";
 import { ProcessNumberField } from "@/features/lawsuits/ProcessNumberField";
 import type { ProcessNumberValidation } from "@/features/lawsuits/api";
@@ -216,7 +217,13 @@ export function LawsuitForm({
         </div>
         <div className="space-y-1">
           <Label htmlFor="folder">Pasta</Label>
-          <Input id="folder" maxLength={30} {...register("folder")} />
+          <Controller
+            control={control}
+            name="folder"
+            render={({ field }) => (
+              <FolderAutocomplete id="folder" value={field.value ?? ""} onChange={field.onChange} />
+            )}
+          />
           {errors.folder && <p className="text-sm text-danger">{errors.folder.message}</p>}
         </div>
       </div>

@@ -29,6 +29,7 @@ import {
   type PartyData,
 } from "@/features/lawsuits/api";
 import { LastMovementCell, PartiesCell } from "@/features/lawsuits/LawsuitListCells";
+import { FolderGroupView } from "@/features/lawsuits/FolderGroupView";
 import { LawsuitForm } from "@/features/lawsuits/LawsuitForm";
 import { LawsuitStatsPanel } from "@/features/lawsuits/LawsuitStatsPanel";
 import type { PartyFormValue } from "@/features/lawsuits/PartySelector";
@@ -152,6 +153,8 @@ export function LawsuitsPage(): JSX.Element {
 
   const { values } = useFilters(filterFields);
   const view = searchParams.get("view") ?? "all";
+  const groupBy = searchParams.get("group_by");
+  const folder = searchParams.get("folder") ?? undefined;
   const q = typeof values.q === "string" ? values.q : undefined;
   const stageId = Array.isArray(values.stage_id)
     ? values.stage_id.join(",")
@@ -174,6 +177,7 @@ export function LawsuitsPage(): JSX.Element {
     created_from: createdFrom,
     created_to: createdTo,
     archived,
+    folder,
   };
 
   const { data, isLoading, error } = useQuery({
@@ -183,7 +187,7 @@ export function LawsuitsPage(): JSX.Element {
 
   React.useEffect(() => {
     setCursorStack([]);
-  }, [view, q, stageId, customerType, createdFrom, createdTo, archived]);
+  }, [view, q, stageId, customerType, createdFrom, createdTo, archived, folder]);
 
   // ---- modal de criar/editar (mesmo fluxo das specs 022–025) ----
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -335,8 +339,18 @@ export function LawsuitsPage(): JSX.Element {
   const items = data?.items ?? [];
   const hasActiveFilters =
     view !== "all" ||
-    [q, stageId, customerType, createdFrom, createdTo].some((v) => v != null && v !== "") ||
+    [q, stageId, customerType, createdFrom, createdTo, folder].some((v) => v != null && v !== "") ||
     archived === true;
+
+  function toggleGroupBy(): void {
+    const next = new URLSearchParams(searchParams);
+    if (groupBy === "folder") {
+      next.delete("group_by");
+    } else {
+      next.set("group_by", "folder");
+    }
+    navigate(`/lawsuits?${next.toString()}`);
+  }
 
   return (
     <div className="space-y-4 p-6">
@@ -346,6 +360,9 @@ export function LawsuitsPage(): JSX.Element {
           <QuickViewSelect />
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={toggleGroupBy}>
+            {groupBy === "folder" ? "Ver lista" : "Agrupar por pasta"}
+          </Button>
           <Button variant="outline" onClick={() => void exportLawsuits("xlsx", activeFilters)}>
             Exportar XLSX
           </Button>
@@ -360,7 +377,9 @@ export function LawsuitsPage(): JSX.Element {
 
       <LawsuitStatsPanel />
 
-      {items.length === 0 && !isLoading && !hasActiveFilters ? (
+      {groupBy === "folder" ? (
+        <FolderGroupView />
+      ) : items.length === 0 && !isLoading && !hasActiveFilters ? (
         <EmptyState
           title="Nenhum processo cadastrado ainda"
           description="Cadastre o primeiro processo do escritório."

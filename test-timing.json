@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 81,
+  "last_measured_wall_clock_seconds": 77,
   "last_measured_at": "2026-08-02",
   "specs": {
     "001": {
@@ -114,6 +114,10 @@
     "028": {
       "wall_clock_seconds": 81,
       "notes": "436 testes backend (428 anteriores + 8 novos: stats com seed determinístico (aceite), mês parametrizado + formato inválido → 422, variação vs mês anterior (regra 1), mês anterior zerado → delta None/'novo' (regra 2), volume por fase soma 100% e exclui arquivados (regra 5), cache invalida ao fechar via PUT com Redis real (regra 7), cache hit não executa statement, budget ≤ 4 statements — ficou em 2: agregados condicionais + volume por fase). 90 testes frontend (87 anteriores + 3 novos do LawsuitStatsPanel: convite de meta + rótulo 'novo', cards navegam com a visão na URL (regra 8), painel recolhível). 5 e2e (inalterado — plano da spec não pedia jornada nova). Sem migration: agregação sobre lawsuits com os índices de 024/027. Decisões: 'active' histórico (fim do mês anterior) é reconstruído por created_at/archived_date — is_archived não tem data, então soft-delete sem archived_date aparece no 'previous' (documentado no §9); delta_pct None codifica 'novo' (regra 2), nunca ∞; cache Redis 5 min por (tenant, mês) com invalidação no create/update/delete tocando o mês corrente e os meses das datas de ciclo; StatCard ganhou prop `variation` (rótulo pronto da API) sem quebrar os 3 testes existentes; Protocol StatsCache espelha assinaturas do redis-py (param `name`, retorno Awaitable) para o Redis satisfazer sem cast e o fake em memória passar no mypy; setex está deprecado no redis-py — usar set(..., ex=). DonutChart declarado na spec não foi usado: o volume por fase com 9 fases legíveis ficou melhor no BarChart horizontal (ver §9)."
+    },
+    "029": {
+      "wall_clock_seconds": 77,
+      "notes": "442 testes backend (436 anteriores + 6 novos: autocomplete por frequência (regra 7), autocomplete ignora acento/caso com grafia preservada (regra 2), renomear em lote atualiza todos com from case-insensitive + 404 em pasta fantasma (regra 3), fusão exige merge=true — sem ele 409 — e prevalece a grafia armazenada no alvo (regra 4), agrupamento ordena por contagem e inclui 'Sem pasta' (regra 6), RLS entre tenants no autocomplete e no agrupamento). 92 testes frontend (90 anteriores + 2 do FolderAutocomplete: aceita valor novo — regra 1 — e escolher sugestão preenche com a grafia armazenada). 5 e2e (inalterado). Migration 029 cria só o índice GIN trgm parcial (pg_trgm/unaccent já existiam da 002, immutable_unaccent da 014). Decisões: fusão detectada por igualdade normalizada (unaccent+lower) com qualquer pasta existente — renomear para grafia diferente do MESMO nome lógico só regrava a grafia, sem confirmação; agrupamento limita 50 grupos × 10 itens via ROW_NUMBER() PARTITION BY folder (NULL forma a partição 'Sem pasta'), 2 statements; FolderAutocomplete é controlado — teste de 'valor novo' precisa de harness com estado, senão o input controlado zera a cada tecla e o onChange recebe 1 char; a página passou a honrar ?folder= na listagem (o 'Ver todos' do grupo depende disso)."
     }
   }
 }

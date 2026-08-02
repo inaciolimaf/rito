@@ -72,6 +72,11 @@ async def _create_lawsuit(
     stage_id: str,
     **extra: object,
 ) -> dict[str, object]:
+    # Spec 023 regra 1: processo exige no mínimo 1 parte — o helper cria um contato e o
+    # vincula como polo ATIVO por padrão; quem precisa de outra composição passa `parties`.
+    if "parties" not in extra:
+        customer_id = await _create_customer(client, headers, f"Cliente {uuid.uuid4().hex[:8]}")
+        extra["parties"] = [{"customer_id": customer_id, "pole": "ATIVO", "is_client": True}]
     payload = {
         "user_id": user_id,
         "lawsuit_type_id": lawsuit_type_id,
@@ -81,6 +86,21 @@ async def _create_lawsuit(
     response = await client.post("/api/v1/lawsuits", json=payload, headers=headers)
     assert response.status_code == 201, response.text
     result: dict[str, object] = response.json()
+    return result
+
+
+async def _create_customer(client: AsyncClient, headers: dict[str, str], name: str) -> str:
+    origin_response = await client.post(
+        "/api/v1/customer-origins", json={"name": f"Origem {uuid.uuid4().hex[:8]}"}, headers=headers
+    )
+    assert origin_response.status_code == 201
+    response = await client.post(
+        "/api/v1/customers",
+        json={"type": "PF", "name": name, "origin_id": origin_response.json()["id"]},
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    result: str = response.json()["id"]
     return result
 
 

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { listActionGroups } from "@/features/action-groups/api";
 import { listCourtSystems } from "@/features/courts/api";
 import { listLawsuitTypes } from "@/features/lawsuit-types/api";
+import { PartySelector } from "@/features/lawsuits/PartySelector";
 import { StageStepSelect } from "@/features/lawsuits/StageStepSelect";
 import type { LawsuitFormValues } from "@/features/lawsuits/schema";
 
@@ -19,6 +20,7 @@ const SELECT_CLASS =
 export interface LawsuitFormProps {
   form: UseFormReturn<LawsuitFormValues>;
   onSearchUsers: (query: string) => Promise<EntityOption[]>;
+  onSearchCustomers: (query: string) => Promise<EntityOption[]>;
   currentResponsible: EntityOption | null;
   currentCourt: EntityOption | null;
   /** Grupo/fase da seleção atual (spec 022 §6) — não são campos do formulário (o processo
@@ -33,6 +35,7 @@ export interface LawsuitFormProps {
 export function LawsuitForm({
   form,
   onSearchUsers,
+  onSearchCustomers,
   currentResponsible,
   currentCourt,
   initialGroupId,
@@ -53,6 +56,7 @@ export function LawsuitForm({
   const userId = watch("user_id");
   const stageId = watch("stage_id");
   const courtId = watch("court_id");
+  const parties = watch("parties");
 
   const { data: groupsPage } = useQuery({
     queryKey: ["action-groups", "for-lawsuit-form"],
@@ -138,6 +142,13 @@ export function LawsuitForm({
         initialStepId={initialStepId}
       />
       {errors.stage_id && <p className="text-sm text-danger">{errors.stage_id.message}</p>}
+
+      <PartySelector
+        value={parties}
+        onChange={(next) => setValue("parties", next, { shouldDirty: true, shouldValidate: true })}
+        onSearch={onSearchCustomers}
+      />
+      {errors.parties && <p className="text-sm text-danger">{errors.parties.message}</p>}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">

@@ -47,6 +47,7 @@ function Harness(): JSX.Element {
       <LawsuitForm
         form={form}
         onSearchUsers={() => Promise.resolve([])}
+        onSearchCustomers={() => Promise.resolve([])}
         currentResponsible={null}
         currentCourt={null}
       />

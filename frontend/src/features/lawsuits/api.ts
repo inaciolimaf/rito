@@ -1,5 +1,23 @@
 import { apiRequest } from "@/lib/api";
 
+export type PartyPoleApi = "ATIVO" | "PASSIVO" | "CONTRARIA" | "TERCEIRO";
+
+export interface PartyInput {
+  customer_id: string;
+  pole: PartyPoleApi;
+  is_client: boolean;
+}
+
+export interface PartyData {
+  id: string;
+  lawsuit_id: string;
+  customer_id: string;
+  customer_name: string;
+  pole: PartyPoleApi;
+  is_client: boolean;
+  created_at: string;
+}
+
 export interface LawsuitData {
   id: string;
   user_id: string;
@@ -30,6 +48,7 @@ export interface LawsuitFormPayload {
   user_id: string;
   lawsuit_type_id: string;
   stage_id: string;
+  parties?: PartyInput[];
   court_id?: number | null;
   court_system_id?: number | null;
   process_number?: string | null;
@@ -59,4 +78,32 @@ export async function updateLawsuit(id: string, values: LawsuitFormPayload): Pro
 
 export async function deleteLawsuit(id: string): Promise<void> {
   await apiRequest<void>(`/api/v1/lawsuits/${id}`, { method: "DELETE" });
+}
+
+export async function listParties(lawsuitId: string): Promise<PartyData[]> {
+  return apiRequest<PartyData[]>(`/api/v1/lawsuits/${lawsuitId}/parties`);
+}
+
+export async function addParty(lawsuitId: string, party: PartyInput): Promise<PartyData> {
+  return apiRequest<PartyData>(`/api/v1/lawsuits/${lawsuitId}/parties`, {
+    method: "POST",
+    body: party,
+  });
+}
+
+export async function updateParty(
+  lawsuitId: string,
+  partyId: string,
+  values: { pole: PartyPoleApi; is_client?: boolean },
+): Promise<PartyData> {
+  return apiRequest<PartyData>(`/api/v1/lawsuits/${lawsuitId}/parties/${partyId}`, {
+    method: "PUT",
+    body: values,
+  });
+}
+
+export async function removeParty(lawsuitId: string, partyId: string): Promise<void> {
+  await apiRequest<void>(`/api/v1/lawsuits/${lawsuitId}/parties/${partyId}`, {
+    method: "DELETE",
+  });
 }

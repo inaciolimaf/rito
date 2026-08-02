@@ -1,7 +1,9 @@
 import uuid
 from datetime import date, datetime
+from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, func, text
+from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -46,3 +48,34 @@ class Lawsuit(TenantMixin, Base):
     is_archived: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class PartyPole(StrEnum):
+    """Polo que a parte ocupa no processo (spec 023). A ordem de declaração é a ordem de
+    exibição (regra 7) — o enum Postgres replica esta ordem, então `ORDER BY pole` basta."""
+
+    ATIVO = "ATIVO"
+    PASSIVO = "PASSIVO"
+    CONTRARIA = "CONTRARIA"
+    TERCEIRO = "TERCEIRO"
+
+
+class LawsuitParty(TenantMixin, Base):
+    """Parte do processo (spec 023) — N:N entre processo e contato com o polo.
+    `is_client` separa quem é cliente do escritório de parte contrária (regra 3).
+    Delete do processo é cascade; delete do contato nunca (regra 5)."""
+
+    __tablename__ = "lawsuit_parties"
+    __table_args__ = (
+        UniqueConstraint("lawsuit_id", "customer_id", "pole", name="uq_parties_lawsuit_pole"),
+    )
+
+    lawsuit_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("lawsuits.id", ondelete="CASCADE")
+    )
+    customer_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("customers.id"))
+    # `create_type=False`: o tipo é criado pela migration 023 — o SQLAlchemy não deve
+    # tentar emitir CREATE TYPE num `create_all` de metadados (testes unitários puros).
+    pole: Mapped[PartyPole] = mapped_column(PGENUM(PartyPole, name="party_pole", create_type=False))
+    is_client: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

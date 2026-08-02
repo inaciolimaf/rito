@@ -6,15 +6,21 @@ import { FormModal } from "@/components/domain/FormModal";
 import type { EntityOption } from "@/components/domain/types";
 import { Button } from "@/components/ui/button";
 import { listCourts } from "@/features/courts/api";
+import { listCustomers } from "@/features/customers/api";
 import {
+  addParty,
   createLawsuit,
   deleteLawsuit,
   getLawsuit,
+  listParties,
+  removeParty,
   updateLawsuit,
   type LawsuitData,
   type LawsuitFormPayload,
+  type PartyData,
 } from "@/features/lawsuits/api";
 import { LawsuitForm } from "@/features/lawsuits/LawsuitForm";
+import type { PartyFormValue } from "@/features/lawsuits/PartySelector";
 import {
   DEFAULT_LAWSUIT_FORM_VALUES,
   lawsuitFormSchema,
@@ -28,6 +34,11 @@ function toPayload(values: LawsuitFormValues): LawsuitFormPayload {
     user_id: values.user_id,
     lawsuit_type_id: values.lawsuit_type_id,
     stage_id: values.stage_id,
+    parties: values.parties.map((party) => ({
+      customer_id: party.customer_id,
+      pole: party.pole,
+      is_client: party.is_client,
+    })),
     court_id: values.court_id ? Number(values.court_id) : null,
     court_system_id: values.court_system_id ? Number(values.court_system_id) : null,
     process_number: values.process_number || null,
@@ -43,11 +54,17 @@ function toPayload(values: LawsuitFormValues): LawsuitFormPayload {
   };
 }
 
-function toFormValues(lawsuit: LawsuitData): LawsuitFormValues {
+function toFormValues(lawsuit: LawsuitData, parties: PartyData[]): LawsuitFormValues {
   return {
     user_id: lawsuit.user_id,
     lawsuit_type_id: lawsuit.lawsuit_type_id,
     stage_id: lawsuit.stage_id,
+    parties: parties.map((party) => ({
+      customer_id: party.customer_id,
+      label: party.customer_name,
+      pole: party.pole,
+      is_client: party.is_client,
+    })),
     court_id: lawsuit.court_id != null ? String(lawsuit.court_id) : "",
     court_system_id: lawsuit.court_system_id != null ? String(lawsuit.court_system_id) : "",
     process_number: lawsuit.process_number ?? "",
@@ -70,6 +87,7 @@ export function LawsuitsPage(): JSX.Element {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [formError, setFormError] = React.useState<ApiError | null>(null);
   const [lastLawsuit, setLastLawsuit] = React.useState<LawsuitData | null>(null);
+  const [lastParties, setLastParties] = React.useState<PartyData[]>([]);
   const [pendingDelete, setPendingDelete] = React.useState(false);
 
   const { data: courts = [] } = useQuery({
@@ -88,6 +106,11 @@ export function LawsuitsPage(): JSX.Element {
     return page.items.map((item) => ({ id: item.id, label: item.name }));
   }
 
+  async function searchCustomers(query: string): Promise<EntityOption[]> {
+    const page = await listCustomers({ q: query, limit: 20 });
+    return page.items.map((item) => ({ id: item.id, label: item.name }));
+  }
+
   function openCreateModal(): void {
     setFormError(null);
     setModalOpen(true);
@@ -97,17 +120,52 @@ export function LawsuitsPage(): JSX.Element {
     if (!lastLawsuit) return;
     const fresh = await getLawsuit(lastLawsuit.id);
     setLastLawsuit(fresh);
+    setLastParties(await listParties(fresh.id));
     setFormError(null);
     setModalOpen(true);
+  }
+
+  /** PUT do processo não aceita `parties` (spec 023 §5) — na edição, as partes são
+   * sincronizadas pelos endpoints dedicados: primeiro as adições (para nunca ficar sem
+   * nenhuma parte, regra 1), depois as remoções. A chave de comparação é
+   * customer_id + polo (regra 2). */
+  async function syncParties(lawsuitId: string, next: PartyFormValue[]): Promise<void> {
+    const keyOf = (party: { customer_id: string; pole: string }): string =>
+      `${party.customer_id}:${party.pole}`;
+    const nextKeys = new Set(next.map(keyOf));
+    const initialKeys = new Set(lastParties.map(keyOf));
+    for (const party of next) {
+      if (!initialKeys.has(keyOf(party))) {
+        await addParty(lawsuitId, {
+          customer_id: party.customer_id,
+          pole: party.pole,
+          is_client: party.is_client,
+        });
+      }
+    }
+    for (const party of lastParties) {
+      if (!nextKeys.has(keyOf(party))) {
+        await removeParty(lawsuitId, party.id);
+      }
+    }
+    setLastParties(await listParties(lawsuitId));
   }
 
   async function handleSubmit(values: LawsuitFormValues): Promise<void> {
     setFormError(null);
     try {
       const payload = toPayload(values);
-      const saved = lastLawsuit
-        ? await updateLawsuit(lastLawsuit.id, payload)
-        : await createLawsuit(payload);
+      let saved: LawsuitData;
+      if (lastLawsuit) {
+        // PUT não aceita `parties` (spec 023 §5) — partes vão pelos endpoints dedicados.
+        const updatePayload = { ...payload };
+        delete updatePayload.parties;
+        saved = await updateLawsuit(lastLawsuit.id, updatePayload);
+        await syncParties(saved.id, values.parties);
+      } else {
+        saved = await createLawsuit(payload);
+        setLastParties(await listParties(saved.id));
+      }
       setLastLawsuit(saved);
       setModalOpen(false);
     } catch (submitError) {
@@ -183,7 +241,9 @@ export function LawsuitsPage(): JSX.Element {
         onOpenChange={setModalOpen}
         title={lastLawsuit ? "Editar processo" : "Novo processo"}
         schema={lawsuitFormSchema}
-        defaultValues={lastLawsuit ? toFormValues(lastLawsuit) : DEFAULT_LAWSUIT_FORM_VALUES}
+        defaultValues={
+          lastLawsuit ? toFormValues(lastLawsuit, lastParties) : DEFAULT_LAWSUIT_FORM_VALUES
+        }
         serverError={formError}
         onSubmit={handleSubmit}
       >
@@ -191,6 +251,7 @@ export function LawsuitsPage(): JSX.Element {
           <LawsuitForm
             form={form}
             onSearchUsers={searchUsers}
+            onSearchCustomers={searchCustomers}
             currentResponsible={currentResponsible}
             currentCourt={currentCourt}
             initialGroupId={lastLawsuit?.action_group_id}

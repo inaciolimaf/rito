@@ -1,7 +1,7 @@
 # 023 — Processos: partes
 
 **Fase:** 2 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 022, 017 · **Status:** ⬜ pendente
+**Depende de:** 022, 017 · **Status:** ✅ concluída
 
 ---
 
@@ -86,8 +86,44 @@ RLS ligado. Migration `023_lawsuit_parties.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+1. **Regra 1 mudou o contrato do POST da spec 022:** "mínimo 1 parte" + o caso de teste
+   "processo sem parte → 422" tornaram `parties` obrigatório no `POST /lawsuits`. Os 16
+   testes da 022 não precisaram de edição de asserção — só o helper `_create_lawsuit`
+   ganhou uma parte padrão. Testes que esperavam 422 por outro motivo (tipo/etapa/
+   responsável inválido, folder longo) continuam 422 porque a validação de schema roda
+   antes da de serviço.
+2. **PUT não aceita `parties`:** `LawsuitUpdateRequest` deixou de herdar de
+   `LawsuitCreateRequest` — ambos herdam de `LawsuitBaseRequest` (extra=forbid mantido).
+   Partes mudam só pelos endpoints dedicados. Na UI de edição, a sincronização faz
+   **adições antes de remoções** para nunca esbarrar na regra 1 (remover a última → 409).
+3. **Ordem de exibição de graça:** o Postgres ordena enums pela posição de declaração,
+   então `ORDER BY pole, customers.name` já satisfaz a regra 7 sem `CASE` — a ordem dos
+   valores do enum `party_pole` (ATIVO, PASSIVO, CONTRARIA, TERCEIRO) é normativa.
+4. **Migration de enum:** `op.create_table` já emite o `CREATE TYPE` do enum
+   automaticamente — um `party_pole.create()` explícito antes causa
+   `DuplicateObjectError`. No modelo ORM, `PGENUM(..., create_type=False)` evita CREATE
+   TYPE em `create_all` de metadados.
+5. **Regra 5 é só garantia de banco hoje:** o delete de processo é soft desde a 022
+   (`is_archived`), então o `ON DELETE CASCADE` de `lawsuit_parties.lawsuit_id` nunca
+   dispara via API — fica como garantia para um hard delete futuro. `customer_id`
+   referencia `customers` **sem** cascade (regra 6: arquivar/excluir contato nunca toca
+   o vínculo).
+6. **`PartySelector` não entrou em `components/domain/`:** tem 1 consumidor (formulário
+   de processo). A regra dos 3 usos se aplica quando aparecerem mais consumidores
+   (prospecção CRM, extração de documentos).
+7. **Ambiente do sandbox:** o webServer do e2e (uvicorn real) lê `backend/.env` — o
+   arquivo foi criado localmente (gitignored) apontando para o host `dind`, derivado de
+   `.env.example`. Sem ele, `make test` falha no boot do e2e por falta de SECRET_KEY/
+   REDIS_URL/S3_*.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Commit `feat(023): processos — partes`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (1–7 cobertas; regra 6 com teste dedicado)
+- [x] Teste de isolamento por tenant (`test_partes_isoladas_entre_tenants`)
+- [x] `make test` verde e wall-clock < 120 s (73 s)
+- [x] `make lint` verde (ruff, black, mypy, eslint, tsc, prettier)
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] Componentes reutilizáveis extraídos quando bateu 3 usos (não bateu — ver 9.6)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(023): processos — partes`

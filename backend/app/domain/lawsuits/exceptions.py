@@ -12,3 +12,17 @@ class ResponsibleNotActiveError(Exception):
 
 class CourtSystemIncompatibleError(Exception):
     """Regra 8: sistema processual precisa pertencer ao tribunal escolhido."""
+
+
+class PartyCustomerNotFoundError(Exception):
+    """Spec 023: a parte precisa ser um contato existente do tenant."""
+
+
+class DuplicatePartyError(Exception):
+    """Regra 2 (spec 023): mesma pessoa no mesmo polo duas vezes é proibido —
+    em polos distintos é permitido."""
+
+
+class LastPartyError(Exception):
+    """Regra 1 (spec 023): processo precisa de no mínimo 1 parte —
+    remover a última é proibido."""

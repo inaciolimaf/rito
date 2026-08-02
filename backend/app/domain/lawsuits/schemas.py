@@ -3,8 +3,10 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.domain.lawsuits.models import PartyPole
 
-class LawsuitCreateRequest(BaseModel):
+
+class LawsuitBaseRequest(BaseModel):
     # extra="forbid": regra 2 — `action_group_id`/`step_id` são derivados e nunca aceitos
     # do cliente; enviá-los (ou qualquer outro campo desconhecido) precisa virar 422.
     model_config = ConfigDict(extra="forbid")
@@ -26,8 +28,38 @@ class LawsuitCreateRequest(BaseModel):
     notes: str | None = None
 
 
-class LawsuitUpdateRequest(LawsuitCreateRequest):
+class PartyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    customer_id: uuid.UUID
+    pole: PartyPole
+    is_client: bool = True
+
+
+class LawsuitCreateRequest(LawsuitBaseRequest):
+    # Regra 1: processo nasce com no mínimo 1 parte — sem `parties` (ou lista vazia) é 422.
+    parties: list[PartyInput] = Field(min_length=1)
+
+
+class LawsuitUpdateRequest(LawsuitBaseRequest):
+    # PUT não aceita `parties` — partes mudam só pelos endpoints dedicados
+    # `/lawsuits/{id}/parties` (spec 023 §5).
     is_archived: bool = False
+
+
+class PartyCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    customer_id: uuid.UUID
+    pole: PartyPole
+    is_client: bool = True
+
+
+class PartyUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pole: PartyPole
+    is_client: bool | None = None
 
 
 class LawsuitResponse(BaseModel):
@@ -54,3 +86,13 @@ class LawsuitResponse(BaseModel):
     is_archived: bool
     created_at: datetime
     updated_at: datetime
+
+
+class PartyResponse(BaseModel):
+    id: uuid.UUID
+    lawsuit_id: uuid.UUID
+    customer_id: uuid.UUID
+    customer_name: str
+    pole: PartyPole
+    is_client: bool
+    created_at: datetime

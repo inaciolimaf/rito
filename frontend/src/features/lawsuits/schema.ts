@@ -1,9 +1,22 @@
 import { z } from "zod";
 
+import { PARTY_POLES } from "@/features/lawsuits/PartySelector";
+
 export const lawsuitFormSchema = z.object({
   user_id: z.string().min(1, "Responsável é obrigatório."),
   lawsuit_type_id: z.string().min(1, "Tipo de ação é obrigatório."),
   stage_id: z.string().min(1, "Etapa é obrigatória."),
+  // Regra 1 (spec 023): no mínimo 1 parte.
+  parties: z
+    .array(
+      z.object({
+        customer_id: z.string().min(1),
+        label: z.string(),
+        pole: z.enum(PARTY_POLES),
+        is_client: z.boolean(),
+      }),
+    )
+    .min(1, "Adicione pelo menos uma parte."),
   court_id: z.string().optional(),
   court_system_id: z.string().optional(),
   process_number: z.string().optional(),
@@ -24,6 +37,7 @@ export const DEFAULT_LAWSUIT_FORM_VALUES: LawsuitFormValues = {
   user_id: "",
   lawsuit_type_id: "",
   stage_id: "",
+  parties: [],
   court_id: "",
   court_system_id: "",
   process_number: "",

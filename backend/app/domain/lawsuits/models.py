@@ -93,6 +93,9 @@ class Lawsuit(TenantMixin, Base):
     outcome: Mapped[LawsuitOutcome | None] = mapped_column(
         PGENUM(LawsuitOutcome, name="lawsuit_outcome", create_type=False), default=None
     )
+    # Materializado pela trigger trg_movements_last_movement (migration 027) — nunca
+    # escrito pela aplicação; serve às visões moved_*/idle_* da listagem.
+    last_movement_at: Mapped[datetime | None] = mapped_column(default=None)
     is_archived: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

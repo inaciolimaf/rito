@@ -1,7 +1,7 @@
 import uuid
-from typing import NoReturn
+from typing import Literal, NoReturn
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.http import get_or_404
@@ -19,18 +19,25 @@ from app.domain.lawsuits.exceptions import (
     StageNotFoundError,
     TribunalMovementImmutableError,
 )
+from app.domain.lawsuits.export import build_pdf, build_xlsx
+from app.domain.lawsuits.listing import LawsuitListRow
 from app.domain.lawsuits.models import LawsuitMovement
 from app.domain.lawsuits.repository import TIMELINE_KINDS
 from app.domain.lawsuits.schemas import (
     FinancialSummaryResponse,
     InferredCourtResponse,
     LawsuitCreateRequest,
+    LawsuitExportRequest,
+    LawsuitFiltersQuery,
+    LawsuitListItemResponse,
+    LawsuitListResponse,
     LawsuitResponse,
     LawsuitUpdateRequest,
     MovementCreateRequest,
     MovementResponse,
     MovementUpdateRequest,
     ParsedCNJResponse,
+    PartyBriefResponse,
     PartyCreateRequest,
     PartyResponse,
     PartyUpdateRequest,
@@ -69,6 +76,26 @@ def _to_party_response(detail: PartyDetail) -> PartyResponse:
         pole=party.pole,
         is_client=party.is_client,
         created_at=party.created_at,
+    )
+
+
+def _to_list_item_response(row: LawsuitListRow) -> LawsuitListItemResponse:
+    lawsuit = row.lawsuit
+    return LawsuitListItemResponse(
+        id=lawsuit.id,
+        process_number=lawsuit.process_number,
+        folder=lawsuit.folder,
+        is_archived=lawsuit.is_archived,
+        created_at=lawsuit.created_at,
+        last_movement_at=lawsuit.last_movement_at,
+        last_movement_title=row.last_movement_title,
+        lawsuit_type_name=row.lawsuit_type_name,
+        action_group_name=row.action_group_name,
+        stage_name=row.stage_name,
+        parties=[
+            PartyBriefResponse(name=str(party["name"]), pole=party["pole"]) for party in row.parties
+        ],
+        parties_total=row.parties_total,
     )
 
 
@@ -122,6 +149,50 @@ def _to_response(detail: LawsuitDetail) -> LawsuitResponse:
         is_archived=lawsuit.is_archived,
         created_at=lawsuit.created_at,
         updated_at=lawsuit.updated_at,
+    )
+
+
+@router.get("")
+async def list_lawsuits(
+    # Depends() (não Query()): nesta versão do FastAPI o modelo Pydantic só é expandido
+    # em parâmetros de query individuais como dependência — com Query() o modelo inteiro
+    # vira UM parâmetro obrigatório chamado "filters".
+    filters: LawsuitFiltersQuery = Depends(),
+    order: Literal["asc", "desc"] = Query(default="desc"),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> LawsuitListResponse:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    items, next_cursor, total = await service.list_lawsuits(
+        payload=filters, order=order, cursor=cursor, limit=limit
+    )
+    return LawsuitListResponse(
+        items=[_to_list_item_response(item) for item in items],
+        next_cursor=next_cursor,
+        total=total,
+    )
+
+
+@router.post("/export")
+async def export_lawsuits(
+    payload: LawsuitExportRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> Response:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    rows = await service.export_lawsuits(payload=payload.filters)
+    content = build_xlsx(rows) if payload.format == "xlsx" else build_pdf(rows)
+    media_type = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if payload.format == "xlsx"
+        else "application/pdf"
+    )
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="processos.{payload.format}"'},
     )
 
 

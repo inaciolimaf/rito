@@ -122,7 +122,7 @@ Parser do formato `NNNNNNN-DD.AAAA.J.TR.OOOO`; dígito verificador (módulo 97 b
 Agrega tarefas, movimentações (auto e manual), publicações e lançamentos financeiros, com toggle por tipo; ordenação cronológica; paginação.
 **Aceite:** toggles filtram; ordenação estável. **t:** 6 s. **Deps:** 024
 
-### ⬜ 027 — Processos: listagem e filtros
+### ✅ 027 — Processos: listagem e filtros
 12 visões rápidas (ativos, movimentados 7/30 dias, parados +30/+45/+90, fechamentos do mês…); filtros avançados; export.
 **Aceite:** cada visão bate com o SQL esperado em fixture. **t:** 7 s. **Deps:** 026
 

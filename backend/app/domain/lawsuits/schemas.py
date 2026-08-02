@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
 
@@ -233,3 +233,74 @@ class TimelineResponse(BaseModel):
     items: list[TimelineItemResponse]
     next_cursor: str | None
     total: int
+
+
+class PartyBriefResponse(BaseModel):
+    name: str
+    pole: PartyPole
+
+
+class LawsuitListItemResponse(BaseModel):
+    id: uuid.UUID
+    process_number: str | None
+    folder: str | None
+    is_archived: bool
+    created_at: datetime
+    last_movement_at: datetime | None
+    last_movement_title: str | None
+    lawsuit_type_name: str
+    action_group_name: str
+    stage_name: str
+    parties: list[PartyBriefResponse]
+    parties_total: int
+
+
+class LawsuitListResponse(BaseModel):
+    items: list[LawsuitListItemResponse]
+    next_cursor: str | None
+    total: int
+
+
+class LawsuitFiltersQuery(BaseModel):
+    """Filtros da listagem (spec 027 §5) — usado tanto como modelo de query string do
+    GET `/lawsuits` (FastAPI 0.115+: `Annotated[..., Query()]`) quanto como corpo do
+    POST `/lawsuits/export`. Multivalorados chegam separados por vírgula."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    view: str = "all"
+    q: str | None = None
+    customer_id: uuid.UUID | None = None
+    identification: str | None = None
+    process_number: str | None = None
+    protocol_number: str | None = None
+    folder: str | None = None
+    notes: str | None = None
+    action_group_id: str | None = None
+    lawsuit_type_id: str | None = None
+    step_id: str | None = None
+    stage_id: str | None = None
+    court_id: str | None = None
+    court_system_id: str | None = None
+    user_id: str | None = None
+    contingency: str | None = None
+    origin_id: str | None = None
+    customer_type: str | None = None
+    created_from: date | None = None
+    created_to: date | None = None
+    process_date_from: date | None = None
+    process_date_to: date | None = None
+    closure_from: date | None = None
+    closure_to: date | None = None
+    transit_from: date | None = None
+    transit_to: date | None = None
+    archived_from: date | None = None
+    archived_to: date | None = None
+    archived: bool | None = None
+
+
+class LawsuitExportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    format: Literal["xlsx", "pdf"]
+    filters: LawsuitFiltersQuery

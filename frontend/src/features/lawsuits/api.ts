@@ -1,4 +1,5 @@
-import { apiRequest } from "@/lib/api";
+import type { ListResponse } from "@/components/domain/types";
+import { apiRequest, apiRequestBlob } from "@/lib/api";
 
 export type PartyPoleApi = "ATIVO" | "PASSIVO" | "CONTRARIA" | "TERCEIRO";
 
@@ -235,4 +236,65 @@ export async function deleteMovement(lawsuitId: string, movementId: string): Pro
   await apiRequest<void>(`/api/v1/lawsuits/${lawsuitId}/movements/${movementId}`, {
     method: "DELETE",
   });
+}
+
+export interface LawsuitListItem {
+  id: string;
+  process_number: string | null;
+  folder: string | null;
+  is_archived: boolean;
+  created_at: string;
+  last_movement_at: string | null;
+  last_movement_title: string | null;
+  lawsuit_type_name: string;
+  action_group_name: string;
+  stage_name: string;
+  parties: { name: string; pole: string }[];
+  parties_total: number;
+}
+
+export interface ListLawsuitsParams {
+  view?: string;
+  q?: string;
+  stage_id?: string;
+  customer_type?: string;
+  archived?: boolean;
+  created_from?: string;
+  created_to?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export async function listLawsuits(
+  params: ListLawsuitsParams,
+): Promise<ListResponse<LawsuitListItem>> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const queryString = query.toString();
+  return apiRequest<ListResponse<LawsuitListItem>>(
+    `/api/v1/lawsuits${queryString ? `?${queryString}` : ""}`,
+  );
+}
+
+/** Regra 10: export respeita os filtros ativos, não a página visível — mesmo padrão do
+ * export de contatos (dispara o download no browser). */
+export async function exportLawsuits(
+  format: "xlsx" | "pdf",
+  filters: ListLawsuitsParams,
+): Promise<void> {
+  const exportFilters = { ...filters };
+  delete exportFilters.cursor;
+  delete exportFilters.limit;
+  const blob = await apiRequestBlob("/api/v1/lawsuits/export", {
+    method: "POST",
+    body: { format, filters: { view: "all", ...exportFilters } },
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `processos.${format}`;
+  link.click();
+  URL.revokeObjectURL(url);
 }

@@ -1,10 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
+import { DataTable } from "@/components/domain/DataTable";
+import { EmptyState } from "@/components/domain/EmptyState";
+import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
-import type { EntityOption } from "@/components/domain/types";
+import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
+import { useFilters } from "@/components/domain/useFilters";
 import { Button } from "@/components/ui/button";
 import { listCourts } from "@/features/courts/api";
 import { listCustomers } from "@/features/customers/api";
@@ -12,25 +16,30 @@ import {
   addParty,
   createLawsuit,
   deleteLawsuit,
-  getFinancialSummary,
+  exportLawsuits,
   getLawsuit,
+  listLawsuits,
   listParties,
   removeParty,
   updateLawsuit,
   validateProcessNumber,
   type LawsuitData,
   type LawsuitFormPayload,
+  type LawsuitListItem,
   type PartyData,
 } from "@/features/lawsuits/api";
-import { LawsuitFinancialPanel } from "@/features/lawsuits/LawsuitFinancialPanel";
+import { LastMovementCell, PartiesCell } from "@/features/lawsuits/LawsuitListCells";
 import { LawsuitForm } from "@/features/lawsuits/LawsuitForm";
 import type { PartyFormValue } from "@/features/lawsuits/PartySelector";
+import { QuickViewSelect } from "@/features/lawsuits/QuickViewSelect";
 import {
   DEFAULT_LAWSUIT_FORM_VALUES,
   lawsuitFormSchema,
   type LawsuitFormValues,
 } from "@/features/lawsuits/schema";
+import { listStages } from "@/features/stages/api";
 import { getUser, listUsers } from "@/features/users/api";
+import { formatCnj } from "@/lib/cnj";
 import { ApiError } from "@/lib/errors";
 
 function toPayload(values: LawsuitFormValues): LawsuitFormPayload {
@@ -105,15 +114,82 @@ function toFormValues(lawsuit: LawsuitData, parties: PartyData[]): LawsuitFormVa
   };
 }
 
-/** Listagem/filtros de Processos são a spec 027 — esta tela cobre só o modal de
- * criação/edição (spec 022 §6: "Rota: modal sobre /lawsuits"), mesmo padrão que
- * `CustomersPage` cobriu antes da listagem da spec 019 chegar. */
+/** Tela de trabalho do gestor (spec 027): 12 visões + filtros combináveis na URL +
+ * DataTable. O detalhe (timeline) fica em /lawsuits/:id. */
 export function LawsuitsPage(): JSX.Element {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+
+  const { data: stagesPage } = useQuery({
+    queryKey: ["stages", "for-lawsuit-list"],
+    queryFn: () => listStages({}),
+  });
+  const stages = stagesPage?.items ?? [];
+
+  const filterFields: FilterFieldDef[] = [
+    { key: "q", label: "Buscar", type: "text" },
+    {
+      key: "stage_id",
+      label: "Etapa",
+      type: "multiselect",
+      options: stages.map((stage) => ({ value: stage.id, label: stage.name })),
+    },
+    {
+      key: "customer_type",
+      label: "Tipo de pessoa",
+      type: "select",
+      options: [
+        { value: "PF", label: "Pessoa física" },
+        { value: "PJ", label: "Pessoa jurídica" },
+      ],
+    },
+    { key: "created_from", label: "Cadastro de", type: "date" },
+    { key: "created_to", label: "Cadastro até", type: "date" },
+    { key: "archived", label: "Arquivados", type: "boolean" },
+  ];
+
+  const { values } = useFilters(filterFields);
+  const view = searchParams.get("view") ?? "all";
+  const q = typeof values.q === "string" ? values.q : undefined;
+  const stageId = Array.isArray(values.stage_id)
+    ? values.stage_id.join(",")
+    : typeof values.stage_id === "string"
+      ? values.stage_id
+      : undefined;
+  const customerType = typeof values.customer_type === "string" ? values.customer_type : undefined;
+  const createdFrom = typeof values.created_from === "string" ? values.created_from : undefined;
+  const createdTo = typeof values.created_to === "string" ? values.created_to : undefined;
+  const archived = values.archived === "true" ? true : undefined;
+
+  const [cursorStack, setCursorStack] = React.useState<string[]>([]);
+  const currentCursor = cursorStack[cursorStack.length - 1];
+
+  const activeFilters = {
+    view,
+    q,
+    stage_id: stageId,
+    customer_type: customerType,
+    created_from: createdFrom,
+    created_to: createdTo,
+    archived,
+  };
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["lawsuits-list", activeFilters, currentCursor],
+    queryFn: () => listLawsuits({ ...activeFilters, cursor: currentCursor, limit: 20 }),
+  });
+
+  React.useEffect(() => {
+    setCursorStack([]);
+  }, [view, q, stageId, customerType, createdFrom, createdTo, archived]);
+
+  // ---- modal de criar/editar (mesmo fluxo das specs 022–025) ----
   const [modalOpen, setModalOpen] = React.useState(false);
   const [formError, setFormError] = React.useState<ApiError | null>(null);
-  const [lastLawsuit, setLastLawsuit] = React.useState<LawsuitData | null>(null);
-  const [lastParties, setLastParties] = React.useState<PartyData[]>([]);
-  const [pendingDelete, setPendingDelete] = React.useState(false);
+  const [editingLawsuit, setEditingLawsuit] = React.useState<LawsuitData | null>(null);
+  const [editingParties, setEditingParties] = React.useState<PartyData[]>([]);
+  const [pendingDelete, setPendingDelete] = React.useState<LawsuitListItem | null>(null);
 
   const { data: courts = [] } = useQuery({
     queryKey: ["courts", "for-lawsuit-form"],
@@ -121,15 +197,9 @@ export function LawsuitsPage(): JSX.Element {
   });
 
   const { data: responsible = null } = useQuery({
-    queryKey: ["users", lastLawsuit?.user_id],
-    queryFn: () => getUser(lastLawsuit!.user_id),
-    enabled: !!lastLawsuit,
-  });
-
-  const { data: financialSummary = null } = useQuery({
-    queryKey: ["lawsuits", lastLawsuit?.id, "financial-summary"],
-    queryFn: () => getFinancialSummary(lastLawsuit!.id),
-    enabled: !!lastLawsuit,
+    queryKey: ["users", editingLawsuit?.user_id],
+    queryFn: () => getUser(editingLawsuit!.user_id),
+    enabled: !!editingLawsuit,
   });
 
   async function searchUsers(query: string): Promise<EntityOption[]> {
@@ -143,28 +213,28 @@ export function LawsuitsPage(): JSX.Element {
   }
 
   function openCreateModal(): void {
+    setEditingLawsuit(null);
+    setEditingParties([]);
     setFormError(null);
     setModalOpen(true);
   }
 
-  async function openEditModal(): Promise<void> {
-    if (!lastLawsuit) return;
-    const fresh = await getLawsuit(lastLawsuit.id);
-    setLastLawsuit(fresh);
-    setLastParties(await listParties(fresh.id));
+  async function openEditModal(item: LawsuitListItem): Promise<void> {
+    const fresh = await getLawsuit(item.id);
+    setEditingLawsuit(fresh);
+    setEditingParties(await listParties(fresh.id));
     setFormError(null);
     setModalOpen(true);
   }
 
   /** PUT do processo não aceita `parties` (spec 023 §5) — na edição, as partes são
    * sincronizadas pelos endpoints dedicados: primeiro as adições (para nunca ficar sem
-   * nenhuma parte, regra 1), depois as remoções. A chave de comparação é
-   * customer_id + polo (regra 2). */
+   * nenhuma parte, regra 1), depois as remoções. */
   async function syncParties(lawsuitId: string, next: PartyFormValue[]): Promise<void> {
     const keyOf = (party: { customer_id: string; pole: string }): string =>
       `${party.customer_id}:${party.pole}`;
     const nextKeys = new Set(next.map(keyOf));
-    const initialKeys = new Set(lastParties.map(keyOf));
+    const initialKeys = new Set(editingParties.map(keyOf));
     for (const party of next) {
       if (!initialKeys.has(keyOf(party))) {
         await addParty(lawsuitId, {
@@ -174,31 +244,28 @@ export function LawsuitsPage(): JSX.Element {
         });
       }
     }
-    for (const party of lastParties) {
+    for (const party of editingParties) {
       if (!nextKeys.has(keyOf(party))) {
         await removeParty(lawsuitId, party.id);
       }
     }
-    setLastParties(await listParties(lawsuitId));
   }
 
-  async function handleSubmit(values: LawsuitFormValues): Promise<void> {
+  async function handleSubmit(formValues: LawsuitFormValues): Promise<void> {
     setFormError(null);
     try {
-      const payload = toPayload(values);
-      let saved: LawsuitData;
-      if (lastLawsuit) {
+      const payload = toPayload(formValues);
+      if (editingLawsuit) {
         // PUT não aceita `parties` (spec 023 §5) — partes vão pelos endpoints dedicados.
         const updatePayload = { ...payload };
         delete updatePayload.parties;
-        saved = await updateLawsuit(lastLawsuit.id, updatePayload);
-        await syncParties(saved.id, values.parties);
+        await updateLawsuit(editingLawsuit.id, updatePayload);
+        await syncParties(editingLawsuit.id, formValues.parties);
       } else {
-        saved = await createLawsuit(payload);
-        setLastParties(await listParties(saved.id));
+        await createLawsuit(payload);
       }
-      setLastLawsuit(saved);
       setModalOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["lawsuits-list"] });
     } catch (submitError) {
       setFormError(submitError instanceof ApiError ? submitError : null);
       throw submitError;
@@ -206,10 +273,10 @@ export function LawsuitsPage(): JSX.Element {
   }
 
   async function handleConfirmDelete(): Promise<void> {
-    if (!lastLawsuit) return;
-    await deleteLawsuit(lastLawsuit.id);
-    setLastLawsuit(await getLawsuit(lastLawsuit.id));
-    setPendingDelete(false);
+    if (!pendingDelete) return;
+    await deleteLawsuit(pendingDelete.id);
+    setPendingDelete(null);
+    await queryClient.invalidateQueries({ queryKey: ["lawsuits-list"] });
   }
 
   const currentResponsible: EntityOption | null = responsible
@@ -217,66 +284,142 @@ export function LawsuitsPage(): JSX.Element {
     : null;
 
   const currentCourt: EntityOption | null =
-    lastLawsuit?.court_id != null
+    editingLawsuit?.court_id != null
       ? (() => {
-          const found = courts.find((court) => court.id === lastLawsuit.court_id);
+          const found = courts.find((court) => court.id === editingLawsuit.court_id);
           return found ? { id: String(found.id), label: `${found.code} — ${found.name}` } : null;
         })()
       : null;
 
+  const columns: DataTableColumn<LawsuitListItem>[] = [
+    {
+      id: "parties",
+      header: "Partes",
+      cell: (row) => <PartiesCell parties={row.parties} partiesTotal={row.parties_total} />,
+    },
+    { id: "type", header: "Tipo de ação", cell: (row) => row.lawsuit_type_name },
+    {
+      id: "number",
+      header: "Número do processo",
+      cell: (row) =>
+        row.process_number ? (
+          <Link
+            to={`/lawsuits/${row.id}`}
+            className="text-accent underline"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {formatCnj(row.process_number)}
+          </Link>
+        ) : (
+          (row.folder ?? "—")
+        ),
+    },
+    {
+      id: "created_at",
+      header: "Data cadastro",
+      cell: (row) => new Date(row.created_at).toLocaleDateString("pt-BR"),
+    },
+    {
+      id: "last_movement",
+      header: "Último andamento",
+      cell: (row) => row.last_movement_title ?? <span className="text-muted">—</span>,
+    },
+    {
+      id: "last_movement_at",
+      header: "Data andamento",
+      cell: (row) => <LastMovementCell occurredAt={row.last_movement_at} />,
+    },
+  ];
+
+  const items = data?.items ?? [];
+  const hasActiveFilters =
+    view !== "all" ||
+    [q, stageId, customerType, createdFrom, createdTo].some((v) => v != null && v !== "") ||
+    archived === true;
+
   return (
     <div className="space-y-4 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-primary">Processos</h1>
-        <Button onClick={openCreateModal}>Novo processo</Button>
+        <div className="flex items-center gap-4">
+          <h1 className="text-lg font-semibold text-primary">Processos</h1>
+          <QuickViewSelect />
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => void exportLawsuits("xlsx", activeFilters)}>
+            Exportar XLSX
+          </Button>
+          <Button variant="outline" onClick={() => void exportLawsuits("pdf", activeFilters)}>
+            Exportar PDF
+          </Button>
+          <Button onClick={openCreateModal}>Novo processo</Button>
+        </div>
       </div>
 
-      {lastLawsuit ? (
-        <div className="space-y-3 rounded border border-default bg-surface p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-primary">
-                <Link to={`/lawsuits/${lastLawsuit.id}`} className="hover:underline">
-                  {lastLawsuit.process_number || lastLawsuit.folder || "Processo sem número"}
-                </Link>
-              </p>
-              <p className="text-sm text-muted">
-                {lastLawsuit.action_group_name} · {lastLawsuit.step_name}
-                {lastLawsuit.is_archived ? " · Arquivado" : ""}
-              </p>
-            </div>
-            <div className="flex gap-3">
+      <FilterBar fields={filterFields} />
+
+      {items.length === 0 && !isLoading && !hasActiveFilters ? (
+        <EmptyState
+          title="Nenhum processo cadastrado ainda"
+          description="Cadastre o primeiro processo do escritório."
+          action={{ label: "Novo processo", onClick: openCreateModal }}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={items}
+          getRowId={(row) => row.id}
+          isLoading={isLoading}
+          error={error instanceof ApiError ? error.message : null}
+          emptyMessage="Nenhum processo encontrado com esses filtros."
+          rowActions={(row) => (
+            <div className="flex gap-2">
               <button
                 type="button"
                 className="text-sm text-accent underline"
-                onClick={() => void openEditModal()}
+                onClick={() => navigate(`/lawsuits/${row.id}`)}
+              >
+                Abrir
+              </button>
+              <button
+                type="button"
+                className="text-sm text-accent underline"
+                onClick={() => void openEditModal(row)}
               >
                 Editar
               </button>
-              {!lastLawsuit.is_archived && (
+              {!row.is_archived && (
                 <button
                   type="button"
                   className="text-sm text-danger underline"
-                  onClick={() => setPendingDelete(true)}
+                  onClick={() => setPendingDelete(row)}
                 >
                   Excluir
                 </button>
               )}
             </div>
-          </div>
-          {financialSummary && <LawsuitFinancialPanel summary={financialSummary} />}
-        </div>
-      ) : (
-        <p className="text-sm text-muted">Nenhum processo criado ainda nesta sessão.</p>
+          )}
+          pagination={{
+            hasPreviousPage: cursorStack.length > 0,
+            hasNextPage: data?.next_cursor != null,
+            onPreviousPage: () => setCursorStack((stack) => stack.slice(0, -1)),
+            onNextPage: () => {
+              if (data?.next_cursor) {
+                setCursorStack((stack) => [...stack, data.next_cursor as string]);
+              }
+            },
+          }}
+        />
       )}
 
       <FormModal
         open={modalOpen}
         onOpenChange={setModalOpen}
-        title={lastLawsuit ? "Editar processo" : "Novo processo"}
+        title={editingLawsuit ? "Editar processo" : "Novo processo"}
         schema={lawsuitFormSchema}
         defaultValues={
-          lastLawsuit ? toFormValues(lastLawsuit, lastParties) : DEFAULT_LAWSUIT_FORM_VALUES
+          editingLawsuit
+            ? toFormValues(editingLawsuit, editingParties)
+            : DEFAULT_LAWSUIT_FORM_VALUES
         }
         serverError={formError}
         onSubmit={handleSubmit}
@@ -289,15 +432,17 @@ export function LawsuitsPage(): JSX.Element {
             onValidateProcessNumber={validateProcessNumber}
             currentResponsible={currentResponsible}
             currentCourt={currentCourt}
-            initialGroupId={lastLawsuit?.action_group_id}
-            initialStepId={lastLawsuit?.step_id}
+            initialGroupId={editingLawsuit?.action_group_id}
+            initialStepId={editingLawsuit?.step_id}
           />
         )}
       </FormModal>
 
       <ConfirmDialog
-        open={pendingDelete}
-        onOpenChange={setPendingDelete}
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
         title="Excluir processo?"
         description="O processo será arquivado — dados ficam preservados, mas ele deixa de aparecer nas listagens ativas."
         confirmLabel="Excluir"

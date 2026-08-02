@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 63,
+  "last_measured_wall_clock_seconds": 91,
   "last_measured_at": "2026-08-02",
   "specs": {
     "001": {
@@ -106,6 +106,10 @@
     "026": {
       "wall_clock_seconds": 63,
       "notes": "406 testes backend (395 anteriores + 11 novos: timeline agrega auto+manual na ordem, toggles filtram, kinds vazio/slot sem fonte → vazio (regra 2), ordenação estável no mesmo timestamp com desempate por kind, keyset de 5 itens em páginas de 2 sem repetir/pular com total estável, tribunal → 403 em PUT/DELETE (regra 3), manual edita (autor e ADMINISTRADOR; terceiro → 403 — regra 4), external_id duplicado quebra na UNIQUE (regra 5, no mecanismo — o 409 HTTP chega com a sync 047), budget ≤ 3 statements com 11 itens na página (regra 8), RLS entre tenants, preferências PUT/GET com merge raso — regra 7). 84 testes frontend (80 anteriores + 2 TimelineFilters/persistência via useTimelineKinds + 2 TimelineItem por variante). 4 e2e (inalterado). Decisões: timeline é UNION ALL de selects por kind (slots task/publication/transaction sem fonte até 032/042/056 — adicionar a fonte depois é acrescentar um select ao union); keyset com ordem mista (DESC,ASC,ASC) não cabe em comparação de tupla — predicado desdobrado em OR de 3 ramos; total via query separada sem filtro de cursor (COUNT(*) OVER() contaria só o restante da página); users.preferences JSONB novo (mesma migration) como infra genérica de preferências — GET/PUT /users/me/preferences com merge raso por chave. Descoberta de ambiente: o e2e roda contra o banco de DEV (rito) — migrations novas precisam ser aplicadas nos DOIS bancos (rito e rito_test) senão o global-setup quebra com UndefinedColumnError."
+    },
+    "027": {
+      "wall_clock_seconds": 91,
+      "notes": "428 testes backend (406 anteriores + 22 novos: as 12 visões parametrizadas num cenário de 8 processos, visão+filtro combinam, busca textual nas 4 fontes, identification casa parte contrária com/sem máscara, intervalo de data com um lado só, stage_id multivalorado com OR, trigger mantém last_movement_at com GREATEST (inserção tardia antiga não regride), budget ≤ 3 statements com partes agregadas + último andamento na mesma query, keyset de 5 em páginas de 2, export xlsx respeitando filtro, RLS entre tenants). 87 testes frontend (84 anteriores + QuickViewSelect atualiza URL + 2 PartiesCell trunca com contador). 5 e2e (4 anteriores + jornada 4/25: criar processo pela UI → filtrar por visão Ativos → abrir timeline; setup de grupo/tipo/etapa/contato via API com page.request, primeira jornada a usar esse padrão). Descobertas: FastAPI 0.141 NÃO expande modelo Pydantic via Annotated[Model, Query()] (vira um único parâmetro obrigatório 'filters') — padrão que funciona é `filters: Model = Depends()`; SQLAlchemy desta versão não tem aggregate_order_by — json_agg ordenado via subquery com ORDER BY (scan order); cursor keyset precisa de datetime real, não string ISO (timestamptz < varchar quebra no Postgres — converter no service); func.now() é objeto, não chamável (now - interval, não now() - interval); bug real pego pelo e2e: listStages retorna ListResponse e a página tratava como array (stages.map is not a function); e2e roda contra o banco de DEV — migration aplicada nos dois bancos. last_movement_at é mantido por trigger (set_lawsuit_last_movement) com backfill na migration."
     }
   }
 }

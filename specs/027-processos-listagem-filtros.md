@@ -1,7 +1,7 @@
 # 027 — Processos: listagem, visões e filtros
 
 **Fase:** 2 · **Tipo:** feature · **Orçamento:** +7 s
-**Depende de:** 026 · **Status:** ⬜ pendente
+**Depende de:** 026 · **Status:** ✅ concluída
 
 ---
 
@@ -104,8 +104,38 @@ Colunas: Partes · Tipo de ação · Número do processo · Data cadastro · Úl
 
 ## 9. Descobertas
 
-*(preencher)*
+1. **FastAPI 0.141 não expande `Annotated[Model, Query()]`** — o modelo inteiro vira um
+   parâmetro obrigatório chamado `filters` (422 "Field required"). O padrão que expande
+   em query params individuais é `filters: Model = Depends()`. Documentado no endpoint.
+2. **`aggregate_order_by` não existe nesta versão do SQLAlchemy** — o `json_agg`
+   ordenado por polo/nome usa subquery com `ORDER BY` antes da agregação (o Postgres
+   agrega em scan order).
+3. **Cursor keyset precisa de `datetime`, não string ISO** — `timestamptz < varchar`
+   quebra no Postgres; o service converte o valor decodificado antes de paginar.
+4. **`func.now()` é objeto SQL, não chamável** — `now - interval`, nunca `now() - ...`.
+5. **Bug real pego pela jornada e2e:** `listStages` retorna `ListResponse` e a página
+   tratava como array (`stages.map is not a function`) — a listagem inteira quebrava em
+   produção e nenhum teste unitário tinha pego (a página não tinha teste de render até
+   então). Reforça o valor das jornadas.
+6. **Primeira jornada e2e com setup via API** (`page.request` + login + POSTs): grupo/
+   tipo/etapa/contato são pré-condições, não o alvo — sem isso a jornada ficaria
+   gigante e frágil. Padrão reutilizável nas próximas.
+7. **`last_movement_at` mantido por trigger com GREATEST** — movimento antigo inserido
+   tardiamente (sync fora de ordem) não regride o marcador; backfill na migration.
+8. **Sort da listagem é só `created_at`** (asc/desc) — keyset sobre coluna nullable
+   (`last_movement_at`) com NULLS LAST tem semântica de cursor ambígua; ficou fora de
+   escopo (a spec não enumera os valores de `sort`).
+9. **A página antiga (single-record das specs 022–026) foi substituída** pela listagem
+   completa — modal de criar/editar preservado; o detalhe vive em `/lawsuits/:id`.
 
 ## 10. Definição de pronto
 
-Checklist padrão · 12 visões testadas · Commit `feat(027): processos — listagem e filtros`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (1–12; 12 visões parametrizadas)
+- [x] Teste de isolamento por tenant (`test_listagem_isolada_entre_tenants`)
+- [x] `make test` verde e wall-clock < 120 s (91 s)
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa
+- [x] Listagem em ≤ 3 statements (teste de budget)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(027): processos — listagem e filtros`

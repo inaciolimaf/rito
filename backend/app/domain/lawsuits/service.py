@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.repository import decode_cursor, encode_cursor
 from app.domain.action_groups.repository import ActionGroupRepository, LawsuitTypeRepository
 from app.domain.courts.repository import CourtRepository
 from app.domain.customers.repository import CustomerRepository
@@ -27,7 +28,15 @@ from app.domain.lawsuits.exceptions import (
     StageNotFoundError,
     TribunalMovementImmutableError,
 )
+from app.domain.lawsuits.listing import (
+    EXPORT_ROW_LIMIT,
+    LAWSUIT_VIEWS,
+    LawsuitFilters,
+    LawsuitListingRepository,
+    LawsuitListRow,
+)
 from app.domain.lawsuits.models import (
+    ContingencyLevel,
     Lawsuit,
     LawsuitMovement,
     LawsuitParty,
@@ -45,6 +54,7 @@ from app.domain.lawsuits.repository import (
 from app.domain.lawsuits.schemas import (
     LawsuitBaseRequest,
     LawsuitCreateRequest,
+    LawsuitFiltersQuery,
     LawsuitUpdateRequest,
     MovementCreateRequest,
     MovementUpdateRequest,
@@ -133,6 +143,82 @@ class LawsuitService:
         self.customers = CustomerRepository(session)
         self.parties = LawsuitPartyRepository(session)
         self.movements = LawsuitMovementRepository(session)
+        self.listing = LawsuitListingRepository(session)
+
+    def _to_filters(self, payload: LawsuitFiltersQuery) -> LawsuitFilters:
+        def uuids(raw: str | None) -> list[uuid.UUID]:
+            return [uuid.UUID(value) for value in raw.split(",")] if raw else []
+
+        def ints(raw: str | None) -> list[int]:
+            return [int(value) for value in raw.split(",")] if raw else []
+
+        contingencies: list[ContingencyLevel] = []
+        if payload.contingency:
+            contingencies = [ContingencyLevel(value) for value in payload.contingency.split(",")]
+        return LawsuitFilters(
+            view=payload.view if payload.view in LAWSUIT_VIEWS else "all",
+            q=payload.q,
+            customer_id=payload.customer_id,
+            identification=payload.identification,
+            process_number=payload.process_number,
+            protocol_number=payload.protocol_number,
+            folder=payload.folder,
+            notes=payload.notes,
+            action_group_ids=uuids(payload.action_group_id),
+            lawsuit_type_ids=uuids(payload.lawsuit_type_id),
+            step_ids=ints(payload.step_id),
+            stage_ids=uuids(payload.stage_id),
+            court_ids=ints(payload.court_id),
+            court_system_ids=ints(payload.court_system_id),
+            user_ids=uuids(payload.user_id),
+            contingencies=contingencies,
+            origin_ids=uuids(payload.origin_id),
+            customer_type=payload.customer_type,
+            created_from=payload.created_from,
+            created_to=payload.created_to,
+            process_date_from=payload.process_date_from,
+            process_date_to=payload.process_date_to,
+            closure_from=payload.closure_from,
+            closure_to=payload.closure_to,
+            transit_from=payload.transit_from,
+            transit_to=payload.transit_to,
+            archived_from=payload.archived_from,
+            archived_to=payload.archived_to,
+            archived=payload.archived,
+        )
+
+    async def list_lawsuits(
+        self,
+        *,
+        payload: LawsuitFiltersQuery,
+        order: str,
+        cursor: str | None,
+        limit: int,
+    ) -> tuple[list[LawsuitListRow], str | None, int]:
+        # O cursor codifica created_at como texto ISO — comparar timestamptz com literal
+        # VARCHAR quebra no Postgres; converter de volta para datetime antes de paginar.
+        decoded_cursor: tuple[datetime, uuid.UUID] | None = None
+        if cursor:
+            raw_value, cursor_id = decode_cursor(cursor)
+            decoded_cursor = (datetime.fromisoformat(raw_value), cursor_id)
+        items, total = await self.listing.list_filtered(
+            filters=self._to_filters(payload),
+            descending=order == "desc",
+            cursor=decoded_cursor,
+            limit=limit,
+        )
+        next_cursor = None
+        if len(items) == limit:
+            last = items[-1].lawsuit
+            next_cursor = encode_cursor(last.created_at.isoformat(), last.id)
+        return list(items), next_cursor, total
+
+    async def export_lawsuits(self, *, payload: LawsuitFiltersQuery) -> list[LawsuitListRow]:
+        """Regra 10: export respeita os filtros ativos (não a página visível), com teto."""
+        items, _total = await self.listing.list_filtered(
+            filters=self._to_filters(payload), limit=EXPORT_ROW_LIMIT
+        )
+        return list(items)
 
     async def get(self, lawsuit_id: uuid.UUID) -> LawsuitDetail | None:
         lawsuit = await self.lawsuits.get_by_id(lawsuit_id)

@@ -126,7 +126,7 @@ Agrega tarefas, movimentações (auto e manual), publicações e lançamentos fi
 12 visões rápidas (ativos, movimentados 7/30 dias, parados +30/+45/+90, fechamentos do mês…); filtros avançados; export.
 **Aceite:** cada visão bate com o SQL esperado em fixture. **t:** 7 s. **Deps:** 026
 
-### ⬜ 028 — Processos: dashboard
+### ✅ 028 — Processos: dashboard
 Cards de ativos, fechamentos com variação, arquivados no mês; gráfico volume por fase; meta de fechamentos.
 **Aceite:** números conferem com seed determinístico. **t:** 4 s. **Deps:** 027
 

@@ -30,6 +30,7 @@ import {
 } from "@/features/lawsuits/api";
 import { LastMovementCell, PartiesCell } from "@/features/lawsuits/LawsuitListCells";
 import { LawsuitForm } from "@/features/lawsuits/LawsuitForm";
+import { LawsuitStatsPanel } from "@/features/lawsuits/LawsuitStatsPanel";
 import type { PartyFormValue } from "@/features/lawsuits/PartySelector";
 import { QuickViewSelect } from "@/features/lawsuits/QuickViewSelect";
 import {
@@ -356,6 +357,8 @@ export function LawsuitsPage(): JSX.Element {
       </div>
 
       <FilterBar fields={filterFields} />
+
+      <LawsuitStatsPanel />
 
       {items.length === 0 && !isLoading && !hasActiveFilters ? (
         <EmptyState

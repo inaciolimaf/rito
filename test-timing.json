@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 91,
+  "last_measured_wall_clock_seconds": 81,
   "last_measured_at": "2026-08-02",
   "specs": {
     "001": {
@@ -110,6 +110,10 @@
     "027": {
       "wall_clock_seconds": 91,
       "notes": "428 testes backend (406 anteriores + 22 novos: as 12 visões parametrizadas num cenário de 8 processos, visão+filtro combinam, busca textual nas 4 fontes, identification casa parte contrária com/sem máscara, intervalo de data com um lado só, stage_id multivalorado com OR, trigger mantém last_movement_at com GREATEST (inserção tardia antiga não regride), budget ≤ 3 statements com partes agregadas + último andamento na mesma query, keyset de 5 em páginas de 2, export xlsx respeitando filtro, RLS entre tenants). 87 testes frontend (84 anteriores + QuickViewSelect atualiza URL + 2 PartiesCell trunca com contador). 5 e2e (4 anteriores + jornada 4/25: criar processo pela UI → filtrar por visão Ativos → abrir timeline; setup de grupo/tipo/etapa/contato via API com page.request, primeira jornada a usar esse padrão). Descobertas: FastAPI 0.141 NÃO expande modelo Pydantic via Annotated[Model, Query()] (vira um único parâmetro obrigatório 'filters') — padrão que funciona é `filters: Model = Depends()`; SQLAlchemy desta versão não tem aggregate_order_by — json_agg ordenado via subquery com ORDER BY (scan order); cursor keyset precisa de datetime real, não string ISO (timestamptz < varchar quebra no Postgres — converter no service); func.now() é objeto, não chamável (now - interval, não now() - interval); bug real pego pelo e2e: listStages retorna ListResponse e a página tratava como array (stages.map is not a function); e2e roda contra o banco de DEV — migration aplicada nos dois bancos. last_movement_at é mantido por trigger (set_lawsuit_last_movement) com backfill na migration."
+    },
+    "028": {
+      "wall_clock_seconds": 81,
+      "notes": "436 testes backend (428 anteriores + 8 novos: stats com seed determinístico (aceite), mês parametrizado + formato inválido → 422, variação vs mês anterior (regra 1), mês anterior zerado → delta None/'novo' (regra 2), volume por fase soma 100% e exclui arquivados (regra 5), cache invalida ao fechar via PUT com Redis real (regra 7), cache hit não executa statement, budget ≤ 4 statements — ficou em 2: agregados condicionais + volume por fase). 90 testes frontend (87 anteriores + 3 novos do LawsuitStatsPanel: convite de meta + rótulo 'novo', cards navegam com a visão na URL (regra 8), painel recolhível). 5 e2e (inalterado — plano da spec não pedia jornada nova). Sem migration: agregação sobre lawsuits com os índices de 024/027. Decisões: 'active' histórico (fim do mês anterior) é reconstruído por created_at/archived_date — is_archived não tem data, então soft-delete sem archived_date aparece no 'previous' (documentado no §9); delta_pct None codifica 'novo' (regra 2), nunca ∞; cache Redis 5 min por (tenant, mês) com invalidação no create/update/delete tocando o mês corrente e os meses das datas de ciclo; StatCard ganhou prop `variation` (rótulo pronto da API) sem quebrar os 3 testes existentes; Protocol StatsCache espelha assinaturas do redis-py (param `name`, retorno Awaitable) para o Redis satisfazer sem cast e o fake em memória passar no mypy; setex está deprecado no redis-py — usar set(..., ex=). DonutChart declarado na spec não foi usado: o volume por fase com 9 fases legíveis ficou melhor no BarChart horizontal (ver §9)."
     }
   }
 }

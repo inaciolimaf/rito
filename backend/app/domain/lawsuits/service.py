@@ -1,7 +1,7 @@
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,6 +62,8 @@ from app.domain.lawsuits.schemas import (
     PartyInput,
     PartyUpdateRequest,
 )
+from app.domain.lawsuits.stats import LawsuitStats, StatsCache
+from app.domain.lawsuits.stats import get_stats as get_lawsuit_stats
 from app.domain.stages.repository import StageRepository, StepRepository
 from app.domain.users.models import User, UserRole
 from app.domain.users.repository import UserRepository
@@ -219,6 +221,10 @@ class LawsuitService:
             filters=self._to_filters(payload), limit=EXPORT_ROW_LIMIT
         )
         return list(items)
+
+    async def get_stats(self, *, month: date, cache: StatsCache) -> LawsuitStats:
+        """Dashboard (spec 028): agregados do mês com cache de 5 minutos (regra 7)."""
+        return await get_lawsuit_stats(self.session, self.tenant_id, month, cache)
 
     async def get(self, lawsuit_id: uuid.UUID) -> LawsuitDetail | None:
         lawsuit = await self.lawsuits.get_by_id(lawsuit_id)

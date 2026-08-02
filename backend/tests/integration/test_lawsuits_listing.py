@@ -44,7 +44,9 @@ class LawsuitFactory:
         self.type_id = type_id
         self.stage_id = stage_id
 
-    async def create(self, party_name: str | None = None, **extra: object) -> str:
+    async def create(
+        self, party_name: str | None = None, *, stage_id: str | None = None, **extra: object
+    ) -> str:
         customer_id = await _create_customer(
             self.client, self.headers, party_name or f"Cliente {uuid.uuid4().hex[:8]}"
         )
@@ -53,7 +55,7 @@ class LawsuitFactory:
             self.headers,
             user_id=str(self.gestor.user_id),
             lawsuit_type_id=self.type_id,
-            stage_id=self.stage_id,
+            stage_id=stage_id or self.stage_id,
             parties=[{"customer_id": customer_id, "pole": "ATIVO", "is_client": True}],
             **extra,
         )

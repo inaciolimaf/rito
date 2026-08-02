@@ -1,9 +1,13 @@
+import re
 import uuid
+from datetime import date
 from typing import Literal, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_redis
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
@@ -32,6 +36,7 @@ from app.domain.lawsuits.schemas import (
     LawsuitListItemResponse,
     LawsuitListResponse,
     LawsuitResponse,
+    LawsuitStatsResponse,
     LawsuitUpdateRequest,
     MovementCreateRequest,
     MovementResponse,
@@ -41,15 +46,20 @@ from app.domain.lawsuits.schemas import (
     PartyCreateRequest,
     PartyResponse,
     PartyUpdateRequest,
+    StatsCardResponse,
+    StepVolumeResponse,
     TimelineItemResponse,
     TimelineResponse,
     ValidateNumberRequest,
     ValidateNumberResponse,
 )
 from app.domain.lawsuits.service import LawsuitDetail, LawsuitService, PartyDetail
+from app.domain.lawsuits.stats import invalidate_stats_cache
 from app.domain.users.models import User
 
 router = APIRouter(prefix="/lawsuits", tags=["lawsuits"])
+
+_MONTH_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 _NOT_FOUND_DETAIL = "Processo não encontrado."
 _PARTY_NOT_FOUND_DETAIL = "Parte não encontrada."
@@ -175,6 +185,30 @@ async def list_lawsuits(
     )
 
 
+@router.get("/stats")
+async def get_lawsuits_stats(
+    month: str | None = Query(default=None),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
+) -> LawsuitStatsResponse:
+    # Registrada ANTES de "/{lawsuit_id}" — depois dele, "stats" casaria como UUID e
+    # daria 422 de path, nunca 200.
+    if month is not None and not _MONTH_PATTERN.fullmatch(month):
+        raise HTTPException(status_code=422, detail="Mês inválido — use YYYY-MM.")
+    reference = (
+        date.fromisoformat(f"{month}-01") if month is not None else date.today().replace(day=1)
+    )
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    stats = await service.get_stats(month=reference, cache=redis)
+    return LawsuitStatsResponse(
+        active=StatsCardResponse(**vars(stats.active)),
+        closed_this_month=StatsCardResponse(**vars(stats.closed_this_month)),
+        archived_this_month=StatsCardResponse(**vars(stats.archived_this_month)),
+        volume_by_step=[StepVolumeResponse(**vars(item)) for item in stats.volume_by_step],
+    )
+
+
 @router.post("/export")
 async def export_lawsuits(
     payload: LawsuitExportRequest,
@@ -201,6 +235,7 @@ async def create_lawsuit(
     payload: LawsuitCreateRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> LawsuitResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     try:
@@ -221,6 +256,10 @@ async def create_lawsuit(
         _raise_party_errors(exc)
     except CNJValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # Regra 7 (spec 028): criar processo invalida o cache do dashboard.
+    await invalidate_stats_cache(
+        redis, current_user.tenant_id, created.lawsuit.closure_date, created.lawsuit.archived_date
+    )
     return _to_response(created)
 
 
@@ -279,9 +318,13 @@ async def update_lawsuit(
     payload: LawsuitUpdateRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> LawsuitResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    # Datas de ciclo ANTES da mutação — se o fechamento migrou de mês, o cache do mês
+    # antigo também precisa cair (regra 7, spec 028).
+    previous_cycle_dates = (detail.lawsuit.closure_date, detail.lawsuit.archived_date)
     try:
         updated = await service.update(detail.lawsuit, payload)
     except LawsuitTypeNotFoundError as exc:
@@ -298,6 +341,13 @@ async def update_lawsuit(
         ) from exc
     except CNJValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await invalidate_stats_cache(
+        redis,
+        current_user.tenant_id,
+        *previous_cycle_dates,
+        updated.lawsuit.closure_date,
+        updated.lawsuit.archived_date,
+    )
     return _to_response(updated)
 
 
@@ -306,10 +356,15 @@ async def delete_lawsuit(
     lawsuit_id: uuid.UUID,
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> None:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
     await service.delete(detail.lawsuit)
+    # Soft delete arquiva (is_archived) — o card de ativos muda (regra 7, spec 028).
+    await invalidate_stats_cache(
+        redis, current_user.tenant_id, detail.lawsuit.closure_date, detail.lawsuit.archived_date
+    )
 
 
 @router.get("/{lawsuit_id}/financial-summary")

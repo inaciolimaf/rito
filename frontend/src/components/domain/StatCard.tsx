@@ -7,6 +7,10 @@ export interface StatCardProps {
   previousValue?: number;
   isLoading?: boolean;
   href?: string;
+  /** Sobrescreve o rótulo/ícone calculados a partir de `previousValue` — para quando a
+   * variação já vem pronta da API (ex.: "novo" quando o período anterior era zero,
+   * spec 028 regra 2, que o cálculo local não sabe expressar). */
+  variation?: { label: string; trend: "up" | "down" | "flat" } | null;
 }
 
 function computeTrend(
@@ -39,6 +43,7 @@ export function StatCard({
   previousValue,
   isLoading = false,
   href,
+  variation,
 }: StatCardProps): JSX.Element {
   if (isLoading) {
     return (
@@ -49,8 +54,9 @@ export function StatCard({
     );
   }
 
-  const trend = computeTrend(value, previousValue);
-  const variationLabel = computeVariationLabel(value, previousValue);
+  const trend = variation === undefined ? computeTrend(value, previousValue) : variation?.trend;
+  const variationLabel =
+    variation === undefined ? computeVariationLabel(value, previousValue) : variation?.label;
   const TrendIcon = trend ? TREND_ICON[trend] : null;
 
   const content = (
@@ -68,7 +74,7 @@ export function StatCard({
           }
         >
           <TrendIcon className="h-3 w-3" />
-          {variationLabel} vs. período anterior
+          {variation === undefined ? `${variationLabel} vs. período anterior` : variationLabel}
         </span>
       )}
     </div>

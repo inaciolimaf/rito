@@ -298,3 +298,32 @@ export async function exportLawsuits(
   link.click();
   URL.revokeObjectURL(url);
 }
+
+// ---- Dashboard (spec 028) ----
+
+export interface LawsuitStatsCard {
+  value: number;
+  /** null = "novo" (regra 2): período anterior zerado, variação não é número. */
+  delta_pct: number | null;
+  previous: number;
+}
+
+export interface LawsuitStepVolume {
+  step: string;
+  count: number;
+  pct: number;
+}
+
+export interface LawsuitStats {
+  active: LawsuitStatsCard;
+  closed_this_month: LawsuitStatsCard;
+  archived_this_month: LawsuitStatsCard;
+  volume_by_step: LawsuitStepVolume[];
+  /** Sempre null até a spec 039 (metas) — o widget convida a configurar (regra 6). */
+  closure_goal: null;
+}
+
+export async function getLawsuitStats(month?: string): Promise<LawsuitStats> {
+  const query = month ? `?month=${month}` : "";
+  return apiRequest<LawsuitStats>(`/api/v1/lawsuits/stats${query}`);
+}

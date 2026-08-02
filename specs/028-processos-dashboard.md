@@ -1,7 +1,7 @@
 # 028 — Processos: dashboard
 
 **Fase:** 2 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 027 · **Status:** ⬜ pendente
+**Depende de:** 027 · **Status:** ✅ concluída
 
 ---
 
@@ -73,8 +73,41 @@ Nenhuma tabela nova. Agregação sobre `lawsuits`, usando os índices de 024 e 0
 
 ## 9. Descobertas
 
-*(preencher)*
+- **"Ativos" histórico é aproximado.** `is_archived` não tem data — o `previous` do card
+  de ativos é reconstruído por `created_at`/`archived_date`. Um soft-delete (DELETE da
+  API) sem `archived_date` some do valor atual mas continua contado no "mês anterior".
+  Aceito: o número histórico é uma referência de tendência, não um fato contábil. Se a
+  spec 030 quiser precisão, a trilha é materializar `archived_at` no soft-delete.
+- **Fechado sem arquivamento continua "ativo"** (regra 3 + visão `active` da 027): o
+  card de ativos inclui processos com `closure_date` e sem `archived_date`. Coerente com
+  a listagem — ciclo de vida do ADVBOX só tira do ativo no arquivamento.
+- **`delta_pct` None é "novo"** (regra 2). A UI traduz None+valor>0 para "novo este mês"
+  e None+valor=0 para "sem movimento" — nunca ∞ nem "+100%" inventado (o cálculo local
+  do `StatCard` não saberia distinguir; por isso o card recebe o rótulo pronto via a
+  nova prop `variation`, sem mudar o comportamento default — os 3 testes antigos do
+  `StatCard` passaram sem edição).
+- **Cache:** Redis 5 min por `(tenant, mês)`; invalidação no create/update/delete toca o
+  mês corrente **e** os meses das datas de ciclo (fechamento retroativo muda o card do
+  mês passado). `setex` está deprecado no redis-py ≥ 2.6 — usar `set(..., ex=)`.
+- **Protocol estrutural:** para o `Redis` satisfazer `StatsCache` sem cast, o Protocol
+  precisa espelhar as assinaturas do redis-py (parâmetro `name`, retorno `Awaitable`,
+  não `async def`/`Coroutine`).
+- **DonutChart não usado.** A spec listava BarChart+DonutChart como reuso; com 9 fases,
+  o donut vira roleta de cores ilegível — o volume por fase ficou só no BarChart
+  horizontal com o percentual no rótulo.
+- **Orçamento folgado:** 2 statements (agregados condicionais numa query + volume por
+  fase noutra), abaixo do teto de 4.
+- `/lawsuits/stats` precisa ser registrado **antes** de `/lawsuits/{lawsuit_id}` no
+  router — senão "stats" casa como UUID e vira 422 de path.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Commit `feat(028): processos — dashboard`
+- [x] Spec escrita seguindo o template (já existia do ciclo de planejamento)
+- [x] Escopo implementado: endpoint `/lawsuits/stats` com cache, 3 cards + volume por
+      fase + widget de meta, painel recolhível no topo de `/lawsuits`
+- [x] Testes do plano escritos e verdes (8 backend, 3 frontend)
+- [x] `make lint` verde
+- [x] `make test` verde em 81 s (< 120 s)
+- [x] `test-timing.json` atualizado
+- [x] ROADMAP marcado ✅
+- [x] Commit `feat(028): processos — dashboard`

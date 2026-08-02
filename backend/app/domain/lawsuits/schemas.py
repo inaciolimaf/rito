@@ -261,6 +261,29 @@ class LawsuitListResponse(BaseModel):
     total: int
 
 
+class StatsCardResponse(BaseModel):
+    """Card do dashboard (spec 028 §5). `delta_pct` None = "novo" (regra 2)."""
+
+    value: int
+    delta_pct: float | None
+    previous: int
+
+
+class StepVolumeResponse(BaseModel):
+    step: str
+    count: int
+    pct: float
+
+
+class LawsuitStatsResponse(BaseModel):
+    active: StatsCardResponse
+    closed_this_month: StatsCardResponse
+    archived_this_month: StatsCardResponse
+    volume_by_step: list[StepVolumeResponse]
+    # Sempre None até a spec 039 (metas) — o widget convida a configurar (regra 6).
+    closure_goal: None = None
+
+
 class LawsuitFiltersQuery(BaseModel):
     """Filtros da listagem (spec 027 §5) — usado tanto como modelo de query string do
     GET `/lawsuits` (FastAPI 0.115+: `Annotated[..., Query()]`) quanto como corpo do

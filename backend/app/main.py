@@ -21,6 +21,7 @@ from app.core.redis import create_redis_client
 from app.domain.account.router import router as account_router
 from app.domain.action_groups.router import action_groups_router, lawsuit_types_router
 from app.domain.auth.router import router as auth_router
+from app.domain.courts.router import court_systems_router, courts_router
 from app.domain.customer_origins.router import router as customer_origins_router
 from app.domain.customers.router import customers_router, marital_statuses_router
 from app.domain.locations.router import cities_router, states_router
@@ -80,6 +81,8 @@ def create_app() -> FastAPI:
     app.include_router(marital_statuses_router, prefix="/api/v1")
     app.include_router(states_router, prefix="/api/v1")
     app.include_router(cities_router, prefix="/api/v1")
+    app.include_router(courts_router, prefix="/api/v1")
+    app.include_router(court_systems_router, prefix="/api/v1")
 
     return app
 

@@ -98,7 +98,7 @@ Validação real de CPF/CNPJ com bloqueio de duplicidade; CEP `99999-999`; consu
 
 ## Fase 2 — Processos (021–030)
 
-### ⬜ 021 — Tribunais e sistemas
+### ✅ 021 — Tribunais e sistemas
 Seed dos **182 tribunais** e **13 sistemas processuais**; relação tribunal↔sistema.
 **Aceite:** seed idempotente; busca por sigla. **t:** 2 s. **Deps:** 011
 

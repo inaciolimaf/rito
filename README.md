@@ -12,7 +12,7 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 020 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
+🚧 **Spec 021 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
 RBAC) + frontend com login real, design system de domínio e o app shell navegável
 (sidebar de 15 itens, busca global, breadcrumbs) + pipeline de testes com gate de 120s
 executável (rede real bloqueada, contador de jornadas e2e, CI no GitHub Actions) + pente
@@ -33,8 +33,10 @@ IBGE, autofill de endereço via ViaCEP) + listagem e dashboard de contatos (`Dat
 filtros combináveis, dashboard com Top Origens/Faixa etária/Top Profissões, aniversariantes,
 export xlsx/pdf respeitando filtros) + pente-fino de Cadastros (`get_or_404`/
 `parse_active_status`/`validated_transfer` no backend e `useCrudResource` no frontend
-extraídos das 5 taxonomias simples, cobertura de frontend instalada) — próxima é a 021
-(Tribunais e sistemas).
+extraídos das 5 taxonomias simples, cobertura de frontend instalada) + tribunais e sistemas
+processuais (catálogo global com 182 tribunais e 13 sistemas, busca por sigla ou nome sem
+acento, filtro por segmento/UF, aliases DataJud reais) — próxima é a 022 (Processos: modelo
+e CRUD).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

@@ -7,13 +7,14 @@ módulo (partes agregadas sem N+1, último andamento correlacionado, keyset).
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import date, datetime, time
+from datetime import date, datetime
 
-from sqlalchemy import ColumnElement, and_, func, literal, or_, select, text, tuple_
+from sqlalchemy import ColumnElement, and_, func, literal, or_, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import ScalarSelect, Subquery
 
+from app.core.listing import QuickViews, date_range, datetime_range, paginate_keyset
 from app.domain.action_groups.models import ActionGroup, LawsuitType
 from app.domain.customers.models import Customer
 from app.domain.lawsuits.models import (
@@ -22,22 +23,40 @@ from app.domain.lawsuits.models import (
     LawsuitMovement,
     LawsuitParty,
 )
+from app.domain.lawsuits.schemas import LawsuitFiltersQuery
 from app.domain.stages.models import Stage
 
-# As 12 visões rápidas (spec 027 §5).
-LAWSUIT_VIEWS = (
-    "all",
-    "active",
-    "moved_30d",
-    "moved_7d",
-    "moved_today",
-    "never_captured",
-    "idle_30d",
-    "idle_45d",
-    "idle_90d",
-    "closed_this_month",
-    "filed_this_month",
-    "archived_this_month",
+
+def _idle(days: int) -> ColumnElement[bool]:
+    # Regra 3: parado há N dias ou nunca movimentado.
+    return or_(
+        Lawsuit.last_movement_at.is_(None),
+        Lawsuit.last_movement_at < func.now() - text(f"interval '{days} days'"),
+    )
+
+
+# As 12 visões rápidas (spec 027 §5) — atalho combinável com filtros (regra 1),
+# declaradas no QuickViews da infra de listagem (spec 030).
+LAWSUIT_VIEWS = QuickViews(
+    default="all",
+    views={
+        "all": lambda: None,
+        # Regra 2: ativo = não arquivado (visibilidade) E sem data de arquivamento (fato).
+        "active": lambda: and_(Lawsuit.is_archived.is_(False), Lawsuit.archived_date.is_(None)),
+        "moved_30d": lambda: Lawsuit.last_movement_at >= func.now() - text("interval '30 days'"),
+        "moved_7d": lambda: Lawsuit.last_movement_at >= func.now() - text("interval '7 days'"),
+        "moved_today": lambda: Lawsuit.last_movement_at >= func.date_trunc("day", func.now()),
+        "never_captured": lambda: Lawsuit.last_movement_at.is_(None),
+        "idle_30d": lambda: _idle(30),
+        "idle_45d": lambda: _idle(45),
+        "idle_90d": lambda: _idle(90),
+        "closed_this_month": lambda: Lawsuit.closure_date
+        >= func.date_trunc("month", func.current_date()),
+        "filed_this_month": lambda: Lawsuit.process_date
+        >= func.date_trunc("month", func.current_date()),
+        "archived_this_month": lambda: Lawsuit.archived_date
+        >= func.date_trunc("month", func.current_date()),
+    },
 )
 
 EXPORT_ROW_LIMIT = 50_000  # regra 10
@@ -90,36 +109,52 @@ class LawsuitListRow:
     last_movement_title: str | None
 
 
-def _view_filter(view: str) -> ColumnElement[bool] | None:
-    """As 12 visões (regras 2–4) — atalho combinável com filtros (regra 1)."""
-    now = func.now()
-    if view == "all":
-        return None
-    if view == "active":
-        # Regra 2: ativo = não arquivado (visibilidade) E sem data de arquivamento (fato).
-        return and_(Lawsuit.is_archived.is_(False), Lawsuit.archived_date.is_(None))
-    if view == "moved_30d":
-        return Lawsuit.last_movement_at >= now - text("interval '30 days'")
-    if view == "moved_7d":
-        return Lawsuit.last_movement_at >= now - text("interval '7 days'")
-    if view == "moved_today":
-        return Lawsuit.last_movement_at >= func.date_trunc("day", func.now())
-    if view == "never_captured":
-        return Lawsuit.last_movement_at.is_(None)
-    if view in ("idle_30d", "idle_45d", "idle_90d"):
-        days = int(view.removeprefix("idle_").removesuffix("d"))
-        # Regra 3: parado há N dias ou nunca movimentado.
-        return or_(
-            Lawsuit.last_movement_at.is_(None),
-            Lawsuit.last_movement_at < now - text(f"interval '{days} days'"),
-        )
-    if view == "closed_this_month":
-        return Lawsuit.closure_date >= func.date_trunc("month", func.current_date())
-    if view == "filed_this_month":
-        return Lawsuit.process_date >= func.date_trunc("month", func.current_date())
-    if view == "archived_this_month":
-        return Lawsuit.archived_date >= func.date_trunc("month", func.current_date())
-    return None
+def filters_from_query(payload: LawsuitFiltersQuery) -> LawsuitFilters:
+    """Traduz o modelo de query string (multivalorados em CSV) para `LawsuitFilters`.
+
+    Multivalorados chegam separados por vírgula; visão desconhecida cai no default
+    (`QuickViews.resolve`)."""
+
+    def uuids(raw: str | None) -> list[uuid.UUID]:
+        return [uuid.UUID(value) for value in raw.split(",")] if raw else []
+
+    def ints(raw: str | None) -> list[int]:
+        return [int(value) for value in raw.split(",")] if raw else []
+
+    contingencies: list[ContingencyLevel] = []
+    if payload.contingency:
+        contingencies = [ContingencyLevel(value) for value in payload.contingency.split(",")]
+    return LawsuitFilters(
+        view=LAWSUIT_VIEWS.resolve(payload.view),
+        q=payload.q,
+        customer_id=payload.customer_id,
+        identification=payload.identification,
+        process_number=payload.process_number,
+        protocol_number=payload.protocol_number,
+        folder=payload.folder,
+        notes=payload.notes,
+        action_group_ids=uuids(payload.action_group_id),
+        lawsuit_type_ids=uuids(payload.lawsuit_type_id),
+        step_ids=ints(payload.step_id),
+        stage_ids=uuids(payload.stage_id),
+        court_ids=ints(payload.court_id),
+        court_system_ids=ints(payload.court_system_id),
+        user_ids=uuids(payload.user_id),
+        contingencies=contingencies,
+        origin_ids=uuids(payload.origin_id),
+        customer_type=payload.customer_type,
+        created_from=payload.created_from,
+        created_to=payload.created_to,
+        process_date_from=payload.process_date_from,
+        process_date_to=payload.process_date_to,
+        closure_from=payload.closure_from,
+        closure_to=payload.closure_to,
+        transit_from=payload.transit_from,
+        transit_to=payload.transit_to,
+        archived_from=payload.archived_from,
+        archived_to=payload.archived_to,
+        archived=payload.archived,
+    )
 
 
 def _party_exists(extra: ColumnElement[bool]) -> ColumnElement[bool]:
@@ -136,7 +171,7 @@ def _party_exists(extra: ColumnElement[bool]) -> ColumnElement[bool]:
 def _build_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
     conditions: list[ColumnElement[bool]] = []
 
-    view_condition = _view_filter(filters.view)
+    view_condition = LAWSUIT_VIEWS.predicate(filters.view)
     if view_condition is not None:
         conditions.append(view_condition)
 
@@ -193,26 +228,13 @@ def _build_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
     if filters.customer_type:
         conditions.append(_party_exists(Customer.type == filters.customer_type))
 
-    if filters.created_from is not None:
-        conditions.append(Lawsuit.created_at >= datetime.combine(filters.created_from, time.min))
-    if filters.created_to is not None:
-        conditions.append(Lawsuit.created_at <= datetime.combine(filters.created_to, time.max))
-    if filters.process_date_from is not None:
-        conditions.append(Lawsuit.process_date >= filters.process_date_from)
-    if filters.process_date_to is not None:
-        conditions.append(Lawsuit.process_date <= filters.process_date_to)
-    if filters.closure_from is not None:
-        conditions.append(Lawsuit.closure_date >= filters.closure_from)
-    if filters.closure_to is not None:
-        conditions.append(Lawsuit.closure_date <= filters.closure_to)
-    if filters.transit_from is not None:
-        conditions.append(Lawsuit.transit_date >= filters.transit_from)
-    if filters.transit_to is not None:
-        conditions.append(Lawsuit.transit_date <= filters.transit_to)
-    if filters.archived_from is not None:
-        conditions.append(Lawsuit.archived_date >= filters.archived_from)
-    if filters.archived_to is not None:
-        conditions.append(Lawsuit.archived_date <= filters.archived_to)
+    conditions += datetime_range(Lawsuit.created_at, filters.created_from, filters.created_to)
+    conditions += date_range(
+        Lawsuit.process_date, filters.process_date_from, filters.process_date_to
+    )
+    conditions += date_range(Lawsuit.closure_date, filters.closure_from, filters.closure_to)
+    conditions += date_range(Lawsuit.transit_date, filters.transit_from, filters.transit_to)
+    conditions += date_range(Lawsuit.archived_date, filters.archived_from, filters.archived_to)
     if filters.archived is not None:
         conditions.append(Lawsuit.is_archived.is_(filters.archived))
 
@@ -285,8 +307,6 @@ class LawsuitListingRepository:
         total = (await self.session.execute(count_stmt)).scalar_one()
 
         sort_column = Lawsuit.created_at
-        order_column = sort_column.desc() if descending else sort_column.asc()
-        id_column = Lawsuit.id.desc() if descending else Lawsuit.id.asc()
         stmt = (
             select(
                 Lawsuit,
@@ -301,16 +321,17 @@ class LawsuitListingRepository:
             .join(ActionGroup, ActionGroup.id == LawsuitType.action_group_id)
             .join(Stage, Stage.id == Lawsuit.stage_id)
             .outerjoin(parties, parties.c.lawsuit_id == Lawsuit.id)
-            .order_by(order_column, id_column)
-            .limit(limit)
         )
         for condition in conditions:
             stmt = stmt.where(condition)
-        if cursor is not None:
-            cursor_value, cursor_id = cursor
-            pair = tuple_(sort_column, Lawsuit.id)
-            cursor_pair = tuple_(literal(cursor_value), literal(cursor_id))
-            stmt = stmt.where(pair < cursor_pair if descending else pair > cursor_pair)
+        stmt = paginate_keyset(
+            stmt,
+            sort_column=sort_column,
+            id_column=Lawsuit.id,
+            descending=descending,
+            cursor=cursor,
+            limit=limit,
+        )
 
         rows = (await self.session.execute(stmt)).all()
         items = [

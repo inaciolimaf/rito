@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.action_groups.repository import ActionGroupRepository, LawsuitTypeRepository
 from app.domain.courts.repository import CourtRepository
-from app.domain.customers.repository import CustomerRepository
 from app.domain.lawsuits.cnj import (
     CNJNumber,
     CNJValidationError,
@@ -19,53 +18,29 @@ from app.domain.lawsuits.cnj import (
 )
 from app.domain.lawsuits.exceptions import (
     CourtSystemIncompatibleError,
-    DuplicatePartyError,
-    LastPartyError,
     LawsuitTypeNotFoundError,
-    MovementNotAuthorError,
-    PartyCustomerNotFoundError,
     ResponsibleNotActiveError,
     StageNotFoundError,
-    TribunalMovementImmutableError,
 )
 from app.domain.lawsuits.listing import (
     EXPORT_ROW_LIMIT,
-    LAWSUIT_VIEWS,
-    LawsuitFilters,
     LawsuitListingRepository,
     LawsuitListRow,
+    filters_from_query,
 )
-from app.domain.lawsuits.models import (
-    ContingencyLevel,
-    Lawsuit,
-    LawsuitMovement,
-    LawsuitParty,
-    MovementOrigin,
-    PartyPole,
-)
-from app.domain.lawsuits.repository import (
-    LawsuitMovementRepository,
-    LawsuitPartyRepository,
-    LawsuitRepository,
-    TimelineRow,
-    decode_timeline_cursor,
-    encode_timeline_cursor,
-)
+from app.domain.lawsuits.models import Lawsuit
+from app.domain.lawsuits.movements_service import MovementsService, TimelinePage
+from app.domain.lawsuits.parties_service import PartiesService
+from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.lawsuits.schemas import (
     LawsuitBaseRequest,
     LawsuitCreateRequest,
     LawsuitFiltersQuery,
     LawsuitUpdateRequest,
-    MovementCreateRequest,
-    MovementUpdateRequest,
-    PartyCreateRequest,
-    PartyInput,
-    PartyUpdateRequest,
 )
 from app.domain.lawsuits.stats import LawsuitStats, StatsCache
 from app.domain.lawsuits.stats import get_stats as get_lawsuit_stats
 from app.domain.stages.repository import StageRepository, StepRepository
-from app.domain.users.models import User, UserRole
 from app.domain.users.repository import UserRepository
 
 
@@ -88,12 +63,6 @@ class LawsuitDetail:
     action_group_name: str
     step_id: int
     step_name: str
-
-
-@dataclass
-class PartyDetail:
-    party: LawsuitParty
-    customer_name: str
 
 
 @dataclass
@@ -124,14 +93,10 @@ class NumberValidation:
     error: str | None
 
 
-@dataclass
-class TimelinePage:
-    items: Sequence[TimelineRow]
-    next_cursor: str | None
-    total: int
-
-
 class LawsuitService:
+    """CRUD, listagem, dashboard e validação de número. Partes e movimentações vivem
+    em `PartiesService`/`MovementsService` (spec 030 — um service por caso de uso)."""
+
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.session = session
         self.tenant_id = tenant_id
@@ -142,51 +107,22 @@ class LawsuitService:
         self.steps = StepRepository(session)
         self.users = UserRepository(session)
         self.courts = CourtRepository(session)
-        self.customers = CustomerRepository(session)
-        self.parties = LawsuitPartyRepository(session)
-        self.movements = LawsuitMovementRepository(session)
         self.listing = LawsuitListingRepository(session)
+        self.parties_service = PartiesService(session, tenant_id)
+        self.movements_service = MovementsService(session, tenant_id)
 
-    def _to_filters(self, payload: LawsuitFiltersQuery) -> LawsuitFilters:
-        def uuids(raw: str | None) -> list[uuid.UUID]:
-            return [uuid.UUID(value) for value in raw.split(",")] if raw else []
-
-        def ints(raw: str | None) -> list[int]:
-            return [int(value) for value in raw.split(",")] if raw else []
-
-        contingencies: list[ContingencyLevel] = []
-        if payload.contingency:
-            contingencies = [ContingencyLevel(value) for value in payload.contingency.split(",")]
-        return LawsuitFilters(
-            view=payload.view if payload.view in LAWSUIT_VIEWS else "all",
-            q=payload.q,
-            customer_id=payload.customer_id,
-            identification=payload.identification,
-            process_number=payload.process_number,
-            protocol_number=payload.protocol_number,
-            folder=payload.folder,
-            notes=payload.notes,
-            action_group_ids=uuids(payload.action_group_id),
-            lawsuit_type_ids=uuids(payload.lawsuit_type_id),
-            step_ids=ints(payload.step_id),
-            stage_ids=uuids(payload.stage_id),
-            court_ids=ints(payload.court_id),
-            court_system_ids=ints(payload.court_system_id),
-            user_ids=uuids(payload.user_id),
-            contingencies=contingencies,
-            origin_ids=uuids(payload.origin_id),
-            customer_type=payload.customer_type,
-            created_from=payload.created_from,
-            created_to=payload.created_to,
-            process_date_from=payload.process_date_from,
-            process_date_to=payload.process_date_to,
-            closure_from=payload.closure_from,
-            closure_to=payload.closure_to,
-            transit_from=payload.transit_from,
-            transit_to=payload.transit_to,
-            archived_from=payload.archived_from,
-            archived_to=payload.archived_to,
-            archived=payload.archived,
+    async def list_timeline(
+        self,
+        lawsuit_id: uuid.UUID,
+        *,
+        kinds: Sequence[str],
+        cursor: str | None,
+        limit: int,
+    ) -> TimelinePage:
+        """Compatibilidade (spec 030): a implementação vive em `MovementsService` —
+        mantido como delegação fina para não editar testes das specs 026–029."""
+        return await self.movements_service.list_timeline(
+            lawsuit_id, kinds=kinds, cursor=cursor, limit=limit
         )
 
     async def list_lawsuits(
@@ -204,7 +140,7 @@ class LawsuitService:
             raw_value, cursor_id = decode_cursor(cursor)
             decoded_cursor = (datetime.fromisoformat(raw_value), cursor_id)
         items, total = await self.listing.list_filtered(
-            filters=self._to_filters(payload),
+            filters=filters_from_query(payload),
             descending=order == "desc",
             cursor=decoded_cursor,
             limit=limit,
@@ -218,7 +154,7 @@ class LawsuitService:
     async def export_lawsuits(self, *, payload: LawsuitFiltersQuery) -> list[LawsuitListRow]:
         """Regra 10: export respeita os filtros ativos (não a página visível), com teto."""
         items, _total = await self.listing.list_filtered(
-            filters=self._to_filters(payload), limit=EXPORT_ROW_LIMIT
+            filters=filters_from_query(payload), limit=EXPORT_ROW_LIMIT
         )
         return list(items)
 
@@ -234,7 +170,7 @@ class LawsuitService:
 
     async def create(self, payload: LawsuitCreateRequest) -> LawsuitDetail:
         await self._validate_references(payload)
-        await self._validate_party_inputs(payload.parties)
+        await self.parties_service.validate_party_inputs(payload.parties)
         lawsuit = Lawsuit(
             tenant_id=self.tenant_id,
             user_id=payload.user_id,
@@ -263,15 +199,7 @@ class LawsuitService:
         )
         created = await self.lawsuits.create(lawsuit)
         for party_input in payload.parties:
-            await self.parties.create(
-                LawsuitParty(
-                    tenant_id=self.tenant_id,
-                    lawsuit_id=created.id,
-                    customer_id=party_input.customer_id,
-                    pole=party_input.pole,
-                    is_client=party_input.is_client,
-                )
-            )
+            await self.parties_service.create_party(created.id, party_input)
         return await self._with_derived(created)
 
     async def update(self, lawsuit: Lawsuit, payload: LawsuitUpdateRequest) -> LawsuitDetail:
@@ -313,10 +241,6 @@ class LawsuitService:
         # fato (não há tabela financeira ainda para checar, então hoje é sempre soft).
         lawsuit.is_archived = True
 
-    async def list_parties(self, lawsuit_id: uuid.UUID) -> Sequence[PartyDetail]:
-        rows = await self.parties.list_for_lawsuit(lawsuit_id)
-        return [PartyDetail(party=party, customer_name=name) for party, name in rows]
-
     def financial_summary(self, lawsuit: Lawsuit) -> FinancialSummary:
         zero = Decimal("0.00")
         return FinancialSummary(
@@ -350,127 +274,6 @@ class LawsuitService:
             inferred_court=inferred,
             error=None,
         )
-
-    async def add_party(self, lawsuit: Lawsuit, payload: PartyCreateRequest) -> PartyDetail:
-        customer_name = await self._customer_name(payload.customer_id)
-        await self._ensure_not_duplicate(
-            lawsuit_id=lawsuit.id, customer_id=payload.customer_id, pole=payload.pole
-        )
-        party = await self.parties.create(
-            LawsuitParty(
-                tenant_id=self.tenant_id,
-                lawsuit_id=lawsuit.id,
-                customer_id=payload.customer_id,
-                pole=payload.pole,
-                is_client=payload.is_client,
-            )
-        )
-        return PartyDetail(party=party, customer_name=customer_name)
-
-    async def update_party(self, party: LawsuitParty, payload: PartyUpdateRequest) -> PartyDetail:
-        if payload.pole != party.pole:
-            await self._ensure_not_duplicate(
-                lawsuit_id=party.lawsuit_id,
-                customer_id=party.customer_id,
-                pole=payload.pole,
-                exclude_id=party.id,
-            )
-        party.pole = payload.pole
-        if payload.is_client is not None:
-            party.is_client = payload.is_client
-        customer_name = await self._customer_name(party.customer_id)
-        return PartyDetail(party=party, customer_name=customer_name)
-
-    async def remove_party(self, party: LawsuitParty) -> None:
-        # Regra 1: o processo precisa ficar com no mínimo 1 parte.
-        if await self.parties.count_for_lawsuit(party.lawsuit_id) <= 1:
-            raise LastPartyError
-        await self.parties.delete(party)
-
-    async def list_timeline(
-        self,
-        lawsuit_id: uuid.UUID,
-        *,
-        kinds: Sequence[str],
-        cursor: str | None,
-        limit: int,
-    ) -> TimelinePage:
-        decoded = decode_timeline_cursor(cursor) if cursor else None
-        items, total = await self.movements.list_timeline(
-            lawsuit_id, kinds=kinds, cursor=decoded, limit=limit
-        )
-        next_cursor = (
-            encode_timeline_cursor(items[-1].occurred_at, items[-1].kind, items[-1].id)
-            if len(items) == limit
-            else None
-        )
-        return TimelinePage(items=items, next_cursor=next_cursor, total=total)
-
-    async def create_movement(
-        self, lawsuit: Lawsuit, payload: MovementCreateRequest, author: User
-    ) -> LawsuitMovement:
-        return await self.movements.create(
-            LawsuitMovement(
-                tenant_id=self.tenant_id,
-                lawsuit_id=lawsuit.id,
-                origin=MovementOrigin.MANUAL,
-                occurred_at=payload.occurred_at,
-                title=payload.title,
-                body=payload.body,
-                created_by=author.id,
-            )
-        )
-
-    def _check_movement_editable(self, movement: LawsuitMovement, actor: User) -> None:
-        # Regra 3: movimentação do tribunal é imutável pela UI.
-        if movement.origin != MovementOrigin.MANUAL:
-            raise TribunalMovementImmutableError
-        # Regra 4: só o autor ou um ADMINISTRADOR edita/exclui.
-        if movement.created_by != actor.id and actor.role != UserRole.ADMINISTRADOR:
-            raise MovementNotAuthorError
-
-    async def update_movement(
-        self, movement: LawsuitMovement, payload: MovementUpdateRequest, actor: User
-    ) -> LawsuitMovement:
-        self._check_movement_editable(movement, actor)
-        movement.occurred_at = payload.occurred_at
-        movement.title = payload.title
-        movement.body = payload.body
-        return movement
-
-    async def delete_movement(self, movement: LawsuitMovement, actor: User) -> None:
-        self._check_movement_editable(movement, actor)
-        await self.movements.delete(movement)
-
-    async def _validate_party_inputs(self, parties: Sequence[PartyInput]) -> None:
-        seen: set[tuple[uuid.UUID, str]] = set()
-        for party_input in parties:
-            key = (party_input.customer_id, party_input.pole)
-            if key in seen:
-                raise DuplicatePartyError
-            seen.add(key)
-            if await self.customers.get_by_id(party_input.customer_id) is None:
-                raise PartyCustomerNotFoundError
-
-    async def _customer_name(self, customer_id: uuid.UUID) -> str:
-        customer = await self.customers.get_by_id(customer_id)
-        if customer is None:
-            raise PartyCustomerNotFoundError
-        return customer.name
-
-    async def _ensure_not_duplicate(
-        self,
-        *,
-        lawsuit_id: uuid.UUID,
-        customer_id: uuid.UUID,
-        pole: PartyPole,
-        exclude_id: uuid.UUID | None = None,
-    ) -> None:
-        duplicate = await self.parties.find_duplicate(
-            lawsuit_id=lawsuit_id, customer_id=customer_id, pole=pole, exclude_id=exclude_id
-        )
-        if duplicate is not None:
-            raise DuplicatePartyError
 
     async def _validate_references(self, payload: LawsuitBaseRequest) -> None:
         if await self.types.get_by_id(payload.lawsuit_type_id) is None:

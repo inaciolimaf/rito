@@ -4,10 +4,11 @@ import * as React from "react";
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
 import { EmptyState } from "@/components/domain/EmptyState";
-import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
+import { ListPageLayout } from "@/components/domain/ListPageLayout";
 import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
 import { useFilters } from "@/components/domain/useFilters";
+import { useListPage } from "@/components/domain/useListPage";
 import { Button } from "@/components/ui/button";
 import { listCustomerOrigins } from "@/features/customer-origins/api";
 import {
@@ -180,9 +181,6 @@ export function CustomerListPage(): JSX.Element {
   const createdTo = typeof values.created_to === "string" ? values.created_to : undefined;
   const archived = values.archived === "true";
 
-  const [cursorStack, setCursorStack] = React.useState<string[]>([]);
-  const currentCursor = cursorStack[cursorStack.length - 1];
-
   const filters = {
     q,
     type,
@@ -195,14 +193,13 @@ export function CustomerListPage(): JSX.Element {
     archived,
   };
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["customers", filters, currentCursor],
-    queryFn: () => listCustomers({ ...filters, cursor: currentCursor, limit: 20 }),
+  const listPage = useListPage({
+    queryKey: "customers",
+    filters,
+    fetchPage: listCustomers,
+    exportFile: exportCustomers,
+    resetDeps: [q, type, state, city, originId, birthdays, createdFrom, createdTo, archived],
   });
-
-  React.useEffect(() => {
-    setCursorStack([]);
-  }, [q, type, state, city, originId, birthdays, createdFrom, createdTo, archived]);
 
   const [editingCustomer, setEditingCustomer] = React.useState<CustomerData | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -306,31 +303,29 @@ export function CustomerListPage(): JSX.Element {
     },
   ];
 
-  const items = data?.items ?? [];
+  const items = listPage.items;
   const hasActiveFilters = Object.values(filters).some(
     (value) => value !== undefined && value !== false,
   );
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-primary">Contatos</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => void exportCustomers("xlsx", filters)}>
+    <ListPageLayout
+      title="Contatos"
+      filterFields={filterFields}
+      dashboard={<CustomerStatsPanel />}
+      actions={
+        <>
+          <Button variant="outline" onClick={() => void listPage.exportAs("xlsx")}>
             Exportar XLSX
           </Button>
-          <Button variant="outline" onClick={() => void exportCustomers("pdf", filters)}>
+          <Button variant="outline" onClick={() => void listPage.exportAs("pdf")}>
             Exportar PDF
           </Button>
           <Button onClick={openCreateModal}>Novo contato</Button>
-        </div>
-      </div>
-
-      <CustomerStatsPanel />
-
-      <FilterBar fields={filterFields} />
-
-      {items.length === 0 && !isLoading && !hasActiveFilters ? (
+        </>
+      }
+    >
+      {items.length === 0 && !listPage.isLoading && !hasActiveFilters ? (
         <EmptyState
           title="Nenhum contato cadastrado ainda"
           description="Cadastre o primeiro cliente ou parte contrária do escritório."
@@ -341,8 +336,8 @@ export function CustomerListPage(): JSX.Element {
           columns={columns}
           data={items}
           getRowId={(row) => row.id}
-          isLoading={isLoading}
-          error={error instanceof ApiError ? error.message : null}
+          isLoading={listPage.isLoading}
+          error={listPage.error}
           emptyMessage="Nenhum contato encontrado com esses filtros."
           rowActions={(row) => (
             <div className="flex gap-2">
@@ -364,16 +359,7 @@ export function CustomerListPage(): JSX.Element {
               )}
             </div>
           )}
-          pagination={{
-            hasPreviousPage: cursorStack.length > 0,
-            hasNextPage: data?.next_cursor != null,
-            onPreviousPage: () => setCursorStack((stack) => stack.slice(0, -1)),
-            onNextPage: () => {
-              if (data?.next_cursor) {
-                setCursorStack((stack) => [...stack, data.next_cursor as string]);
-              }
-            },
-          }}
+          pagination={listPage.pagination}
         />
       )}
 
@@ -414,6 +400,6 @@ export function CustomerListPage(): JSX.Element {
         destructive
         onConfirm={handleConfirmArchive}
       />
-    </div>
+    </ListPageLayout>
   );
 }

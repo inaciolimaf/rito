@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 77,
+  "last_measured_wall_clock_seconds": 79,
   "last_measured_at": "2026-08-02",
   "specs": {
     "001": {
@@ -118,6 +118,10 @@
     "029": {
       "wall_clock_seconds": 77,
       "notes": "442 testes backend (436 anteriores + 6 novos: autocomplete por frequência (regra 7), autocomplete ignora acento/caso com grafia preservada (regra 2), renomear em lote atualiza todos com from case-insensitive + 404 em pasta fantasma (regra 3), fusão exige merge=true — sem ele 409 — e prevalece a grafia armazenada no alvo (regra 4), agrupamento ordena por contagem e inclui 'Sem pasta' (regra 6), RLS entre tenants no autocomplete e no agrupamento). 92 testes frontend (90 anteriores + 2 do FolderAutocomplete: aceita valor novo — regra 1 — e escolher sugestão preenche com a grafia armazenada). 5 e2e (inalterado). Migration 029 cria só o índice GIN trgm parcial (pg_trgm/unaccent já existiam da 002, immutable_unaccent da 014). Decisões: fusão detectada por igualdade normalizada (unaccent+lower) com qualquer pasta existente — renomear para grafia diferente do MESMO nome lógico só regrava a grafia, sem confirmação; agrupamento limita 50 grupos × 10 itens via ROW_NUMBER() PARTITION BY folder (NULL forma a partição 'Sem pasta'), 2 statements; FolderAutocomplete é controlado — teste de 'valor novo' precisa de harness com estado, senão o input controlado zera a cada tecla e o onChange recebe 1 char; a página passou a honrar ?folder= na listagem (o 'Ver todos' do grupo depende disso)."
+    },
+    "030": {
+      "wall_clock_seconds": 79,
+      "notes": "444 testes backend (442 anteriores + 2 novos: ck_cycle rejeitando trânsito < fechamento e arquivamento < trânsito DIRETO no banco — a 024 cobria só a camada Pydantic). 92 frontend e 5 e2e inalterados — zero edição em testes das specs 021–029 (regra da refatoração), só adições. Refatoração: app/core/listing.py (paginate_keyset, datetime_range/date_range, QuickViews) e app/core/export.py (TableExport[ExportColumn]) extraídos de customers/lawsuits; LawsuitService 505→308 linhas com PartiesService/MovementsService novos (list_timeline mantida como delegação — o budget test da 026 a chama direto); _to_filters virou filters_from_query em listing.py; useListPage + ListPageLayout em components/domain com as duas telas migradas (CustomerListPage passou no teste de página sem edição). ListQueryBuilder NÃO virou builder — predicados são bespoke por domínio (decisão registrada na spec). EXPLAIN das visões: seq scan é ótimo no volume atual, índices conferidos — revalidação com massa na 098 (dívida #14); enums TS manuais (dívida #15); demonstração '<80 linhas' na 036 (dívida #16). Ruff exige PEP 695 (UP046/UP047) — generics novos com sintaxe de type parameter."
     }
   }
 }

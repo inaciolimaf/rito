@@ -5,10 +5,11 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
 import { EmptyState } from "@/components/domain/EmptyState";
-import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
+import { ListPageLayout } from "@/components/domain/ListPageLayout";
 import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
 import { useFilters } from "@/components/domain/useFilters";
+import { useListPage } from "@/components/domain/useListPage";
 import { Button } from "@/components/ui/button";
 import { listCourts } from "@/features/courts/api";
 import { listCustomers } from "@/features/customers/api";
@@ -166,9 +167,6 @@ export function LawsuitsPage(): JSX.Element {
   const createdTo = typeof values.created_to === "string" ? values.created_to : undefined;
   const archived = values.archived === "true" ? true : undefined;
 
-  const [cursorStack, setCursorStack] = React.useState<string[]>([]);
-  const currentCursor = cursorStack[cursorStack.length - 1];
-
   const activeFilters = {
     view,
     q,
@@ -180,14 +178,13 @@ export function LawsuitsPage(): JSX.Element {
     folder,
   };
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["lawsuits-list", activeFilters, currentCursor],
-    queryFn: () => listLawsuits({ ...activeFilters, cursor: currentCursor, limit: 20 }),
+  const listPage = useListPage({
+    queryKey: "lawsuits-list",
+    filters: activeFilters,
+    fetchPage: listLawsuits,
+    exportFile: exportLawsuits,
+    resetDeps: [view, q, stageId, customerType, createdFrom, createdTo, archived, folder],
   });
-
-  React.useEffect(() => {
-    setCursorStack([]);
-  }, [view, q, stageId, customerType, createdFrom, createdTo, archived, folder]);
 
   // ---- modal de criar/editar (mesmo fluxo das specs 022–025) ----
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -336,7 +333,7 @@ export function LawsuitsPage(): JSX.Element {
     },
   ];
 
-  const items = data?.items ?? [];
+  const items = listPage.items;
   const hasActiveFilters =
     view !== "all" ||
     [q, stageId, customerType, createdFrom, createdTo, folder].some((v) => v != null && v !== "") ||
@@ -353,33 +350,29 @@ export function LawsuitsPage(): JSX.Element {
   }
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-primary">Processos</h1>
-          <QuickViewSelect />
-        </div>
-        <div className="flex gap-2">
+    <ListPageLayout
+      title="Processos"
+      filterFields={filterFields}
+      headerExtras={<QuickViewSelect />}
+      dashboard={<LawsuitStatsPanel />}
+      actions={
+        <>
           <Button variant="outline" onClick={toggleGroupBy}>
             {groupBy === "folder" ? "Ver lista" : "Agrupar por pasta"}
           </Button>
-          <Button variant="outline" onClick={() => void exportLawsuits("xlsx", activeFilters)}>
+          <Button variant="outline" onClick={() => void listPage.exportAs("xlsx")}>
             Exportar XLSX
           </Button>
-          <Button variant="outline" onClick={() => void exportLawsuits("pdf", activeFilters)}>
+          <Button variant="outline" onClick={() => void listPage.exportAs("pdf")}>
             Exportar PDF
           </Button>
           <Button onClick={openCreateModal}>Novo processo</Button>
-        </div>
-      </div>
-
-      <FilterBar fields={filterFields} />
-
-      <LawsuitStatsPanel />
-
+        </>
+      }
+    >
       {groupBy === "folder" ? (
         <FolderGroupView />
-      ) : items.length === 0 && !isLoading && !hasActiveFilters ? (
+      ) : items.length === 0 && !listPage.isLoading && !hasActiveFilters ? (
         <EmptyState
           title="Nenhum processo cadastrado ainda"
           description="Cadastre o primeiro processo do escritório."
@@ -390,8 +383,8 @@ export function LawsuitsPage(): JSX.Element {
           columns={columns}
           data={items}
           getRowId={(row) => row.id}
-          isLoading={isLoading}
-          error={error instanceof ApiError ? error.message : null}
+          isLoading={listPage.isLoading}
+          error={listPage.error}
           emptyMessage="Nenhum processo encontrado com esses filtros."
           rowActions={(row) => (
             <div className="flex gap-2">
@@ -420,16 +413,7 @@ export function LawsuitsPage(): JSX.Element {
               )}
             </div>
           )}
-          pagination={{
-            hasPreviousPage: cursorStack.length > 0,
-            hasNextPage: data?.next_cursor != null,
-            onPreviousPage: () => setCursorStack((stack) => stack.slice(0, -1)),
-            onNextPage: () => {
-              if (data?.next_cursor) {
-                setCursorStack((stack) => [...stack, data.next_cursor as string]);
-              }
-            },
-          }}
+          pagination={listPage.pagination}
         />
       )}
 
@@ -471,6 +455,6 @@ export function LawsuitsPage(): JSX.Element {
         destructive
         onConfirm={() => void handleConfirmDelete()}
       />
-    </div>
+    </ListPageLayout>
   );
 }

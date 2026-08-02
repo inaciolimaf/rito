@@ -168,3 +168,34 @@ desde o início porque `lawsuit_types` e `action_groups` nasceram juntos) e
 existe) — ou uma spec de correção dedicada, já que a dependência que faltava (017) já
 chegou. Renomear/atualizar o comentário e o teste
 `test_excluir_nao_bloqueia_ainda`/`test_transferencia_com_ids_validos_retorna_200` junto.
+
+## 14. EXPLAIN das visões precisa ser revalidado com volume real
+
+A checklist da spec 030 pedia `EXPLAIN ANALYZE` nas 12 visões "sem seq scan em tabela
+grande". Rodado na 030 (registro em `docs/DECISOES.md`): o banco de dev tem dezenas de
+linhas — seq scan é o plano ótimo nesse volume, mesmo com `enable_seqscan=off`, então o
+exercício não prova nada sobre o comportamento em produção. Os índices das colunas de
+predicado existem e foram conferidos em `pg_indexes`.
+
+**Spec-alvo:** 098 (performance) — gerar massa sintética (10⁵+ processos por tenant) e
+repetir o `EXPLAIN ANALYZE` das 12 visões + stats (028) + agrupamento por pasta (029).
+
+## 15. Enums do banco espelhados à mão em TS
+
+`PartyPoleApi`, `LawsuitOutcome`, `ContingencyLevel` e cia. são redeclarados como union
+types em `frontend/src/features/*/api.ts` — duplicação manual que pode divergir do
+StrEnum do backend sem nenhum alarme. A checklist da 030 pedia espelho "sem duplicação
+manual"; gerar os unions TS a partir dos StrEnum via script (`scripts/dump-enums`)
+continua pendente — o volume atual (3 enums) não justificou a infra nesta refatoração.
+
+**Spec-alvo:** quando o 4º enum de domínio cruzar a fronteira da API (regra dos 3 usos)
+— provavelmente status de tarefa (032) ou tipo de lançamento (054+).
+
+## 16. "Uma listagem nova custa < 80 linhas" só é demonstrável na spec 036
+
+O DoD da 030 pedia a demonstração com a listagem de tarefas — mas tarefas só ganham
+modelo na 032 e listagem na 036, e o ciclo não adianta trabalho de spec futura. A infra
+(`core/listing.py`, `core/export.py`, `useListPage`, `ListPageLayout`) está pronta;
+a conta de linhas fica para a 036 fechar.
+
+**Spec-alvo:** 036 (caixa de entrada) — medir e registrar no test-timing da spec.

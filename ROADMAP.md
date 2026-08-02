@@ -134,7 +134,7 @@ Cards de ativos, fechamentos com variação, arquivados no mês; gráfico volume
 Campo `folder` com autocomplete, agrupamento por pasta, busca.
 **Aceite:** agrupamento e busca funcionam. **t:** 3 s. **Deps:** 027
 
-### ⬜ 030 — 🔧 REFATORAÇÃO — Processos
+### ✅ 030 — 🔧 REFATORAÇÃO — Processos
 **t:** −
 
 ---

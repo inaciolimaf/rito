@@ -1,11 +1,12 @@
 import uuid
 from collections.abc import Sequence
-from datetime import date, datetime, time
+from datetime import date, datetime
 
-from sqlalchemy import Case, ColumnElement, case, func, literal, or_, select, tuple_
+from sqlalchemy import Case, ColumnElement, case, func, literal, or_, select
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.br_documents import strip_document_mask
+from app.core.listing import datetime_range, paginate_keyset
 from app.core.repository import BaseRepository
 from app.domain.customer_origins.models import CustomerOrigin
 from app.domain.customers.models import Customer, MaritalStatus, PersonType
@@ -95,10 +96,7 @@ class CustomerRepository(BaseRepository[Customer]):
             filters.append(func.lower(Customer.city) == city.lower())
         if origin_id is not None:
             filters.append(Customer.origin_id == origin_id)
-        if created_from is not None:
-            filters.append(Customer.created_at >= datetime.combine(created_from, time.min))
-        if created_to is not None:
-            filters.append(Customer.created_at <= datetime.combine(created_to, time.max))
+        filters += datetime_range(Customer.created_at, created_from, created_to)
         if has_active_lawsuit:
             # Regra fora de alcance ainda: `lawsuits`/`lawsuit_customer` só chegam na spec
             # 022 (Descobertas) — nenhum contato tem processo ativo hoje, então pedir
@@ -153,16 +151,17 @@ class CustomerRepository(BaseRepository[Customer]):
         sort_column: InstrumentedAttribute[str] | InstrumentedAttribute[datetime] = (
             Customer.name if sort == "name" else Customer.created_at
         )
-        order_column = sort_column.desc() if descending else sort_column.asc()
-        id_column = Customer.id.desc() if descending else Customer.id.asc()
-        stmt = select(Customer).order_by(order_column, id_column).limit(limit)
+        stmt = select(Customer)
         for condition in filters:
             stmt = stmt.where(condition)
-        if cursor is not None:
-            cursor_value, cursor_id = cursor
-            pair = tuple_(sort_column, Customer.id)
-            cursor_pair = tuple_(literal(cursor_value), literal(cursor_id))
-            stmt = stmt.where(pair < cursor_pair if descending else pair > cursor_pair)
+        stmt = paginate_keyset(
+            stmt,
+            sort_column=sort_column,
+            id_column=Customer.id,
+            descending=descending,
+            cursor=cursor,
+            limit=limit,
+        )
 
         items = (await self.session.scalars(stmt)).all()
         return items, total
@@ -192,10 +191,7 @@ class CustomerRepository(BaseRepository[Customer]):
             await self.session.execute(
                 select(func.count())
                 .select_from(Customer)
-                .where(
-                    Customer.created_at >= datetime.combine(start, time.min),
-                    Customer.created_at <= datetime.combine(end, time.max),
-                )
+                .where(*datetime_range(Customer.created_at, start, end))
             )
         ).scalar_one()
 

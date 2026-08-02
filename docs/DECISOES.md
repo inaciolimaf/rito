@@ -140,6 +140,40 @@
   do `vitest` já usado — a v4 do pacote quebraria o resto). `npm run test:coverage` é
   opt-in, não entra no `make test` padrão — mesmo padrão do `pytest --cov` do backend.
 
+## Refatoração de processos (spec 030)
+
+- **`lawsuits.last_movement_at` é coluna materializada, mantida por trigger
+  (`set_lawsuit_last_movement`, migration 027).** Motivo: as visões "parado há N dias"
+  (027) precisam do máximo de `occurred_at` por processo — uma subquery correlacionada
+  por linha de listagem não escala, e ordenar/filtrar por agregado impede índice. A
+  trigger roda a cada INSERT em `lawsuit_movements` com `GREATEST(COALESCE(...))` —
+  inserção tardia de andamento antigo nunca regride o valor. O UPDATE na trigger toca
+  uma linha por INSERT de movimentação (volume baixo por natureza do domínio), sem
+  lock de tabela e sem tocar a linha de outros processos. A aplicação NUNCA escreve a
+  coluna — quem escreve é só o banco; testes que precisam de andamento antigo usam
+  `_seed_tribunal`, não UPDATE direto.
+- **Padrão de listagem virou infra em `app/core/listing.py` e `app/core/export.py`
+  (alvo 2 da 030).** Contatos (019) e processos (027) tinham repetido: keyset por
+  tupla `(sort, id)`, intervalos de data (`datetime.combine(min/max)`), e a montagem
+  de workbook/PDF célula a célula. A terceira ocorrência (tarefas, 036) é certa —
+  extraído antes dela: `paginate_keyset`, `datetime_range`/`date_range`, `QuickViews`
+  (nome → fábrica de predicado, com fallback para o default) e `TableExport`
+  (colunas tipadas → xlsx/pdf). No frontend, `useListPage` (URL + query + cursor +
+  export) e `ListPageLayout` (cabeçalho + dashboard + FilterBar + conteúdo) — as duas
+  telas migradas sem mudar uma linha dos testes existentes.
+- **`LawsuitService` dividido por caso de uso:** `PartiesService` (spec 023) e
+  `MovementsService` (spec 026) nasceram na 030; `LawsuitService` ficou com CRUD,
+  listagem, dashboard e validação CNJ (308 linhas). `list_timeline` permanece como
+  delegação fina — a regra "testes de 021–029 passam sem edição" vale também para o
+  teste de budget que chama o método direto (spec 026).
+- **EXPLAIN das 12 visões: seq scan é o plano CERTO no volume atual.** Rodado no banco
+  de dev (dezenas de linhas, 1 tenant): mesmo com `enable_seqscan=off` o planner
+  escolhe seq scan — com uma dúzia de páginas de heap, índice é puro overhead. Os
+  índices das colunas de predicado existem (`ix_lawsuits_last_movement`,
+  `ix_lawsuits_closure`, `ix_lawsuits_archived`, `ix_lawsuits_created`,
+  `ix_lawsuits_folder_trgm`) e foram conferidos em `pg_indexes`. Revalidar com volume
+  real na spec 098 (performance) — registrado como dívida #14.
+
 ## Ambiente de execução do agente (não é decisão de produto)
 
 - Este sandbox resolve Postgres/Redis via o hostname `dind` (Docker-in-Docker remoto), não

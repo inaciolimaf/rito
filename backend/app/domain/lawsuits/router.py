@@ -29,6 +29,8 @@ from app.domain.lawsuits.export import build_pdf, build_xlsx
 from app.domain.lawsuits.folders import FolderService
 from app.domain.lawsuits.listing import LawsuitListRow
 from app.domain.lawsuits.models import LawsuitMovement
+from app.domain.lawsuits.movements_service import MovementsService
+from app.domain.lawsuits.parties_service import PartiesService, PartyDetail
 from app.domain.lawsuits.repository import TIMELINE_KINDS
 from app.domain.lawsuits.schemas import (
     FinancialSummaryResponse,
@@ -62,7 +64,7 @@ from app.domain.lawsuits.schemas import (
     ValidateNumberRequest,
     ValidateNumberResponse,
 )
-from app.domain.lawsuits.service import LawsuitDetail, LawsuitService, PartyDetail
+from app.domain.lawsuits.service import LawsuitDetail, LawsuitService
 from app.domain.lawsuits.stats import invalidate_stats_cache
 from app.domain.users.models import User
 
@@ -467,7 +469,8 @@ async def get_timeline(
     # Regra 2: toggles combináveis; `kinds=` vazio (nenhum marcado) → timeline vazia,
     # nunca a lista completa. Omitir o parâmetro traz todos os tipos.
     kind_list = TIMELINE_KINDS if kinds is None else [k for k in kinds.split(",") if k]
-    page = await service.list_timeline(
+    movements = MovementsService(session, current_user.tenant_id)
+    page = await movements.list_timeline(
         detail.lawsuit.id, kinds=kind_list, cursor=cursor, limit=min(limit, 100)
     )
     return TimelineResponse(
@@ -497,15 +500,19 @@ async def create_movement(
 ) -> MovementResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
-    movement = await service.create_movement(detail.lawsuit, payload, current_user)
+    movements = MovementsService(session, current_user.tenant_id)
+    movement = await movements.create_movement(detail.lawsuit, payload, current_user)
     return _to_movement_response(movement)
 
 
 async def _get_movement_or_404(
-    service: LawsuitService, lawsuit_id: uuid.UUID, movement_id: uuid.UUID
+    service: LawsuitService,
+    movements: MovementsService,
+    lawsuit_id: uuid.UUID,
+    movement_id: uuid.UUID,
 ) -> LawsuitMovement:
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
-    movement = await service.movements.get_by_id(movement_id)
+    movement = await movements.movements.get_by_id(movement_id)
     if movement is None or movement.lawsuit_id != detail.lawsuit.id:
         raise HTTPException(status_code=404, detail="Movimentação não encontrada.")
     return movement
@@ -520,9 +527,10 @@ async def update_movement(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> MovementResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
-    movement = await _get_movement_or_404(service, lawsuit_id, movement_id)
+    movements = MovementsService(session, current_user.tenant_id)
+    movement = await _get_movement_or_404(service, movements, lawsuit_id, movement_id)
     try:
-        updated = await service.update_movement(movement, payload, current_user)
+        updated = await movements.update_movement(movement, payload, current_user)
     except TribunalMovementImmutableError as exc:
         raise HTTPException(
             status_code=403, detail="Movimentação do tribunal não pode ser editada."
@@ -543,9 +551,10 @@ async def delete_movement(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> None:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
-    movement = await _get_movement_or_404(service, lawsuit_id, movement_id)
+    movements = MovementsService(session, current_user.tenant_id)
+    movement = await _get_movement_or_404(service, movements, lawsuit_id, movement_id)
     try:
-        await service.delete_movement(movement, current_user)
+        await movements.delete_movement(movement, current_user)
     except TribunalMovementImmutableError as exc:
         raise HTTPException(
             status_code=403, detail="Movimentação do tribunal não pode ser excluída."
@@ -565,7 +574,8 @@ async def list_parties(
 ) -> list[PartyResponse]:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
-    parties = await service.list_parties(detail.lawsuit.id)
+    parties_service = PartiesService(session, current_user.tenant_id)
+    parties = await parties_service.list_parties(detail.lawsuit.id)
     return [_to_party_response(party) for party in parties]
 
 
@@ -578,21 +588,25 @@ async def add_party(
 ) -> PartyResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    parties_service = PartiesService(session, current_user.tenant_id)
     try:
-        party = await service.add_party(detail.lawsuit, payload)
+        party = await parties_service.add_party(detail.lawsuit, payload)
     except (PartyCustomerNotFoundError, DuplicatePartyError) as exc:
         _raise_party_errors(exc)
     return _to_party_response(party)
 
 
 async def _get_party_or_404(
-    service: LawsuitService, lawsuit_id: uuid.UUID, party_id: uuid.UUID
+    service: LawsuitService,
+    parties_service: PartiesService,
+    lawsuit_id: uuid.UUID,
+    party_id: uuid.UUID,
 ) -> PartyDetail:
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
-    party = await service.parties.get_by_id(party_id)
+    party = await parties_service.parties.get_by_id(party_id)
     if party is None or party.lawsuit_id != detail.lawsuit.id:
         raise HTTPException(status_code=404, detail=_PARTY_NOT_FOUND_DETAIL)
-    customer = await service.customers.get_by_id(party.customer_id)
+    customer = await parties_service.customers.get_by_id(party.customer_id)
     if customer is None:
         # FK garante que o contato existe; None aqui só aconteceria com RLS mal aplicado.
         raise HTTPException(status_code=404, detail=_PARTY_NOT_FOUND_DETAIL)
@@ -608,9 +622,10 @@ async def update_party(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> PartyResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
-    detail = await _get_party_or_404(service, lawsuit_id, party_id)
+    parties_service = PartiesService(session, current_user.tenant_id)
+    detail = await _get_party_or_404(service, parties_service, lawsuit_id, party_id)
     try:
-        updated = await service.update_party(detail.party, payload)
+        updated = await parties_service.update_party(detail.party, payload)
     except (PartyCustomerNotFoundError, DuplicatePartyError) as exc:
         _raise_party_errors(exc)
     return _to_party_response(updated)
@@ -624,8 +639,9 @@ async def remove_party(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> None:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
-    detail = await _get_party_or_404(service, lawsuit_id, party_id)
+    parties_service = PartiesService(session, current_user.tenant_id)
+    detail = await _get_party_or_404(service, parties_service, lawsuit_id, party_id)
     try:
-        await service.remove_party(detail.party)
+        await parties_service.remove_party(detail.party)
     except LastPartyError as exc:
         raise HTTPException(status_code=409, detail=_LAST_PARTY_DETAIL) from exc

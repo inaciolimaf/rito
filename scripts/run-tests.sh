@@ -17,6 +17,29 @@ run_backend() {
 	# separado, e herdaria a URL de dev sem este override explícito.
 	MIGRATIONS_DATABASE_URL="${TEST_MIGRATIONS_DATABASE_URL:-$MIGRATIONS_DATABASE_URL}" \
 		uv run alembic upgrade head
+	# Limpa o acúmulo de tenants de runs anteriores (spec 032): make_user COMITA tenant +
+	# usuário por teste e nada limpava — em agosto/2026 o rito_test tinha 9.317 tenants e
+	# 1,16 milhão de task_types (seed da 031: 152 por tenant), e a suíte inteira pagava
+	# IO/vacuum disso. Os testes criam tudo que precisam via fixtures; os catálogos
+	# globais (courts, steps, occupations, cidades) ficam — não têm FK para tenants.
+	MIGRATIONS_DATABASE_URL="${TEST_MIGRATIONS_DATABASE_URL:-$MIGRATIONS_DATABASE_URL}" \
+		uv run python -c "
+import asyncio
+import os
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+
+async def main() -> None:
+    engine = create_async_engine(os.environ['MIGRATIONS_DATABASE_URL'])
+    async with engine.begin() as conn:
+        await conn.execute(text('TRUNCATE tenants CASCADE'))
+    await engine.dispose()
+
+
+asyncio.run(main())
+"
 	if [ -n "${PYTEST_ALLOW_HOSTS:-}" ]; then
 		uv run pytest -n auto --allow-hosts="$PYTEST_ALLOW_HOSTS"
 	else

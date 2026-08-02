@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { QuickAddMenu } from "@/components/shell/QuickAddMenu";
 
@@ -10,7 +10,7 @@ describe("QuickAddMenu", () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
-        <QuickAddMenu />
+        <QuickAddMenu onNewTask={vi.fn()} />
       </MemoryRouter>,
     );
 

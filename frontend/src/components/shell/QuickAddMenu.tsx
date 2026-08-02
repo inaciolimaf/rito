@@ -6,13 +6,18 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const QUICK_ADD_ITEMS = [
-  { label: "Nova tarefa", path: "/posts" },
+  { label: "Nova tarefa", action: "new-task" },
   { label: "Novo contato", path: "/customers" },
   { label: "Novo processo", path: "/lawsuits" },
   { label: "Nova receita/despesa", path: "/transactions" },
 ];
 
-export function QuickAddMenu(): JSX.Element {
+export interface QuickAddMenuProps {
+  /** "Nova tarefa" abre o modal global (spec 032) em vez de navegar. */
+  onNewTask: () => void;
+}
+
+export function QuickAddMenu({ onNewTask }: QuickAddMenuProps): JSX.Element {
   const [isOpen, setIsOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -55,7 +60,11 @@ export function QuickAddMenu(): JSX.Element {
                   "block w-full px-3 py-2 text-left text-sm text-primary hover:bg-surface-muted",
                 )}
                 onClick={() => {
-                  navigate(item.path);
+                  if (item.action === "new-task") {
+                    onNewTask();
+                  } else if (item.path) {
+                    navigate(item.path);
+                  }
                   setIsOpen(false);
                 }}
               >

@@ -5,12 +5,14 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Breadcrumbs } from "@/components/shell/Breadcrumbs";
 import { Header } from "@/components/shell/Header";
 import { Sidebar } from "@/components/shell/Sidebar";
+import { NewTaskModal } from "@/features/posts/NewTaskModal";
 import { cn } from "@/lib/utils";
 
 export function AppLayout(): JSX.Element {
   const location = useLocation();
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = React.useState(false);
   const [placeholderModalLabel, setPlaceholderModalLabel] = React.useState<string | null>(null);
+  const [taskModalOpen, setTaskModalOpen] = React.useState(false);
 
   React.useEffect(() => {
     setIsMobileDrawerOpen(false);
@@ -42,7 +44,10 @@ export function AppLayout(): JSX.Element {
       )}
 
       <div className={cn("flex min-w-0 flex-1 flex-col")}>
-        <Header onToggleMobileSidebar={() => setIsMobileDrawerOpen((current) => !current)} />
+        <Header
+          onToggleMobileSidebar={() => setIsMobileDrawerOpen((current) => !current)}
+          onNewTask={() => setTaskModalOpen(true)}
+        />
         <div className="border-b border-default px-4 py-2">
           <Breadcrumbs />
         </div>
@@ -50,6 +55,8 @@ export function AppLayout(): JSX.Element {
           <Outlet />
         </main>
       </div>
+
+      <NewTaskModal open={taskModalOpen} onOpenChange={setTaskModalOpen} />
 
       <Dialog
         open={placeholderModalLabel !== null}

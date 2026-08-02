@@ -199,3 +199,17 @@ modelo na 032 e listagem na 036, e o ciclo não adianta trabalho de spec futura.
 a conta de linhas fica para a 036 fechar.
 
 **Spec-alvo:** 036 (caixa de entrada) — medir e registrar no test-timing da spec.
+
+## 17. Wall-clock do `make test` à beira do teto (119/120 s)
+
+A suíte backend saltou de ~74 s (spec 029) para ~110 s entre as specs 031–032, com a
+latência dobrada e espalhada por TODOS os testes (sem outlier no --durations) — assinatura
+de contenção do host Docker compartilhado, não de regressão de código. A limpeza do
+rito_test (TRUNCATE antes do pytest, spec 032) removeu o acúmulo, mas a margem ficou em
+~1 s. Sintomas correlatos: flake de `StateCitySelect.test.tsx` sob carga (waitFor de 1 s
+estoura a 1,9 s; isolado leva 0,24 s).
+
+**Spec-alvo:** 040 (refatoração de Tarefas) — medir de novo e, se continuar >90 s:
+aumentar o waitFor do teste flake, revisar o boot do app por teste (client fixture roda
+o lifespan inteiro por função — candidato a escopo de módulo), e avaliar sharding do
+backend em dois grupos paralelos.

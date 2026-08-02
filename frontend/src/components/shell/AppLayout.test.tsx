@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -15,18 +16,22 @@ vi.mock("@/providers/AuthProvider", () => ({
 }));
 
 function renderApp(initialEntry: string): void {
+  // QueryClientProvider: o modal global de nova tarefa (spec 032) usa React Query.
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <ThemeProvider>
-      <MemoryRouter initialEntries={[initialEntry]}>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/home" element={<div>Painel</div>} />
-            <Route path="/customers" element={<div>Contatos</div>} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    </ThemeProvider>,
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/home" element={<div>Painel</div>} />
+              <Route path="/customers" element={<div>Contatos</div>} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    </QueryClientProvider>,
   );
 }
 

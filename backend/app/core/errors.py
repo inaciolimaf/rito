@@ -40,6 +40,7 @@ def _problem_response(
     # Any: cada chamador tem uma forma diferente de erro de campo (RequestValidationError
     # do Pydantic, lista de strings da política de senha) — RFC 7807 não fixa um schema.
     errors: Sequence[Any] | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> JSONResponse:
     slug = _SLUGS_BY_STATUS.get(status_code, "error")
     title = _TITLES_BY_STATUS.get(status_code, "Erro")
@@ -52,6 +53,9 @@ def _problem_response(
     }
     if errors is not None:
         body["errors"] = errors
+    if extra:
+        # Membros de extensão do RFC 7807 (ex.: existing_id da duplicata, spec 032).
+        body.update(extra)
     return JSONResponse(
         status_code=status_code,
         content=jsonable_encoder(body),
@@ -71,21 +75,25 @@ async def handle_validation_error(request: Request, exc: Exception) -> JSONRespo
 
 async def handle_http_exception(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)
-    # Any: starlette tipa HTTPException.detail como Any — pode ser str ou o dict
-    # {"detail", "errors"} da convenção abaixo.
+    # Any: starlette tipa HTTPException.detail como Any — pode ser str ou um dict de
+    # convenção (ver abaixo).
     detail: Any = exc.detail
     errors: Sequence[Any] | None = None
+    extra: dict[str, Any] | None = None
     # Convenção para validação de negócio (não de schema): raise HTTPException(
     # detail={"detail": "...", "errors": [...]}) quando 1 mensagem não basta
-    # (ex.: política de senha listando cada critério que falhou).
-    if isinstance(detail, dict) and "errors" in detail:
+    # (ex.: política de senha listando cada critério que falhou). Chaves além de
+    # "detail"/"errors" viram membros de extensão do problem+json (ex.: existing_id).
+    if isinstance(detail, dict):
         errors = detail.get("errors")
+        extra = {key: value for key, value in detail.items() if key not in ("detail", "errors")}
         detail = detail.get("detail", "Erro de validação.")
     return _problem_response(
         status_code=exc.status_code,
         detail=str(detail),
         instance=request.url.path,
         errors=errors,
+        extra=extra or None,
     )
 
 

@@ -1,7 +1,7 @@
 # 032 — Tarefas: modelo e CRUD
 
 **Fase:** 3 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 031, 022 · **Status:** ⬜ pendente
+**Depende de:** 031, 022 · **Status:** ✅ concluída
 
 ---
 
@@ -114,7 +114,47 @@ reescreve o histórico de produtividade.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **A regra 5 da 031 foi plugada nesta spec** (como registrado nas Descobertas da 031):
+  `TaskTypeRepository.usage_count`/`reassign` agora consultam `posts` de verdade, e o
+  teste "excluir em uso → 409; com transferência funciona" vive em `test_posts.py`
+  (`test_tipo_em_uso_exige_transferencia`) — era o caso do plano da 031 que só a 032
+  podia criar.
+- **409 da duplicata virou membro de extensão RFC 7807.** O handler de erros só
+  conhecia a convenção `{"detail", "errors"}` e stringifyava qualquer outro dict —
+  `existing_id` ia perdido. O handler agora promove chaves extras do dict para membros
+  de extensão do problem+json (retrocompatível: a convenção de `errors` é inalterada).
+- **Duplicata é comparada em Python, não em SQL.** O conjunto de responsáveis por post
+  não cabe num predicado simples; o volume de candidatos por (processo, tipo, data) é
+  baixo, então o service compara os conjuntos. Detecção só na criação — PUT não
+  revalida (mesmo comportamento do ADVBOX, que impede na criação).
+- **`updated_at` com `onupdate` server-side expira o atributo no flush** — reincidência
+  da MissingGreenlet da 022; o service seta `datetime.now(UTC)` explicitamente no
+  update, mesmo remédio de `LawsuitService`.
+- **O teste do cascade da regra 8 é hard delete direto no banco** (admin_engine): o
+  delete da API de processos é soft desde a 022 — a FK ON DELETE CASCADE é a garantia
+  para o hard delete futuro, mesmo padrão das partes (023).
+- **Wall-clock à beira do teto (119 s).** A suíte backend saltou de ~74 s (era 029) para
+  ~110 s: latência dobrada e espalhada por TODOS os testes aponta contenção do host
+  Docker compartilhado, não regressão de código (perfil sem outlier). Contribuinte real
+  encontrado e corrigido: `rito_test` acumulava tenants de todas as runs (make_user
+  comita) — 9.317 tenants e 1,16 milhão de `task_types` após a seed da 031. O
+  `run-tests.sh` agora roda `TRUNCATE tenants CASCADE` antes do pytest (catálogos
+  globais ficam). A margem continua fina — registrar na 040.
+- **Flake sob carga:** `StateCitySelect.test.tsx` falhou uma vez na suíte concorrente
+  (1,9 s no waitFor) e passa isolado em 0,24 s — sintoma da mesma contenção; observar.
+
+## 10. Definição de pronto
+
+- [x] Spec escrita seguindo o template (já existia do ciclo de planejamento)
+- [x] Escopo implementado: `posts` + `post_users`, CRUD, vínculo obrigatório, atribuição
+      por usuários ou time, detecção de duplicata, modal global "Criar nova tarefa"
+- [x] Testes do plano escritos e verdes (10 integração — incluindo o caso "em uso →
+      409 + transferência" da 031 — e 2 frontend)
+- [x] `make lint` verde
+- [x] `make test` verde em 119 s (< 120 s)
+- [x] `test-timing.json` atualizado
+- [x] ROADMAP marcado ✅
+- [x] Commit `feat(032): tarefas — modelo e CRUD`
 
 ## 10. Definição de pronto
 

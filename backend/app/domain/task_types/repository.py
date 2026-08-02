@@ -1,7 +1,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import func, literal, select
+from sqlalchemy import func, literal, select, update
 
 from app.core.repository import BaseRepository
 from app.domain.task_types.models import TaskType
@@ -37,11 +37,29 @@ class TaskTypeRepository(BaseRepository[TaskType]):
             stmt = stmt.where(func.immutable_unaccent(func.lower(TaskType.name)).ilike(pattern))
         return (await self.session.scalars(stmt)).all()
 
+    async def names_for(self, ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
+        """Nomes de vários tipos em UMA query — a listagem de posts do processo (032)
+        evita N+1 com ela."""
+        if not ids:
+            return {}
+        stmt = select(TaskType.id, TaskType.name).where(TaskType.id.in_(ids))
+        return {id_: str(name) for id_, name in await self.session.execute(stmt)}
+
     async def usage_count(self, task_type_id: uuid.UUID) -> int:
-        """Quantas tarefas usam o tipo — a tabela `tasks` só chega na spec 032; até lá
-        nada pode estar "em uso" (regra 5 fica armada para a 032 plugar a contagem)."""
-        return 0
+        """Quantas tarefas (posts) usam o tipo — plugado na tabela real na spec 032."""
+        from app.domain.posts.models import Post
+
+        stmt = select(func.count()).select_from(Post).where(Post.task_type_id == task_type_id)
+        return int((await self.session.execute(stmt)).scalar_one())
 
     async def reassign(self, *, from_id: uuid.UUID, to_id: uuid.UUID) -> int:
-        """Transferência em lote (regra 5) — idem: sem `tasks` até a 032, reatribui 0."""
-        return 0
+        """Transferência em lote (regra 5 da 031) — UPDATE único nos posts."""
+        from app.domain.posts.models import Post
+
+        result = await self.session.execute(
+            update(Post)
+            .where(Post.task_type_id == from_id)
+            .values(task_type_id=to_id)
+            .execution_options(synchronize_session=False)
+        )
+        return int(result.rowcount)  # type: ignore[attr-defined]

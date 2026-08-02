@@ -9,6 +9,7 @@ import { useAuth } from "@/providers/AuthProvider";
 
 export interface HeaderProps {
   onToggleMobileSidebar: () => void;
+  onNewTask: () => void;
 }
 
 function UserMenu(): JSX.Element {
@@ -60,7 +61,7 @@ function UserMenu(): JSX.Element {
   );
 }
 
-export function Header({ onToggleMobileSidebar }: HeaderProps): JSX.Element {
+export function Header({ onToggleMobileSidebar, onNewTask }: HeaderProps): JSX.Element {
   return (
     <header className="flex items-center gap-3 border-b border-default bg-surface px-4 py-3">
       <button
@@ -75,7 +76,7 @@ export function Header({ onToggleMobileSidebar }: HeaderProps): JSX.Element {
       <GlobalSearch />
 
       <div className="ml-auto flex items-center gap-2">
-        <QuickAddMenu />
+        <QuickAddMenu onNewTask={onNewTask} />
         <NotificationBell />
         <ThemeToggle />
         <UserMenu />

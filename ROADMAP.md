@@ -145,7 +145,7 @@ Campo `folder` com autocomplete, agrupamento por pasta, busca.
 152 tarefas padrão; complexidade (5 níveis) × tempo médio (5 faixas) → **calculadora de pontuação** com sugestão editável; vínculo com fase; só Gestor edita.
 **Aceite:** matriz de pontuação determinística e testada célula a célula. **t:** 4 s. **Deps:** 015
 
-### ⬜ 032 — Tarefas: modelo e CRUD
+### ✅ 032 — Tarefas: modelo e CRUD
 `posts` como entidade central; múltiplos responsáveis; vínculo a processo; data, hora, prazo fatal, local, descrição.
 **Aceite:** tarefa exige processo e ≥1 responsável; duplicata detectada. **t:** 6 s. **Deps:** 031, 022
 

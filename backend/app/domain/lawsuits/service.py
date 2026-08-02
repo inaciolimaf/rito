@@ -21,21 +21,39 @@ from app.domain.lawsuits.exceptions import (
     DuplicatePartyError,
     LastPartyError,
     LawsuitTypeNotFoundError,
+    MovementNotAuthorError,
     PartyCustomerNotFoundError,
     ResponsibleNotActiveError,
     StageNotFoundError,
+    TribunalMovementImmutableError,
 )
-from app.domain.lawsuits.models import Lawsuit, LawsuitParty, PartyPole
-from app.domain.lawsuits.repository import LawsuitPartyRepository, LawsuitRepository
+from app.domain.lawsuits.models import (
+    Lawsuit,
+    LawsuitMovement,
+    LawsuitParty,
+    MovementOrigin,
+    PartyPole,
+)
+from app.domain.lawsuits.repository import (
+    LawsuitMovementRepository,
+    LawsuitPartyRepository,
+    LawsuitRepository,
+    TimelineRow,
+    decode_timeline_cursor,
+    encode_timeline_cursor,
+)
 from app.domain.lawsuits.schemas import (
     LawsuitBaseRequest,
     LawsuitCreateRequest,
     LawsuitUpdateRequest,
+    MovementCreateRequest,
+    MovementUpdateRequest,
     PartyCreateRequest,
     PartyInput,
     PartyUpdateRequest,
 )
 from app.domain.stages.repository import StageRepository, StepRepository
+from app.domain.users.models import User, UserRole
 from app.domain.users.repository import UserRepository
 
 
@@ -94,6 +112,13 @@ class NumberValidation:
     error: str | None
 
 
+@dataclass
+class TimelinePage:
+    items: Sequence[TimelineRow]
+    next_cursor: str | None
+    total: int
+
+
 class LawsuitService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.session = session
@@ -107,6 +132,7 @@ class LawsuitService:
         self.courts = CourtRepository(session)
         self.customers = CustomerRepository(session)
         self.parties = LawsuitPartyRepository(session)
+        self.movements = LawsuitMovementRepository(session)
 
     async def get(self, lawsuit_id: uuid.UUID) -> LawsuitDetail | None:
         lawsuit = await self.lawsuits.get_by_id(lawsuit_id)
@@ -268,6 +294,61 @@ class LawsuitService:
         if await self.parties.count_for_lawsuit(party.lawsuit_id) <= 1:
             raise LastPartyError
         await self.parties.delete(party)
+
+    async def list_timeline(
+        self,
+        lawsuit_id: uuid.UUID,
+        *,
+        kinds: Sequence[str],
+        cursor: str | None,
+        limit: int,
+    ) -> TimelinePage:
+        decoded = decode_timeline_cursor(cursor) if cursor else None
+        items, total = await self.movements.list_timeline(
+            lawsuit_id, kinds=kinds, cursor=decoded, limit=limit
+        )
+        next_cursor = (
+            encode_timeline_cursor(items[-1].occurred_at, items[-1].kind, items[-1].id)
+            if len(items) == limit
+            else None
+        )
+        return TimelinePage(items=items, next_cursor=next_cursor, total=total)
+
+    async def create_movement(
+        self, lawsuit: Lawsuit, payload: MovementCreateRequest, author: User
+    ) -> LawsuitMovement:
+        return await self.movements.create(
+            LawsuitMovement(
+                tenant_id=self.tenant_id,
+                lawsuit_id=lawsuit.id,
+                origin=MovementOrigin.MANUAL,
+                occurred_at=payload.occurred_at,
+                title=payload.title,
+                body=payload.body,
+                created_by=author.id,
+            )
+        )
+
+    def _check_movement_editable(self, movement: LawsuitMovement, actor: User) -> None:
+        # Regra 3: movimentação do tribunal é imutável pela UI.
+        if movement.origin != MovementOrigin.MANUAL:
+            raise TribunalMovementImmutableError
+        # Regra 4: só o autor ou um ADMINISTRADOR edita/exclui.
+        if movement.created_by != actor.id and actor.role != UserRole.ADMINISTRADOR:
+            raise MovementNotAuthorError
+
+    async def update_movement(
+        self, movement: LawsuitMovement, payload: MovementUpdateRequest, actor: User
+    ) -> LawsuitMovement:
+        self._check_movement_editable(movement, actor)
+        movement.occurred_at = payload.occurred_at
+        movement.title = payload.title
+        movement.body = payload.body
+        return movement
+
+    async def delete_movement(self, movement: LawsuitMovement, actor: User) -> None:
+        self._check_movement_editable(movement, actor)
+        await self.movements.delete(movement)
 
     async def _validate_party_inputs(self, parties: Sequence[PartyInput]) -> None:
         seen: set[tuple[uuid.UUID, str]] = set()

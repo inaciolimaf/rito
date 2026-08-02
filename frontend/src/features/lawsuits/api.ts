@@ -159,3 +159,80 @@ export async function removeParty(lawsuitId: string, partyId: string): Promise<v
     method: "DELETE",
   });
 }
+
+export type TimelineKind =
+  "task" | "movement_auto" | "movement_manual" | "publication" | "transaction";
+
+export interface TimelineItem {
+  kind: TimelineKind;
+  id: string;
+  occurred_at: string;
+  title: string;
+  summary: string | null;
+  actor: string | null;
+  metadata: { header: string | null; external_code: number | null };
+}
+
+export interface TimelinePage {
+  items: TimelineItem[];
+  next_cursor: string | null;
+  total: number;
+}
+
+export async function getTimeline(
+  lawsuitId: string,
+  params: { kinds: TimelineKind[]; cursor?: string; limit?: number },
+): Promise<TimelinePage> {
+  const query = new URLSearchParams();
+  query.set("kinds", params.kinds.join(","));
+  if (params.cursor) query.set("cursor", params.cursor);
+  if (params.limit) query.set("limit", String(params.limit));
+  return apiRequest<TimelinePage>(`/api/v1/lawsuits/${lawsuitId}/timeline?${query.toString()}`);
+}
+
+export interface MovementPayload {
+  occurred_at: string;
+  title: string;
+  body?: string | null;
+}
+
+export interface MovementData {
+  id: string;
+  lawsuit_id: string;
+  origin: "TRIBUNAL" | "MANUAL";
+  occurred_at: string;
+  title: string;
+  body: string | null;
+  header: string | null;
+  external_code: number | null;
+  external_id: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export async function createMovement(
+  lawsuitId: string,
+  values: MovementPayload,
+): Promise<MovementData> {
+  return apiRequest<MovementData>(`/api/v1/lawsuits/${lawsuitId}/movements`, {
+    method: "POST",
+    body: values,
+  });
+}
+
+export async function updateMovement(
+  lawsuitId: string,
+  movementId: string,
+  values: MovementPayload,
+): Promise<MovementData> {
+  return apiRequest<MovementData>(`/api/v1/lawsuits/${lawsuitId}/movements/${movementId}`, {
+    method: "PUT",
+    body: values,
+  });
+}
+
+export async function deleteMovement(lawsuitId: string, movementId: string): Promise<void> {
+  await apiRequest<void>(`/api/v1/lawsuits/${lawsuitId}/movements/${movementId}`, {
+    method: "DELETE",
+  });
+}

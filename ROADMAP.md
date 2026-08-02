@@ -118,7 +118,7 @@ N:N com contatos e **polo** (ativo / passivo / parte contrária); mínimo 1 part
 Parser do formato `NNNNNNN-DD.AAAA.J.TR.OOOO`; dígito verificador (módulo 97 base 10); extração de ano, segmento, tribunal e origem.
 **Aceite:** DV inválido rejeitado; segmentos extraídos corretamente. **t:** 2 s. **Deps:** 022
 
-### ⬜ 026 — Processos: timeline unificada
+### ✅ 026 — Processos: timeline unificada
 Agrega tarefas, movimentações (auto e manual), publicações e lançamentos financeiros, com toggle por tipo; ordenação cronológica; paginação.
 **Aceite:** toggles filtram; ordenação estável. **t:** 6 s. **Deps:** 024
 

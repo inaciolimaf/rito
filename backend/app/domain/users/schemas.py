@@ -2,6 +2,7 @@ import re
 import uuid
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from typing import Any
 
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
@@ -131,3 +132,13 @@ class AcceptInvitationRequest(BaseModel):
     token: str
     name: str
     password: str
+
+
+class PreferencesResponse(BaseModel):
+    # Any com justificativa: preferências são chave/valor livre por design (JSONB) —
+    # o servidor não conhece a forma de cada chave; quem valida é o consumidor.
+    preferences: dict[str, Any]
+
+
+class PreferencesUpdateRequest(BaseModel):
+    preferences: dict[str, Any]

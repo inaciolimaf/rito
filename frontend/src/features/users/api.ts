@@ -88,3 +88,20 @@ export async function inviteUser(values: InviteUserValues): Promise<void> {
 export async function getOccupations(): Promise<Occupation[]> {
   return apiRequest<Occupation[]>("/api/v1/occupations");
 }
+
+export interface PreferencesResponse {
+  preferences: Record<string, unknown>;
+}
+
+export async function getMyPreferences(): Promise<PreferencesResponse> {
+  return apiRequest<PreferencesResponse>("/api/v1/users/me/preferences");
+}
+
+export async function putMyPreferences(
+  preferences: Record<string, unknown>,
+): Promise<PreferencesResponse> {
+  return apiRequest<PreferencesResponse>("/api/v1/users/me/preferences", {
+    method: "PUT",
+    body: { preferences },
+  });
+}

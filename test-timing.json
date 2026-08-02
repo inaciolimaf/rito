@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 66,
+  "last_measured_wall_clock_seconds": 63,
   "last_measured_at": "2026-08-02",
   "specs": {
     "001": {
@@ -102,6 +102,10 @@
     "025": {
       "wall_clock_seconds": 66,
       "notes": "395 testes backend (356 anteriores + 35 unit do cnj.py: 20 números válidos parametrizados da fixture tests/fixtures/cnj_numbers.json cobrindo os 9 segmentos, DV inválido, 3 comprimentos errados, 2 anos fora do intervalo, segmento inválido, 4 formas de normalização (máscara/dígitos/espaços), inferência TJSP/TRT2/TRF4, tribunal desconhecido → None sem invalidar + 4 integração: validate-number válido/inválido, criar com número inválido → 422, criar sem número → 201) — módulo puro sem framework (spec 025 §10). 80 testes frontend (76 anteriores + 4 do ProcessNumberField: máscara progressiva, validação só ao completar 20 dígitos, sugestão de tribunal via onCourtInferred, erro do backend como role=alert). 4 e2e (inalterado). Descobertas: o número de teste da spec 022 ('0001234-56.2026.8.26.0100') tinha DV errado (correto: 34) — passou a ser rejeitado pela regra 3 e o teste foi atualizado para o DV correto (única asserção pré-existente alterada, mudança de comportamento pedida pela própria spec); a validação do número roda DEPOIS da validação de partes no service.create (teste de número inválido precisa de contato real para isolar a causa do 422); inferência J+TR → sigla do catálogo usa a numeração CNJ 01–27 alfabética de UF (TJDFT/TJM-*/TRE-* são exceções de formato mapeadas uma a uma); CourtRepository ganhou get_by_code (scalars().first() — session.scalar retorna Any e o mypy barra)."
+    },
+    "026": {
+      "wall_clock_seconds": 63,
+      "notes": "406 testes backend (395 anteriores + 11 novos: timeline agrega auto+manual na ordem, toggles filtram, kinds vazio/slot sem fonte → vazio (regra 2), ordenação estável no mesmo timestamp com desempate por kind, keyset de 5 itens em páginas de 2 sem repetir/pular com total estável, tribunal → 403 em PUT/DELETE (regra 3), manual edita (autor e ADMINISTRADOR; terceiro → 403 — regra 4), external_id duplicado quebra na UNIQUE (regra 5, no mecanismo — o 409 HTTP chega com a sync 047), budget ≤ 3 statements com 11 itens na página (regra 8), RLS entre tenants, preferências PUT/GET com merge raso — regra 7). 84 testes frontend (80 anteriores + 2 TimelineFilters/persistência via useTimelineKinds + 2 TimelineItem por variante). 4 e2e (inalterado). Decisões: timeline é UNION ALL de selects por kind (slots task/publication/transaction sem fonte até 032/042/056 — adicionar a fonte depois é acrescentar um select ao union); keyset com ordem mista (DESC,ASC,ASC) não cabe em comparação de tupla — predicado desdobrado em OR de 3 ramos; total via query separada sem filtro de cursor (COUNT(*) OVER() contaria só o restante da página); users.preferences JSONB novo (mesma migration) como infra genérica de preferências — GET/PUT /users/me/preferences com merge raso por chave. Descoberta de ambiente: o e2e roda contra o banco de DEV (rito) — migrations novas precisam ser aplicadas nos DOIS bancos (rito e rito_test) senão o global-setup quebra com UndefinedColumnError."
     }
   }
 }

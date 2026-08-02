@@ -1,7 +1,7 @@
 # 026 — Processos: timeline unificada
 
 **Fase:** 2 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 024 · **Status:** ⬜ pendente
+**Depende de:** 024 · **Status:** ✅ concluída
 
 ---
 
@@ -101,8 +101,40 @@ RLS ligado. Migration `026_lawsuit_movements.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+1. **A agregação é um UNION ALL de um select por `kind`** — os slots `task`/
+   `publication`/`transaction` não entram no union enquanto as tabelas não existem
+   (specs 032/042/056); ligar cada fonte depois é acrescentar um select. Pedir um kind
+   sem fonte retorna vazio, coerente com a regra 2.
+2. **Keyset com ordem mista não cabe em tupla:** `ORDER BY occurred_at DESC, kind ASC,
+   id ASC` tem direções diferentes por coluna, então a comparação de tupla do
+   `build_sorted_keyset_query` não serve — o predicado é o desdobramento lexicográfico
+   exato (3 ramos OR). Cursor codifica `(occurred_at, kind, id)` em JSON+base64.
+3. **`total` é uma query separada sem o filtro de cursor** — `COUNT(*) OVER()` na query
+   da página contaria só o restante após o cursor (o total mudaria entre páginas).
+   Budget medido: 3 statements (get do processo + contagem + página) com 11 itens —
+   regra 8 validada por teste que ignora o `set_config` do contexto de tenant.
+4. **Regra 7 virou infra genérica:** `users.preferences JSONB` (na mesma migration) +
+   `GET/PUT /users/me/preferences` com merge raso por chave. A primeira consumidora é
+   `lawsuit_timeline_kinds`; futuras preferências de UI reutilizam sem migration.
+5. **Regra 5 testada no mecanismo, não no HTTP:** o endpoint de movimentações é manual
+   (não recebe `external_id`), então a dedupe é validada direto na UNIQUE — o mapeamento
+   para 409 chega com a sync do DataJud (spec 047), único caminho que escreve
+   movimentações TRIBUNAL. O teste documenta isso em docstring.
+6. **O e2e roda contra o banco de DEV (`rito`)**, não o de teste — migration nova
+   precisa ser aplicada nos dois bancos, senão o `global-setup.ts` quebra com
+   `UndefinedColumnError` (aconteceu nesta spec: `users.preferences`).
+7. **`_get_movement_or_404`/`_get_party_or_404` consultam o processo de novo** em vez de
+   reutilizar o detalhe — custo de 1 query extra por request, aceitável; se a spec 030
+   (refatoração) quiser, dá para fundir.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Timeline em ≤ 3 queries · Commit `feat(026): processos — timeline unificada`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (1–8; regra 5 no mecanismo — ver 9.5)
+- [x] Teste de isolamento por tenant (`test_timeline_isolada_entre_tenants`)
+- [x] `make test` verde e wall-clock < 120 s (63 s)
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa
+- [x] Timeline em ≤ 3 queries (teste de budget)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(026): processos — timeline unificada`

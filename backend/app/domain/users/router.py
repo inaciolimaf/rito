@@ -24,6 +24,8 @@ from app.domain.users.schemas import (
     InviteUserRequest,
     InviteUserResponse,
     OccupationResponse,
+    PreferencesResponse,
+    PreferencesUpdateRequest,
     UserListResponse,
     UserResponse,
     UserUpdateRequest,
@@ -125,6 +127,29 @@ async def invite_user(
         role=invitation.role,
         expires_at=invitation.expires_at,
     )
+
+
+@users_router.get("/me/preferences")
+async def get_my_preferences(
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> PreferencesResponse:
+    service = UserService(session=session, tenant_id=current_user.tenant_id)
+    user = await get_or_404(lambda: service.get(current_user.id), "Usuário não encontrado.")
+    return PreferencesResponse(preferences=dict(user.preferences))
+
+
+@users_router.put("/me/preferences")
+async def put_my_preferences(
+    payload: PreferencesUpdateRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> PreferencesResponse:
+    service = UserService(session=session, tenant_id=current_user.tenant_id)
+    user = await get_or_404(lambda: service.get(current_user.id), "Usuário não encontrado.")
+    # Merge raso por chave (regra 7, spec 026): o cliente manda só o que quer mudar.
+    user.preferences = {**user.preferences, **payload.preferences}
+    return PreferencesResponse(preferences=dict(user.preferences))
 
 
 @users_router.get("/{user_id}")

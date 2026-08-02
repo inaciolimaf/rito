@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
+import { Link } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { FormModal } from "@/components/domain/FormModal";
@@ -235,7 +236,9 @@ export function LawsuitsPage(): JSX.Element {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-primary">
-                {lastLawsuit.process_number || lastLawsuit.folder || "Processo sem número"}
+                <Link to={`/lawsuits/${lastLawsuit.id}`} className="hover:underline">
+                  {lastLawsuit.process_number || lastLawsuit.folder || "Processo sem número"}
+                </Link>
               </p>
               <p className="text-sm text-muted">
                 {lastLawsuit.action_group_name} · {lastLawsuit.step_name}

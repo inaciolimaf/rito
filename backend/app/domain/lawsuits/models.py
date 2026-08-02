@@ -13,6 +13,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -125,4 +126,41 @@ class LawsuitParty(TenantMixin, Base):
     # tentar emitir CREATE TYPE num `create_all` de metadados (testes unitários puros).
     pole: Mapped[PartyPole] = mapped_column(PGENUM(PartyPole, name="party_pole", create_type=False))
     is_client: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class MovementOrigin(StrEnum):
+    """Origem da movimentação (spec 026): TRIBUNAL vem da sync DataJud (spec 047) e é
+    imutável pela UI (regra 3); MANUAL é editável/excluível pelo autor ou ADMINISTRADOR
+    (regra 4)."""
+
+    TRIBUNAL = "TRIBUNAL"
+    MANUAL = "MANUAL"
+
+
+class LawsuitMovement(TenantMixin, Base):
+    """Movimentação do processo (spec 026) — manual ou automática. `external_id` é a
+    chave de dedupe da sync DataJud (regra 5): reprocessar não duplica."""
+
+    __tablename__ = "lawsuit_movements"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "lawsuit_id", "external_id", name="uq_movements_external"),
+    )
+
+    lawsuit_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("lawsuits.id", ondelete="CASCADE")
+    )
+    origin: Mapped[MovementOrigin] = mapped_column(
+        PGENUM(MovementOrigin, name="movement_origin", create_type=False)
+    )
+    occurred_at: Mapped[datetime]
+    title: Mapped[str]
+    body: Mapped[str | None] = mapped_column(default=None)
+    header: Mapped[str | None] = mapped_column(default=None)
+    external_code: Mapped[int | None] = mapped_column(default=None)
+    external_id: Mapped[str | None] = mapped_column(default=None)
+    raw_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB(), default=None)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

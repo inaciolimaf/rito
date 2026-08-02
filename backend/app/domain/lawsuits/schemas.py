@@ -5,7 +5,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
 
-from app.domain.lawsuits.models import ContingencyLevel, LawsuitOutcome, PartyPole
+from app.domain.lawsuits.models import ContingencyLevel, LawsuitOutcome, MovementOrigin, PartyPole
 
 # Regra 1 (spec 024): a API devolve dinheiro como NÚMERO JSON — o default do Pydantic v2
 # para Decimal é string. O float round-trips exato até 15 dígitos significativos, e
@@ -187,3 +187,49 @@ class ValidateNumberResponse(BaseModel):
     parsed: ParsedCNJResponse | None
     inferred_court: InferredCourtResponse | None
     error: str | None
+
+
+class MovementCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    occurred_at: datetime
+    title: str = Field(min_length=1, max_length=500)
+    body: str | None = None
+
+
+class MovementUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    occurred_at: datetime
+    title: str = Field(min_length=1, max_length=500)
+    body: str | None = None
+
+
+class MovementResponse(BaseModel):
+    id: uuid.UUID
+    lawsuit_id: uuid.UUID
+    origin: MovementOrigin
+    occurred_at: datetime
+    title: str
+    body: str | None
+    header: str | None
+    external_code: int | None
+    external_id: str | None
+    created_by: uuid.UUID | None
+    created_at: datetime
+
+
+class TimelineItemResponse(BaseModel):
+    kind: str
+    id: uuid.UUID
+    occurred_at: datetime
+    title: str
+    summary: str | None
+    actor: str | None
+    metadata: dict[str, object]
+
+
+class TimelineResponse(BaseModel):
+    items: list[TimelineItemResponse]
+    next_cursor: str | None
+    total: int

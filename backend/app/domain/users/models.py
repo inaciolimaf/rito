@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, Interval, Numeric, SmallInteger, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import CITEXT
+from sqlalchemy.dialects.postgresql import CITEXT, JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -83,6 +83,10 @@ class User(TenantMixin, Base):
     report_deadline: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     report_deleted: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_responsible: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    # Preferências de UI por usuário (spec 026, regra 7) — chave/valor genérico.
+    preferences: Mapped[dict[str, object]] = mapped_column(
+        JSONB(), default=dict, server_default=text("'{}'::jsonb")
+    )
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

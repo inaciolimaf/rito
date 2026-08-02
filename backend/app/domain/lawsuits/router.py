@@ -13,20 +13,29 @@ from app.domain.lawsuits.exceptions import (
     DuplicatePartyError,
     LastPartyError,
     LawsuitTypeNotFoundError,
+    MovementNotAuthorError,
     PartyCustomerNotFoundError,
     ResponsibleNotActiveError,
     StageNotFoundError,
+    TribunalMovementImmutableError,
 )
+from app.domain.lawsuits.models import LawsuitMovement
+from app.domain.lawsuits.repository import TIMELINE_KINDS
 from app.domain.lawsuits.schemas import (
     FinancialSummaryResponse,
     InferredCourtResponse,
     LawsuitCreateRequest,
     LawsuitResponse,
     LawsuitUpdateRequest,
+    MovementCreateRequest,
+    MovementResponse,
+    MovementUpdateRequest,
     ParsedCNJResponse,
     PartyCreateRequest,
     PartyResponse,
     PartyUpdateRequest,
+    TimelineItemResponse,
+    TimelineResponse,
     ValidateNumberRequest,
     ValidateNumberResponse,
 )
@@ -60,6 +69,22 @@ def _to_party_response(detail: PartyDetail) -> PartyResponse:
         pole=party.pole,
         is_client=party.is_client,
         created_at=party.created_at,
+    )
+
+
+def _to_movement_response(movement: LawsuitMovement) -> MovementResponse:
+    return MovementResponse(
+        id=movement.id,
+        lawsuit_id=movement.lawsuit_id,
+        origin=movement.origin,
+        occurred_at=movement.occurred_at,
+        title=movement.title,
+        body=movement.body,
+        header=movement.header,
+        external_code=movement.external_code,
+        external_id=movement.external_id,
+        created_by=movement.created_by,
+        created_at=movement.created_at,
     )
 
 
@@ -233,6 +258,110 @@ async def get_financial_summary(
         expenses=summary.expenses,
         net_result=summary.net_result,
     )
+
+
+@router.get("/{lawsuit_id}/timeline")
+async def get_timeline(
+    lawsuit_id: uuid.UUID,
+    kinds: str | None = None,
+    cursor: str | None = None,
+    limit: int = 20,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TimelineResponse:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    # Regra 2: toggles combináveis; `kinds=` vazio (nenhum marcado) → timeline vazia,
+    # nunca a lista completa. Omitir o parâmetro traz todos os tipos.
+    kind_list = TIMELINE_KINDS if kinds is None else [k for k in kinds.split(",") if k]
+    page = await service.list_timeline(
+        detail.lawsuit.id, kinds=kind_list, cursor=cursor, limit=min(limit, 100)
+    )
+    return TimelineResponse(
+        items=[
+            TimelineItemResponse(
+                kind=item.kind,
+                id=item.id,
+                occurred_at=item.occurred_at,
+                title=item.title,
+                summary=item.summary,
+                actor=item.actor,
+                metadata={"header": item.header, "external_code": item.external_code},
+            )
+            for item in page.items
+        ],
+        next_cursor=page.next_cursor,
+        total=page.total,
+    )
+
+
+@router.post("/{lawsuit_id}/movements", status_code=201)
+async def create_movement(
+    lawsuit_id: uuid.UUID,
+    payload: MovementCreateRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> MovementResponse:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    movement = await service.create_movement(detail.lawsuit, payload, current_user)
+    return _to_movement_response(movement)
+
+
+async def _get_movement_or_404(
+    service: LawsuitService, lawsuit_id: uuid.UUID, movement_id: uuid.UUID
+) -> LawsuitMovement:
+    detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    movement = await service.movements.get_by_id(movement_id)
+    if movement is None or movement.lawsuit_id != detail.lawsuit.id:
+        raise HTTPException(status_code=404, detail="Movimentação não encontrada.")
+    return movement
+
+
+@router.put("/{lawsuit_id}/movements/{movement_id}")
+async def update_movement(
+    lawsuit_id: uuid.UUID,
+    movement_id: uuid.UUID,
+    payload: MovementUpdateRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> MovementResponse:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    movement = await _get_movement_or_404(service, lawsuit_id, movement_id)
+    try:
+        updated = await service.update_movement(movement, payload, current_user)
+    except TribunalMovementImmutableError as exc:
+        raise HTTPException(
+            status_code=403, detail="Movimentação do tribunal não pode ser editada."
+        ) from exc
+    except MovementNotAuthorError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail="Só quem criou a movimentação (ou um administrador) pode editá-la.",
+        ) from exc
+    return _to_movement_response(updated)
+
+
+@router.delete("/{lawsuit_id}/movements/{movement_id}", status_code=204)
+async def delete_movement(
+    lawsuit_id: uuid.UUID,
+    movement_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> None:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    movement = await _get_movement_or_404(service, lawsuit_id, movement_id)
+    try:
+        await service.delete_movement(movement, current_user)
+    except TribunalMovementImmutableError as exc:
+        raise HTTPException(
+            status_code=403, detail="Movimentação do tribunal não pode ser excluída."
+        ) from exc
+    except MovementNotAuthorError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail="Só quem criou a movimentação (ou um administrador) pode excluí-la.",
+        ) from exc
 
 
 @router.get("/{lawsuit_id}/parties")

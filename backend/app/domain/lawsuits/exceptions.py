@@ -26,3 +26,12 @@ class DuplicatePartyError(Exception):
 class LastPartyError(Exception):
     """Regra 1 (spec 023): processo precisa de no mínimo 1 parte —
     remover a última é proibido."""
+
+
+class TribunalMovementImmutableError(Exception):
+    """Regra 3 (spec 026): movimentação com origin=TRIBUNAL é imutável pela UI."""
+
+
+class MovementNotAuthorError(Exception):
+    """Regra 4 (spec 026): movimentação manual só é editável/excluível por quem criou
+    ou por ADMINISTRADOR."""

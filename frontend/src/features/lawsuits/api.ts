@@ -113,6 +113,29 @@ export async function getFinancialSummary(lawsuitId: string): Promise<FinancialS
   return apiRequest<FinancialSummary>(`/api/v1/lawsuits/${lawsuitId}/financial-summary`);
 }
 
+export interface ProcessNumberValidation {
+  valid: boolean;
+  formatted: string | null;
+  parsed: {
+    sequential: string;
+    check_digit: string;
+    year: number;
+    segment: number;
+    segment_name: string;
+    court: string;
+    origin: string;
+  } | null;
+  inferred_court: { id: number; code: string; name: string } | null;
+  error: string | null;
+}
+
+export async function validateProcessNumber(rawDigits: string): Promise<ProcessNumberValidation> {
+  return apiRequest<ProcessNumberValidation>("/api/v1/lawsuits/validate-number", {
+    method: "POST",
+    body: { process_number: rawDigits },
+  });
+}
+
 export async function addParty(lawsuitId: string, party: PartyInput): Promise<PartyData> {
   return apiRequest<PartyData>(`/api/v1/lawsuits/${lawsuitId}/parties`, {
     method: "POST",

@@ -9,6 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.action_groups.repository import ActionGroupRepository, LawsuitTypeRepository
 from app.domain.courts.repository import CourtRepository
 from app.domain.customers.repository import CustomerRepository
+from app.domain.lawsuits.cnj import (
+    CNJNumber,
+    CNJValidationError,
+    format_cnj,
+    infer_court_code,
+    parse_cnj,
+)
 from app.domain.lawsuits.exceptions import (
     CourtSystemIncompatibleError,
     DuplicatePartyError,
@@ -32,12 +39,16 @@ from app.domain.stages.repository import StageRepository, StepRepository
 from app.domain.users.repository import UserRepository
 
 
-def _only_digits(value: str | None) -> str | None:
-    """Regra 6: `process_number` guardado só com dígitos — a máscara é de apresentação."""
+def _validated_digits(value: str | None) -> str | None:
+    """Regra 8 (spec 025): `process_number` é opcional, mas se informado precisa ser um
+    número CNJ válido — guardado só com dígitos (regra 9), a máscara é de apresentação."""
     if value is None:
         return None
     digits = "".join(character for character in value if character.isdigit())
-    return digits or None
+    if not digits:
+        return None
+    parse_cnj(digits)
+    return digits
 
 
 @dataclass
@@ -65,6 +76,22 @@ class FinancialSummary:
     to_receive: Decimal
     expenses: Decimal
     net_result: Decimal
+
+
+@dataclass
+class InferredCourt:
+    id: int
+    code: str
+    name: str
+
+
+@dataclass
+class NumberValidation:
+    valid: bool
+    formatted: str | None
+    parsed: CNJNumber | None
+    inferred_court: InferredCourt | None
+    error: str | None
 
 
 class LawsuitService:
@@ -97,7 +124,7 @@ class LawsuitService:
             stage_id=payload.stage_id,
             court_id=payload.court_id,
             court_system_id=payload.court_system_id,
-            process_number=_only_digits(payload.process_number),
+            process_number=_validated_digits(payload.process_number),
             protocol_number=payload.protocol_number,
             originating_process=payload.originating_process,
             folder=payload.folder,
@@ -136,7 +163,7 @@ class LawsuitService:
         lawsuit.stage_id = payload.stage_id
         lawsuit.court_id = payload.court_id
         lawsuit.court_system_id = payload.court_system_id
-        lawsuit.process_number = _only_digits(payload.process_number)
+        lawsuit.process_number = _validated_digits(payload.process_number)
         lawsuit.protocol_number = payload.protocol_number
         lawsuit.originating_process = payload.originating_process
         lawsuit.folder = payload.folder
@@ -181,6 +208,29 @@ class LawsuitService:
             to_receive=zero,
             expenses=zero,
             net_result=zero,
+        )
+
+    async def validate_number(self, process_number: str) -> NumberValidation:
+        """Spec 025 §5: valida o número e infere o tribunal do catálogo (regra 7 —
+        sem correspondência, `inferred_court` é None sem invalidar o número)."""
+        try:
+            parsed = parse_cnj(process_number)
+        except CNJValidationError as exc:
+            return NumberValidation(
+                valid=False, formatted=None, parsed=None, inferred_court=None, error=str(exc)
+            )
+        inferred: InferredCourt | None = None
+        court_code = infer_court_code(parsed)
+        if court_code is not None:
+            court = await self.courts.get_by_code(court_code)
+            if court is not None:
+                inferred = InferredCourt(id=court.id, code=court.code, name=court.name)
+        return NumberValidation(
+            valid=True,
+            formatted=format_cnj(parsed),
+            parsed=parsed,
+            inferred_court=inferred,
+            error=None,
         )
 
     async def add_party(self, lawsuit: Lawsuit, payload: PartyCreateRequest) -> PartyDetail:

@@ -1,0 +1,142 @@
+[
+ {
+  "masked": "0000123-76.2025.1.00.0001",
+  "digits": "00001237620251000001",
+  "year": 2025,
+  "segment": 1,
+  "expected_court_code": "STF"
+ },
+ {
+  "masked": "0000456-13.2024.2.00.0000",
+  "digits": "00004561320242000000",
+  "year": 2024,
+  "segment": 2,
+  "expected_court_code": "CNJ"
+ },
+ {
+  "masked": "0000789-86.2025.3.00.0002",
+  "digits": "00007898620253000002",
+  "year": 2025,
+  "segment": 3,
+  "expected_court_code": "STJ"
+ },
+ {
+  "masked": "0011223-24.2023.4.01.3300",
+  "digits": "00112232420234013300",
+  "year": 2023,
+  "segment": 4,
+  "expected_court_code": "TRF1"
+ },
+ {
+  "masked": "0044556-97.2025.4.04.7200",
+  "digits": "00445569720254047200",
+  "year": 2025,
+  "segment": 4,
+  "expected_court_code": "TRF4"
+ },
+ {
+  "masked": "0077889-46.2022.5.00.0000",
+  "digits": "00778894620225000000",
+  "year": 2022,
+  "segment": 5,
+  "expected_court_code": "TST"
+ },
+ {
+  "masked": "0100100-97.2025.5.02.0101",
+  "digits": "01001009720255020101",
+  "year": 2025,
+  "segment": 5,
+  "expected_court_code": "TRT2"
+ },
+ {
+  "masked": "0200200-40.2024.5.15.0234",
+  "digits": "02002004020245150234",
+  "year": 2024,
+  "segment": 5,
+  "expected_court_code": "TRT15"
+ },
+ {
+  "masked": "0300300-35.2025.6.00.0000",
+  "digits": "03003003520256000000",
+  "year": 2025,
+  "segment": 6,
+  "expected_court_code": "TSE"
+ },
+ {
+  "masked": "0400400-81.2024.6.26.0301",
+  "digits": "04004008120246260301",
+  "year": 2024,
+  "segment": 6,
+  "expected_court_code": "TRE-SP"
+ },
+ {
+  "masked": "0500500-98.2023.6.19.0055",
+  "digits": "05005009820236190055",
+  "year": 2023,
+  "segment": 6,
+  "expected_court_code": "TRE-RJ"
+ },
+ {
+  "masked": "0600600-68.2025.7.00.0000",
+  "digits": "06006006820257000000",
+  "year": 2025,
+  "segment": 7,
+  "expected_court_code": "STM"
+ },
+ {
+  "masked": "0700700-18.2025.8.26.0100",
+  "digits": "07007001820258260100",
+  "year": 2025,
+  "segment": 8,
+  "expected_court_code": "TJSP"
+ },
+ {
+  "masked": "0800800-82.2024.8.19.0001",
+  "digits": "08008008220248190001",
+  "year": 2024,
+  "segment": 8,
+  "expected_court_code": "TJRJ"
+ },
+ {
+  "masked": "0900900-57.2025.8.13.0024",
+  "digits": "09009005720258130024",
+  "year": 2025,
+  "segment": 8,
+  "expected_court_code": "TJMG"
+ },
+ {
+  "masked": "1001001-26.2023.8.16.0001",
+  "digits": "10010012620238160001",
+  "year": 2023,
+  "segment": 8,
+  "expected_court_code": "TJPR"
+ },
+ {
+  "masked": "1101101-72.2025.8.07.0001",
+  "digits": "11011017220258070001",
+  "year": 2025,
+  "segment": 8,
+  "expected_court_code": "TJDFT"
+ },
+ {
+  "masked": "1201201-67.2024.9.26.0001",
+  "digits": "12012016720249260001",
+  "year": 2024,
+  "segment": 9,
+  "expected_court_code": "TJM-SP"
+ },
+ {
+  "masked": "1301301-56.2025.9.21.0001",
+  "digits": "13013015620259210001",
+  "year": 2025,
+  "segment": 9,
+  "expected_court_code": "TJM-RS"
+ },
+ {
+  "masked": "1401401-71.2024.8.24.0082",
+  "digits": "14014017120248240082",
+  "year": 2024,
+  "segment": 8,
+  "expected_court_code": "TJSC"
+ }
+]

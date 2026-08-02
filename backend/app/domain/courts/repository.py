@@ -36,6 +36,10 @@ class CourtRepository:
             stmt = stmt.where(Court.state_code == state)
         return (await self.session.scalars(stmt)).all()
 
+    async def get_by_code(self, code: str) -> Court | None:
+        result = await self.session.scalars(select(Court).where(Court.code == code))
+        return result.first()
+
     async def is_system_compatible(self, *, court_id: int, system_id: int) -> bool:
         """Regra 8 (spec 022): um tribunal com algum vínculo cadastrado só aceita um dos
         sistemas vinculados; um tribunal sem nenhum vínculo (a maioria — spec 021,

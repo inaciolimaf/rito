@@ -14,6 +14,8 @@ import { listCourtSystems } from "@/features/courts/api";
 import { listLawsuitTypes } from "@/features/lawsuit-types/api";
 import { ContingencySelect } from "@/features/lawsuits/ContingencySelect";
 import { PartySelector } from "@/features/lawsuits/PartySelector";
+import { ProcessNumberField } from "@/features/lawsuits/ProcessNumberField";
+import type { ProcessNumberValidation } from "@/features/lawsuits/api";
 import { StageStepSelect } from "@/features/lawsuits/StageStepSelect";
 import type { LawsuitFormValues } from "@/features/lawsuits/schema";
 
@@ -24,6 +26,7 @@ export interface LawsuitFormProps {
   form: UseFormReturn<LawsuitFormValues>;
   onSearchUsers: (query: string) => Promise<EntityOption[]>;
   onSearchCustomers: (query: string) => Promise<EntityOption[]>;
+  onValidateProcessNumber: (rawDigits: string) => Promise<ProcessNumberValidation>;
   currentResponsible: EntityOption | null;
   currentCourt: EntityOption | null;
   /** Grupo/fase da seleção atual (spec 022 §6) — não são campos do formulário (o processo
@@ -39,6 +42,7 @@ export function LawsuitForm({
   form,
   onSearchUsers,
   onSearchCustomers,
+  onValidateProcessNumber,
   currentResponsible,
   currentCourt,
   initialGroupId,
@@ -82,8 +86,16 @@ export function LawsuitForm({
 
   const selectedResponsible: EntityOption[] =
     userId && currentResponsible?.id === userId ? [currentResponsible] : [];
-  const selectedCourt: EntityOption[] =
-    courtId && currentCourt?.id === courtId ? [currentCourt] : [];
+  // Tribunal inferido pelo número CNJ (spec 025): vira a seleção do CourtSelect mesmo
+  // sem ter vindo da busca manual (currentCourt só cobre o valor carregado da API).
+  const [inferredCourt, setInferredCourt] = React.useState<EntityOption | null>(null);
+  const selectedCourt: EntityOption[] = courtId
+    ? currentCourt?.id === courtId
+      ? [currentCourt]
+      : inferredCourt?.id === courtId
+        ? [inferredCourt]
+        : []
+    : [];
 
   return (
     <>
@@ -180,8 +192,16 @@ export function LawsuitForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label htmlFor="process_number">Número do processo</Label>
-          <Input id="process_number" {...register("process_number")} />
+          <ProcessNumberField
+            control={control}
+            name="process_number"
+            onValidate={onValidateProcessNumber}
+            onCourtInferred={(court) => {
+              const option = { id: court.id, label: `${court.code} — ${court.name}` };
+              setInferredCourt(option);
+              setValue("court_id", court.id, { shouldDirty: true });
+            }}
+          />
         </div>
         <div className="space-y-1">
           <Label htmlFor="protocol_number">Protocolo</Label>

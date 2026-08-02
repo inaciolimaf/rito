@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
+from app.domain.lawsuits.cnj import SEGMENT_NAMES, CNJValidationError
 from app.domain.lawsuits.exceptions import (
     CourtSystemIncompatibleError,
     DuplicatePartyError,
@@ -18,12 +19,16 @@ from app.domain.lawsuits.exceptions import (
 )
 from app.domain.lawsuits.schemas import (
     FinancialSummaryResponse,
+    InferredCourtResponse,
     LawsuitCreateRequest,
     LawsuitResponse,
     LawsuitUpdateRequest,
+    ParsedCNJResponse,
     PartyCreateRequest,
     PartyResponse,
     PartyUpdateRequest,
+    ValidateNumberRequest,
+    ValidateNumberResponse,
 )
 from app.domain.lawsuits.service import LawsuitDetail, LawsuitService, PartyDetail
 from app.domain.users.models import User
@@ -118,7 +123,47 @@ async def create_lawsuit(
         ) from exc
     except (PartyCustomerNotFoundError, DuplicatePartyError) as exc:
         _raise_party_errors(exc)
+    except CNJValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return _to_response(created)
+
+
+@router.post("/validate-number")
+async def validate_number(
+    payload: ValidateNumberRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> ValidateNumberResponse:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    result = await service.validate_number(payload.process_number)
+    parsed = result.parsed
+    return ValidateNumberResponse(
+        valid=result.valid,
+        formatted=result.formatted,
+        parsed=(
+            ParsedCNJResponse(
+                sequential=parsed.sequential,
+                check_digit=parsed.check_digit,
+                year=parsed.year,
+                segment=parsed.segment,
+                segment_name=SEGMENT_NAMES[parsed.segment],
+                court=parsed.court,
+                origin=parsed.origin,
+            )
+            if parsed is not None
+            else None
+        ),
+        inferred_court=(
+            InferredCourtResponse(
+                id=result.inferred_court.id,
+                code=result.inferred_court.code,
+                name=result.inferred_court.name,
+            )
+            if result.inferred_court is not None
+            else None
+        ),
+        error=result.error,
+    )
 
 
 @router.get("/{lawsuit_id}")
@@ -155,6 +200,8 @@ async def update_lawsuit(
         raise HTTPException(
             status_code=422, detail="Sistema processual não pertence ao tribunal selecionado."
         ) from exc
+    except CNJValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return _to_response(updated)
 
 

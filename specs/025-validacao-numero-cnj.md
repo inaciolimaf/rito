@@ -1,7 +1,7 @@
 # 025 — Validação de número CNJ
 
 **Fase:** 2 · **Tipo:** feature · **Orçamento:** +2 s
-**Depende de:** 022 · **Status:** ⬜ pendente
+**Depende de:** 022 · **Status:** ✅ concluída
 
 ---
 
@@ -89,8 +89,39 @@ sugestão de tribunal ao completar, botão de colar que normaliza qualquer forma
 
 ## 9. Descobertas
 
-*(preencher)*
+1. **O número de teste da spec 022 tinha DV errado** (`0001234-56.2026.8.26.0100` — o
+   correto é `34`). Com a regra 3 ativa ele passou a ser rejeitado; o teste foi
+   atualizado para o DV correto — única asserção pré-existente alterada, e a mudança de
+   comportamento é exatamente a que esta spec pede.
+2. **Ordem das validações no `service.create`:** referências → partes → número CNJ.
+   O teste de "número inválido → 422" precisa de um contato real, senão o 422 vem da
+   parte antes de chegar no número.
+3. **Inferência J+TR → sigla:** o catálogo da 021 não guarda os códigos numéricos CNJ,
+   então o mapa vive em `cnj.py`: TR 01–27 alfabético por UF para TJs/TREs/TJMs;
+   `TRF{n}`/`TRT{n}` por região; exceções de formato mapeadas uma a uma (`TJDFT`,
+   `TJM-MG/RS/SP`, `TRE-UF`, superiores com TR=00). Sem correspondência → `None` sem
+   invalidar (regra 7) — inclusive TRs válidos no número mas fora do mapa (ex.: UF 28).
+4. **DV só no backend:** o frontend não reimplementa módulo 97 — "validação em tempo
+   real" é o endpoint `validate-number` com debounce de 300 ms ao completar 20 dígitos.
+   Fonte única de verdade, sem risco de divergência JS × Python.
+5. **`validate-number` responde 200 com `valid: false`** para número inválido — é um
+   endpoint de consulta, não de escrita; 422 fica reservado ao create/update do processo.
+6. **Os 20 números da fixture têm DV computado pelo próprio algoritmo** (estruturalmente
+   reais: sequenciais/anos/origens plausíveis por tribunal). Não são números de processos
+   públicos reais — usar processos reais de pessoas em fixture seria desnecessário e
+   arriscado (LGPD); o que a fixture garante é a cobertura estrutural dos 9 segmentos.
+7. **`CourtRepository.get_by_code`** nasceu aqui (primeiro consumidor: inferência).
+   `session.scalar()` retorna `Any` e o mypy barra (`no-any-return`) — padrão do repo é
+   `scalars(stmt).first()`.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Módulo `cnj.py` sem dependência de framework · Commit `feat(025): validação de número CNJ`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (1–9 cobertas; regra 7 com teste dedicado)
+- [x] Teste de isolamento por tenant (sem tabela nova — módulo puro + catálogo global)
+- [x] `make test` verde e wall-clock < 120 s (66 s)
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa
+- [x] Módulo `cnj.py` sem dependência de framework (só `dataclasses`/`datetime`)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(025): validação de número CNJ`

@@ -114,7 +114,7 @@ N:N com contatos e **polo** (ativo / passivo / parte contrária); mínimo 1 part
 `fees_expec`, `fees_money`, `fees_percentage`, contingenciamento (3 níveis); datas `status_closure`, `exit_production`, `exit_execution`.
 **Aceite:** valores monetários corretos; datas de ciclo coerentes entre si. **t:** 3 s. **Deps:** 022
 
-### ⬜ 025 — Validação de número CNJ
+### ✅ 025 — Validação de número CNJ
 Parser do formato `NNNNNNN-DD.AAAA.J.TR.OOOO`; dígito verificador (módulo 97 base 10); extração de ano, segmento, tribunal e origem.
 **Aceite:** DV inválido rejeitado; segmentos extraídos corretamente. **t:** 2 s. **Deps:** 022
 

@@ -157,3 +157,33 @@ class PartyResponse(BaseModel):
     pole: PartyPole
     is_client: bool
     created_at: datetime
+
+
+class ValidateNumberRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    process_number: str = Field(min_length=1)
+
+
+class ParsedCNJResponse(BaseModel):
+    sequential: str
+    check_digit: str
+    year: int
+    segment: int
+    segment_name: str
+    court: str
+    origin: str
+
+
+class InferredCourtResponse(BaseModel):
+    id: int
+    code: str
+    name: str
+
+
+class ValidateNumberResponse(BaseModel):
+    valid: bool
+    formatted: str | None
+    parsed: ParsedCNJResponse | None
+    inferred_court: InferredCourtResponse | None
+    error: str | None

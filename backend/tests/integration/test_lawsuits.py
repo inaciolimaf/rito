@@ -464,7 +464,7 @@ async def test_process_number_guardado_so_com_digitos(
         user_id=str(gestor.user_id),
         lawsuit_type_id=type_id,
         stage_id=stage_id,
-        process_number="0001234-56.2026.8.26.0100",
+        process_number="0001234-34.2026.8.26.0100",
     )
 
-    assert created["process_number"] == "00012345620268260100"
+    assert created["process_number"] == "00012343420268260100"

@@ -48,6 +48,15 @@ function Harness(): JSX.Element {
         form={form}
         onSearchUsers={() => Promise.resolve([])}
         onSearchCustomers={() => Promise.resolve([])}
+        onValidateProcessNumber={() =>
+          Promise.resolve({
+            valid: true,
+            formatted: null,
+            parsed: null,
+            inferred_court: null,
+            error: null,
+          })
+        }
         currentResponsible={null}
         currentCourt={null}
       />

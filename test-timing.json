@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 63,
+  "last_measured_wall_clock_seconds": 66,
   "last_measured_at": "2026-08-02",
   "specs": {
     "001": {
@@ -98,6 +98,10 @@
     "024": {
       "wall_clock_seconds": 63,
       "notes": "356 testes backend (347 anteriores + 9 novos: valores monetários ida e volta sem perda de precisão (inclui 999999999999.99 — teto do NUMERIC(14,2)), percentual >100 → 422, trânsito < fechamento → 422, arquivamento < trânsito → 422 via PUT, outcome sem fechamento → 422, outcome com ciclo completo aceito e is_archived intacto (regra 5), negativo nos 3 campos → 422, financial-summary zerado até a 056, summary 404) — os 36 testes de lawsuits/parties passaram sem edição. 76 testes frontend (70 anteriores + 4 MoneyField + 2 LawsuitFinancialPanel: painel zerado com '—' nos nulos e formatação BRL). 4 e2e (inalterado). Descoberta: Pydantic v2 serializa Decimal como STRING JSON — regra 1 ('a API devolve número') exigiu JsonDecimal = Annotated[Decimal, PlainSerializer(float)] nos schemas de resposta; float round-trips exato porque NUMERIC(14,2) tem no máximo 14 dígitos significativos e float garante 15. Segunda lição de enum em migration: create_table emite CREATE TYPE sozinho (023) mas add_column NÃO — a 024 precisa de .create() explícito para contingency_level/lawsuit_outcome. MoneyField/PercentField nasceram em components/domain (reuso certo no financeiro, specs 054+) com helpers em lib/money.ts (centavos→raw com ponto, pt-BR na tela); Intl BRL usa NBSP — normalizado com /[\\u00a0]/g no teste (literal NBSP dispara no-irregular-whitespace do eslint)."
+    },
+    "025": {
+      "wall_clock_seconds": 66,
+      "notes": "395 testes backend (356 anteriores + 35 unit do cnj.py: 20 números válidos parametrizados da fixture tests/fixtures/cnj_numbers.json cobrindo os 9 segmentos, DV inválido, 3 comprimentos errados, 2 anos fora do intervalo, segmento inválido, 4 formas de normalização (máscara/dígitos/espaços), inferência TJSP/TRT2/TRF4, tribunal desconhecido → None sem invalidar + 4 integração: validate-number válido/inválido, criar com número inválido → 422, criar sem número → 201) — módulo puro sem framework (spec 025 §10). 80 testes frontend (76 anteriores + 4 do ProcessNumberField: máscara progressiva, validação só ao completar 20 dígitos, sugestão de tribunal via onCourtInferred, erro do backend como role=alert). 4 e2e (inalterado). Descobertas: o número de teste da spec 022 ('0001234-56.2026.8.26.0100') tinha DV errado (correto: 34) — passou a ser rejeitado pela regra 3 e o teste foi atualizado para o DV correto (única asserção pré-existente alterada, mudança de comportamento pedida pela própria spec); a validação do número roda DEPOIS da validação de partes no service.create (teste de número inválido precisa de contato real para isolar a causa do 422); inferência J+TR → sigla do catálogo usa a numeração CNJ 01–27 alfabética de UF (TJDFT/TJM-*/TRE-* são exceções de formato mapeadas uma a uma); CourtRepository ganhou get_by_code (scalars().first() — session.scalar retorna Any e o mypy barra)."
     }
   }
 }

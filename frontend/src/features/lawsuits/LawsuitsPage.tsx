@@ -16,6 +16,7 @@ import {
   listParties,
   removeParty,
   updateLawsuit,
+  validateProcessNumber,
   type LawsuitData,
   type LawsuitFormPayload,
   type PartyData,
@@ -282,6 +283,7 @@ export function LawsuitsPage(): JSX.Element {
             form={form}
             onSearchUsers={searchUsers}
             onSearchCustomers={searchCustomers}
+            onValidateProcessNumber={validateProcessNumber}
             currentResponsible={currentResponsible}
             currentCourt={currentCourt}
             initialGroupId={lastLawsuit?.action_group_id}

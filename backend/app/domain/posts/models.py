@@ -46,6 +46,14 @@ class Post(TenantMixin, Base):
     location: Mapped[str | None] = mapped_column(default=None)
     comments: Mapped[str | None] = mapped_column(default=None)
     reward_snapshot: Mapped[int]
+    # Flags (spec 033): important e urgent são independentes e combináveis (regra 10);
+    # is_future oculta até a data (regra 7); is_private restringe a visibilidade ao
+    # criador e aos responsáveis — nem GESTOR vê (regra 8).
+    is_important: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    is_urgent: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    is_future: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    is_private: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    show_in_schedule: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -65,3 +73,15 @@ class PostUser(TenantMixin, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )
+    # Conclusão é POR RESPONSÁVEL (spec 033, regra 1): cada linha fecha independente e
+    # credita os pontos ali (regra 2 — points_earned = reward_snapshot do post, congelado).
+    completed_at: Mapped[datetime | None] = mapped_column(default=None)
+    points_earned: Mapped[int | None] = mapped_column(default=None)
+    # Regra 9: ADMINISTRADOR pode concluir pela linha de outro — completed_by registra
+    # quem executou (None = o próprio responsável concluiu).
+    completed_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
+    )
+    # Regra 11: lida e estrela são por usuário, não da tarefa.
+    is_read: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    is_starred: Mapped[bool] = mapped_column(default=False, server_default=text("false"))

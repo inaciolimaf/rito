@@ -1,7 +1,7 @@
 # 033 — Tarefas: flags e conclusão
 
 **Fase:** 3 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 032 · **Status:** ⬜ pendente
+**Depende de:** 032 · **Status:** ✅ concluída
 
 ---
 
@@ -96,7 +96,46 @@ Migration `033_post_flags_completion.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **`completed_by` não estava no modelo da spec** — mas a regra 9 exige "ADMINISTRADOR
+  pode concluir pelos outros, e isso fica registrado". Sem a coluna não há onde
+  registrar: adicionada em `post_users` (None = o próprio responsável concluiu).
+- **Privacidade é 404, não 403** (regra 8): para o não envolvido, a tarefa privada não
+  existe — saber que ela existe já é conteúdo. Na listagem do processo ela aparece
+  como presença redigida (`redacted: true`, `task_type_name: "Tarefa privada"`,
+  sem responsáveis/datas/comentários) — é a "contagem agregada sem conteúdo" da regra.
+  Criador e responsáveis veem tudo.
+- **Futura é filtrada no service, não no banco** (regra 7): `is_future` + sem data ou
+  data > hoje fica fora da listagem do processo (a caixa de entrada da 036 reusa o
+  mesmo predicado). Sem tarefa futura visível para ninguém até o dia — o ponto dela é
+  não poluir a agenda antes da hora.
+- **Concluir é idempotente**: linha já concluída ignora novo complete (não regrava
+  data nem pontos) — um double-click não muda a competência original.
+- **read/star são set idempotente com default true** (`POST /read {}` marca;
+  `{"value": false}` desmarca) — toggle cego por endpoint separado viraria corrida.
+- **Wall-clock 99 s** — a suíte voltou a dois dígitos (backend 95 s): a limpeza do
+  rito_test (032) segurou a degradação e a contenção do host arrefeceu nesta rodada.
+  A dívida #17 segue aberta (margem era 1 s na 032).
+- **Lifespan por sessão NÃO funciona com pytest-asyncio**: a tentativa de subir o app
+  uma vez por worker (`loop_scope="session"`) quebrou 151 testes com conexões
+  asyncpg presas a loops diferentes (engine criada no loop da sessão, requests no loop
+  da função). Revertido e registrado na dívida #17 — a otimização correta desse custo
+  não é escopo de fixture.
+
+## 10. Definição de pronto
+
+- [x] Spec escrita seguindo o template (já existia do ciclo de planejamento)
+- [x] Escopo implementado: 5 flags, conclusão individual com pontos, retroativa,
+      reabertura, read/star por usuário, privacidade e futura com visibilidade testadas
+- [x] Testes do plano escritos e verdes (10 integração + 1 frontend — cobrindo os 11
+      casos do plano: conclusão individual e total, pontos=snapshot, retroativa 422 e
+      competência, reabrir zera, privada invisível p/ GESTOR + presença sem conteúdo,
+      não responsável → 403, ADMIN registrado, futura oculta)
+- [x] **Privacidade testada contra GESTOR** ✅
+- [x] `make lint` verde
+- [x] `make test` verde em 99 s (< 120 s)
+- [x] `test-timing.json` atualizado
+- [x] ROADMAP marcado ✅
+- [x] Commit `feat(033): tarefas — flags e conclusão`
 
 ## 10. Definição de pronto
 

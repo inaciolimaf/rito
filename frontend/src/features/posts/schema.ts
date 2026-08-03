@@ -17,6 +17,11 @@ export const taskFormSchema = z
     all_day: z.boolean(),
     location: z.string(),
     comments: z.string(),
+    is_important: z.boolean(),
+    is_urgent: z.boolean(),
+    is_future: z.boolean(),
+    is_private: z.boolean(),
+    show_in_schedule: z.boolean(),
   })
   .superRefine((values, context) => {
     if (values.assignee_mode === "users" && values.user_ids.length === 0) {
@@ -65,4 +70,9 @@ export const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   all_day: false,
   location: "",
   comments: "",
+  is_important: false,
+  is_urgent: false,
+  is_future: false,
+  is_private: false,
+  show_in_schedule: false,
 };

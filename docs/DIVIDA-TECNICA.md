@@ -210,6 +210,8 @@ rito_test (TRUNCATE antes do pytest, spec 032) removeu o acúmulo, mas a margem 
 estoura a 1,9 s; isolado leva 0,24 s).
 
 **Spec-alvo:** 040 (refatoração de Tarefas) — medir de novo e, se continuar >90 s:
-aumentar o waitFor do teste flake, revisar o boot do app por teste (client fixture roda
-o lifespan inteiro por função — candidato a escopo de módulo), e avaliar sharding do
-backend em dois grupos paralelos.
+aumentar o waitFor do teste flake e reavaliar o boot do app por teste — ATUALIZAÇÃO
+(033): escopo de sessão/módulo NÃO funciona (pytest-asyncio loop_scope deixa conexões
+asyncpg presas a loops diferentes; 151 testes quebraram na tentativa, revertida). O
+caminho, se a margem voltar a apertar, é reduzir o CUSTO do boot por teste (ex.: pool
+menor em APP_ENV=test), não o escopo do fixture. Na 033 a suíte voltou a 99 s.

@@ -1,7 +1,7 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 119,
-  "last_measured_at": "2026-08-02",
+  "last_measured_wall_clock_seconds": 99,
+  "last_measured_at": "2026-08-03",
   "specs": {
     "001": {
       "wall_clock_seconds": 2,
@@ -130,6 +130,10 @@
     "032": {
       "wall_clock_seconds": 119,
       "notes": "489 testes backend (479 anteriores + 10 novos: CRUD com múltiplos responsáveis, squad expande só ativos (regra 2), sem responsável → 422, duplicata → 409 com existing_id (membro de extensão RFC 7807 novo no handler de erros), end_time sem end_date → 422, end_date anterior → 422, reward_snapshot congelado (regra 3), cascade no hard delete direto no banco (regra 8), RLS, e tipo em uso → 409 com transferência funcionando — o caso da 031 plugado em posts). 96 frontend (94 + 2 do TaskForm: valida obrigatórios e mostra pontos no select; alterna usuários/time). 5 e2e (inalterado). ALERTA DE ORÇAMENTO: 119 s — a suíte backend saltou de ~74 s (029) para ~110 s com latência dobrada e espalhada por todos os testes (contenção do host dind, sem outlier no perfil). Causa real encontrada: rito_test acumulava 9.317 tenants / 1,16 milhões de task_types de todas as runs (make_user comita e nada limpava) — run-tests.sh agora trunca tenants CASCADE antes do pytest. Ajustes de infra: handler de erros promove chaves extras de HTTPException.detail para membros de extensão do problem+json; AppLayout.test ganhou QueryClientProvider (o modal global usa React Query); flake de carga em StateCitySelect (passa isolado em 0,24 s, falhou 1× a 1,9 s sob contenção)."
+    },
+    "033": {
+      "wall_clock_seconds": 99,
+      "notes": "499 testes backend (489 anteriores + 10 novos: conclusão individual não fecha para os outros + all_completed ao final (regras 1–3), pontos = reward_snapshot, retroativa no futuro → 422, retroativa credita na competência informada, reabrir zera conclusão/pontos, privada invisível para GESTOR (404) com presença redigida na listagem (regra 8), não responsável → 403, ADMIN conclui por outro com completed_by registrado (regra 9 — coluna nova, a spec não a modelou), futura oculta até a data (regra 7), read/star por usuário (regra 11), flags combináveis no create e no PUT). 99 frontend (96 + 3 do PriorityBadge: combináveis, independentes, sem flags). 5 e2e (inalterado). Wall-clock 99 s — voltou a dois dígitos (limpeza do rito_test da 032 + contenção do host arrefecida); a dívida #17 segue aberta. Aprendizado registrado nela: lifespan do app por SESSÃO de worker quebra 151 testes com conexões asyncpg em loops distintos (pytest-asyncio loop_scope=session) — a otimização do boot por teste não é escopo de fixture. TaskFlags com as 5 flags no TaskForm (4 da spec + show_in_schedule, que também é coluna nova do post)."
     }
   }
 }

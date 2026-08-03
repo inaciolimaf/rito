@@ -28,6 +28,11 @@ function toPayload(values: TaskFormValues): PostPayload {
     all_day: values.all_day,
     location: values.location || null,
     comments: values.comments || null,
+    is_important: values.is_important,
+    is_urgent: values.is_urgent,
+    is_future: values.is_future,
+    is_private: values.is_private,
+    show_in_schedule: values.show_in_schedule,
   };
 }
 

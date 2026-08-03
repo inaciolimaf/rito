@@ -24,3 +24,15 @@ class DuplicatePostError(Exception):
     def __init__(self, existing_id: uuid.UUID) -> None:
         super().__init__(str(existing_id))
         self.existing_id = existing_id
+
+
+class NotAssigneeError(Exception):
+    """Regra 9 (spec 033): só quem é responsável tem linha para concluir/ler/estrelar."""
+
+
+class CompleteForOthersForbiddenError(Exception):
+    """Regra 9 (spec 033): concluir pela linha de outro exige ADMINISTRADOR ou acima."""
+
+
+class FutureCompletionError(Exception):
+    """Regra 4 (spec 033): conclusão retroativa permite o passado, nunca o futuro."""

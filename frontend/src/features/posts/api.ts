@@ -20,6 +20,13 @@ export interface PostData {
   location: string | null;
   comments: string | null;
   reward_snapshot: number;
+  is_important: boolean;
+  is_urgent: boolean;
+  is_future: boolean;
+  is_private: boolean;
+  show_in_schedule: boolean;
+  all_completed: boolean;
+  redacted: boolean;
   assignees: AssigneeData[];
   created_at: string;
   updated_at: string;
@@ -38,6 +45,11 @@ export interface PostPayload {
   all_day: boolean;
   location: string | null;
   comments: string | null;
+  is_important: boolean;
+  is_urgent: boolean;
+  is_future: boolean;
+  is_private: boolean;
+  show_in_schedule: boolean;
 }
 
 export async function createPost(payload: PostPayload): Promise<PostData> {
@@ -46,4 +58,15 @@ export async function createPost(payload: PostPayload): Promise<PostData> {
 
 export async function listLawsuitPosts(lawsuitId: string): Promise<PostData[]> {
   return apiRequest<PostData[]>(`/api/v1/lawsuits/${lawsuitId}/posts`);
+}
+
+export async function completePost(postId: string, completedAt?: string): Promise<PostData> {
+  return apiRequest<PostData>(`/api/v1/posts/${postId}/complete`, {
+    method: "POST",
+    body: completedAt ? { completed_at: completedAt } : {},
+  });
+}
+
+export async function reopenPost(postId: string): Promise<PostData> {
+  return apiRequest<PostData>(`/api/v1/posts/${postId}/reopen`, { method: "POST", body: {} });
 }

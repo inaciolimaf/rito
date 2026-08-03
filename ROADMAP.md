@@ -149,7 +149,7 @@ Campo `folder` com autocomplete, agrupamento por pasta, busca.
 `posts` como entidade central; múltiplos responsáveis; vínculo a processo; data, hora, prazo fatal, local, descrição.
 **Aceite:** tarefa exige processo e ≥1 responsável; duplicata detectada. **t:** 6 s. **Deps:** 031, 022
 
-### ⬜ 033 — Tarefas: flags e conclusão
+### ✅ 033 — Tarefas: flags e conclusão
 Importante, urgente, futura, privada, retroativa (com `date_completed`); conclusão por responsável; pontuação creditada na conclusão.
 **Aceite:** retroativa credita na data informada; privada invisível a terceiros. **t:** 4 s. **Deps:** 032
 

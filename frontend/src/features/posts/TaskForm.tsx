@@ -6,6 +6,7 @@ import type { EntityOption } from "@/components/domain/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AssigneeSelector } from "@/features/posts/AssigneeSelector";
+import { TaskFlags } from "@/features/posts/TaskFlags";
 import { DeadlineField } from "@/features/posts/DeadlineField";
 import type { TaskFormValues } from "@/features/posts/schema";
 import { TaskTypeSelect } from "@/features/posts/TaskTypeSelect";
@@ -39,6 +40,13 @@ export function TaskForm({
   const squadId = watch("squad_id");
   const taskTypeId = watch("task_type_id");
   const deadlineDate = watch("deadline_date");
+  const flagValues = {
+    is_important: watch("is_important"),
+    is_urgent: watch("is_urgent"),
+    is_future: watch("is_future"),
+    is_private: watch("is_private"),
+    show_in_schedule: watch("show_in_schedule"),
+  };
 
   // O picker precisa do rótulo do processo escolhido; o form guarda só o id.
   const [selectedLawsuit, setSelectedLawsuit] = React.useState<EntityOption | null>(initialLawsuit);
@@ -104,6 +112,17 @@ export function TaskForm({
         <input id="post-all-day" type="checkbox" {...register("all_day")} />
         Dia inteiro
       </label>
+
+      <TaskFlags
+        value={flagValues}
+        onChange={(next) => {
+          setValue("is_important", next.is_important);
+          setValue("is_urgent", next.is_urgent);
+          setValue("is_future", next.is_future);
+          setValue("is_private", next.is_private);
+          setValue("show_in_schedule", next.show_in_schedule);
+        }}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">

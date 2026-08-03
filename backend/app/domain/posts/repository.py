@@ -50,9 +50,35 @@ class PostRepository(BaseRepository[Post]):
             result[post_id].append(user)
         return result
 
+    async def assignee_lines_for(
+        self, post_ids: Sequence[uuid.UUID]
+    ) -> dict[uuid.UUID, list[tuple[User, PostUser]]]:
+        """Usuário + linha de conclusão (spec 033) de vários posts em UMA query."""
+        if not post_ids:
+            return {}
+        stmt = (
+            select(User, PostUser)
+            .join(PostUser, PostUser.user_id == User.id)
+            .where(PostUser.post_id.in_(post_ids))
+            .order_by(User.name)
+        )
+        result: dict[uuid.UUID, list[tuple[User, PostUser]]] = {post_id: [] for post_id in post_ids}
+        for user, line in await self.session.execute(stmt):
+            result[line.post_id].append((user, line))
+        return result
+
     async def assignee_ids_for(self, post_id: uuid.UUID) -> set[uuid.UUID]:
         stmt = select(PostUser.user_id).where(PostUser.post_id == post_id)
         return set((await self.session.scalars(stmt)).all())
+
+    async def get_post_user(self, post_id: uuid.UUID, user_id: uuid.UUID) -> PostUser | None:
+        """A linha de conclusão daquele responsável (spec 033, regra 1)."""
+        stmt = select(PostUser).where(PostUser.post_id == post_id, PostUser.user_id == user_id)
+        return (await self.session.scalars(stmt)).first()
+
+    async def lines_for_post(self, post_id: uuid.UUID) -> Sequence[PostUser]:
+        stmt = select(PostUser).where(PostUser.post_id == post_id)
+        return (await self.session.scalars(stmt)).all()
 
     async def find_duplicates(
         self, *, lawsuit_id: uuid.UUID, task_type_id: uuid.UUID, scheduled_date: date | None

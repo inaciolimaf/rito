@@ -1,32 +1,57 @@
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.posts.exceptions import (
     AssigneeNotActiveError,
+    CompleteForOthersForbiddenError,
     DuplicatePostError,
+    FutureCompletionError,
     LawsuitNotFoundError,
+    NotAssigneeError,
     SquadNotFoundError,
     TaskTypeNotFoundError,
 )
-from app.domain.posts.models import Post
+from app.domain.posts.models import Post, PostUser
 from app.domain.posts.repository import PostRepository
-from app.domain.posts.schemas import PostCreateRequest, PostUpdateRequest
+from app.domain.posts.schemas import (
+    PostCompleteRequest,
+    PostCreateRequest,
+    PostFlagsRequest,
+    PostReopenRequest,
+    PostUpdateRequest,
+)
 from app.domain.squads.repository import SquadRepository
 from app.domain.task_types.repository import TaskTypeRepository
-from app.domain.users.models import User
+from app.domain.users.models import User, UserRole
 from app.domain.users.repository import UserRepository
+
+# Regra 9: ADMINISTRADOR (ou acima) pode concluir pela linha de outro responsável.
+_ADMIN_OR_ABOVE = {UserRole.ADMINISTRADOR, UserRole.GESTOR}
+
+
+@dataclass
+class AssigneeDetail:
+    user: User
+    line: PostUser
 
 
 @dataclass
 class PostDetail:
     post: Post
     task_type_name: str
-    assignees: Sequence[User]
+    assignees: Sequence[AssigneeDetail]
+    # Regra 8: tarefa privada para não envolvido — presença sem conteúdo.
+    redacted: bool = False
+
+
+def _is_involved(post: Post, assignee_ids: set[uuid.UUID], user_id: uuid.UUID) -> bool:
+    """Regra 8: tarefa privada só é visível ao criador e aos responsáveis."""
+    return post.created_by == user_id or user_id in assignee_ids
 
 
 class PostService:
@@ -105,28 +130,58 @@ class PostService:
             comments=payload.comments,
             # Regra 3: congela a pontuação do catálogo na criação — nunca muda depois.
             reward_snapshot=task_type.reward,
+            is_important=payload.is_important,
+            is_urgent=payload.is_urgent,
+            is_future=payload.is_future,
+            is_private=payload.is_private,
+            show_in_schedule=payload.show_in_schedule,
         )
         created = await self.posts.create_with_assignees(post, assignee_ids)
         return await self._detail(created)
 
-    async def get(self, post_id: uuid.UUID) -> PostDetail | None:
+    async def get(self, post_id: uuid.UUID, *, viewer_id: uuid.UUID) -> PostDetail | None:
         post = await self.posts.get_by_id(post_id)
         if post is None:
             return None
+        # Regra 8: privada invisível para não envolvido — nem GESTOR vê (404, não 403:
+        # existir já é informação).
+        if post.is_private and not _is_involved(
+            post, await self.posts.assignee_ids_for(post.id), viewer_id
+        ):
+            return None
         return await self._detail(post)
 
-    async def list_for_lawsuit(self, lawsuit_id: uuid.UUID) -> list[PostDetail]:
+    async def list_for_lawsuit(
+        self, lawsuit_id: uuid.UUID, *, viewer_id: uuid.UUID
+    ) -> list[PostDetail]:
         posts = await self.posts.list_for_lawsuit(lawsuit_id)
-        assignees = await self.posts.assignees_for([post.id for post in posts])
+        today = date.today()
+        details: list[PostDetail] = []
+        lines_by_post = await self.posts.assignee_lines_for([post.id for post in posts])
         names = await self.task_types.names_for({post.task_type_id for post in posts})
-        return [
-            PostDetail(
-                post=post,
-                task_type_name=names[post.task_type_id],
-                assignees=assignees.get(post.id, []),
+        for post in posts:
+            # Regra 7: futura fica oculta até a data do compromisso.
+            if post.is_future and (post.scheduled_date is None or post.scheduled_date > today):
+                continue
+            lines = lines_by_post.get(post.id, [])
+            if post.is_private and not _is_involved(
+                post, {line.user_id for _user, line in lines}, viewer_id
+            ):
+                # Regra 8: aparece como presença ("tarefa privada"), sem conteúdo.
+                details.append(
+                    PostDetail(
+                        post=post, task_type_name="Tarefa privada", assignees=[], redacted=True
+                    )
+                )
+                continue
+            details.append(
+                PostDetail(
+                    post=post,
+                    task_type_name=names[post.task_type_id],
+                    assignees=[AssigneeDetail(user=user, line=line) for user, line in lines],
+                )
             )
-            for post in posts
-        ]
+        return details
 
     async def update(self, post: Post, payload: PostUpdateRequest) -> PostDetail:
         await self._validate_references(payload)
@@ -152,10 +207,79 @@ class PostService:
     async def delete(self, post: Post) -> None:
         await self.posts.delete(post)
 
+    async def update_flags(self, post: Post, payload: PostFlagsRequest) -> PostDetail:
+        post.is_important = payload.is_important
+        post.is_urgent = payload.is_urgent
+        post.is_future = payload.is_future
+        post.is_private = payload.is_private
+        post.show_in_schedule = payload.show_in_schedule
+        post.updated_at = datetime.now(UTC)
+        return await self._detail(post)
+
+    async def _resolve_completion_line(
+        self, post: Post, actor: User, target_user_id: uuid.UUID | None
+    ) -> tuple[PostUser, bool]:
+        """Targeting comum de complete/reopen: devolve (linha, por_terceiro)."""
+        target_id = target_user_id or actor.id
+        by_other = target_id != actor.id
+        if by_other and actor.role not in _ADMIN_OR_ABOVE:
+            # Regra 9: só ADMINISTRADOR+ conclui/reabre pela linha de outro.
+            raise CompleteForOthersForbiddenError
+        line = await self.posts.get_post_user(post.id, target_id)
+        if line is None:
+            # Regra 9: só quem é responsável tem linha para concluir.
+            raise NotAssigneeError
+        return line, by_other
+
+    async def complete(self, post: Post, actor: User, payload: PostCompleteRequest) -> PostDetail:
+        line, by_other = await self._resolve_completion_line(post, actor, payload.user_id)
+        if line.completed_at is not None:
+            return await self._detail(post)  # idempotente: já concluída, sem efeito
+        completed_at = payload.completed_at or datetime.now(UTC)
+        # Regra 4: retroativa permite o passado, NUNCA o futuro.
+        if completed_at > datetime.now(UTC):
+            raise FutureCompletionError
+        line.completed_at = completed_at
+        # Regra 2: os pontos creditados são o reward_snapshot do post — congelado ali.
+        # Regra 5: retroativa credita na competência da data informada — completed_at
+        # guarda a data informada, não "agora".
+        line.points_earned = post.reward_snapshot
+        # Regra 9: ADMIN concluindo por outro fica registrado em completed_by.
+        line.completed_by = actor.id if by_other else None
+        return await self._detail(post)
+
+    async def reopen(self, post: Post, actor: User, payload: PostReopenRequest) -> PostDetail:
+        line, _by_other = await self._resolve_completion_line(post, actor, payload.user_id)
+        # Regra 6: reabrir zera conclusão e pontos daquele responsável.
+        line.completed_at = None
+        line.points_earned = None
+        line.completed_by = None
+        return await self._detail(post)
+
+    async def set_read(self, post: Post, actor: User, *, value: bool) -> PostDetail:
+        line = await self.posts.get_post_user(post.id, actor.id)
+        if line is None:
+            raise NotAssigneeError
+        # Regra 11: lida é por usuário, não da tarefa.
+        line.is_read = value
+        return await self._detail(post)
+
+    async def set_starred(self, post: Post, actor: User, *, value: bool) -> PostDetail:
+        line = await self.posts.get_post_user(post.id, actor.id)
+        if line is None:
+            raise NotAssigneeError
+        # Regra 11: estrela é por usuário, não da tarefa.
+        line.is_starred = value
+        return await self._detail(post)
+
     async def _detail(self, post: Post) -> PostDetail:
         task_type = await self.task_types.get_by_id(post.task_type_id)
         assert task_type is not None
-        assignees = await self.posts.assignees_for([post.id])
+        lines = await self.posts.assignee_lines_for([post.id])
         return PostDetail(
-            post=post, task_type_name=task_type.name, assignees=assignees.get(post.id, [])
+            post=post,
+            task_type_name=task_type.name,
+            assignees=[
+                AssigneeDetail(user=user, line=line) for user, line in lines.get(post.id, [])
+            ],
         )

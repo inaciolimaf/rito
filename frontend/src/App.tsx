@@ -16,12 +16,13 @@ import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
 import { LawsuitTypesListPage } from "@/features/lawsuit-types/LawsuitTypesListPage";
 import { LawsuitsPage } from "@/features/lawsuits/LawsuitsPage";
 import { LawsuitDetailPage } from "@/features/lawsuits/LawsuitDetailPage";
+import { InboxPage } from "@/features/inbox/InboxPage";
 import { PostDetailPage } from "@/features/posts/PostDetailPage";
 import { StagesListPage } from "@/features/stages/StagesListPage";
 import { TaskTypesListPage } from "@/features/task-types/TaskTypesListPage";
 import { UserDetailPage } from "@/features/users/UserDetailPage";
 import { UsersSettingsPage } from "@/features/users/UsersSettingsPage";
-import { useAuth, AuthProvider } from "@/providers/AuthProvider";
+import { AuthProvider } from "@/providers/AuthProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 
 const queryClient = new QueryClient({
@@ -32,11 +33,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-function HomePage(): JSX.Element {
-  const { user } = useAuth();
-  return <ModulePlaceholderPage title={`Meu Painel — bem-vindo, ${user?.name ?? ""}`} />;
-}
 
 export function App(): JSX.Element {
   return (
@@ -53,7 +49,7 @@ export function App(): JSX.Element {
                 <Route element={<ProtectedRoute />}>
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Navigate to="/home" replace />} />
-                    <Route path="/home" element={<HomePage />} />
+                    <Route path="/home" element={<InboxPage />} />
                     <Route path="/subscription/account" element={<AccountPage />} />
                     <Route path="/settings/users" element={<UsersSettingsPage />} />
                     <Route path="/settings/users/:id" element={<UserDetailPage />} />

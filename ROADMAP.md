@@ -161,7 +161,7 @@ Importante, urgente, futura, privada, retroativa (com `date_completed`); conclus
 Thread de comentários, `@menções` com notificação, anexos múltiplos.
 **Aceite:** menção notifica; anexo respeita quota. **t:** 5 s. **Deps:** 032
 
-### ⬜ 036 — Caixa de entrada
+### ✅ 036 — Caixa de entrada
 6 seções configuráveis (Prazo fatal, Intimações, Não lidas, Urgentes, Importantes, Demais); ordem por usuário; ações em massa; marcação de leitura.
 **Aceite:** reordenação persiste; ação em massa transacional. **t:** 6 s. **Deps:** 033, 007
 

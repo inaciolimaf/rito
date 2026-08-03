@@ -1,7 +1,7 @@
 # 036 — Caixa de entrada
 
 **Fase:** 3 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 033, 007 · **Status:** ⬜ pendente
+**Depende de:** 033, 007 · **Status:** ✅ concluída (2026-08-03)
 
 ---
 
@@ -96,8 +96,58 @@ Colunas: ☑ · ★ · ! · ● · Tarefa · Partes · Data compromisso · Prazo
 
 ## 9. Descobertas
 
-*(preencher)*
+- **A ordem default torna "Não lidas" guarda-chuva:** `unread` precede `urgent` e
+  `important` na ordem padrão (regra 1 + regra 2 literais), então a seção Urgentes
+  mostra só urgentes JÁ LIDAS. É o comportamento especificado — quem quiser urgente
+  sempre no topo reordena em Configurações (regra 9). O teste de contadores documenta
+  isso criando urgentes/importantes lidas.
+- **Seção é CASE WHEN na ordem configurada, em SQL:** a mesma expressão serve à
+  listagem (WHERE section = X com keyset) e aos contadores (GROUP BY — regra 8, uma
+  query). A subquery-base carrega o escopo das regras 3–5 (responsável, não concluída
+  por ele, futura só depois da data); privada de terceiro nem chega (o usuário não é
+  responsável por ela).
+- **`/posts/bulk/*` precisa registrar ANTES de `/posts/{post_id}/*`:** o match por
+  ordem de registro do FastAPI mandava "bulk" para o parâmetro uuid → 422. O
+  inbox_router entrou antes do posts_router no main.py.
+- **Bulk opera na linha do PRÓPRIO usuário** (complete/read/star — a caixa só mostra
+  tarefas em que ele é responsável); falha em qualquer id → 409 com `failed_ids` como
+  membro de extensão do problem+json (mesmo padrão do existing_id da 032) e rollback
+  do lote inteiro (regra 6). Reassign troca TODOS os responsáveis e exige
+  ADMINISTRADOR+ (regra 7). Conclusão em massa dispara a recorrência da 034 quando a
+  tarefa fecha como um todo.
+- **inbox_preferences:** PK surrogate + UNIQUE(user_id) (padrão Base do projeto — o
+  efeito da PK (user_id) da spec é o mesmo). Preferência materializa no primeiro GET.
+- **Três correções de ambiente e2e no caminho:**
+  1. O banco de DEV (`rito`, usado pelo webServer do Playwright) estava 3 migrations
+     atrás — jornada 5 quebrava com `relation "notifications" does not exist`.
+     Migrado; o run-tests.sh só migra o rito_test, o dev é responsabilidade do `make
+     migrate` (registrado para a 040 avaliar migrar o dev no webServer do e2e).
+  2. O 6º login da suíte e2e (5 jornadas × UI + setups de API, mesmo e-mail/IP em
+     <60s) tomava 429 — o limite de login virou configurável por env
+     (`LOGIN_RATE_LIMIT`, default 5 em produção, 100 no webServer do Playwright).
+  3. Causa raiz das chaves `login_attempts:*` SEM TTL (flake da 034/035): processo
+     que morre entre o `incr` e o `expire`. `check_and_increment` agora rearma o TTL
+     quando encontra chave sem expiração (ttl<0).
+- **Wall-clock: o vitest é quem absorve a fila.** Medido neste host (4 cores): pytest
+  isolado é I/O-bound (57 s, ~1,1 core) e vitest CPU-bound (42 s, ~1,9 core); com 2
+  threads de vitest o backend esticava para 130-147 s. `run-tests.sh` fixou
+  `VITEST_MAX_WORKERS=1` (backend concorrente ~85 s, wall ~105 s na janela boa) —
+  a suíte mais barata absorve a contenção. Host compartilhado segue oscilando
+  (carga externa 8+), então retries em janela calma continuam necessários.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Contadores em query única · Commit `feat(036): caixa de entrada`
+- [x] Migration `036_inbox_preferences` aplicada (RLS + UNIQUE por usuário)
+- [x] 6 seções com uma linha por tarefa na ordem configurada (regras 1–2)
+- [x] Escopo: só responsável, privada de terceiro fora, futura oculta, concluída sai
+  (regras 3–5) — integração
+- [x] Contadores em query única (regra 8), preferências persistidas por usuário
+  (regra 9), keyset independente por seção (regra 10) — integração
+- [x] Bulk complete/read/star/reassign transacional com 409 + failed_ids (regra 6) e
+  reassign 403 para COLABORADOR (regra 7) — integração
+- [x] `InboxPage` em /home com `InboxSection` colapsável, `BulkActionBar` e
+  `InboxSettingsForm` com drag & drop (3 testes frontend)
+- [x] Jornada e2e 5/25: criar tarefa → aparece na caixa → concluir em massa
+- [x] Isolamento de tenant em inbox_preferences (RLS direto no banco)
+- [x] `make lint` verde · `make test` verde em **116 s** (orçamento 120 s)
+- [x] Commit `feat(036): caixa de entrada`

@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -22,8 +23,10 @@ from app.domain.users.repository import UserRepository
 
 logger = logging.getLogger(__name__)
 
-_LOGIN_RATE_LIMIT = 5
-_LOGIN_RATE_WINDOW_SECONDS = 60
+# Configurável por ambiente (spec 036): o e2e faz 6+ logins no mesmo minuto — com o
+# limite de produção a 6ª jornada tomava 429. Produção segue 5/60s.
+_LOGIN_RATE_LIMIT = int(os.environ.get("LOGIN_RATE_LIMIT", "5"))
+_LOGIN_RATE_WINDOW_SECONDS = int(os.environ.get("LOGIN_RATE_WINDOW_SECONDS", "60"))
 
 
 class AuthService:

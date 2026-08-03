@@ -17,6 +17,9 @@ export default defineConfig({
     {
       command: "uv run uvicorn app.main:app --host 0.0.0.0 --port 8000",
       cwd: "../backend",
+      // As jornadas fazem 6+ logins (UI + setup de API) no mesmo minuto — com o
+      // limite de produção (5/60s) a última jornada tomava 429 (flake da spec 036).
+      env: { ...process.env, LOGIN_RATE_LIMIT: "100" },
       url: `${API_BASE_URL}/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,

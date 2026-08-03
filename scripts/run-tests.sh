@@ -54,10 +54,11 @@ asyncio.run(main())
 }
 
 run_frontend() {
-	# Mesma lógica do cap de workers do backend acima: vitest default é 1 thread por
-	# core — 4 threads + pytest + playwright/esbuild num host de 4 cores é o que faz
-	# a suíte backend (a mais longa) esticar. VITEST_MAX_WORKERS=... para sobrescrever.
-	cd frontend && npm run test -- --maxWorkers="${VITEST_MAX_WORKERS:-2}"
+	# Mesma lógica do cap do backend acima. Medido na spec 036 neste host (4 cores):
+	# com 2 threads o vitest disputava CPU com o pytest e o wall-clock ia a 130-147 s;
+	# com 1 thread o backend cai para ~85 s e o wall-clock para ~105 s (o vitest, mais
+	# barato em valor absoluto, é quem absorve a fila). VITEST_MAX_WORKERS=... sobrescreve.
+	cd frontend && npm run test -- --maxWorkers="${VITEST_MAX_WORKERS:-1}"
 }
 
 run_e2e() {

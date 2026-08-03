@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.http import get_or_404
@@ -16,6 +16,8 @@ from app.domain.posts.exceptions import (
     SquadNotFoundError,
     TaskTypeNotFoundError,
 )
+from app.domain.posts.models import PostRecurrence
+from app.domain.posts.recurrence_service import RecurrenceService
 from app.domain.posts.schemas import (
     AssigneeResponse,
     PostCompleteRequest,
@@ -25,6 +27,9 @@ from app.domain.posts.schemas import (
     PostReopenRequest,
     PostResponse,
     PostUpdateRequest,
+    RecurrencePreviewResponse,
+    RecurrenceResponse,
+    RecurrenceUpdateRequest,
 )
 from app.domain.posts.service import PostDetail, PostService
 from app.domain.users.models import User
@@ -34,6 +39,22 @@ router = APIRouter(tags=["posts"])
 _NOT_FOUND_DETAIL = "Tarefa não encontrada."
 _LAWSUIT_NOT_FOUND_DETAIL = "Processo não encontrado."
 _NOT_ASSIGNEE_DETAIL = "Só um responsável pela tarefa pode executar esta ação."
+_NO_RECURRENCE_DETAIL = "A tarefa não pertence a uma série de recorrência."
+
+
+def _to_recurrence_response(recurrence: PostRecurrence) -> RecurrenceResponse:
+    return RecurrenceResponse(
+        id=recurrence.id,
+        template_post_id=recurrence.template_post_id,
+        period=recurrence.period,
+        repeat_on=recurrence.repeat_on,
+        until_date=recurrence.until_date,
+        max_occurrences=recurrence.max_occurrences,
+        occurrences_created=recurrence.occurrences_created,
+        last_generated_date=recurrence.last_generated_date,
+        is_active=recurrence.is_active,
+        created_at=recurrence.created_at,
+    )
 
 
 def _to_response(detail: PostDetail) -> PostResponse:
@@ -62,6 +83,7 @@ def _to_response(detail: PostDetail) -> PostResponse:
             is_private=True,
             show_in_schedule=False,
             all_completed=False,
+            recurrence_id=None,
             redacted=True,
             assignees=[],
             created_at=post.created_at,
@@ -89,6 +111,7 @@ def _to_response(detail: PostDetail) -> PostResponse:
         show_in_schedule=post.show_in_schedule,
         # Regra 3: concluída como um todo quando TODOS os responsáveis concluíram.
         all_completed=all(item.line.completed_at is not None for item in detail.assignees),
+        recurrence_id=post.recurrence_id,
         assignees=[
             AssigneeResponse(
                 id=item.user.id,
@@ -307,3 +330,70 @@ async def list_lawsuit_posts(
     service = PostService(session=session, tenant_id=current_user.tenant_id)
     details = await service.list_for_lawsuit(lawsuit_id, viewer_id=current_user.id)
     return [_to_response(detail) for detail in details]
+
+
+async def _resolve_recurrence(
+    post_id: uuid.UUID,
+    current_user: User,
+    session: AsyncSession,
+) -> tuple[PostDetail, PostRecurrence]:
+    """Post + série dele, com 404 nos dois saltos (post inexistente/privado; tarefa
+    avulsa sem série)."""
+    service = PostService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(
+        lambda: service.get(post_id, viewer_id=current_user.id), _NOT_FOUND_DETAIL
+    )
+    recurrence = await service.recurrences.get_for_post(detail.post)
+    if recurrence is None:
+        raise HTTPException(status_code=404, detail=_NO_RECURRENCE_DETAIL)
+    return detail, recurrence
+
+
+@router.get("/posts/{post_id}/recurrence")
+async def get_recurrence(
+    post_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> RecurrenceResponse:
+    _detail, recurrence = await _resolve_recurrence(post_id, current_user, session)
+    return _to_recurrence_response(recurrence)
+
+
+@router.put("/posts/{post_id}/recurrence")
+async def update_recurrence(
+    post_id: uuid.UUID,
+    payload: RecurrenceUpdateRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> RecurrenceResponse:
+    _detail, recurrence = await _resolve_recurrence(post_id, current_user, session)
+    service = RecurrenceService(session=session, tenant_id=current_user.tenant_id)
+    # Regra 8: a edição vale para as ocorrências futuras — as já geradas ficam como
+    # estão (o service não toca em occurrences_created nem em last_generated_date).
+    updated = await service.update_series(recurrence, payload)
+    return _to_recurrence_response(updated)
+
+
+@router.delete("/posts/{post_id}/recurrence", status_code=204)
+async def delete_recurrence(
+    post_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> None:
+    _detail, recurrence = await _resolve_recurrence(post_id, current_user, session)
+    service = RecurrenceService(session=session, tenant_id=current_user.tenant_id)
+    # Regra 7: encerrar a série preserva as ocorrências já geradas.
+    await service.deactivate(recurrence)
+
+
+@router.get("/posts/{post_id}/recurrence/preview")
+async def preview_recurrence(
+    post_id: uuid.UUID,
+    count: int = Query(default=5, ge=1, le=50),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> RecurrencePreviewResponse:
+    _detail, recurrence = await _resolve_recurrence(post_id, current_user, session)
+    service = RecurrenceService(session=session, tenant_id=current_user.tenant_id)
+    dates = await service.preview(recurrence, count=count)
+    return RecurrencePreviewResponse(dates=dates)

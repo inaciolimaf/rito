@@ -33,6 +33,19 @@ function toPayload(values: TaskFormValues): PostPayload {
     is_future: values.is_future,
     is_private: values.is_private,
     show_in_schedule: values.show_in_schedule,
+    // Spec 034: série configurada no mesmo POST — o post criado é o template.
+    recurrence: values.is_recurring
+      ? {
+          period: values.recurrence_period,
+          repeat_on: values.recurrence_repeat_on,
+          until_date:
+            values.recurrence_limit_mode === "until" ? values.recurrence_until_date : null,
+          max_occurrences:
+            values.recurrence_limit_mode === "max"
+              ? Number(values.recurrence_max_occurrences)
+              : null,
+        }
+      : null,
   };
 }
 

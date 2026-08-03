@@ -56,6 +56,12 @@ strict = true
 plugins = ["pydantic.mypy"]
 exclude = ["alembic/"]
 
+# Celery não tem stubs nem py.typed — os workers rodam fora do caminho testado (a
+# regra mora nos services), então o módulo fica como Any.
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

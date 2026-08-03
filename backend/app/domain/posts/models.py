@@ -1,11 +1,37 @@
 import uuid
 from datetime import date, datetime, time
+from enum import StrEnum
 
 from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base, TenantMixin
+
+
+class RecurrencePeriod(StrEnum):
+    """As 8 periodicidades da spec 034 §4 (ADVBOX: campo `recurrence`)."""
+
+    DIARIA = "DIARIA"
+    SEMANAL = "SEMANAL"
+    QUINZENAL = "QUINZENAL"
+    MENSAL = "MENSAL"
+    BIMESTRAL = "BIMESTRAL"
+    TRIMESTRAL = "TRIMESTRAL"
+    SEMESTRAL = "SEMESTRAL"
+    ANUAL = "ANUAL"
+
+
+class RecurrenceWeek(StrEnum):
+    """Os 5 modos de repetição no mês (ADVBOX: campo `repeat_on_week`) — só fazem
+    diferença nas periodicidades mensais ou mais longas (ver recurrence.py)."""
+
+    DIA_EXATO = "DIA_EXATO"
+    PRIMEIRA = "PRIMEIRA"
+    SEGUNDA = "SEGUNDA"
+    TERCEIRA = "TERCEIRA"
+    ULTIMA = "ULTIMA"
 
 
 class Post(TenantMixin, Base):
@@ -54,6 +80,13 @@ class Post(TenantMixin, Base):
     is_future: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_private: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     show_in_schedule: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    # Spec 034: a ocorrência pertence a uma série de recorrência (NULL = tarefa avulsa).
+    # SET NULL no delete da série — excluir a ocorrência/série não apaga o post.
+    recurrence_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("post_recurrences.id", ondelete="SET NULL"),
+        default=None,
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -85,3 +118,39 @@ class PostUser(TenantMixin, Base):
     # Regra 11: lida e estrela são por usuário, não da tarefa.
     is_read: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_starred: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+
+
+class PostRecurrence(TenantMixin, Base):
+    """Série de recorrência (spec 034): o post template é a PRIMEIRA ocorrência —
+    as próximas são geradas ao concluir a atual (regra 1) ou pelo worker diário de
+    segurança quando a data passa sem conclusão (regra 2). `occurrences_created`
+    conta o template (nasce 1); `last_generated_date` ancora o cálculo da próxima
+    data, então concluir uma ocorrência atrasada nunca volta a série no tempo."""
+
+    __tablename__ = "post_recurrences"
+    __table_args__ = (
+        CheckConstraint(
+            "max_occurrences IS NULL OR max_occurrences > 0",
+            name="ck_post_recurrences_max_occurrences",
+        ),
+        UniqueConstraint("template_post_id", name="uq_post_recurrences_template"),
+    )
+
+    template_post_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("posts.id", ondelete="CASCADE")
+    )
+    period: Mapped[RecurrencePeriod] = mapped_column(
+        PGENUM(RecurrencePeriod, name="recurrence_period", create_type=False)
+    )
+    repeat_on: Mapped[RecurrenceWeek] = mapped_column(
+        PGENUM(RecurrenceWeek, name="recurrence_week", create_type=False),
+        default=RecurrenceWeek.DIA_EXATO,
+        server_default=text("'DIA_EXATO'"),
+    )
+    # Regra 6: a série encerra pelo que vier primeiro — until_date ou max_occurrences.
+    until_date: Mapped[date | None] = mapped_column(default=None)
+    max_occurrences: Mapped[int | None] = mapped_column(default=None)
+    occurrences_created: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    last_generated_date: Mapped[date | None] = mapped_column(default=None)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

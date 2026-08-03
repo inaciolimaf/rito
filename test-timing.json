@@ -1,6 +1,6 @@
 {
   "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 99,
+  "last_measured_wall_clock_seconds": 83,
   "last_measured_at": "2026-08-03",
   "specs": {
     "001": {
@@ -134,6 +134,10 @@
     "033": {
       "wall_clock_seconds": 99,
       "notes": "499 testes backend (489 anteriores + 10 novos: conclusão individual não fecha para os outros + all_completed ao final (regras 1–3), pontos = reward_snapshot, retroativa no futuro → 422, retroativa credita na competência informada, reabrir zera conclusão/pontos, privada invisível para GESTOR (404) com presença redigida na listagem (regra 8), não responsável → 403, ADMIN conclui por outro com completed_by registrado (regra 9 — coluna nova, a spec não a modelou), futura oculta até a data (regra 7), read/star por usuário (regra 11), flags combináveis no create e no PUT). 99 frontend (96 + 3 do PriorityBadge: combináveis, independentes, sem flags). 5 e2e (inalterado). Wall-clock 99 s — voltou a dois dígitos (limpeza do rito_test da 032 + contenção do host arrefecida); a dívida #17 segue aberta. Aprendizado registrado nela: lifespan do app por SESSÃO de worker quebra 151 testes com conexões asyncpg em loops distintos (pytest-asyncio loop_scope=session) — a otimização do boot por teste não é escopo de fixture. TaskFlags com as 5 flags no TaskForm (4 da spec + show_in_schedule, que também é coluna nova do post)."
+    },
+    "034": {
+      "wall_clock_seconds": 83,
+      "notes": "528 testes backend (499 anteriores + 29 novos: 17 unit de calendário — 8 periodicidades na mesma âncora, dia 31→28/fev→31/mar com âncora preservada (regra 3), ULTIMA semana em mês de 4 e 5 semanas (regra 4), ordinais 1ª/2ª/3ª, quinzenal=+14d cruzando mês (regra 5), 29/02 anual clampando e voltando ao 29 no bissexto, repeat_on ignorado nas por-dia, preview com until/max — e 12 integração: criar com série vincula template (occurrences_created=1), recorrência sem data → 422, concluir gera a próxima (regra 1), conclusão parcial não gera (regra 3 da 033), until_date e max_occurrences encerram (regra 6), DELETE preserva o gerado (regra 7), PUT afeta só o futuro (regra 8 — semanal→mensal com âncora no dia 10), worker coloca série em dia sem duplicar data (regra 2), preview 5 datas, avulsa → 404, RLS API+banco). 103 frontend (99 + 4 do RecurrencePreview: 5 datas DD/MM/AAAA, clamp 31/fev, limite de ocorrências, sem data não renderiza). 5 e2e (inalterado). Contenção do host segue: backend 43,6 s isolado vs ~115 s sob concorrência com as 3 suítes (4 cores); 2 runs >120 s antes do verde a 83 s, com flakes de timeout em forms alheios (passam isolados) e 429 do rate limit de login — chave login_attempts SEM TTL acumulando entre runs (flake novo, candidato a dívida da 040). Decisões: geração sempre avança de last_generated_date (série monotônica — concluir atrasada não volta no tempo; só a ocorrência MAIS RECENTE concluída por completo dispara); worker faz catch-up completo até hoje com teto de 366/varredura; clonagem do template desloca end_date/deadline_date pelo mesmo delta; posts.recurrence_id com ON DELETE SET NULL (regra 10); preview do modal duplica a regra de calendário em TS de propósito (post ainda não existe) com os mesmos casos de borda testados nas duas pontas; celery sem stubs → ignore_missing_imports no mypy; create_series seta updated_at explícito (lição MissingGreenlet reincidente da 032/033)."
     }
   }
 }

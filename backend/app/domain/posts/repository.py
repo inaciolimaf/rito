@@ -6,7 +6,7 @@ from sqlalchemy import delete as sql_delete
 from sqlalchemy import func, select, update
 
 from app.core.repository import BaseRepository
-from app.domain.posts.models import Post, PostUser
+from app.domain.posts.models import Post, PostRecurrence, PostUser
 from app.domain.users.models import User
 
 
@@ -108,3 +108,35 @@ class PostRepository(BaseRepository[Post]):
             .execution_options(synchronize_session=False)
         )
         return int(result.rowcount)  # type: ignore[attr-defined]
+
+
+class RecurrenceRepository(BaseRepository[PostRecurrence]):
+    model = PostRecurrence
+
+    async def get_for_post(self, post: Post) -> PostRecurrence | None:
+        if post.recurrence_id is None:
+            return None
+        return await self.get_by_id(post.recurrence_id)
+
+    async def series_date_exists(self, recurrence_id: uuid.UUID, day: date) -> bool:
+        """Guarda de idempotência: a conclusão (regra 1) e o worker (regra 2) nunca
+        geram duas ocorrências na mesma data."""
+        stmt = (
+            select(func.count())
+            .select_from(Post)
+            .where(Post.recurrence_id == recurrence_id, Post.scheduled_date == day)
+        )
+        return int((await self.session.execute(stmt)).scalar_one()) > 0
+
+    async def list_overdue(self, today: date) -> Sequence[PostRecurrence]:
+        """Séries ativas cuja última data gerada já passou — alvo do worker diário
+        de segurança (regra 2)."""
+        stmt = (
+            select(PostRecurrence)
+            .where(
+                PostRecurrence.is_active.is_(True),
+                PostRecurrence.last_generated_date < today,
+            )
+            .order_by(PostRecurrence.last_generated_date)
+        )
+        return (await self.session.scalars(stmt)).all()

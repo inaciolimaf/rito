@@ -17,6 +17,7 @@ from app.domain.posts.exceptions import (
     TaskTypeNotFoundError,
 )
 from app.domain.posts.models import Post, PostUser
+from app.domain.posts.recurrence_service import RecurrenceService
 from app.domain.posts.repository import PostRepository
 from app.domain.posts.schemas import (
     PostCompleteRequest,
@@ -63,6 +64,7 @@ class PostService:
         self.task_types = TaskTypeRepository(session)
         self.squads = SquadRepository(session)
         self.users = UserRepository(session)
+        self.recurrences = RecurrenceService(session, tenant_id)
 
     async def _resolve_assignees(
         self, *, user_ids: Sequence[uuid.UUID], squad_id: uuid.UUID | None
@@ -137,6 +139,9 @@ class PostService:
             show_in_schedule=payload.show_in_schedule,
         )
         created = await self.posts.create_with_assignees(post, assignee_ids)
+        if payload.recurrence is not None:
+            # Spec 034: o post criado é o template (e a 1ª ocorrência) da série.
+            await self.recurrences.create_series(created, payload.recurrence)
         return await self._detail(created)
 
     async def get(self, post_id: uuid.UUID, *, viewer_id: uuid.UUID) -> PostDetail | None:
@@ -246,7 +251,15 @@ class PostService:
         line.points_earned = post.reward_snapshot
         # Regra 9: ADMIN concluindo por outro fica registrado em completed_by.
         line.completed_by = actor.id if by_other else None
+        if post.recurrence_id is not None and await self._all_completed(post):
+            # Spec 034, regra 1: a série gera a próxima ocorrência ao concluir a
+            # atual como um todo (todos os responsáveis).
+            await self.recurrences.advance_on_completion(post)
         return await self._detail(post)
+
+    async def _all_completed(self, post: Post) -> bool:
+        lines = await self.posts.lines_for_post(post.id)
+        return all(item.completed_at is not None for item in lines)
 
     async def reopen(self, post: Post, actor: User, payload: PostReopenRequest) -> PostDetail:
         line, _by_other = await self._resolve_completion_line(post, actor, payload.user_id)

@@ -1,7 +1,9 @@
 import uuid
 from datetime import date, datetime, time
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.domain.posts.models import RecurrencePeriod, RecurrenceWeek
 
 
 class PostBaseRequest(BaseModel):
@@ -52,6 +54,15 @@ class PostCreateRequest(PostBaseRequest, PostFlagsInput):
 
     user_ids: list[uuid.UUID] = []
     squad_id: uuid.UUID | None = None
+    recurrence: "RecurrenceInput | None" = None
+
+    @model_validator(mode="after")
+    def _check_recurrence_anchor(self) -> "PostCreateRequest":
+        # A âncora da série é a scheduled_date do template — sem ela não há como
+        # calcular o dia do mês / dia da semana das próximas ocorrências.
+        if self.recurrence is not None and self.scheduled_date is None:
+            raise ValueError("Tarefa recorrente exige data do compromisso.")
+        return self
 
 
 class PostUpdateRequest(PostBaseRequest):
@@ -87,6 +98,42 @@ class PostFlagValueRequest(BaseModel):
     value: bool = True
 
 
+class RecurrenceInput(BaseModel):
+    """Configuração da série (spec 034 §5) — aceita no POST /posts. `until_date` e
+    `max_occurrences` são os dois limites da regra 6 (o que vier primeiro encerra)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    period: RecurrencePeriod
+    repeat_on: RecurrenceWeek = RecurrenceWeek.DIA_EXATO
+    until_date: date | None = None
+    max_occurrences: int | None = Field(default=None, ge=1)
+
+
+class RecurrenceUpdateRequest(RecurrenceInput):
+    """PUT /posts/{id}/recurrence — substituição completa (regra 8: afeta só as
+    ocorrências futuras; occurrences_created e last_generated_date não voltam)."""
+
+
+class RecurrenceResponse(BaseModel):
+    id: uuid.UUID
+    template_post_id: uuid.UUID
+    period: RecurrencePeriod
+    repeat_on: RecurrenceWeek
+    until_date: date | None
+    max_occurrences: int | None
+    occurrences_created: int
+    last_generated_date: date | None
+    is_active: bool
+    created_at: datetime
+
+
+class RecurrencePreviewResponse(BaseModel):
+    """As próximas datas da série (spec 034 §5) — já descontados os limites."""
+
+    dates: list[date]
+
+
 class AssigneeResponse(BaseModel):
     id: uuid.UUID
     name: str
@@ -119,6 +166,8 @@ class PostResponse(BaseModel):
     show_in_schedule: bool
     # Regra 3: concluída como um todo quando TODOS os responsáveis concluíram.
     all_completed: bool
+    # Spec 034: série a que a ocorrência pertence (None = tarefa avulsa).
+    recurrence_id: uuid.UUID | None
     # Regra 8: tarefa privada aparece para não envolvidos só como presença — conteúdo
     # redigido (ver service); sempre False em respostas diretas a envolvidos.
     redacted: bool = False

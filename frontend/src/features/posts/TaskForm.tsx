@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { AssigneeSelector } from "@/features/posts/AssigneeSelector";
 import { TaskFlags } from "@/features/posts/TaskFlags";
 import { DeadlineField } from "@/features/posts/DeadlineField";
+import { RecurrenceFields } from "@/features/posts/RecurrenceFields";
+import { RecurrencePreview } from "@/features/posts/RecurrencePreview";
 import type { TaskFormValues } from "@/features/posts/schema";
 import { TaskTypeSelect } from "@/features/posts/TaskTypeSelect";
 
@@ -40,6 +42,15 @@ export function TaskForm({
   const squadId = watch("squad_id");
   const taskTypeId = watch("task_type_id");
   const deadlineDate = watch("deadline_date");
+  const scheduledDate = watch("scheduled_date");
+  const recurrenceValues = {
+    isRecurring: watch("is_recurring"),
+    period: watch("recurrence_period"),
+    repeatOn: watch("recurrence_repeat_on"),
+    limitMode: watch("recurrence_limit_mode"),
+    untilDate: watch("recurrence_until_date"),
+    maxOccurrences: watch("recurrence_max_occurrences"),
+  };
   const flagValues = {
     is_important: watch("is_important"),
     is_urgent: watch("is_urgent"),
@@ -123,6 +134,34 @@ export function TaskForm({
           setValue("show_in_schedule", next.show_in_schedule);
         }}
       />
+
+      <RecurrenceFields
+        value={recurrenceValues}
+        onChange={(next) => {
+          setValue("is_recurring", next.isRecurring);
+          setValue("recurrence_period", next.period);
+          setValue("recurrence_repeat_on", next.repeatOn);
+          setValue("recurrence_limit_mode", next.limitMode);
+          setValue("recurrence_until_date", next.untilDate);
+          setValue("recurrence_max_occurrences", next.maxOccurrences);
+        }}
+        error={errors.recurrence_until_date?.message ?? errors.recurrence_max_occurrences?.message}
+      />
+      {recurrenceValues.isRecurring && (
+        <RecurrencePreview
+          scheduledDate={scheduledDate}
+          period={recurrenceValues.period}
+          repeatOn={recurrenceValues.repeatOn}
+          untilDate={
+            recurrenceValues.limitMode === "until" ? recurrenceValues.untilDate : undefined
+          }
+          maxOccurrences={
+            recurrenceValues.limitMode === "max"
+              ? Number(recurrenceValues.maxOccurrences) || undefined
+              : undefined
+          }
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">

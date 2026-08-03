@@ -153,7 +153,7 @@ Campo `folder` com autocomplete, agrupamento por pasta, busca.
 Importante, urgente, futura, privada, retroativa (com `date_completed`); conclusão por responsável; pontuação creditada na conclusão.
 **Aceite:** retroativa credita na data informada; privada invisível a terceiros. **t:** 4 s. **Deps:** 032
 
-### ⬜ 034 — Tarefas: recorrência
+### ✅ 034 — Tarefas: recorrência
 8 periodicidades + `repeat_on_week` (dia exato / 1ª / 2ª / 3ª / última semana); geração da próxima ocorrência.
 **Aceite:** série mensal "última semana" resolve corretamente em meses de 4 e 5 semanas. **t:** 4 s. **Deps:** 033
 

@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api";
+import type { RecurrencePeriod, RecurrenceWeek } from "@/features/posts/recurrence";
 
 export interface AssigneeData {
   id: string;
@@ -27,9 +28,17 @@ export interface PostData {
   show_in_schedule: boolean;
   all_completed: boolean;
   redacted: boolean;
+  recurrence_id: string | null;
   assignees: AssigneeData[];
   created_at: string;
   updated_at: string;
+}
+
+export interface RecurrencePayload {
+  period: RecurrencePeriod;
+  repeat_on: RecurrenceWeek;
+  until_date: string | null;
+  max_occurrences: number | null;
 }
 
 export interface PostPayload {
@@ -50,6 +59,7 @@ export interface PostPayload {
   is_future: boolean;
   is_private: boolean;
   show_in_schedule: boolean;
+  recurrence?: RecurrencePayload | null;
 }
 
 export async function createPost(payload: PostPayload): Promise<PostData> {

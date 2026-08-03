@@ -1,7 +1,7 @@
 # 034 — Tarefas: recorrência
 
 **Fase:** 3 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 033 · **Status:** ⬜ pendente
+**Depende de:** 033 · **Status:** ✅ concluída (2026-08-03)
 
 ---
 
@@ -100,8 +100,50 @@ Migration `034_post_recurrences.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Gatilho da geração (regra 1):** a spec diz "ao concluir a atual" sem definir "atual"
+  com conclusão POR RESPONSÁVEL (033). Decisão: a série só avança quando a tarefa fecha
+  **como um todo** (todos os responsáveis — regra 3 da 033) E a ocorrência concluída é
+  a **mais recente gerada** (`scheduled_date == last_generated_date`). Concluir uma
+  atrasada depois que o worker adiantou a série não volta no tempo — a geração sempre
+  parte de `last_generated_date`, nunca da data da ocorrência concluída.
+- **Worker faz catch-up completo:** a varredura gera todas as ocorrências atrasadas até
+  `last_generated_date >= hoje` (não uma por dia), com teto defensivo de 366 por
+  varredura contra série diária abandonada há anos; o worker do dia seguinte continua.
+  A guarda `series_date_exists` torna conclusão + worker idempotentes (nunca duas
+  ocorrências na mesma data).
+- **Clonagem do template:** `end_date`/`deadline_date` andam pelo mesmo delta da data do
+  compromisso (ciclo relativo preservado); responsáveis, flags, local e descrição vêm do
+  estado ATUAL do template (que é editável); `reward_snapshot` copiado do template (já
+  congelado — regra 3 da 032 compõe com a regra 9 desta).
+- **`posts.recurrence_id` com `ON DELETE SET NULL`:** excluir uma ocorrência (regra 10)
+  nunca interrompe a série; se o template cair (CASCADE da série), as ocorrências
+  geradas sobrevivem sem vínculo. `template_post_id` tem UNIQUE (uma série por template).
+- **Preview no modal duplica a regra em TS de propósito:** o endpoint de preview exige
+  um post salvo e o modal mostra as datas ANTES de criar. `features/posts/recurrence.ts`
+  espelha `recurrence.py`; os testes das duas pontas usam os mesmos casos de borda
+  (dia 31, última semana, 29/02). Aritmética em números + `Date.UTC` — `new Date(iso)`
+  local andaria um dia para trás em fusos negativos.
+- **`create_series` seta `updated_at` explícito:** o UPDATE do `recurrence_id` dispara o
+  `onupdate` server-side e o atributo expira — leitura síncrona na resposta explode com
+  MissingGreenlet (terceira reincidência da lição da 032; candidata a helper na 040).
+- **Flakes de infra observados (não são da spec):** chave `login_attempts:*` do rate
+  limit SEM TTL acumulando entre runs no Redis de teste (429 espúrio no
+  `test_unknown_email_returns_same_generic_401` — investigar na 040); timeouts de 5 s em
+  forms de customers/lawsuits sob contenção (passam isolados); backend 43,6 s isolado vs
+  ~115 s concorrente com as 3 suítes num host de 4 cores.
+- **Celery sem stubs:** `ignore_missing_imports` para `celery.*` no mypy + `type:
+  ignore[untyped-decorator]` no task. O worker roda fora do caminho testado — a regra
+  mora no `RecurrenceService.sweep_overdue`, exercitado direto (sem fila, sem broker).
 
 ## 10. Definição de pronto
 
-Checklist padrão · Casos de borda de calendário cobertos · Commit `feat(034): tarefas — recorrência`
+- [x] Migration `034_post_recurrences` aplicada (tabela + RLS + enums + coluna em posts)
+- [x] 8 periodicidades × 5 modos com casos de borda de calendário cobertos (17 unit)
+- [x] Geração ao concluir (regra 1) e worker de segurança (regra 2) — integração
+- [x] Limites `until_date`/`max_occurrences` (regra 6), DELETE preserva (regra 7),
+  PUT afeta só o futuro (regra 8) — integração
+- [x] Endpoints GET/PUT/DELETE/preview + `recurrence` no POST /posts
+- [x] `RecurrenceFields` + `RecurrencePreview` no modal de nova tarefa (4 testes)
+- [x] Isolamento de tenant na tabela nova (API 404 + RLS direto no banco)
+- [x] `make lint` verde · `make test` verde em **83 s** (orçamento 120 s)
+- [x] Commit `feat(034): tarefas — recorrência`

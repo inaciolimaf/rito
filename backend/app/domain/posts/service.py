@@ -26,6 +26,7 @@ from app.domain.posts.schemas import (
     PostReopenRequest,
     PostUpdateRequest,
 )
+from app.domain.posts.visibility import is_involved
 from app.domain.squads.repository import SquadRepository
 from app.domain.task_types.repository import TaskTypeRepository
 from app.domain.users.models import User, UserRole
@@ -51,8 +52,9 @@ class PostDetail:
 
 
 def _is_involved(post: Post, assignee_ids: set[uuid.UUID], user_id: uuid.UUID) -> bool:
-    """Regra 8: tarefa privada só é visível ao criador e aos responsáveis."""
-    return post.created_by == user_id or user_id in assignee_ids
+    """Regra 8: tarefa privada só é visível ao criador e aos responsáveis.
+    Alias legado — a função mora em posts/visibility.py (spec 035, regra dos 3 usos)."""
+    return is_involved(post, assignee_ids, user_id)
 
 
 class PostService:

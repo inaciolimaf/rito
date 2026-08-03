@@ -1,6 +1,7 @@
 import asyncio
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from app.core.config import get_settings
@@ -11,7 +12,9 @@ _PRESIGNED_URL_EXPIRY_SECONDS = 7 * 24 * 60 * 60
 class S3FileStorage:
     """Implementação real de `FileStorage` — MinIO (dev) ou S3 (produção), mesmo cliente
     (boto3), só o `endpoint_url` muda. boto3 é síncrono; `upload` roda a chamada bloqueante
-    numa thread (`asyncio.to_thread`) para não travar o event loop."""
+    numa thread (`asyncio.to_thread`) para não travar o event loop. Assinatura s3v4
+    explícita: com endpoint customizado o boto3 cairia na s3v2 legada (URL com
+    `Expires=<epoch>` em vez de `X-Amz-Expires=<segundos>`)."""
 
     def __init__(
         self,
@@ -29,6 +32,7 @@ class S3FileStorage:
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             region_name=region,
+            config=Config(signature_version="s3v4"),
         )
 
     def _ensure_bucket(self) -> None:
@@ -54,11 +58,17 @@ class S3FileStorage:
     async def upload(self, *, key: str, content: bytes, content_type: str) -> None:
         await asyncio.to_thread(self._put, key=key, content=content, content_type=content_type)
 
+    async def delete(self, *, key: str) -> None:
+        await asyncio.to_thread(self._client.delete_object, Bucket=self._bucket, Key=key)
+
     def public_url(self, key: str) -> str:
+        return self.signed_url(key, expires_in_seconds=_PRESIGNED_URL_EXPIRY_SECONDS)
+
+    def signed_url(self, key: str, *, expires_in_seconds: int) -> str:
         return self._client.generate_presigned_url(
             "get_object",
             Params={"Bucket": self._bucket, "Key": key},
-            ExpiresIn=_PRESIGNED_URL_EXPIRY_SECONDS,
+            ExpiresIn=expires_in_seconds,
         )
 
 

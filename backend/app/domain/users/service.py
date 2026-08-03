@@ -55,6 +55,13 @@ class UserService:
     async def get(self, user_id: uuid.UUID) -> User | None:
         return await self.users.get_by_id(user_id)
 
+    async def list_mentionable(self, *, query: str | None) -> Sequence[User]:
+        """Autocomplete de @menção (spec 035): ativos do tenant, até 10, por nome."""
+        items, _total = await self.users.list_filtered(
+            is_active=True, query=query, cursor=None, limit=10
+        )
+        return items
+
     async def update(self, *, actor: User, target: User, payload: UserUpdateRequest) -> User:
         # Regra 9: usuário edita o próprio perfil, mas não o próprio role/financial_access.
         is_self = actor.id == target.id

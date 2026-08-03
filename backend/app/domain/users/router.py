@@ -23,6 +23,7 @@ from app.domain.users.schemas import (
     AcceptInvitationRequest,
     InviteUserRequest,
     InviteUserResponse,
+    MentionableUserResponse,
     OccupationResponse,
     PreferencesResponse,
     PreferencesUpdateRequest,
@@ -150,6 +151,20 @@ async def put_my_preferences(
     # Merge raso por chave (regra 7, spec 026): o cliente manda só o que quer mudar.
     user.preferences = {**user.preferences, **payload.preferences}
     return PreferencesResponse(preferences=dict(user.preferences))
+
+
+@users_router.get("/mentionable")
+async def list_mentionable_users(
+    q: str | None = Query(default=None),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> list[MentionableUserResponse]:
+    """Autocomplete de `@menção` (spec 035 §5): usuários ATIVOS do tenant, forma
+    mínima (id + nome), aberto a qualquer colaborador — quem comenta precisa mencionar.
+    Registrado antes de /{user_id} para não virar lookup por id."""
+    service = UserService(session=session, tenant_id=current_user.tenant_id)
+    users = await service.list_mentionable(query=q)
+    return [MentionableUserResponse(id=user.id, name=user.name) for user in users]
 
 
 @users_router.get("/{user_id}")

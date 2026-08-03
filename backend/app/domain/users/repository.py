@@ -14,6 +14,19 @@ class UserRepository(BaseRepository[User]):
         result = await self.session.scalars(select(User).where(User.email == email))
         return result.first()
 
+    async def list_active_basic(self) -> Sequence[User]:
+        """Usuários ativos do tenant (id + nome) — candidatos da resolução de @menções
+        (spec 035, regra 1)."""
+        stmt = select(User).where(User.is_active.is_(True)).order_by(User.name)
+        return (await self.session.scalars(stmt)).all()
+
+    async def names_for(self, user_ids: set[uuid.UUID]) -> dict[uuid.UUID, str]:
+        """Nome de vários usuários em UMA query (sem N+1 nas listagens)."""
+        if not user_ids:
+            return {}
+        stmt = select(User.id, User.name).where(User.id.in_(user_ids))
+        return {user_id: name for user_id, name in await self.session.execute(stmt)}
+
     async def list_filtered(
         self,
         *,

@@ -66,6 +66,10 @@ export async function createPost(payload: PostPayload): Promise<PostData> {
   return apiRequest<PostData>("/api/v1/posts", { method: "POST", body: payload });
 }
 
+export async function getPost(postId: string): Promise<PostData> {
+  return apiRequest<PostData>(`/api/v1/posts/${postId}`);
+}
+
 export async function listLawsuitPosts(lawsuitId: string): Promise<PostData[]> {
   return apiRequest<PostData[]>(`/api/v1/lawsuits/${lawsuitId}/posts`);
 }

@@ -157,7 +157,7 @@ Importante, urgente, futura, privada, retroativa (com `date_completed`); conclus
 8 periodicidades + `repeat_on_week` (dia exato / 1ª / 2ª / 3ª / última semana); geração da próxima ocorrência.
 **Aceite:** série mensal "última semana" resolve corretamente em meses de 4 e 5 semanas. **t:** 4 s. **Deps:** 033
 
-### ⬜ 035 — Tarefas: comentários e anexos
+### ✅ 035 — Tarefas: comentários e anexos
 Thread de comentários, `@menções` com notificação, anexos múltiplos.
 **Aceite:** menção notifica; anexo respeita quota. **t:** 5 s. **Deps:** 032
 

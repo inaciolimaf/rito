@@ -142,3 +142,10 @@ class PreferencesResponse(BaseModel):
 
 class PreferencesUpdateRequest(BaseModel):
     preferences: dict[str, Any]
+
+
+class MentionableUserResponse(BaseModel):
+    """Forma mínima para o autocomplete de @menção (spec 035) — só id e nome."""
+
+    id: uuid.UUID
+    name: str

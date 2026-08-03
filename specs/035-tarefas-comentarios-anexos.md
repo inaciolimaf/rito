@@ -1,7 +1,7 @@
 # 035 — Tarefas: comentários, menções e anexos
 
 **Fase:** 3 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 032 · **Status:** ⬜ pendente
+**Depende de:** 032 · **Status:** ✅ concluída (2026-08-03)
 
 ---
 
@@ -125,8 +125,51 @@ RLS nas três. Migration `035_comments_attachments_notifications.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Menção é casamento de nome, não token tipado.** O editor insere `@Nome Completo` em
+  texto livre; o backend casa os nomes dos usuários ativos contra o corpo (normalizado,
+  sem acento/caixa; nomes mais longos primeiro; boundary não-alfabético) e persiste os
+  ids (regra 1). Dois usuários homônimos são mencionados juntos — limitação aceita do
+  texto livre. Edição re-resolve e notifica só quem ENTROU na lista.
+- **Acesso à tarefa é a régua de tudo.** Comentar, anexar, baixar e listar anexos
+  verificam a mesma regra 8 da 033 (privada = só criador/responsáveis, 404 não 403).
+  A regra saiu de `posts/service.py` para `posts/visibility.py` (regra dos 3 usos:
+  posts, attachments, comments).
+- **URL assinada precisou de `signature_version="s3v4"` no boto3:** com endpoint
+  customizado (MinIO) o cliente caía na s3v2 legada (`Expires=<epoch>`), quebrando a
+  regra 6 verificável. `FileStorage` ganhou `signed_url(key, expires_in_seconds)` e
+  `delete(key)`; `public_url` virou atalho da assinada de 7 dias (logo inalterado).
+- **Cursor keyset em coluna de data precisa de `datetime`, não string** — comparar
+  `timestamptz > character varying` não existe no Postgres. O `BaseRepository` só cobre
+  coluna texto; comments/notifications decodificam o cursor para `datetime` e usam
+  `tuple_` + `literal()` (mesma lição do mypy no `build_sorted_keyset_query`).
+- **`NotificationRepository.create` virou `create_notification`** — a assinatura por
+  kwargs conflitava com `BaseRepository.create(instance)` (LSP/mypy override).
+- **Delete de storage é best-effort** (`contextlib.suppress`): órfão no bucket é
+  preferível a falhar a exclusão da linha por erro de MinIO.
+- **Revision id da migration limitado a 32 chars** (`alembic_version.version_num` é
+  varchar(32)) — `035_comments_attachments_notifications` estourou em runtime; encurtado
+  para `035_comments_attach_notifs`.
+- **GET `/attachments?attached_to_type=&attached_to_id=`** entrou além da tabela do §5
+  (a listagem dos anexos da tarefa na UI precisava; a thread já traz os de comentário).
+- **Causa raiz do estouro intermitente de wall-clock (da 034):** vitest default é
+  1 thread/core — 4 threads node a 100% + `pytest -n auto` + playwright/vite/uvicorn
+  num host de 4 cores esticava o backend (suíte mais longa) de ~47 s isolado para
+  118–130 s. `run-tests.sh` agora capa pytest em `${PYTEST_WORKERS:-2}` e vitest em
+  `${VITEST_MAX_WORKERS:-2}`; wall-clock caiu para 89 s estável.
 
 ## 10. Definição de pronto
 
-Checklist padrão · `attachments` e `notifications` genéricas o bastante para reuso · Commit `feat(035): tarefas — comentários, menções e anexos`
+- [x] Migration `035_comments_attach_notifs` aplicada (3 tabelas + RLS + índices)
+- [x] Thread de comentários crescente com keyset a partir de 50 (regra 10)
+- [x] `@menções` resolvidas na gravação, persistidas como ids, com notificação in-app
+  (regras 1, 2, 8) e autocomplete `/users/mentionable`
+- [x] Edição do autor em 15 min; depois só ADMINISTRADOR+ (regra 3)
+- [x] Exclusão soft com "comentário removido" na thread (regra 4) removendo os anexos
+  do comentário (regra 9)
+- [x] Upload com allowlist de tipos, executáveis bloqueados e 50 MB (regra 5);
+  download por URL assinada de 5 min (regra 6); privada respeitada (regra 7)
+- [x] `CommentThread`, `CommentEditor` (@), `AttachmentList`, `FileDropzone`,
+  `NotificationPanel` + `NotificationBell` com badge e rota `/posts/:id`
+- [x] Isolamento de tenant nas 3 tabelas (API 404 + RLS direto no banco, dois sentidos)
+- [x] `make lint` verde · `make test` verde em **89 s** (orçamento 120 s)
+- [x] Commit `feat(035): tarefas — comentários, menções e anexos`

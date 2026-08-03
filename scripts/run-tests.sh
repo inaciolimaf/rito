@@ -40,15 +40,24 @@ async def main() -> None:
 
 asyncio.run(main())
 "
+	# As 3 suítes rodam CONCORRENTES (CLAUDE.md §3): pytest -n auto (todos os cores) +
+	# vitest threads + playwright/uvicorn/vite disputavam 4 cores e o wall-clock
+	# oscilava 114→135 s em agosto/2026 (spec 035). Cap em 2 workers por padrão dá ar
+	# às outras suítes; PYTEST_WORKERS=auto devolve o comportamento antigo em máquina
+	# dedicada (CI com mais cores).
+	workers="${PYTEST_WORKERS:-2}"
 	if [ -n "${PYTEST_ALLOW_HOSTS:-}" ]; then
-		uv run pytest -n auto --allow-hosts="$PYTEST_ALLOW_HOSTS"
+		uv run pytest -n "$workers" --allow-hosts="$PYTEST_ALLOW_HOSTS"
 	else
-		uv run pytest -n auto
+		uv run pytest -n "$workers"
 	fi
 }
 
 run_frontend() {
-	cd frontend && npm run test
+	# Mesma lógica do cap de workers do backend acima: vitest default é 1 thread por
+	# core — 4 threads + pytest + playwright/esbuild num host de 4 cores é o que faz
+	# a suíte backend (a mais longa) esticar. VITEST_MAX_WORKERS=... para sobrescrever.
+	cd frontend && npm run test -- --maxWorkers="${VITEST_MAX_WORKERS:-2}"
 }
 
 run_e2e() {

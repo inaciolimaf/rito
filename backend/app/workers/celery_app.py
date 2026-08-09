@@ -20,4 +20,13 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.recurrences.sweep_recurrences",
         "schedule": crontab(hour=3, minute=12),
     },
+    # Spec 039, regra 9: refresh da view materializada de pontuação a cada 15 min
+    # (concluir tarefa também agenda um refresh imediato — ver workers/scores.py).
+    "taskscore-refresh": {
+        "task": "app.workers.scores.refresh_scores",
+        "schedule": crontab(minute="*/15"),
+    },
 }
+
+# Garante que o worker registra as tasks declaradas fora deste módulo.
+celery_app.conf.imports = ("app.workers.recurrences", "app.workers.scores")

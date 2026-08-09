@@ -36,6 +36,7 @@ from app.domain.schedule.router import router as schedule_router
 from app.domain.squads.router import router as squads_router
 from app.domain.stages.router import stages_router, steps_router
 from app.domain.task_types.router import router as task_types_router
+from app.domain.taskscore.router import goals_router, taskscore_router
 from app.domain.users.router import invitations_router, occupations_router, users_router
 from app.domain.workflows.router import router as workflows_router
 from app.integrations.storage.s3 import create_file_storage
@@ -106,6 +107,8 @@ def create_app() -> FastAPI:
     # Feed iCal público por token (spec 037 §5) — fora de /api/v1 por decisão da spec.
     app.include_router(ical_router)
     app.include_router(workflows_router, prefix="/api/v1")
+    app.include_router(goals_router, prefix="/api/v1")
+    app.include_router(taskscore_router, prefix="/api/v1")
 
     return app
 

@@ -275,13 +275,21 @@ class StepVolumeResponse(BaseModel):
     pct: float
 
 
+class ClosureGoalResponse(BaseModel):
+    """Widget de meta (spec 028) — a meta em si é configurada na spec 039."""
+
+    target: int
+    achieved: int
+    pct: float
+
+
 class LawsuitStatsResponse(BaseModel):
     active: StatsCardResponse
     closed_this_month: StatsCardResponse
     archived_this_month: StatsCardResponse
     volume_by_step: list[StepVolumeResponse]
-    # Sempre None até a spec 039 (metas) — o widget convida a configurar (regra 6).
-    closure_goal: None = None
+    # None = sem meta configurada — o widget convida a configurar (regra 6).
+    closure_goal: ClosureGoalResponse | None = None
 
 
 class FolderSuggestionResponse(BaseModel):

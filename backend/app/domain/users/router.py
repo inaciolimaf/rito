@@ -25,6 +25,7 @@ from app.domain.users.schemas import (
     InviteUserResponse,
     MentionableUserResponse,
     OccupationResponse,
+    PointsGoalRequest,
     PreferencesResponse,
     PreferencesUpdateRequest,
     UserListResponse,
@@ -201,6 +202,22 @@ async def update_user(
     except OabRequiredError as exc:
         raise HTTPException(status_code=422, detail=exc.message) from exc
     return _to_user_response(updated, requester=current_user, storage=storage)
+
+
+@users_router.put("/{user_id}/points-goal")
+async def set_points_goal(
+    user_id: uuid.UUID,
+    payload: PointsGoalRequest,
+    current_user: User = Depends(require_role(UserRole.GESTOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> UserResponse:
+    """Meta mensal de pontos (spec 039 §5) — endpoint leve para a tela de metas, sem
+    precisar do update completo do usuário. None = sem meta (UI mostra "—", regra 3)."""
+    service = UserService(session=session, tenant_id=current_user.tenant_id)
+    target = await get_or_404(lambda: service.get(user_id), "Usuário não encontrado.")
+    target.points_goal = payload.points_goal
+    return _to_user_response(target, requester=current_user, storage=storage)
 
 
 @users_router.post("/{user_id}/deactivate", status_code=204)

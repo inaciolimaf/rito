@@ -12,8 +12,8 @@ test("jornada 1/25: login → home → logout", async ({ page }) => {
   await page.getByLabel("Senha").fill(PASSWORD);
   await page.getByRole("button", { name: "Entrar" }).click();
 
-  // A home é a caixa de entrada (spec 036 — antes era o placeholder "bem-vindo").
-  await expect(page.getByRole("heading", { name: "Caixa de entrada" })).toBeVisible();
+  // A home é o Meu Painel — caixa de entrada (spec 036) + aba Desempenho (spec 039).
+  await expect(page.getByRole("heading", { name: "Meu Painel" })).toBeVisible();
 
   await page.getByRole("button", { name: "Usuário E2E" }).click();
   await page.getByRole("menuitem", { name: "Sair" }).click();

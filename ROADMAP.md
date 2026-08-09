@@ -173,7 +173,7 @@ Visões mês/semana/dia/agenda; filtro por usuário e por data de compromisso vs
 Modelo de sequência (tarefa + responsável opcional + prazo em dias úteis); editor; disparo ao mudar de etapa; cálculo de dias úteis com feriados nacionais.
 **Aceite:** workflow de 5 etapas gera 5 tarefas com datas corretas. **t:** 5 s. **Deps:** 034, 015
 
-### ⬜ 039 — Metas, ranking e Taskscore dashboard
+### ✅ 039 — Metas, ranking e Taskscore dashboard
 Meta mensal por grupo de ação e por usuário; ranking com "classificar por" (pontuação, volume, atrasadas, envolvimento); período mensal ou ELTV; gráfico mês atual × anterior × meta.
 **Aceite:** ranking determinístico com seed. **t:** 5 s. **Deps:** 036
 

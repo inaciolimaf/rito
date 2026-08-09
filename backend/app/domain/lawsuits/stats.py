@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.lawsuits.models import Lawsuit
 from app.domain.stages.models import Stage, Step
+from app.domain.taskscore.models import ClosureGoal
 
 # Regra 7: cache de 5 minutos por tenant e mês.
 CACHE_TTL_SECONDS = 300
@@ -53,14 +54,24 @@ class StepVolume:
 
 
 @dataclass
+class ClosureGoalWidget:
+    """Widget de meta de fechamentos (spec 028) alimentado pela soma das metas por
+    grupo de ação configuradas na spec 039 (regra 8 dela)."""
+
+    target: int
+    achieved: int
+    pct: float
+
+
+@dataclass
 class LawsuitStats:
     active: StatsCard
     closed_this_month: StatsCard
     archived_this_month: StatsCard
     volume_by_step: list[StepVolume]
-    # A meta em si só é configurável na spec 039 — até lá, sempre None (regra 6) e o
-    # widget convida a configurar.
-    closure_goal: None = None
+    # Nenhuma meta configurada (soma dos grupos = 0) → None e o widget convida a
+    # configurar (regra 6).
+    closure_goal: ClosureGoalWidget | None = None
 
 
 def cache_key(tenant_id: uuid.UUID, month: date) -> str:
@@ -158,6 +169,14 @@ class LawsuitStatsRepository:
         )
         return [(str(name), int(count)) for name, count in (await self.session.execute(stmt))]
 
+    async def closure_target(self) -> int:
+        """Soma das metas mensais por grupo de ação (spec 039, regra 8) — RLS filtra
+        o tenant, nunca um WHERE manual."""
+        value = await self.session.scalar(
+            select(func.coalesce(func.sum(ClosureGoal.monthly_target), 0))
+        )
+        return int(value or 0)
+
 
 async def get_stats(
     session: AsyncSession, tenant_id: uuid.UUID, month: date, cache: StatsCache
@@ -166,11 +185,13 @@ async def get_stats(
     cached = await cache.get(key)
     if cached is not None:
         raw = json.loads(cached)
+        raw_goal = raw.get("closure_goal")
         return LawsuitStats(
             active=StatsCard(**raw["active"]),
             closed_this_month=StatsCard(**raw["closed_this_month"]),
             archived_this_month=StatsCard(**raw["archived_this_month"]),
             volume_by_step=[StepVolume(**item) for item in raw["volume_by_step"]],
+            closure_goal=ClosureGoalWidget(**raw_goal) if raw_goal else None,
         )
 
     repository = LawsuitStatsRepository(session)
@@ -178,6 +199,7 @@ async def get_stats(
         await repository.cycle_counts(month)
     )
     volumes = await repository.volume_by_step()
+    target = await repository.closure_target()
     total = sum(count for _name, count in volumes)
 
     stats = LawsuitStats(
@@ -194,6 +216,11 @@ async def get_stats(
             StepVolume(step=name, count=count, pct=round(count / total * 100, 1))
             for name, count in volumes
         ],
+        closure_goal=(
+            ClosureGoalWidget(target=target, achieved=closed, pct=round(closed / target * 100, 1))
+            if target > 0
+            else None
+        ),
     )
     await cache.set(key, json.dumps(asdict(stats)), ex=CACHE_TTL_SECONDS)
     return stats

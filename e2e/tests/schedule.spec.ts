@@ -71,7 +71,10 @@ test("jornada 6/25: criar compromisso na agenda → ver no mês → abrir", asyn
   const now = new Date();
   const target = new Date(now.getFullYear(), now.getMonth() + 1, 15);
   const targetIso = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}-15`;
-  await page.getByTestId(`day-cell-${targetIso}`).click();
+  // Clique no canto superior esquerdo (no número do dia), não no centro: com tarefas
+  // acumuladas de runs anteriores, o centro da célula cai num chip e abre a tarefa em
+  // vez do formulário (flake de re-run dentro do mesmo mês — spec 039, descobertas).
+  await page.getByTestId(`day-cell-${targetIso}`).click({ position: { x: 8, y: 8 } });
 
   // ---- o modal abre com a data preenchida (regra 7); completar e criar
   await expect(page.locator("#post-date")).toHaveValue(targetIso);

@@ -134,6 +134,12 @@ class AcceptInvitationRequest(BaseModel):
     password: str
 
 
+class PointsGoalRequest(BaseModel):
+    """Meta mensal de pontos (spec 039 §5) — None = sem meta (a UI mostra "—", regra 3)."""
+
+    points_goal: int | None = None
+
+
 class PreferencesResponse(BaseModel):
     # Any com justificativa: preferências são chave/valor livre por design (JSONB) —
     # o servidor não conhece a forma de cada chave; quem valida é o consumidor.

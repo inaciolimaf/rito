@@ -33,6 +33,7 @@ from app.domain.lawsuits.movements_service import MovementsService
 from app.domain.lawsuits.parties_service import PartiesService, PartyDetail
 from app.domain.lawsuits.repository import TIMELINE_KINDS
 from app.domain.lawsuits.schemas import (
+    ClosureGoalResponse,
     FinancialSummaryResponse,
     FolderGroupItemResponse,
     FolderGroupResponse,
@@ -275,6 +276,9 @@ async def get_lawsuits_stats(
         closed_this_month=StatsCardResponse(**vars(stats.closed_this_month)),
         archived_this_month=StatsCardResponse(**vars(stats.archived_this_month)),
         volume_by_step=[StepVolumeResponse(**vars(item)) for item in stats.volume_by_step],
+        closure_goal=(
+            ClosureGoalResponse(**vars(stats.closure_goal)) if stats.closure_goal else None
+        ),
     )
 
 

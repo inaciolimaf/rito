@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 163,
+  "last_measured_wall_clock_seconds": 154,
   "last_measured_at": "2026-08-09",
   "specs": {
     "001": {
@@ -150,6 +150,10 @@
     "037": {
       "wall_clock_seconds": 163,
       "notes": "570 backend (559 anteriores + 11 integração schedule: recortes mês/semana/dia, date_field troca eixo, só show_in_schedule na listagem e no feed, >90d→422, iCal parseado pela lib icalendar com X-PUBLISHED-TTL/REFRESH-INTERVAL, UID estável, token inválido→404, regenerar invalida, sem vazamento entre usuários, timezone America/Manaus→UTC), 119 frontend (115 + 4 CalendarPage: 4 visões, cores por status via data-status, clique no dia abre form com data, próximo mês muda range), 7 e2e (6 + jornada 6/25 agenda). Neste ciclo o orçamento subiu de 120 s para 300 s por decisão do usuário (volume de testes); wall-clock medido 163 s. Flake corrigido: célula do dia era <button> com chips <button> dentro (HTML inválido — clique central caía no chip e navegava; virou div role=button) e a jornada passou a clicar no dia 15 do mês seguinte (tenant e2e acumula tarefas entre runs). Decisões: token iCal em users (32 bytes urlsafe) com função SECURITY DEFINER lookup_ical_feed para resolver tenant sem furar RLS (role rito_app é NOBYPASSRLS); feed somente leitura fora de /api/v1; janela ±365 dias; DTEND de 1h quando não há término; privadas de terceiro somem da agenda (regra 8 da 033 aplicada)."
+    },
+    "038": {
+      "wall_clock_seconds": 154,
+      "notes": "597 backend (578 anteriores + 5 unit dias úteis — tabela fds, feriado duplo carnaval, offset 0=hoje mesmo em feriado, negativo→ValueError — e 14 integração: CRUD reconcile, apply N tarefas com datas do seed real de feriados, herda responsável do processo, transacional (responsável inativo → 422 e zero posts), preview não persiste, tipo inativo pulado com aviso, excluir não apaga tarefas, reaplicar 409→confirm_duplicate, colaborador 403, isolamento tenant B), 125 frontend (120 + 5: editor reordena e serializa posição como ordem do array, days_offset ''→null, preview lista tarefas e aplica, reaplicação avisa e confirma), 7 e2e (inalterado — sem jornada nova). Decisões: holidays global sem tenant/RLS com PK=date mapeada no atributo id herdado do Base (MappedAnnotationError com coluna chamada date); seed 2026-2030 com móveis da Páscoa + Consciência Negra; apply NÃO reusa PostService.create (duplicate check quebraria reaplicação/multi-etapa do mesmo tipo) — cria via PostRepository direto na sessão da request (atomicidade de graça); already_applied é heurística por task_type (posts não guardam workflow_id — fora do modelo da spec); add_business_days isolado em domain/workflows/business_days.py para a 086 reusar."
     }
   }
 }

@@ -169,7 +169,7 @@ Thread de comentários, `@menções` com notificação, anexos múltiplos.
 Visões mês/semana/dia/agenda; filtro por usuário e por data de compromisso vs prazo fatal; **feed iCal por usuário** (só tarefas com "Mostrar na agenda").
 **Aceite:** iCal válido consumível pelo Google Agenda; sincronização unidirecional. **t:** 7 s. **Deps:** 033
 
-### ⬜ 038 — Workflow
+### ✅ 038 — Workflow
 Modelo de sequência (tarefa + responsável opcional + prazo em dias úteis); editor; disparo ao mudar de etapa; cálculo de dias úteis com feriados nacionais.
 **Aceite:** workflow de 5 etapas gera 5 tarefas com datas corretas. **t:** 5 s. **Deps:** 034, 015
 

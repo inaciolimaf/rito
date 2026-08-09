@@ -23,6 +23,7 @@ import { StagesListPage } from "@/features/stages/StagesListPage";
 import { TaskTypesListPage } from "@/features/task-types/TaskTypesListPage";
 import { UserDetailPage } from "@/features/users/UserDetailPage";
 import { UsersSettingsPage } from "@/features/users/UsersSettingsPage";
+import { WorkflowsListPage } from "@/features/workflows/WorkflowsListPage";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
 
@@ -58,6 +59,7 @@ export function App(): JSX.Element {
                     <Route path="/settings/lawsuit-types" element={<LawsuitTypesListPage />} />
                     <Route path="/settings/stages" element={<StagesListPage />} />
                     <Route path="/settings/task-types" element={<TaskTypesListPage />} />
+                    <Route path="/settings/workflows" element={<WorkflowsListPage />} />
                     <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
                     <Route path="/customers" element={<CustomerListPage />} />
                     <Route path="/lawsuits" element={<LawsuitsPage />} />

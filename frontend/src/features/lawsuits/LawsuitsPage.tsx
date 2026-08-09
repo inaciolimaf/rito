@@ -42,6 +42,7 @@ import {
 } from "@/features/lawsuits/schema";
 import { listStages } from "@/features/stages/api";
 import { getUser, listUsers } from "@/features/users/api";
+import { WorkflowPreviewDialog } from "@/features/workflows/WorkflowPreviewDialog";
 import { formatCnj } from "@/lib/cnj";
 import { ApiError } from "@/lib/errors";
 
@@ -192,6 +193,12 @@ export function LawsuitsPage(): JSX.Element {
   const [editingLawsuit, setEditingLawsuit] = React.useState<LawsuitData | null>(null);
   const [editingParties, setEditingParties] = React.useState<PartyData[]>([]);
   const [pendingDelete, setPendingDelete] = React.useState<LawsuitListItem | null>(null);
+  // Spec 038, regra 7: troca de etapa com workflow sugerido abre o preview — nunca
+  // aplica sozinho.
+  const [suggestedWorkflow, setSuggestedWorkflow] = React.useState<{
+    workflowId: string;
+    lawsuit: EntityOption;
+  } | null>(null);
 
   const { data: courts = [] } = useQuery({
     queryKey: ["courts", "for-lawsuit-form"],
@@ -263,6 +270,19 @@ export function LawsuitsPage(): JSX.Element {
         delete updatePayload.parties;
         await updateLawsuit(editingLawsuit.id, updatePayload);
         await syncParties(editingLawsuit.id, formValues.parties);
+        if (formValues.stage_id !== editingLawsuit.stage_id) {
+          const newStage = stages.find((stage) => stage.id === formValues.stage_id);
+          if (newStage?.suggested_workflow_id) {
+            const firstParty = formValues.parties[0]?.label;
+            setSuggestedWorkflow({
+              workflowId: newStage.suggested_workflow_id,
+              lawsuit: {
+                id: editingLawsuit.id,
+                label: `${firstParty ?? "Processo"} — ${editingLawsuit.process_number ?? editingLawsuit.folder ?? "s/nº"}`,
+              },
+            });
+          }
+        }
       } else {
         await createLawsuit(payload);
       }
@@ -454,6 +474,14 @@ export function LawsuitsPage(): JSX.Element {
         confirmLabel="Excluir"
         destructive
         onConfirm={() => void handleConfirmDelete()}
+      />
+      <WorkflowPreviewDialog
+        open={suggestedWorkflow !== null}
+        onOpenChange={(open) => {
+          if (!open) setSuggestedWorkflow(null);
+        }}
+        workflowId={suggestedWorkflow?.workflowId ?? null}
+        lawsuit={suggestedWorkflow?.lawsuit ?? null}
       />
     </ListPageLayout>
   );

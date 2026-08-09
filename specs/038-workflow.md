@@ -1,7 +1,7 @@
 # 038 — Workflow
 
 **Fase:** 3 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 034, 015 · **Status:** ⬜ pendente
+**Depende de:** 034, 015 · **Status:** ✅ concluída
 
 ---
 
@@ -111,8 +111,30 @@ Migration `038_workflows.py` + seed de feriados nacionais 2026–2030.
 
 ## 9. Descobertas
 
-*(preencher)*
+1. **`Base` injeta `id` UUID como PK em toda tabela** — para `holidays` (PK = `date`,
+   modelo da spec) o atributo herdado foi remapeado para a coluna `date` (mesmo padrão
+   do `Court` com seu código inteiro). Coluna chamada `date` dispara
+   `MappedAnnotationError` se a anotação usar o tipo `date` sem alias.
+2. **Apply não reusa `PostService.create`**: o duplicate-check de posts (mesmo tipo +
+   data + responsáveis) quebraria a reaplicação permitida pela regra 8 e workflows com
+   etapas repetidas do mesmo tipo. A criação vai direto pelo `PostRepository` na sessão
+   da request — a atomicidade da regra 5 sai de graça (exceção → rollback total).
+3. **`already_applied` é heurística** (existe post do processo com algum dos tipos do
+   workflow): posts não guardam `workflow_id` — fora do modelo de dados da spec. Se
+   falsos positivos incomodarem na prática, candidato a coluna na 040.
+4. **`GET /workflows/{id}`** nasceu além da tabela de contratos (só list/preview/apply):
+   o editor precisa das etapas completas para editar.
+5. **Seed de feriados cobre 2026–2030** (móveis derivados da Páscoa; Consciência Negra
+   inclusa, feriado nacional desde 2024). Em 2030+ a tabela precisa de novo seed —
+   dívida anotada para a spec 086 (prazos), que já reutiliza `add_business_days`.
+6. **Feriado municipal/estadual ficou fora**: a tabela aceita (`is_national`), mas o
+   cálculo só considera nacionais — igual ao ADVBOX, que trata suspenso de prazo por
+   feriado nacional. Municipal entra quando houver demanda real.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Calculadora de dias úteis isolada e reutilizável (086 vai usar) · Commit `feat(038): workflow`
+- [x] Checklist padrão (lint verde, testes da spec escritos e verdes, migration `038_workflows`)
+- [x] Calculadora de dias úteis isolada e reutilizável (`domain/workflows/business_days.py` — a 086 vai usar)
+- [x] Isolamento entre tenants testado (tabelas novas com RLS)
+- [x] `make test` verde em **154 s** (orçamento 300 s) — 578 backend / 120 frontend / 7 e2e
+- [x] Commit `feat(038): workflow`

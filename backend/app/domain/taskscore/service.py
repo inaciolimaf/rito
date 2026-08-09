@@ -4,6 +4,7 @@ from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import previous_month_start
 from app.domain.taskscore.exceptions import ActionGroupNotFoundError
 from app.domain.taskscore.models import MonthlyScore
 from app.domain.taskscore.repository import TaskscoreRepository
@@ -129,8 +130,7 @@ class TaskscoreService:
                 ChartPoint(label=f"{day:%d/%m}", value=points)
                 for day, points in await self.repo.daily_points(user.id, month)
             ]
-        previous_month_date = (month.replace(day=1) - date.resolution).replace(day=1)
-        previous = await self.repo.monthly_score(user.id, previous_month_date)
+        previous = await self.repo.monthly_score(user.id, previous_month_start(month))
         return (
             current.points if current else 0,
             previous.points if previous else 0,

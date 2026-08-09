@@ -4,6 +4,7 @@ from datetime import date
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import add_business_days
 from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.posts.models import Post
 from app.domain.posts.repository import PostRepository
@@ -11,7 +12,6 @@ from app.domain.task_types.models import TaskType
 from app.domain.task_types.repository import TaskTypeRepository
 from app.domain.users.models import User
 from app.domain.users.repository import UserRepository
-from app.domain.workflows.business_days import add_business_days
 from app.domain.workflows.models import Workflow, WorkflowStep
 from app.domain.workflows.repository import HolidayRepository, WorkflowRepository
 

@@ -177,7 +177,7 @@ Modelo de sequência (tarefa + responsável opcional + prazo em dias úteis); ed
 Meta mensal por grupo de ação e por usuário; ranking com "classificar por" (pontuação, volume, atrasadas, envolvimento); período mensal ou ELTV; gráfico mês atual × anterior × meta.
 **Aceite:** ranking determinístico com seed. **t:** 5 s. **Deps:** 036
 
-### ⬜ 040 — 🔧 REFATORAÇÃO — Tarefas
+### ✅ 040 — 🔧 REFATORAÇÃO — Tarefas
 **t:** −
 
 ---

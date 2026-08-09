@@ -174,6 +174,33 @@
   `ix_lawsuits_folder_trgm`) e foram conferidos em `pg_indexes`. Revalidar com volume
   real na spec 098 (performance) — registrado como dívida #14.
 
+## Tarefas e caixa de entrada (spec 040)
+
+- **`app/core/dates.py` é o módulo único de datas (alvo 1).** Puro (sem banco/relógio/
+  framework): dias úteis e feriados, ocorrências de recorrência (com os enums
+  `RecurrencePeriod`/`RecurrenceWeek` — os valores do PG enum não mudaram, só a casa da
+  classe) e aritmética de mês (`month_end`, `next_month_start`, `previous_month_start`,
+  `nth_weekday`, `last_weekday`), que estava duplicada em lawsuits/stats e taskscore.
+  `posts/recurrence.py` e `workflows/business_days.py` viraram shims de re-export para
+  os testes de 034/038, que passam sem edição. **057 (parcelamento) e 086 (prazo
+  processual) devem importar daqui.**
+- **`PostService` dividido por caso de uso (alvo 2):** `creation.py`
+  (CreatePostUseCase — referências, expansão de squad, duplicata, reward_snapshot),
+  `completion.py` (CompletePostUseCase — complete/reopen/lida/estrela com o disparo da
+  recorrência), `detail.py` (PostDetail + build_detail compartilhado pelos três).
+  `PostService` ficou com leitura/edição/flags (~120 linhas). `all_completed` virou
+  dado (PostRepository) — a conclusão em massa da inbox não alcança mais membros
+  privados de outro service.
+- **Caixa de entrada medida com 20.000 linhas (10k pendentes + 10k concluídas do mesmo
+  usuário, RLS ativo, melhor de 3, execução isolada):** contadores das 6 seções em 1
+  query = **79 ms**; página de seção (20+1, keyset) = **87 ms**; partes + nomes dos
+  responsáveis da página em batch = **14 ms**. Tela completa ≈ **180 ms < 200 ms** da
+  DoD. EXPLAIN: acesso a `post_users` sempre indexado (o planner prefere sair pelos
+  posts + `uq_post_users_post_user` quando o join de `task_types` é barato; o índice
+  parcial `ix_post_users_pending` é escolhido na forma "minhas pendentes" sem join).
+  O teste automatizado (`test_inbox_perf.py`) usa limiares de 200 ms (≈2,5× o medido)
+  para não flakkar sob `-n auto`; o seed é module-scoped por worker e se autodestrói.
+
 ## Ambiente de execução do agente (não é decisão de produto)
 
 - Este sandbox resolve Postgres/Redis via o hostname `dind` (Docker-in-Docker remoto), não

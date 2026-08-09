@@ -6,6 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
+from app.domain.posts.completion import CompletePostUseCase
+from app.domain.posts.creation import CreatePostUseCase
+from app.domain.posts.detail import PostDetail
 from app.domain.posts.exceptions import (
     AssigneeNotActiveError,
     CompleteForOthersForbiddenError,
@@ -31,7 +34,7 @@ from app.domain.posts.schemas import (
     RecurrenceResponse,
     RecurrenceUpdateRequest,
 )
-from app.domain.posts.service import PostDetail, PostService
+from app.domain.posts.service import PostService
 from app.domain.users.models import User
 from app.workers.scores import schedule_scores_refresh
 
@@ -151,9 +154,9 @@ async def create_post(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> PostResponse:
-    service = PostService(session=session, tenant_id=current_user.tenant_id)
+    use_case = CreatePostUseCase(session=session, tenant_id=current_user.tenant_id)
     try:
-        created = await service.create(payload, current_user)
+        created = await use_case.create(payload, current_user)
     except DuplicatePostError as exc:
         raise HTTPException(
             status_code=409,
@@ -247,8 +250,9 @@ async def complete_post(
     detail = await get_or_404(
         lambda: service.get(post_id, viewer_id=current_user.id), _NOT_FOUND_DETAIL
     )
+    use_case = CompletePostUseCase(session=session, tenant_id=current_user.tenant_id)
     try:
-        completed = await service.complete(detail.post, current_user, payload)
+        completed = await use_case.complete(detail.post, current_user, payload)
     except NotAssigneeError as exc:
         raise HTTPException(status_code=403, detail=_NOT_ASSIGNEE_DETAIL) from exc
     except CompleteForOthersForbiddenError as exc:
@@ -278,8 +282,9 @@ async def reopen_post(
     detail = await get_or_404(
         lambda: service.get(post_id, viewer_id=current_user.id), _NOT_FOUND_DETAIL
     )
+    use_case = CompletePostUseCase(session=session, tenant_id=current_user.tenant_id)
     try:
-        reopened = await service.reopen(detail.post, current_user, payload)
+        reopened = await use_case.reopen(detail.post, current_user, payload)
     except NotAssigneeError as exc:
         raise HTTPException(status_code=403, detail=_NOT_ASSIGNEE_DETAIL) from exc
     except CompleteForOthersForbiddenError as exc:
@@ -303,8 +308,9 @@ async def read_post(
     detail = await get_or_404(
         lambda: service.get(post_id, viewer_id=current_user.id), _NOT_FOUND_DETAIL
     )
+    use_case = CompletePostUseCase(session=session, tenant_id=current_user.tenant_id)
     try:
-        updated = await service.set_read(detail.post, current_user, value=payload.value)
+        updated = await use_case.set_read(detail.post, current_user, value=payload.value)
     except NotAssigneeError as exc:
         raise HTTPException(status_code=403, detail=_NOT_ASSIGNEE_DETAIL) from exc
     return _to_response(updated)
@@ -321,8 +327,9 @@ async def star_post(
     detail = await get_or_404(
         lambda: service.get(post_id, viewer_id=current_user.id), _NOT_FOUND_DETAIL
     )
+    use_case = CompletePostUseCase(session=session, tenant_id=current_user.tenant_id)
     try:
-        updated = await service.set_starred(detail.post, current_user, value=payload.value)
+        updated = await use_case.set_starred(detail.post, current_user, value=payload.value)
     except NotAssigneeError as exc:
         raise HTTPException(status_code=403, detail=_NOT_ASSIGNEE_DETAIL) from exc
     return _to_response(updated)
@@ -350,7 +357,8 @@ async def _resolve_recurrence(
     detail = await get_or_404(
         lambda: service.get(post_id, viewer_id=current_user.id), _NOT_FOUND_DETAIL
     )
-    recurrence = await service.recurrences.get_for_post(detail.post)
+    recurrences = RecurrenceService(session=session, tenant_id=current_user.tenant_id)
+    recurrence = await recurrences.get_for_post(detail.post)
     if recurrence is None:
         raise HTTPException(status_code=404, detail=_NO_RECURRENCE_DETAIL)
     return detail, recurrence

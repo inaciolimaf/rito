@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.inbox.repository import InboxPreferenceRepository, InboxRepository
 from app.domain.inbox.sections import DEFAULT_SECTION_ORDER, InboxSection
 from app.domain.posts.models import PostUser
+from app.domain.posts.recurrence_service import RecurrenceService
 from app.domain.posts.repository import PostRepository
-from app.domain.posts.service import PostService
 from app.domain.users.models import User, UserRole
 from app.domain.users.repository import UserRepository
 
@@ -188,16 +188,17 @@ class InboxService:
             line.points_earned = post.reward_snapshot
         await self.session.flush()
         # Regra 1 da 034: a conclusão em massa também dispara a série de recorrência
-        # quando a tarefa fecha como um todo.
-        post_service = PostService(session=self.session, tenant_id=self.tenant_id)
+        # quando a tarefa fecha como um todo. Antes da 040 isto alcançava membros
+        # privados do PostService; hoje vai direto ao repositório + RecurrenceService.
+        recurrences = RecurrenceService(self.session, self.tenant_id)
         for post_id in post_ids:
             post = await self.posts.get_by_id(post_id)
             if (
                 post is not None
                 and post.recurrence_id is not None
-                and await post_service._all_completed(post)
+                and await self.posts.all_completed(post_id)
             ):
-                await post_service.recurrences.advance_on_completion(post)
+                await recurrences.advance_on_completion(post)
 
     async def bulk_read(self, user: User, post_ids: list[uuid.UUID], *, value: bool) -> None:
         lines = await self._post_users_for(post_ids, user.id)

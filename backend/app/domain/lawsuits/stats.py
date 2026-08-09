@@ -10,12 +10,13 @@ import json
 import uuid
 from collections.abc import Awaitable
 from dataclasses import asdict, dataclass
-from datetime import date, timedelta
+from datetime import date
 from typing import Protocol
 
 from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import next_month_start, previous_month_start
 from app.domain.lawsuits.models import Lawsuit
 from app.domain.stages.models import Stage, Step
 from app.domain.taskscore.models import ClosureGoal
@@ -91,14 +92,6 @@ async def invalidate_stats_cache(
     await cache.delete(*(cache_key(tenant_id, month) for month in sorted(months)))
 
 
-def previous_month(month: date) -> date:
-    return (month - timedelta(days=1)).replace(day=1)
-
-
-def _next_month(month: date) -> date:
-    return date(month.year + (month.month == 12), month.month % 12 + 1, 1)
-
-
 def _delta(current: int, previous: int) -> float | None:
     # Regra 2: anterior zerado → "novo" (None), nunca ∞.
     if previous == 0:
@@ -128,8 +121,8 @@ class LawsuitStatsRepository:
     async def cycle_counts(self, month: date) -> tuple[int, int, int, int, int, int]:
         """Uma query com os 6 agregados: ativos (agora e no fim do mês anterior),
         fechamentos e arquivamentos do mês de referência e do anterior."""
-        prev = previous_month(month)
-        following = _next_month(month)
+        prev = previous_month_start(month)
+        following = next_month_start(month)
         stmt = select(
             func.count().filter(self._active_as_of(func.now())).label("active_now"),
             func.count().filter(self._active_as_of(month)).label("active_prev_end"),

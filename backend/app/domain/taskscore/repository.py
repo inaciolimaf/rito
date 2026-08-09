@@ -5,14 +5,11 @@ from datetime import date
 from sqlalchemy import Date, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import next_month_start
 from app.domain.action_groups.models import ActionGroup
 from app.domain.posts.models import Post, PostUser
 from app.domain.taskscore.models import ClosureGoal, MonthlyScore, user_monthly_scores
 from app.domain.users.models import User
-
-
-def next_month(month: date) -> date:
-    return date(month.year + (month.month == 12), month.month % 12 + 1, 1)
 
 
 class TaskscoreRepository:
@@ -123,7 +120,7 @@ class TaskscoreRepository:
                 PostUser.user_id == user_id,
                 PostUser.completed_at.is_not(None),
                 PostUser.completed_at >= month,
-                PostUser.completed_at < next_month(month),
+                PostUser.completed_at < next_month_start(month),
             )
             .group_by("day")
             .order_by("day")
@@ -138,7 +135,7 @@ class TaskscoreRepository:
         stmt = select(PostUser.user_id, func.count().label("assigned")).group_by(PostUser.user_id)
         if month is not None:
             stmt = stmt.join(Post, Post.id == PostUser.post_id).where(
-                Post.created_at >= month, Post.created_at < next_month(month)
+                Post.created_at >= month, Post.created_at < next_month_start(month)
             )
         return {
             row.user_id: int(row.assigned) for row in (await self.session.execute(stmt)).mappings()

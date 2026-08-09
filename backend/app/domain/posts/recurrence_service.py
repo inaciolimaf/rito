@@ -12,8 +12,8 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import next_occurrence, preview_occurrences
 from app.domain.posts.models import Post, PostRecurrence
-from app.domain.posts.recurrence import next_occurrence, preview_occurrences
 from app.domain.posts.repository import PostRepository, RecurrenceRepository
 from app.domain.posts.schemas import RecurrenceInput, RecurrenceUpdateRequest
 

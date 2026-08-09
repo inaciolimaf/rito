@@ -1,37 +1,24 @@
 import uuid
 from datetime import date, datetime, time
-from enum import StrEnum
 
 from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.dates import RecurrencePeriod, RecurrenceWeek
 from app.core.models import Base, TenantMixin
 
-
-class RecurrencePeriod(StrEnum):
-    """As 8 periodicidades da spec 034 §4 (ADVBOX: campo `recurrence`)."""
-
-    DIARIA = "DIARIA"
-    SEMANAL = "SEMANAL"
-    QUINZENAL = "QUINZENAL"
-    MENSAL = "MENSAL"
-    BIMESTRAL = "BIMESTRAL"
-    TRIMESTRAL = "TRIMESTRAL"
-    SEMESTRAL = "SEMESTRAL"
-    ANUAL = "ANUAL"
-
-
-class RecurrenceWeek(StrEnum):
-    """Os 5 modos de repetição no mês (ADVBOX: campo `repeat_on_week`) — só fazem
-    diferença nas periodicidades mensais ou mais longas (ver recurrence.py)."""
-
-    DIA_EXATO = "DIA_EXATO"
-    PRIMEIRA = "PRIMEIRA"
-    SEGUNDA = "SEGUNDA"
-    TERCEIRA = "TERCEIRA"
-    ULTIMA = "ULTIMA"
+# Os enums de recorrência moram em app/core/dates.py desde a spec 040 (alvo 1) — aqui
+# ficam re-exportados: schemas/services/testes continuam importando de posts.models e
+# os valores persistidos no PG enum (recurrence_period/recurrence_week) não mudaram.
+__all__ = [
+    "Post",
+    "PostRecurrence",
+    "PostUser",
+    "RecurrencePeriod",
+    "RecurrenceWeek",
+]
 
 
 class Post(TenantMixin, Base):

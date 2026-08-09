@@ -215,3 +215,14 @@ aumentar o waitFor do teste flake e reavaliar o boot do app por teste — ATUALI
 asyncpg presas a loops diferentes; 151 testes quebraram na tentativa, revertida). O
 caminho, se a margem voltar a apertar, é reduzir o CUSTO do boot por teste (ex.: pool
 menor em APP_ENV=test), não o escopo do fixture. Na 033 a suíte voltou a 99 s.
+
+**ATUALIZAÇÃO (040):** medido **174 s** no fechamento da spec (era 156 s na 039) —
+acima dos 90 s aspirados pelo checklist da 040, ainda 42% abaixo do gate de 300 s do
+CLAUDE.md. O flake de `StateCitySelect` não se manifestou nesta execução (waitFor
+inalterado). O delta 156→174 vem do seed de 20 mil linhas do novo `test_inbox_perf.py`
+(module-scoped, roda 1× por worker do xdist) somado à variância de contenção do host.
+Decisão: o item **permanece aberto, re-atribuído à 050** (refatoração das integrações
+CNJ), com o caminho já validado na 033 — reduzir o custo do boot do app por teste
+(lifespan completo com engine/Redis/S3 por teste via fixture `client`), não mexer em
+escopo de fixture nem em waitFor às cegas. Se a 050 não bastar, a 098 (performance)
+fecha a conta com divisão da suíte em grupos paralelos por domínio.

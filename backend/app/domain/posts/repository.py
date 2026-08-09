@@ -80,6 +80,13 @@ class PostRepository(BaseRepository[Post]):
         stmt = select(PostUser).where(PostUser.post_id == post_id)
         return (await self.session.scalars(stmt)).all()
 
+    async def all_completed(self, post_id: uuid.UUID) -> bool:
+        """A tarefa fechou como um todo (spec 033, regra 3): TODAS as linhas concluídas.
+        Dado puro — mora aqui para o CompletePostUseCase e a conclusão em massa da
+        caixa de entrada (spec 036) não duplicarem o loop."""
+        lines = await self.lines_for_post(post_id)
+        return all(item.completed_at is not None for item in lines)
+
     async def find_duplicates(
         self, *, lawsuit_id: uuid.UUID, task_type_id: uuid.UUID, scheduled_date: date | None
     ) -> Sequence[Post]:

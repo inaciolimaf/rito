@@ -59,13 +59,13 @@ Playwright, sharded.
 
 ## 3. Orçamento de testes — regra inegociável
 
-**Wall-clock de `make test` < 120 s.** As três suítes rodam **concorrentes entre si**.
+**Wall-clock de `make test` < 300 s (5 minutos).** As três suítes rodam **concorrentes entre si**.
 
 | Suíte | Estratégia | Teto |
 |---|---|---|
 | Backend | `pytest -n auto`, template database + `BEGIN`/`ROLLBACK` por teste | 45 s |
 | Frontend | Vitest threads, jsdom, sem browser | 30 s |
-| E2E | Playwright `--workers=N`, **máx. 25 jornadas no projeto inteiro** | 60 s |
+| E2E | Playwright `--workers=N`, **máx. 25 jornadas no projeto inteiro** | 300 s |
 
 Regras derivadas:
 - **Nunca** `sleep` em teste. Use espera por condição.
@@ -74,7 +74,7 @@ Regras derivadas:
 - E2E só ganha jornada nova se couber no teto. Se não couber, o caso vira teste de integração.
 - Toda spec declara seu **orçamento de tempo**. Estourou, a spec não fecha.
 
-O CI falha se o wall-clock passar de 120 s. Isso é um gate, não um aviso.
+O CI falha se o wall-clock passar de 300 s. Isso é um gate, não um aviso.
 
 ---
 
@@ -179,7 +179,7 @@ GET /api/v1/<recurso>?cursor=&limit=&sort=&order=&<filtros>
 2. **Expandir** a spec: escrever `specs/NNN-slug.md` completo, seguindo `specs/000-TEMPLATE.md`.
 3. Implementar **apenas** o escopo da spec. Fora de escopo é fora.
 4. Escrever os testes declarados na spec.
-5. `make test` — verde e dentro dos 120 s.
+5. `make test` — verde e dentro dos 300 s.
 6. `make lint` — verde.
 7. Marcar a spec como concluída no `ROADMAP.md`.
 8. Commit atômico: `feat(NNN): <título>` ou `refactor(NNN): <título>`.
@@ -196,7 +196,7 @@ Não entregam feature. Passam pente fino nas 9 anteriores:
 - índices faltando, N+1, query lenta
 - tipos frouxos (`Any`, `as`, `# type: ignore`)
 - componente que devia estar em `components/domain/`
-- tempo de suíte: se passou de 90 s, otimizar até voltar
+- tempo de suíte: se passou de 240 s, otimizar até voltar
 
 Refatoração **não muda comportamento**. Testes existentes continuam passando sem edição.
 
@@ -221,6 +221,6 @@ make up        # sobe Postgres + Redis
 make migrate   # alembic upgrade head
 make seed      # popula taxonomias padrão
 make dev       # backend + frontend
-make test      # 3 suítes em paralelo, falha se > 120s
+make test      # 3 suítes em paralelo, falha se > 300s
 make lint      # ruff + mypy + eslint + tsc
 ```

@@ -1,4 +1,4 @@
-# 009 — Pipeline de testes e gate de 120 s
+# 009 — Pipeline de testes e gate de 300 s
 
 **Fase:** 0 · **Tipo:** feature · **Orçamento:** +0 s (é a própria infra)
 **Depende de:** 002, 006 · **Status:** ✅ concluída
@@ -7,7 +7,7 @@
 
 ## 1. Objetivo
 
-Tornar o orçamento de 2 minutos uma restrição **executável**. A partir daqui, nenhuma spec
+Tornar o orçamento de 5 minutos uma restrição **executável**. A partir daqui, nenhuma spec
 fecha se estourar o teto — e o CI é quem decide, não o julgamento de quem implementou.
 
 ## 2. Escopo
@@ -16,7 +16,7 @@ fecha se estourar o teto — e o CI é quem decide, não o julgamento de quem im
   por worker; cada teste em transação com `ROLLBACK`; fixtures em escopo de sessão
 - **Frontend:** Vitest com `pool: threads`, jsdom, MSW
 - **E2E:** Playwright com `workers` = núcleos, `fullyParallel`, reuso de servidor, **contador de jornadas que falha acima de 25**
-- `scripts/run-tests.sh`: dispara as três em paralelo, agrega saídas, mede **wall-clock** e sai com erro se > 120 s
+- `scripts/run-tests.sh`: dispara as três em paralelo, agrega saídas, mede **wall-clock** e sai com erro se > 300 s
 - `make test` (tudo), `make test-backend`, `make test-frontend`, `make test-e2e`
 - GitHub Actions: um job com serviços Postgres e Redis, cache de dependências, publicação do tempo
 - Relatório `test-timing.json` com o tempo por suíte, versionado a cada spec
@@ -41,7 +41,7 @@ Nenhum.
 ## 7. Regras de negócio
 
 1. `make test` roda as três suítes **concorrentes**, não em sequência.
-2. Sai com código ≠ 0 se qualquer suíte falhar **ou** se o wall-clock passar de 120 s.
+2. Sai com código ≠ 0 se qualquer suíte falhar **ou** se o wall-clock passar de 300 s.
 3. Template database é criada **uma vez**; cada teste roda em transação revertida ao fim.
 4. Nenhum teste faz I/O de rede. Um teste dedicado varre e falha se achar cliente HTTP real sem mock.
 5. E2E acima de 25 jornadas falha o build com mensagem explicando a regra.
@@ -55,7 +55,7 @@ Testes **da própria infraestrutura**:
 | Tipo | Caso | Arquivo | Custo |
 |---|---|---|---|
 | meta | `run-tests.sh` falha se uma suíte falha | `tests/meta/test_runner.sh` | ~0,5 s |
-| meta | wall-clock simulado > 120 s falha | idem | ~0,3 s |
+| meta | wall-clock simulado > 300 s falha | idem | ~0,3 s |
 | meta | contador de jornadas e2e barra acima de 25 | `e2e/meta/journey-count.spec.ts` | ~0,2 s |
 | meta | nenhum teste faz chamada de rede real | `tests/meta/test_no_network.py` | ~0,4 s |
 | meta | template DB reutilizada entre workers | `tests/meta/test_db_isolation.py` | ~0,5 s |
@@ -65,7 +65,7 @@ Testes **da própria infraestrutura**:
 ## 9. Descobertas
 
 **Wall-clock de linha de base:** 20 s (backend ~5-15 s com `-n auto`, frontend ~19 s, e2e ~17-22 s,
-concorrentes — ver `test-timing.json`). Bem abaixo dos 120 s; a folga é o orçamento que as
+concorrentes — ver `test-timing.json`). Bem abaixo dos 300 s; a folga é o orçamento que as
 specs 011+ vão consumir.
 
 **Escopo reduzido conscientemente na regra 3 (template DB).** A seção 2/regra 3 descrevem
@@ -157,7 +157,7 @@ derrubando **os dois** bancos (`rito` e `rito_test`) e recriando do zero antes d
 ## 10. Definição de pronto
 
 - [x] `make test` roda as três em paralelo e reporta o wall-clock
-- [x] Gate de 120 s falhando de verdade quando estourado
+- [x] Gate de 300 s falhando de verdade quando estourado
 - [x] Contador de jornadas e2e ativo
 - [x] Guarda contra rede real ativa
 - [x] CI verde no remoto publicando o tempo (run 30706528182, após 2 fix commits — ver Descobertas)

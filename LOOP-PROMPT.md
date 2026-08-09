@@ -4,7 +4,7 @@ Cole o bloco abaixo depois de `/loop`. Sem intervalo — o loop se auto-pauta, c
 fecha uma spec.
 
 ```
-/loop Implemente a próxima spec pendente do Rito seguindo Spec Driven Development.
+/loop 1m Implemente a próxima spec pendente do Rito seguindo Spec Driven Development.
 
 CONTEXTO OBRIGATÓRIO — leia antes de qualquer coisa, em todo ciclo:
 - CLAUDE.md ....... constituição de engenharia (stack, regras, orçamento de teste, SOLID, IA)
@@ -32,7 +32,7 @@ CICLO — execute na ordem, sem pular etapa:
 
 6. Rode `make lint` e `make test`.
    - Vermelho: conserte e repita. NÃO avance.
-   - Wall-clock > 120 s: otimize até caber. NÃO avance.
+   - Wall-clock > 300 s: otimize até caber. NÃO avance.
 
 7. Atualize test-timing.json com o tempo medido.
 

@@ -1,7 +1,7 @@
 {
-  "budget_seconds": 120,
-  "last_measured_wall_clock_seconds": 116,
-  "last_measured_at": "2026-08-03",
+  "budget_seconds": 300,
+  "last_measured_wall_clock_seconds": 163,
+  "last_measured_at": "2026-08-09",
   "specs": {
     "001": {
       "wall_clock_seconds": 2,
@@ -146,6 +146,10 @@
     "036": {
       "wall_clock_seconds": 116,
       "notes": "548 testes backend (538 anteriores + 10 novos: uma seção só na ordem default (regra 1), ordem configurada muda o destino + persiste + 422 em não-permutação (regras 2 e 9), contadores batendo com as seções com as 6 definições (regras 2 e 8 — urgente/importante LIDA, porque unread precede na ordem default), privada de terceiro não aparece (regra 3), futura oculta (regra 4), concluída sai (regra 5), bulk transacional com 409 + failed_ids como membro de extensão RFC 7807 e rollback do lote (regra 6), reassign 403 para COLABORADOR e move a tarefa para a caixa do novo responsável (regra 7), keyset independente por seção (regra 10), RLS em inbox_preferences nos dois sentidos). 111 frontend (106 + 5: InboxSection colapsada não busca e expande carregando colunas, BulkActionBar some sem seleção e dispara a ação com os ids, InboxSettingsForm reordena por drag & drop e devolve a nova ordem). 6 e2e (5 + jornada 5/25: criar tarefa via API → aparece na caixa → concluir em massa pela UI). Correções de ambiente no caminho: banco de DEV (rito) migrado (webServer do Playwright o usa e estava 3 migrations atrás — jornada 5 quebrava com relation \"notifications\" does not exist; avaliar migrar o dev no webServer, dívida para a 040); LOGIN_RATE_LIMIT configurável por env (default 5/60s produção, 100 no webServer — a 6ª jornada tomava 429); causa raiz das chaves login_attempts sem TTL (flake da 034/035): check_and_increment rearma TTL quando ttl<0. Infra de tempo: vitest fixado em VITEST_MAX_WORKERS=1 (medido: backend concorrente 130-147 s → ~85 s; a suíte mais barata absorve a fila de CPU dos 4 cores). inbox_router ANTES do posts_router no main.py (/posts/bulk/* perdia para /posts/{post_id}/* → 422). Backend I/O-bound (57 s isolado, ~1,1 core) — cap de 2 workers não custa nada."
+    },
+    "037": {
+      "wall_clock_seconds": 163,
+      "notes": "570 backend (559 anteriores + 11 integração schedule: recortes mês/semana/dia, date_field troca eixo, só show_in_schedule na listagem e no feed, >90d→422, iCal parseado pela lib icalendar com X-PUBLISHED-TTL/REFRESH-INTERVAL, UID estável, token inválido→404, regenerar invalida, sem vazamento entre usuários, timezone America/Manaus→UTC), 119 frontend (115 + 4 CalendarPage: 4 visões, cores por status via data-status, clique no dia abre form com data, próximo mês muda range), 7 e2e (6 + jornada 6/25 agenda). Neste ciclo o orçamento subiu de 120 s para 300 s por decisão do usuário (volume de testes); wall-clock medido 163 s. Flake corrigido: célula do dia era <button> com chips <button> dentro (HTML inválido — clique central caía no chip e navegava; virou div role=button) e a jornada passou a clicar no dia 15 do mês seguinte (tenant e2e acumula tarefas entre runs). Decisões: token iCal em users (32 bytes urlsafe) com função SECURITY DEFINER lookup_ical_feed para resolver tenant sem furar RLS (role rito_app é NOBYPASSRLS); feed somente leitura fora de /api/v1; janela ±365 dias; DTEND de 1h quando não há término; privadas de terceiro somem da agenda (regra 8 da 033 aplicada)."
     }
   }
 }

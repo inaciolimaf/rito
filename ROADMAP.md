@@ -5,7 +5,7 @@
 Legenda de status: `⬜ pendente` · `🔄 em andamento` · `✅ concluída`
 
 Orçamento (`t`) é o **acréscimo máximo ao wall-clock** de `make test` que a spec pode causar.
-A soma de todos os acréscimos não pode levar o total acima de **120 s**.
+A soma de todos os acréscimos não pode levar o total acima de **300 s**.
 
 ---
 
@@ -43,8 +43,8 @@ Vite + React + TS strict + Tailwind + shadcn/ui; design tokens; **dark mode**; T
 Sidebar com os 15 itens, header, busca global (Tudo/Pessoas/Processos), dropdown "Adicionar", breadcrumbs, layout responsivo, rotas protegidas.
 **Aceite:** navegação completa entre módulos com placeholders. **t:** 5 s. **Deps:** 007
 
-### ✅ 009 — Pipeline de testes e gate de 120 s
-`pytest -n auto` + template DB + rollback por teste; Vitest threads; Playwright sharded; `make test` roda as 3 concorrentes; script que **falha se wall-clock > 120 s**; GitHub Actions.
+### ✅ 009 — Pipeline de testes e gate de 300 s
+`pytest -n auto` + template DB + rollback por teste; Vitest threads; Playwright sharded; `make test` roda as 3 concorrentes; script que **falha se wall-clock > 300 s**; GitHub Actions.
 **Aceite:** CI verde e reporta wall-clock. **t:** 0 s (é a própria infra). **Deps:** 002, 006
 
 ### ✅ 010 — 🔧 REFATORAÇÃO — Fundação
@@ -165,7 +165,7 @@ Thread de comentários, `@menções` com notificação, anexos múltiplos.
 6 seções configuráveis (Prazo fatal, Intimações, Não lidas, Urgentes, Importantes, Demais); ordem por usuário; ações em massa; marcação de leitura.
 **Aceite:** reordenação persiste; ação em massa transacional. **t:** 6 s. **Deps:** 033, 007
 
-### ⬜ 037 — Agenda
+### ✅ 037 — Agenda
 Visões mês/semana/dia/agenda; filtro por usuário e por data de compromisso vs prazo fatal; **feed iCal por usuário** (só tarefas com "Mostrar na agenda").
 **Aceite:** iCal válido consumível pelo Google Agenda; sincronização unidirecional. **t:** 7 s. **Deps:** 033
 
@@ -437,7 +437,7 @@ Dockerfile multi-stage de produção, migrations no boot, seed opcional, variáv
 
 ### ⬜ 100 — 🔧 REFATORAÇÃO FINAL
 Pente fino geral: SOLID, duplicação, cobertura, tipos, orçamento de teste, dívidas anotadas.
-**Aceite:** suíte < 120 s; zero `# type: ignore` sem justificativa. **t:** −
+**Aceite:** suíte < 300 s; zero `# type: ignore` sem justificativa. **t:** −
 
 ---
 

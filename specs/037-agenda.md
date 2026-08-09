@@ -1,7 +1,7 @@
 # 037 — Agenda
 
 **Fase:** 3 · **Tipo:** feature · **Orçamento:** +7 s
-**Depende de:** 033 · **Status:** ⬜ pendente
+**Depende de:** 033 · **Status:** ✅ concluída
 
 ---
 
@@ -91,8 +91,34 @@ Migration `037_ical.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+1. **Rota pública × RLS.** A role `rito_app` é NOBYPASSRLS e `/ical/{token}.ics` não
+   conhece o tenant antes da query (diferente do pré-auth, que exige X-Tenant-Id).
+   Solução: função SQL `lookup_ical_feed(token)` SECURITY DEFINER criada na migration
+   037 — resolve só o par `(tenant_id, user_id)` por match exato do token; depois a
+   sessão seta o tenant e o RLS vale normalmente. Nenhuma exceção de policy foi aberta.
+2. **Privacidade herda a regra 8 da spec 033:** tarefa privada de terceiro não aparece
+   na agenda de quem não é criador nem responsável (a spec 037 não dizia; aplicado o
+   mesmo critério da caixa de entrada).
+3. **`GET /schedule/ical` nasceu além do contrato da spec** (só enable/regenerate): o
+   `ICalSettingsCard` precisa saber se o feed já está ativo sem regenerar o token.
+4. **Orçamento de testes subiu de 120 s para 300 s** neste ciclo, por decisão do
+   usuário (volume acumulado de testes). CLAUDE.md, ROADMAP, LOOP-PROMPT, spec 009,
+   `run-tests.sh`, `.env` e `test-timing.json` atualizados; checklists históricos de
+   specs concluídas mantidos como registro.
+5. **Flake da jornada 6/25:** a célula do dia era `<button>` contendo chips `<button>`
+   (HTML inválido) — com eventos no dia, o clique central caía no chip e navegava
+   para a tarefa. Célula virou `div[role=button]`; a jornada passou a clicar no dia
+   15 do mês seguinte (o tenant de e2e acumula tarefas entre runs).
+6. **Testes de storage exigem `TEST_S3_ENDPOINT_URL=http://dind:9000` exportado** no
+   sandbox (default do conftest é localhost, que o pytest-socket bloqueia quando
+   `PYTEST_ALLOW_HOSTS=dind`).
+7. `NewTaskModal` ganhou a prop `initialDate` (regra 7) — também pré-marca
+   `show_in_schedule`, já que a criação veio da agenda.
 
 ## 10. Definição de pronto
 
-Checklist padrão · iCal validado por parser · Token secreto testado · Commit `feat(037): agenda`
+- [x] Checklist padrão (lint verde, testes da spec escritos e verdes, migration `037_ical`)
+- [x] iCal validado por parser (`icalendar` — não comparação de string)
+- [x] Token secreto testado (inválido → 404, regenerar invalida o anterior, sem vazamento entre usuários)
+- [x] `make test` verde em **163 s** (orçamento 300 s) — 559 backend / 115 frontend / 7 e2e
+- [x] Commit `feat(037): agenda`

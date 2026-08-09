@@ -87,6 +87,10 @@ class User(TenantMixin, Base):
     preferences: Mapped[dict[str, object]] = mapped_column(
         JSONB(), default=dict, server_default=text("'{}'::jsonb")
     )
+    # Feed iCal (spec 037): token de 32 bytes gerado sob demanda; a URL pública é o
+    # segredo — regenerar invalida o anterior imediatamente (regra 5).
+    ical_token: Mapped[str | None] = mapped_column(unique=True, default=None)
+    ical_enabled: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

@@ -34,6 +34,8 @@ dev = [
     "pytest-xdist>=3.6",
     "pytest-cov>=6.0",
     "pytest-socket>=0.7",
+    # Spec 037: parse do iCal gerado nos testes — validação por parser, não por string.
+    "icalendar>=6.1",
     "boto3-stubs[s3]>=1.35",
     "types-openpyxl>=3.1.5.20260724",
 ]

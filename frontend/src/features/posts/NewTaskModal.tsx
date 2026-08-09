@@ -67,6 +67,8 @@ export interface NewTaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialLawsuit?: EntityOption | null;
+  /** Spec 037, regra 7: clicar num dia da agenda abre o form com a data preenchida. */
+  initialDate?: string | null;
 }
 
 /** Modal global "Criar nova tarefa" (spec 032 §6) — aberto pelo botão Adicionar do
@@ -75,6 +77,7 @@ export function NewTaskModal({
   open,
   onOpenChange,
   initialLawsuit = null,
+  initialDate = null,
 }: NewTaskModalProps): JSX.Element {
   const queryClient = useQueryClient();
   const [formError, setFormError] = React.useState<ApiError | null>(null);
@@ -92,17 +95,19 @@ export function NewTaskModal({
     }
   }
 
+  const defaultValues = {
+    ...DEFAULT_TASK_FORM_VALUES,
+    ...(initialLawsuit ? { lawsuit_id: initialLawsuit.id } : {}),
+    ...(initialDate ? { scheduled_date: initialDate, show_in_schedule: true } : {}),
+  };
+
   return (
     <FormModal
       open={open}
       onOpenChange={onOpenChange}
       title="Criar nova tarefa"
       schema={taskFormSchema}
-      defaultValues={
-        initialLawsuit
-          ? { ...DEFAULT_TASK_FORM_VALUES, lawsuit_id: initialLawsuit.id }
-          : DEFAULT_TASK_FORM_VALUES
-      }
+      defaultValues={defaultValues}
       serverError={formError}
       onSubmit={handleSubmit}
     >

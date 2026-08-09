@@ -72,7 +72,7 @@ run_e2e() {
 main() {
 	cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-	local budget_seconds="${TEST_WALL_CLOCK_BUDGET_SECONDS:-120}"
+	local budget_seconds="${TEST_WALL_CLOCK_BUDGET_SECONDS:-300}"
 	local start_time
 	start_time=$(date +%s)
 

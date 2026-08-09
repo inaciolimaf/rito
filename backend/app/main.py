@@ -31,6 +31,8 @@ from app.domain.lawsuits.router import router as lawsuits_router
 from app.domain.locations.router import cities_router, states_router
 from app.domain.notifications.router import router as notifications_router
 from app.domain.posts.router import router as posts_router
+from app.domain.schedule.router import ical_router
+from app.domain.schedule.router import router as schedule_router
 from app.domain.squads.router import router as squads_router
 from app.domain.stages.router import stages_router, steps_router
 from app.domain.task_types.router import router as task_types_router
@@ -99,6 +101,9 @@ def create_app() -> FastAPI:
     app.include_router(comments_router, prefix="/api/v1")
     app.include_router(attachments_router, prefix="/api/v1")
     app.include_router(notifications_router, prefix="/api/v1")
+    app.include_router(schedule_router, prefix="/api/v1")
+    # Feed iCal público por token (spec 037 §5) — fora de /api/v1 por decisão da spec.
+    app.include_router(ical_router)
 
     return app
 

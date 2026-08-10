@@ -192,7 +192,7 @@ Camada comum: retry com backoff exponencial, rate limit por host, circuit breake
 Client de `comunicaapi.pje.jus.br/api/v1/comunicacao` (**sem autenticação**, exige user-agent de browser); modelo com todos os campos, incluindo `destinatarios[]` e `destinatarioadvogados[]`; payload bruto em JSONB.
 **Aceite:** parse fiel contra fixture real gravada. **t:** 4 s. **Deps:** 041
 
-### ⬜ 043 — Termos monitorados
+### ✅ 043 — Termos monitorados
 CRUD de termos (OAB/UF, CPF, CNPJ); vínculo a usuário; status de monitoramento; custo por termo.
 **Aceite:** termo duplicado bloqueado; status transita corretamente. **t:** 4 s. **Deps:** 042
 

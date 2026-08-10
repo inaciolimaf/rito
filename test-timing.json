@@ -1,6 +1,6 @@
 {
  "budget_seconds": 300,
- "last_measured_wall_clock_seconds": 164,
+ "last_measured_wall_clock_seconds": 185,
  "last_measured_at": "2026-08-10",
  "specs": {
   "001": {
@@ -170,6 +170,10 @@
   "042": {
    "wall_clock_seconds": 164,
    "notes": "651 backend (636 + 15: parse fiel campo a campo contra fixture real OAB/MG, trabalhista TRT2, cancelada derivada, nulos/ausentes, mínimo indispensável, campo desconhecido loga e sobrevive no raw, número só dígitos, UA enviado, sem UA erro explícito, itensPorPagina>100 clampado, não-200 DjenApiError, import 201 com filhos, hash duplicado 409, item inválido 422, RLS nas 3 tabelas), 130 frontend (inalterado), 7 e2e (inalterado). Descoberta: API omite anuladas da listagem — implicação para a 044 registrada na spec."
+  },
+  "043": {
+   "wall_clock_seconds": 185,
+   "notes": "662 backend (651 + 11: CRUD 3 tipos, OAB sem UF 422, CPF inválido 422, duplicado 409 + mesma OAB outra UF 201, outro tenant 201, backfill >12m 422, pausar sai do list_due e retomar devolve, excluir preserva publications, sync concorrente 409 + runs, colaborador 403, RLS), 139 frontend (130 + 9: form alterna campos por tipo, OAB sem UF/com letra, CPF 11 dígitos, submit válido, badge 5 status), 7 e2e (inalterado). Armadilhas registradas: ENUM na migration sem create_type=False, FK ORM para states impossível (LocationBase separado)."
   }
  }
 }

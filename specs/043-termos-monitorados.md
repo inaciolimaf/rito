@@ -1,7 +1,7 @@
 # 043 — Termos monitorados
 
 **Fase:** 4 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 042 · **Status:** ⬜ pendente
+**Depende de:** 042 · **Status:** ✅ concluída
 
 ---
 
@@ -118,8 +118,39 @@ Colunas: Termo · Tipo · Responsável · Status · Última sincronização · C
 
 ## 9. Descobertas
 
-*(preencher)*
+- **NULLS NOT DISTINCT na unique.** A unicidade é `(tenant_id, kind, value, oab_state)`
+  e `oab_state` é nulo para CPF/CNPJ — sem `NULLS NOT DISTINCT` (PG 15+), dois CPFs
+  iguais no mesmo tenant não colidiriam. O service também confere antes
+  (`find_duplicate` com `is_not_distinct_from`) para devolver 409 e não IntegrityError.
+- **Migration × model na criação do enum:** na migration o `postgresql.ENUM` vai SEM
+  `create_type=False` (o `create_table` emite o `CREATE TYPE`); no model vai COM (para
+  o metadata não tentar recriar). Inverter os dois dá `type "term_kind" does not exist`
+  — a lição 023/031 vale para enums novos.
+- **FK ORM para `states` não existe:** `states`/`cities` usam outro DeclarativeBase
+  (`LocationBase`, taxonomia global sem tenant) e FK entre metadatas quebra o flush do
+  ORM (`NoReferencedTableError`). A constraint vive só no banco (migration) e o service
+  valida a UF antes (422, nunca IntegrityError). Vale anotar para qualquer FK futura
+  a taxonomia global.
+- **`POST /{id}/sync` abre a execução (status SINCRONIZANDO + run aberto) mas não
+  processa** — o processamento é da 044. Até lá, um sync manual deixa uma run aberta;
+  a 044 deve varrer runs abertas além dos termos devidos.
+- **"Capturadas" = soma de `new_count` das runs**, não join com publications — o
+  vínculo publicação↔termo é indireto (casamento por valor, regra 4/spec 045), então
+  o contador de execuções é a medida honesta disponível no modelo.
+- **Sem hub de Configurações no frontend** — a rota `/settings/monitored-terms` segue o
+  padrão das irmãs (registrada, sem link num índice; a sidebar aponta para `/settings`
+  sem rota própria). Dívida anotada para a 050.
+- Pausar duas vezes / retomar sem estar pausado → 409 (transição inválida), além do
+  plano — protege a máquina de estados de clique duplo.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Commit `feat(043): termos monitorados`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (10 backend + 2 frontend do plano, mais RLS e transições inválidas)
+- [x] Teste de isolamento por tenant (RLS em `monitored_terms` e `term_sync_runs`)
+- [x] `make test` verde e wall-clock < 300 s (185 s)
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] Componentes reutilizáveis extraídos quando bateu 3 usos (DataTable, FormModal, FilterBar, ConfirmDialog, Dialog; criados MonitoredTermForm, TermStatusBadge, SyncRunsTable)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(043): termos monitorados`

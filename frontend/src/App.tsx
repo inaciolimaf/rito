@@ -10,6 +10,7 @@ import { ROUTABLE_NAV_ITEMS } from "@/components/shell/navItems";
 import { AccountPage } from "@/features/account/AccountPage";
 import { ActionGroupsListPage } from "@/features/action-groups/ActionGroupsListPage";
 import { LoginPage } from "@/features/auth/LoginPage";
+import { MonitoredTermsListPage } from "@/features/monitored-terms/MonitoredTermsListPage";
 import { CustomerOriginsListPage } from "@/features/customer-origins/CustomerOriginsListPage";
 import { CustomerListPage } from "@/features/customers/CustomerListPage";
 import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
@@ -65,6 +66,7 @@ export function App(): JSX.Element {
                     {/* Atalho legado do widget de meta (spec 028 aponta para /goals). */}
                     <Route path="/goals" element={<Navigate to="/settings/goals" replace />} />
                     <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
+                    <Route path="/settings/monitored-terms" element={<MonitoredTermsListPage />} />
                     <Route path="/customers" element={<CustomerListPage />} />
                     <Route path="/lawsuits" element={<LawsuitsPage />} />
                     <Route path="/lawsuits/:id" element={<LawsuitDetailPage />} />

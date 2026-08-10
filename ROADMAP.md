@@ -208,7 +208,7 @@ Roteamento: responsável do **grupo de ação** do processo → senão **respons
 Client de `api-publica.datajud.cnj.jus.br` com **APIKey pública em configuração** (nunca hardcode); alias por tribunal; query Elasticsearch; alerta em 401 (chave rotacionada).
 **Aceite:** parse contra fixture; 401 gera alerta. **t:** 3 s. **Deps:** 041
 
-### ⬜ 047 — DataJud: andamentos
+### ✅ 047 — DataJud: andamentos
 Sync de capa e `movimentos[]` com códigos da tabela CNJ; só processos cadastrados; `dataHoraUltimaAtualizacao` para incremental.
 **Aceite:** movimento novo aparece na timeline; reprocesso não duplica. **t:** 5 s. **Deps:** 046, 026
 

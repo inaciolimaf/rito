@@ -376,3 +376,18 @@ class LawsuitExportRequest(BaseModel):
 
     format: Literal["xlsx", "pdf"]
     filters: LawsuitFiltersQuery
+
+
+class SyncStatusResponse(BaseModel):
+    last_sync_at: datetime | None
+    last_update: datetime | None
+    not_found_count: int
+    is_syncing: bool
+
+
+class SyncMovementsResponse(BaseModel):
+    status: str
+    new_movements: int
+    last_sync_at: datetime | None
+    last_update: datetime | None
+    not_found_count: int

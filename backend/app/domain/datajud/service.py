@@ -3,11 +3,13 @@ client, aplica o descarte de sigilo (regra 6) e o aviso de código de movimento
 desconhecido (regra 7) — a leitura do banco que o parser puro não pode fazer.
 
 A sincronização de andamentos (persistir `ParsedProcess` em `lawsuit_movements`,
-incremental por `dataHoraUltimaAtualizacao`) é da spec 047 — aqui a unidade de
-trabalho é uma única consulta de capa processual.
+incremental por `dataHoraUltimaAtualizacao`) é da spec 047, que consome
+`fetch_process_status` — `fetch_process` (046) continua igual para quem só
+precisa da capa, sem distinguir "sigiloso" de "não encontrado".
 """
 
 import logging
+from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +29,16 @@ _UNAUTHORIZED_MESSAGE = (
 )
 
 
+@dataclass
+class ProcessFetchStatus:
+    """Resultado completo de uma consulta (spec 047) — distingue "sigiloso" de
+    "não encontrado", que `fetch_process` (046) colapsa em `None` porque quem só
+    quer a capa não precisa da diferença."""
+
+    process: ParsedProcess | None
+    sealed: bool = False
+
+
 class DatajudService:
     def __init__(self, session: AsyncSession, client: DatajudClient) -> None:
         self.session = session
@@ -38,26 +50,30 @@ class DatajudService:
     async def fetch_process(self, court: Court, process_number: str) -> ParsedProcess | None:
         """Devolve `None` quando não há hit ou o processo é sigiloso (regra 6) —
         os dois casos não são erro, só "nada para persistir"."""
+        status = await self.fetch_process_status(court, process_number)
+        return status.process
+
+    async def fetch_process_status(self, court: Court, process_number: str) -> ProcessFetchStatus:
         if not court.datajud_alias:
-            raise CourtNotSupportedError(court.code)  # regra 4
+            raise CourtNotSupportedError(court.code)  # regra 4 da 046
 
         try:
             results = await self.client.search_by_process_number(
                 alias=court.datajud_alias, process_number=process_number
             )
         except DatajudUnauthorizedError:
-            await self._create_key_rotated_alert()  # regra 3
+            await self._create_key_rotated_alert()  # regra 3 da 046
             raise
 
         if not results:
-            return None
+            return ProcessFetchStatus(process=None, sealed=False)
 
         process = results[0]
         if process.secrecy_level > 0:
-            return None  # regra 6: segredo de justiça, descartado sem persistir
+            return ProcessFetchStatus(process=None, sealed=True)  # regra 6 da 046
 
         await self._warn_unknown_movement_codes(process)
-        return process
+        return ProcessFetchStatus(process=process, sealed=False)
 
     async def _create_key_rotated_alert(self) -> None:
         # Regra 3: tenant_id nulo — DATAJUD_API_KEY é config global, o problema é

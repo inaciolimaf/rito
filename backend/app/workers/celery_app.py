@@ -16,7 +16,7 @@ celery_app = Celery("rito", broker=_settings.redis_url, backend=_settings.redis_
 
 
 def _daily_crontab(expression: str) -> crontab:
-    """Crontab a partir do DJEN_SYNC_CRON ("m h * * *" — 5 campos, diário).
+    """Crontab a partir de um *_SYNC_CRON ("m h * * *" — 5 campos, diário).
 
     A forma diária é exigida porque o cálculo de `next_sync_at`
     (domain/monitored_terms/sync.next_daily_run) só sabe avançar um dia; um
@@ -25,9 +25,7 @@ def _daily_crontab(expression: str) -> crontab:
     """
     parts = expression.split()
     if len(parts) != 5 or parts[2] != "*" or parts[3] != "*" or parts[4] != "*":
-        raise ValueError(
-            f"DJEN_SYNC_CRON precisa ser diário ('m h * * *'), recebido: {expression!r}"
-        )
+        raise ValueError(f"*_SYNC_CRON precisa ser diário ('m h * * *'), recebido: {expression!r}")
     return crontab(minute=parts[0], hour=parts[1])
 
 
@@ -53,6 +51,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.djen_sync.sync_due_terms",
         "schedule": _daily_crontab(_settings.djen_sync_cron),
     },
+    # Spec 047: varredura diária de andamentos via DataJud (DATAJUD_SYNC_CRON).
+    "datajud-sync": {
+        "task": "app.workers.datajud_sync.sync_due_movements",
+        "schedule": _daily_crontab(_settings.datajud_sync_cron),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -61,4 +64,5 @@ celery_app.conf.imports = (
     "app.workers.scores",
     "app.workers.external_requests",
     "app.workers.djen_sync",
+    "app.workers.datajud_sync",
 )

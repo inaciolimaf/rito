@@ -97,6 +97,20 @@ class Lawsuit(TenantMixin, Base):
     # escrito pela aplicação; serve às visões moved_*/idle_* da listagem.
     last_movement_at: Mapped[datetime | None] = mapped_column(default=None)
     is_archived: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    # Sincronização DataJud (spec 047, §5). `datajud_not_found_count` é o mecanismo de
+    # pausa (regra 5) — sem coluna de status: ao chegar em 5 (ou de propósito em caso de
+    # sigilo, regra 4), o processo sai sozinho da condição de `ix_lawsuits_datajud_due`.
+    # As 4 últimas só a sync escreve, e só quando vazias (regra 8) — nenhum schema de
+    # criação/edição do processo as aceita do cliente.
+    datajud_last_sync_at: Mapped[datetime | None] = mapped_column(default=None)
+    datajud_last_update: Mapped[datetime | None] = mapped_column(default=None)
+    datajud_not_found_count: Mapped[int] = mapped_column(
+        SmallInteger(), default=0, server_default=text("0")
+    )
+    judging_organ: Mapped[str | None] = mapped_column(default=None)
+    filing_date: Mapped[date | None] = mapped_column(default=None)
+    cnj_class_code: Mapped[int | None] = mapped_column(default=None)
+    cnj_class_name: Mapped[str | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -167,3 +181,18 @@ class LawsuitMovement(TenantMixin, Base):
         PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
     )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class LawsuitSubject(TenantMixin, Base):
+    """Assunto do processo conforme a TPU (spec 047 §4) — a sync só insere; nunca
+    remove um assunto que o CNJ parou de listar (mesmo espírito "nunca apaga" das
+    outras integrações CNJ)."""
+
+    __tablename__ = "lawsuit_subjects"
+    __table_args__ = (UniqueConstraint("lawsuit_id", "code", name="uq_lawsuit_subjects_code"),)
+
+    lawsuit_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("lawsuits.id", ondelete="CASCADE")
+    )
+    code: Mapped[int]
+    name: Mapped[str]

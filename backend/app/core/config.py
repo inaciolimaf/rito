@@ -31,6 +31,10 @@ class Settings(BaseSettings):
 
     datajud_api_key: str | None = None
     datajud_base_url: str = "https://api-publica.datajud.cnj.jus.br"
+    datajud_rate_limit_per_minute: int = 60
+    # Spec 047: agenda diária da sincronização de andamentos (5 campos, diária).
+    datajud_sync_cron: str = "0 7 * * *"
+    datajud_sync_batch_size: int = 50
 
     # Spec 042: DJEN não pede credencial, mas exige User-Agent de browser (403 sem ele).
     djen_base_url: str = "https://comunicaapi.pje.jus.br/api/v1"

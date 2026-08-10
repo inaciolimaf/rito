@@ -7,10 +7,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.deps import get_redis
 from app.core.http import get_or_404
+from app.core.locks import RedisSyncLock
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
+from app.domain.datajud.exceptions import LawsuitSyncInProgressError
+from app.domain.datajud.movement_sync_service import MovementSyncService, sync_lock_key
+from app.domain.datajud.service import DatajudService
 from app.domain.lawsuits.cnj import SEGMENT_NAMES, CNJValidationError
 from app.domain.lawsuits.exceptions import (
     CourtSystemIncompatibleError,
@@ -28,7 +33,7 @@ from app.domain.lawsuits.exceptions import (
 from app.domain.lawsuits.export import build_pdf, build_xlsx
 from app.domain.lawsuits.folders import FolderService
 from app.domain.lawsuits.listing import LawsuitListRow
-from app.domain.lawsuits.models import LawsuitMovement
+from app.domain.lawsuits.models import Lawsuit, LawsuitMovement
 from app.domain.lawsuits.movements_service import MovementsService
 from app.domain.lawsuits.parties_service import PartiesService, PartyDetail
 from app.domain.lawsuits.repository import TIMELINE_KINDS
@@ -60,6 +65,8 @@ from app.domain.lawsuits.schemas import (
     PartyUpdateRequest,
     StatsCardResponse,
     StepVolumeResponse,
+    SyncMovementsResponse,
+    SyncStatusResponse,
     TimelineItemResponse,
     TimelineResponse,
     ValidateNumberRequest,
@@ -68,8 +75,17 @@ from app.domain.lawsuits.schemas import (
 from app.domain.lawsuits.service import LawsuitDetail, LawsuitService
 from app.domain.lawsuits.stats import invalidate_stats_cache
 from app.domain.users.models import User
+from app.integrations.datajud.client import (
+    DatajudClient,
+    DatajudConfigError,
+    DatajudUnauthorizedError,
+)
+from app.integrations.http.client import create_http_client
+from app.integrations.http.types import HostPolicy
 
 router = APIRouter(prefix="/lawsuits", tags=["lawsuits"])
+
+_DATAJUD_HOST = "api-publica.datajud.cnj.jus.br"
 
 _MONTH_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
@@ -649,3 +665,83 @@ async def remove_party(
         await parties_service.remove_party(detail.party)
     except LastPartyError as exc:
         raise HTTPException(status_code=409, detail=_LAST_PARTY_DETAIL) from exc
+
+
+def _to_sync_status_response(lawsuit: Lawsuit, *, is_syncing: bool) -> SyncStatusResponse:
+    return SyncStatusResponse(
+        last_sync_at=lawsuit.datajud_last_sync_at,
+        last_update=lawsuit.datajud_last_update,
+        not_found_count=lawsuit.datajud_not_found_count,
+        is_syncing=is_syncing,
+    )
+
+
+@router.get("/{lawsuit_id}/sync-status")
+async def get_sync_status(
+    lawsuit_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
+) -> SyncStatusResponse:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    is_syncing = bool(await redis.exists(sync_lock_key(lawsuit_id)))
+    return _to_sync_status_response(detail.lawsuit, is_syncing=is_syncing)
+
+
+@router.post("/{lawsuit_id}/sync-movements")
+async def sync_movements(
+    lawsuit_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
+) -> SyncMovementsResponse:
+    """Gatilho manual (spec 047, §6) — roda a sincronização de UM processo dentro
+    da própria request (diferente do lote agendado, que é sempre assíncrono)."""
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+
+    settings = get_settings()
+    http = create_http_client(
+        redis=redis,
+        policies={
+            _DATAJUD_HOST: HostPolicy(rate_limit_per_minute=settings.datajud_rate_limit_per_minute)
+        },
+    )
+    try:
+        try:
+            client = DatajudClient(
+                http=http,
+                base_url=settings.datajud_base_url,
+                api_key=settings.datajud_api_key or "",
+            )
+        except DatajudConfigError as exc:
+            raise HTTPException(
+                status_code=503, detail="DataJud não está configurado (DATAJUD_API_KEY ausente)."
+            ) from exc
+
+        datajud_service = DatajudService(session, client)
+        sync_service = MovementSyncService(session, current_user.tenant_id, datajud_service)
+        lock = RedisSyncLock(redis)
+        try:
+            result = await sync_service.sync_lawsuit_locked(detail.lawsuit, lock)
+        except LawsuitSyncInProgressError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe uma sincronização em andamento para este processo.",
+            ) from exc
+        except DatajudUnauthorizedError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Chave pública do DataJud inválida ou rotacionada — veja os alertas.",
+            ) from exc
+    finally:
+        await http.aclose()
+
+    return SyncMovementsResponse(
+        status=result.status,
+        new_movements=result.new_movements,
+        last_sync_at=detail.lawsuit.datajud_last_sync_at,
+        last_update=detail.lawsuit.datajud_last_update,
+        not_found_count=detail.lawsuit.datajud_not_found_count,
+    )

@@ -1,7 +1,7 @@
 # 047 — DataJud: andamentos
 
 **Fase:** 4 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 046, 026 · **Status:** ⬜ pendente
+**Depende de:** 046, 026 · **Status:** ✅ concluída
 
 ---
 
@@ -107,8 +107,60 @@ para cada processo com número CNJ, não arquivado, ordenado por datajud_last_sy
 
 ## 9. Descobertas
 
-*(preencher)*
+- **"Pausado" não tem coluna de status — é o predicado da fila.** A ALTER TABLE do §4
+  não tem um booleano tipo `is_paused`. O mecanismo real é
+  `datajud_not_found_count < 5` no `WHERE` de `list_due_for_datajud_sync` (e no
+  índice parcial `ix_lawsuits_datajud_due`): ao chegar em 5, o processo simplesmente
+  para de aparecer na fila, sem precisar de mais nada. Regra 4 (sigilo) reaproveita o
+  MESMO contador: em vez de esperar 5 tentativas, `nivelSigilo > 0` já escreve
+  `datajud_not_found_count = 5` na primeira vez — "não sincronizável" imediato, porque
+  segredo de justiça não muda de uma consulta pra outra. Isso significa que os dois
+  caminhos (sigilo e não-encontrado) convergem pro mesmo mecanismo de saída da fila,
+  mas só o não-encontrado gera alerta (regra 5) — sigilo é silencioso de propósito.
+- **A API não devolve um id por movimento.** Conferido contra o glossário oficial do
+  tutorial do CNJ (mesma fonte da spec 046) e a fixture real capturada lá:
+  `movimentos[]` só tem `codigo`/`nome`/`dataHora`/`complementosTabelados`/
+  `orgaoJulgador` — nenhum `id`. A "chave de dedupe = id do movimento" do §5 não existe
+  de verdade; a chave sintética virou `f"{code}:{occurred_at.isoformat()}:{organ_code}"`,
+  estável entre execuções (o mesmo movimento sempre gera a mesma chave) e específica o
+  bastante pra não colidir com outro movimento genuíno do mesmo processo.
+- **`DatajudService` (046) ganhou `fetch_process_status` sem quebrar `fetch_process`.**
+  A 046 só precisava saber "tem processo ou não" (sigilo e não-encontrado colapsados
+  em `None`); a 047 precisa DISTINGUIR os dois (sigilo pausa na hora, não-encontrado
+  conta até 5). Extrair um `_fetch`/`ProcessFetchStatus` interno e fazer `fetch_process`
+  delegar pra ele manteve os testes da 046 verdes sem editar uma linha — só
+  `movement_sync_service.py` (novo) e o service da 046 (extensão aditiva) mudaram.
+- **Sync manual roda síncrono dentro da request — diferente do padrão da 043/044.**
+  DJEN sincroniza um TERMO inteiro (potencialmente páginas de histórico, lento) e por
+  isso o gatilho manual só abre uma run e agenda via Celery (`schedule_term_sync`,
+  fire-and-forget). Aqui a unidade é UM processo — uma chamada HTTP síncrona ao DataJud
+  cabe folgado dentro do timeout de uma request — então `POST /sync-movements` chama
+  `sync_lawsuit_locked` direto e devolve o resultado já pronto. O lote agendado
+  (`app/workers/datajud_sync.py`, Celery beat) é que segue o padrão assíncrono da 044.
+- **Alerta de sigilo não existe — só o de não-encontrado (regra 5).** A spec não pede
+  alerta pra segredo de justiça (regra 4 só diz "marcado como não sincronizável"), e
+  isso faz sentido: sigilo é um estado normal e esperado do processo, não uma falha
+  de configuração como número errado ou tribunal sem cobertura.
+- **`lawsuit_subjects` não tem teste dedicado** — o plano de testes da spec não
+  declarou um caso pra assuntos (só a tabela no §4). Implementado (insert-if-not-exists
+  por `code`, nunca remove) mas coberto só incidentalmente pelos testes de capa —
+  fica pra uma spec futura (BI/relatórios) testar de verdade se precisar exibir.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Idempotência provada · Dado do usuário nunca sobrescrito · Commit `feat(047): DataJud — andamentos`
+- [x] Escopo implementado, nada além (descoberta de processos por OAB continua fora,
+      como o §3 determina; IA de movimento é da 089)
+- [x] Todas as regras de negócio com teste (13 testes — as 12 regras numeradas do §7
+      cobertas individualmente, incluindo o dedup isolado do filtro incremental)
+- [x] Teste de isolamento por tenant (`lawsuit_subjects` é tabela nova com RLS padrão
+      via `enable_rls`; o alerta de não-encontrado, tenant-scoped, foi verificado com
+      `tenant_id == setup.gestor.tenant_id` — RLS padrão da 003, sem a exceção OR da 046)
+- [x] `make test` verde e wall-clock < 300 s (189 s — 711 backend, 134 frontend, 7 e2e)
+- [x] `make lint` verde (ruff, black, mypy, eslint, tsc, prettier)
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] Componentes reutilizáveis extraídos quando bateu 3 usos (`infer_court_code`/
+      `parse_cnj` da spec 025 reaproveitados sem duplicar; `LawsuitMovementRepository.
+      find_by_external_id` da 026 reaproveitado pro dedup; `RedisSyncLock`/`SyncLock`
+      da 041 reaproveitados pro lock de sincronização manual)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(047): DataJud — andamentos`

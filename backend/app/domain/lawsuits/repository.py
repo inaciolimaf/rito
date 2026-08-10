@@ -14,10 +14,15 @@ from app.domain.lawsuits.models import (
     Lawsuit,
     LawsuitMovement,
     LawsuitParty,
+    LawsuitSubject,
     MovementOrigin,
     PartyPole,
 )
 from app.domain.users.models import User
+
+# Regra 5 (spec 047): a partir daqui um processo sai sozinho da fila — sem coluna de
+# status dedicada, é o mesmo predicado do índice parcial ix_lawsuits_datajud_due.
+DATAJUD_NOT_FOUND_PAUSE_THRESHOLD = 5
 
 # Os 5 tipos da timeline (spec 026 §4). Os slots `task`/`publication`/`transaction` ficam
 # sem fonte até as specs 032/042/056 — não entram no union enquanto a tabela não existe.
@@ -68,6 +73,38 @@ class LawsuitRepository(BaseRepository[Lawsuit]):
         """Candidatos da estratégia 2 de casamento (spec 045, §5) — processos do
         advogado identificado pelo termo monitorado que capturou a publicação."""
         stmt = select(Lawsuit).where(Lawsuit.user_id == user_id)
+        return (await self.session.scalars(stmt)).all()
+
+    async def list_due_for_datajud_sync(self, *, limit: int) -> Sequence[Lawsuit]:
+        """Fila da sincronização (spec 047, §4/regra 1) — mesmo predicado do índice
+        parcial `ix_lawsuits_datajud_due`: só processo com número, não arquivado, e
+        que não estourou o teto de "não encontrado" (regra 5/9: lote, nunca tudo)."""
+        stmt = (
+            select(Lawsuit)
+            .where(
+                Lawsuit.process_number.is_not(None),
+                Lawsuit.is_archived.is_(False),
+                Lawsuit.datajud_not_found_count < DATAJUD_NOT_FOUND_PAUSE_THRESHOLD,
+            )
+            .order_by(Lawsuit.datajud_last_sync_at.asc().nulls_first())
+            .limit(limit)
+        )
+        return (await self.session.scalars(stmt)).all()
+
+    async def list_due_tenant_ids(self) -> Sequence[uuid.UUID]:
+        """Quais tenants têm processo na fila (spec 047) — usado pela varredura
+        cross-tenant do worker (mesmo padrão de `MonitoredTermRepository.list_due`
+        na 044): a sessão de superusuário só descobre POR ONDE passar, cada tenant
+        sincroniza na própria sessão com RLS de verdade."""
+        stmt = (
+            select(Lawsuit.tenant_id)
+            .where(
+                Lawsuit.process_number.is_not(None),
+                Lawsuit.is_archived.is_(False),
+                Lawsuit.datajud_not_found_count < DATAJUD_NOT_FOUND_PAUSE_THRESHOLD,
+            )
+            .distinct()
+        )
         return (await self.session.scalars(stmt)).all()
 
 
@@ -213,3 +250,13 @@ class LawsuitMovementRepository(BaseRepository[LawsuitMovement]):
             for row in rows
         ]
         return items, total or 0
+
+
+class LawsuitSubjectRepository(BaseRepository[LawsuitSubject]):
+    model = LawsuitSubject
+
+    async def existing_codes(self, lawsuit_id: uuid.UUID) -> set[int]:
+        result = await self.session.scalars(
+            select(LawsuitSubject.code).where(LawsuitSubject.lawsuit_id == lawsuit_id)
+        )
+        return set(result.all())

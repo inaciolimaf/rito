@@ -1,7 +1,7 @@
 # 042 — DJEN: client e modelo
 
 **Fase:** 4 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 041 · **Status:** ⬜ pendente
+**Depende de:** 041 · **Status:** ✅ concluída
 
 ---
 
@@ -128,8 +128,37 @@ Nenhum. A tela vem em 048.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **A API manda inteiros como string** (`codigoClasse: "202"`, `idOrgao: "28275"`,
+  `numeroComunicacao: "1"`). O parser normaliza para int e o teste de parse fiel
+  coage o bruto na comparação — sem isso a asserção "fiel" estaria errada, não o parse.
+- **A API omite publicações anuladas da listagem.** 300 itens reais (3 páginas de 100,
+  TJSP) sem nenhuma com `status != "P"`. A fixture de cancelada é derivada de um item
+  real do TRT2 com os campos de anulamento preenchidos — proveniência documentada no
+  README do diretório de fixtures. Isso tem implicação para a 044: a anulação provavelmente
+  NÃO chega pela listagem normal; verificar lá se existe parâmetro/endpoint de anuladas
+  ou se o ADVBOX trata por outra via.
+- **Fixture principal é a query por OAB** (`numeroOab=114962&ufOab=MG`), não por
+  tribunal: é o que devolve `destinatarioadvogados[]` populado, que é o caso de uso do
+  escritório (monitorar a própria OAB).
+- **`POST /api/v1/publications`** (import avulso a partir do item bruto) é a superfície
+  HTTP do "hash duplicado → 409" do plano — o worker da 044 usa o service diretamente.
+- **`DJEN_USER_AGENT` default vazio de propósito**: o client falha na construção sem
+  ele (regra 1), em vez de descobrir o 403 em produção. `.env.example` já tinha o valor.
+- Dívida para a 050: `datadisponibilizacao` (DD/MM/AAAA) e `numeroprocessocommascara`
+  são redundantes e hoje entram no `_KNOWN_FIELDS` só para não logar aviso — se a 044
+  precisar da máscara CNJ, ela já está no `raw_payload`.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Parse validado contra fixture real · Commit `feat(042): DJEN — client e modelo`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (10 casos do plano + cancelada + trabalhista + item inválido)
+- [x] Teste de isolamento por tenant (RLS nas três tabelas)
+- [x] `make test` verde e wall-clock < 300 s
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] Componentes reutilizáveis extraídos quando bateu 3 usos (BaseRepository; sem UI nesta spec)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(042): DJEN — client e modelo`
+
+Parse validado contra fixture real: `test_parse_fiel_contra_fixture_real` confere campo
+a campo todos os itens de `oab_mg.json` (captura de 2026-08-10).

@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     datajud_api_key: str | None = None
     datajud_base_url: str = "https://api-publica.datajud.cnj.jus.br"
 
+    # Spec 042: DJEN não pede credencial, mas exige User-Agent de browser (403 sem ele).
+    djen_base_url: str = "https://comunicaapi.pje.jus.br/api/v1"
+    djen_user_agent: str = ""
+    djen_rate_limit_per_minute: int = 30
+
     # Spec 041: fixtures da camada HTTP — replay em app_env=test; HTTP_RECORD=1 grava.
     http_fixtures_dir: str = "tests/fixtures/http"
     http_record: bool = False

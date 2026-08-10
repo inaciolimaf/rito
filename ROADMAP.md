@@ -188,7 +188,7 @@ Meta mensal por grupo de ação e por usuário; ranking com "classificar por" (p
 Camada comum: retry com backoff exponencial, rate limit por host, circuit breaker, timeout, cache condicional, **gravação de fixtures** para teste.
 **Aceite:** 429 aciona backoff; circuito abre após N falhas. **t:** 4 s. **Deps:** 002
 
-### ⬜ 042 — DJEN: client e modelo
+### ✅ 042 — DJEN: client e modelo
 Client de `comunicaapi.pje.jus.br/api/v1/comunicacao` (**sem autenticação**, exige user-agent de browser); modelo com todos os campos, incluindo `destinatarios[]` e `destinatarioadvogados[]`; payload bruto em JSONB.
 **Aceite:** parse fiel contra fixture real gravada. **t:** 4 s. **Deps:** 041
 

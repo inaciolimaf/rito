@@ -1,6 +1,6 @@
 {
  "budget_seconds": 300,
- "last_measured_wall_clock_seconds": 173,
+ "last_measured_wall_clock_seconds": 164,
  "last_measured_at": "2026-08-10",
  "specs": {
   "001": {
@@ -166,6 +166,10 @@
   "041": {
    "wall_clock_seconds": 173,
    "notes": "636 backend (613 + 23: retry 500/502/503/504/timeout, 4xx não retenta, backoff com teto, Retry-After, breaker abre/meio-aberto/sem rede, corpo >10MB por header e por leitura, cache condicional 304, replay/redação/ausência de fixture, rate limit teto e compartilhado entre clients, auditoria de falha por tentativa, amostragem de sucesso, RLS com tenant NULL), 130 frontend (inalterado), 7 e2e (inalterado — mas jornada 6/25 ganhou higiene de re-run: apaga 'Compromisso E2E' do dia-alvo antes de criar; sem isso o chip novo caía atrás do '+N mais' do MonthView e a jornada flakava — bug latente revelado por 2 falhas seguidas)."
+  },
+  "042": {
+   "wall_clock_seconds": 164,
+   "notes": "651 backend (636 + 15: parse fiel campo a campo contra fixture real OAB/MG, trabalhista TRT2, cancelada derivada, nulos/ausentes, mínimo indispensável, campo desconhecido loga e sobrevive no raw, número só dígitos, UA enviado, sem UA erro explícito, itensPorPagina>100 clampado, não-200 DjenApiError, import 201 com filhos, hash duplicado 409, item inválido 422, RLS nas 3 tabelas), 130 frontend (inalterado), 7 e2e (inalterado). Descoberta: API omite anuladas da listagem — implicação para a 044 registrada na spec."
   }
  }
 }

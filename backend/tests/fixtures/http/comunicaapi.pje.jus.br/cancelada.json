@@ -1,0 +1,58 @@
+{
+ "status": "success",
+ "message": "Sucesso",
+ "count": 1,
+ "items": [
+  {
+   "id": 689050737,
+   "data_disponibilizacao": "2026-08-07",
+   "siglaTribunal": "TRT2",
+   "tipoComunicacao": "Lista de distribuição",
+   "nomeOrgao": "Vara do Trabalho de Arujá",
+   "idOrgao": 45392,
+   "texto": "Processo 1001706-03.2026.5.02.0521 distribuído para Vara do Trabalho de Arujá na data 04/08/2026 <br> Para maiores informações, clique no link a seguir:  <a target=\"_blank\" href=\"https://pje.trt2.jus.br/pjekz/visualizacao/26080500300194500000477817699?instancia=1\">https://pje.trt2.jus.br/pjekz/visualizacao/26080500300194500000477817699?instancia=1</a>",
+   "numero_processo": "10017060320265020521",
+   "meio": "D",
+   "link": "https://pje.trt2.jus.br/pjekz/visualizacao/26080500300194500000477817699?instancia=1",
+   "tipoDocumento": "Distribuição",
+   "nomeClasse": "AçãO TRABALHISTA - RITO SUMARíSSIMO",
+   "codigoClasse": "1125",
+   "numeroComunicacao": 1,
+   "ativo": false,
+   "hash": "KAPnkeQm6dabiPhlTj8ev7Zd5o94bD",
+   "status": "C",
+   "motivo_cancelamento": "Publicação anulada a pedido da parte.",
+   "data_cancelamento": "2026-08-08",
+   "datadisponibilizacao": "07/08/2026",
+   "meiocompleto": "Diário de Justiça Eletrônico Nacional",
+   "numeroprocessocommascara": "1001706-03.2026.5.02.0521",
+   "destinatarios": [
+    {
+     "nome": "LARISSA DA SILVA RIBEIRO",
+     "comunicacao_id": 689050737,
+     "polo": "A"
+    },
+    {
+     "nome": "SANKA INDUSTRIA E COMERCIO LTDA",
+     "comunicacao_id": 689050737,
+     "polo": "P"
+    }
+   ],
+   "destinatarioadvogados": [
+    {
+     "id": 1279540958,
+     "comunicacao_id": 689050737,
+     "advogado_id": 1400472,
+     "created_at": "2026-08-05T07:06:21",
+     "updated_at": "2026-08-05T07:06:21",
+     "advogado": {
+      "id": 1400472,
+      "nome": "RICARDO BESERRA DE SOUZA",
+      "numero_oab": "318461",
+      "uf_oab": "SP"
+     }
+    }
+   ]
+  }
+ ]
+}

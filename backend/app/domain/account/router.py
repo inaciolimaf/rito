@@ -4,9 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_file_storage
 from app.core.image_processing import InvalidImageError
 from app.core.permissions import UserRole, require_role
-from app.domain.account.exceptions import AccountNotFoundError
+from app.domain.account.exceptions import AccountNotFoundError, ResponsibleUserNotFoundError
 from app.domain.account.models import Account
-from app.domain.account.schemas import AccountResponse, AccountUpdateRequest
+from app.domain.account.schemas import (
+    AccountResponse,
+    AccountUpdateRequest,
+    PublicationsSettingsResponse,
+    PublicationsSettingsUpdateRequest,
+)
 from app.domain.account.service import AccountService
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.users.models import User
@@ -81,3 +86,37 @@ async def upload_account_logo(
     except AccountNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Conta ainda não configurada.") from exc
     return _to_response(account, storage)
+
+
+@router.get("/publications-settings")
+async def get_publications_settings(
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> PublicationsSettingsResponse:
+    service = AccountService(session=session, storage=storage, tenant_id=current_user.tenant_id)
+    account = await service.get()
+    if account is None:
+        raise HTTPException(status_code=404, detail="Conta ainda não configurada.")
+    return PublicationsSettingsResponse(
+        default_publications_user_id=account.default_publications_user_id
+    )
+
+
+@router.put("/publications-settings")
+async def update_publications_settings(
+    payload: PublicationsSettingsUpdateRequest,
+    current_user: User = Depends(require_role(UserRole.GESTOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> PublicationsSettingsResponse:
+    service = AccountService(session=session, storage=storage, tenant_id=current_user.tenant_id)
+    try:
+        account = await service.update_publications_settings(payload.default_publications_user_id)
+    except AccountNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Conta ainda não configurada.") from exc
+    except ResponsibleUserNotFoundError as exc:
+        raise HTTPException(status_code=422, detail="Responsável não encontrado.") from exc
+    return PublicationsSettingsResponse(
+        default_publications_user_id=account.default_publications_user_id
+    )

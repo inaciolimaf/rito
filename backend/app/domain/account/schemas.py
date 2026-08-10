@@ -66,6 +66,16 @@ class AccountUpdateRequest(BaseModel):
         return value
 
 
+class PublicationsSettingsResponse(BaseModel):
+    default_publications_user_id: uuid.UUID | None
+
+
+class PublicationsSettingsUpdateRequest(BaseModel):
+    """Rota 3 do roteamento de intimações (spec 045, §5) — responsável geral."""
+
+    default_publications_user_id: uuid.UUID | None = None
+
+
 class AccountResponse(BaseModel):
     id: uuid.UUID
     name: str

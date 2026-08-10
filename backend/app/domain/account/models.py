@@ -1,7 +1,9 @@
+import uuid
 from datetime import datetime
 
-from sqlalchemy import func
+from sqlalchemy import ForeignKey, func
 from sqlalchemy.dialects.postgresql import CITEXT
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base, TenantMixin
@@ -30,5 +32,10 @@ class Account(TenantMixin, Base):
     site: Mapped[str | None] = mapped_column(default=None)
     timezone: Mapped[str] = mapped_column(default=DEFAULT_TIMEZONE, server_default=DEFAULT_TIMEZONE)
     logo_key: Mapped[str | None] = mapped_column(default=None)
+    # Rota 3 do roteamento de intimações (spec 045, §5) — responsável geral quando o
+    # grupo de ação e o termo monitorado não resolvem.
+    default_publications_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

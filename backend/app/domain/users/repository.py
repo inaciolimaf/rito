@@ -59,6 +59,17 @@ class UserRepository(BaseRepository[User]):
 
         return items, total
 
+    async def get_oldest_active_gestor(self) -> User | None:
+        """Rota 4 do roteamento de intimações (spec 045, regra do §5) — fallback quando
+        nenhuma das rotas anteriores resolve um responsável."""
+        stmt = (
+            select(User)
+            .where(User.role == UserRole.GESTOR, User.is_active.is_(True))
+            .order_by(User.created_at)
+        )
+        result = await self.session.scalars(stmt)
+        return result.first()
+
     async def count_active_gestores(self, *, excluding: uuid.UUID | None = None) -> int:
         """Regra 8: não é possível inativar o último GESTOR ativo do tenant."""
         stmt = (

@@ -4,10 +4,11 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.image_processing import extension_for, process_image
-from app.domain.account.exceptions import AccountNotFoundError
+from app.domain.account.exceptions import AccountNotFoundError, ResponsibleUserNotFoundError
 from app.domain.account.models import Account
 from app.domain.account.repository import AccountRepository
 from app.domain.account.schemas import AccountUpdateRequest
+from app.domain.users.models import User
 from app.integrations.storage.base import FileStorage
 
 
@@ -45,5 +46,15 @@ class AccountService:
         await self.storage.upload(key=key, content=processed, content_type=content_type)
 
         account.logo_key = key
+        account.updated_at = datetime.now(UTC)
+        return account
+
+    async def update_publications_settings(self, user_id: uuid.UUID | None) -> Account:
+        account = await self.accounts.get_current()
+        if account is None:
+            raise AccountNotFoundError
+        if user_id is not None and await self.session.get(User, user_id) is None:
+            raise ResponsibleUserNotFoundError
+        account.default_publications_user_id = user_id
         account.updated_at = datetime.now(UTC)
         return account

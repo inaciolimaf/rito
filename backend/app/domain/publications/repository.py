@@ -1,3 +1,6 @@
+import uuid
+from collections.abc import Sequence
+
 from sqlalchemy import select
 
 from app.core.repository import BaseRepository
@@ -22,3 +25,7 @@ class PublicationRecipientRepository(BaseRepository[PublicationRecipient]):
 
 class PublicationLawyerRepository(BaseRepository[PublicationLawyer]):
     model = PublicationLawyer
+
+    async def list_for_publication(self, publication_id: uuid.UUID) -> Sequence[PublicationLawyer]:
+        stmt = select(PublicationLawyer).where(PublicationLawyer.publication_id == publication_id)
+        return (await self.session.scalars(stmt)).all()

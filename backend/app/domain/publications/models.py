@@ -34,6 +34,12 @@ class Publication(Base, TenantMixin):
             "availability_date",
             postgresql_where=("lawsuit_id IS NULL"),
         ),
+        Index(
+            "ix_pub_unprocessed",
+            "tenant_id",
+            "created_at",
+            postgresql_where=("processed_at IS NULL"),
+        ),
     )
 
     external_id: Mapped[int] = mapped_column()
@@ -61,6 +67,16 @@ class Publication(Base, TenantMixin):
     )
     raw_payload: Mapped[dict[str, Any]] = mapped_column(JSONB)  # Any: item bruto do DJEN
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Roteamento (spec 045, §5). `matched_by`: 'process_number' | 'lawyer_id' | 'ambiguous' |
+    # 'manual' | null. `routed_by`: 'action_group' | 'term_user' | 'general' |
+    # 'gestor_fallback' | null — as 4 rotas em cascata da regra do roteamento.
+    post_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("posts.id"))
+    matched_by: Mapped[str | None] = mapped_column(Text)
+    routed_to: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id")
+    )
+    routed_by: Mapped[str | None] = mapped_column(Text)
+    processed_at: Mapped[datetime | None]
 
 
 class PublicationRecipient(Base, TenantMixin):

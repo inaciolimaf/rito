@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 181,
+  "last_measured_wall_clock_seconds": 210,
   "last_measured_at": "2026-08-10",
   "specs": {
     "001": {
@@ -178,6 +178,10 @@
     "044": {
       "wall_clock_seconds": 181,
       "notes": "666 backend (643 + 23: 14 integração sync — primeira sync, dupla execução sem duplicar, janela incremental com 1d de overlap, cancelamento marca inativa com motivo e não apaga, chega-cancelada persiste inativa, falha isolada por termo, FALHA→ATIVO, lock Redis, 3 páginas, página parcial rollback+re-run idempotente, backfill 12m em 5 fatias de ≤90d, silêncio atualiza last_success_at, contadores, run aberta do sync manual reutilizada — 8 unit next_daily_run — 1 client param texto), 134 frontend (inalterado), 7 e2e (inalterado). Atenção: o baseline real medido era 643 backend, não os 662 anotados na 043 (notas de ciclos anteriores superestimaram; conferido com pytest --collect-only no HEAD). Descobertas: DJEN aceita filtro `texto` (full-text no corpo) — é o caminho dos termos CPF/CNPJ, verificado ao vivo; SET LOCAL morre no commit — TermSyncService rearma app.tenant_id a cada commit/rollback; import de model ausente quebra FK no flush (tests sem a fixture client precisam importar app.domain.lawsuits.models); DjenPublicationSource fora do __init__ do pacote para não fechar ciclo de import."
+    },
+    "045": {
+      "wall_clock_seconds": 210,
+      "notes": "681 backend (666 + 15: casa por número de processo, casa por advogado quando o número não bate, sem casamento fica não vinculada, número ambíguo com motivo, as 4 rotas de roteamento (grupo de ação/termo/geral da conta/fallback GESTOR), reprocessar não duplica, vínculo manual cria a tarefa, scheduled_date = availability_date, deadline_date vazio, cancelamento comenta e marca urgente, casamento ignora máscara, processo arquivado ainda casa), 134 frontend (inalterado — spec é só backend), 7 e2e (inalterado). Descobertas registradas na spec: publications não tem term_id (comentário da 044 confirma — casamento por VALOR, reaproveitado para a rota 2); LawsuitService.create valida dígito verificador real (spec 025) — os processos de teste precisaram de números CNJ válidos, não dígitos arbitrários; routed_by ganhou um 5º valor não previsto no comentário da migration ('gestor_fallback', sem CHECK constraint) para a rota 4; roteamento automático plugado em TermSyncService._process_item (chamada adicional, sem mudar o comportamento dos testes da 044 — nenhum deles tem processo/termo com responsável configurado, então o casamento sempre falha e não interfere)."
     }
   }
 }

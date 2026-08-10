@@ -200,7 +200,7 @@ CRUD de termos (OAB/UF, CPF, CNPJ); vínculo a usuário; status de monitoramento
 Worker Celery beat diário + sync manual; **deduplicação por `hash`**; tratamento de `status`/`motivo_cancelamento` (publicação anulada); janela de datas; paginação.
 **Aceite:** reprocessar o mesmo payload não duplica; cancelamento marca a comunicação. **t:** 6 s. **Deps:** 043
 
-### ⬜ 045 — Intimação → tarefa
+### ✅ 045 — Intimação → tarefa
 Roteamento: responsável do **grupo de ação** do processo → senão **responsável geral**; casamento por `numero_processo` e por `destinatarioadvogados[].advogado_id`; cria tarefa do tipo "Intimações Judiciais"; `data_disponibilizacao` como base de prazo.
 **Aceite:** os 3 caminhos de roteamento testados. **t:** 5 s. **Deps:** 044, 032
 

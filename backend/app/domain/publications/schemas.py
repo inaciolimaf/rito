@@ -25,3 +25,14 @@ class PublicationResponse(BaseModel):
     is_active: bool
     lawsuit_id: uuid.UUID | None
     created_at: datetime
+    post_id: uuid.UUID | None
+    matched_by: str | None
+    routed_to: uuid.UUID | None
+    routed_by: str | None
+    processed_at: datetime | None
+
+
+class LinkPublicationRequest(BaseModel):
+    """Vínculo manual (spec 045, regra 7) — o usuário escolhe o processo."""
+
+    lawsuit_id: uuid.UUID

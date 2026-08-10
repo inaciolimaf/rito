@@ -56,6 +56,20 @@ def decode_timeline_cursor(cursor: str) -> tuple[datetime, str, uuid.UUID]:
 class LawsuitRepository(BaseRepository[Lawsuit]):
     model = Lawsuit
 
+    async def find_by_process_number_digits(self, digits: str) -> Sequence[Lawsuit]:
+        """Casamento por número (spec 045, regra 9): compara só dígitos — o processo
+        pode estar salvo com ou sem máscara CNJ."""
+        stmt = select(Lawsuit).where(
+            func.regexp_replace(Lawsuit.process_number, r"\D", "", "g") == digits
+        )
+        return (await self.session.scalars(stmt)).all()
+
+    async def list_by_responsible(self, user_id: uuid.UUID) -> Sequence[Lawsuit]:
+        """Candidatos da estratégia 2 de casamento (spec 045, §5) — processos do
+        advogado identificado pelo termo monitorado que capturou a publicação."""
+        stmt = select(Lawsuit).where(Lawsuit.user_id == user_id)
+        return (await self.session.scalars(stmt)).all()
+
 
 class LawsuitPartyRepository(BaseRepository[LawsuitParty]):
     model = LawsuitParty

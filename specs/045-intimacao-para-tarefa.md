@@ -1,7 +1,7 @@
 # 045 — Intimação → tarefa
 
 **Fase:** 4 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 044, 032 · **Status:** ⬜ pendente
+**Depende de:** 044, 032 · **Status:** ✅ concluída
 
 ---
 
@@ -105,8 +105,53 @@ Migration `045_publication_routing.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **`publications` não guarda `term_id`** — comentário da 044 (`captured_counts`) já
+  documentava a decisão: "casamento por VALOR" em vez de FK. A rota 2 (responsável do
+  termo) e a estratégia 2 de casamento (advogado) reusam a MESMA função
+  `_find_term_responsible`: procuram, entre os advogados da publicação
+  (`publication_lawyers`), um `MonitoredTerm(kind=OAB, value=oab_number, oab_state)` com
+  `user_id` configurado. Nenhuma coluna nova precisou entrar em `publications` além das
+  6 do modelo de dados desta spec.
+- **`LawsuitService.create` valida o dígito verificador real (spec 025)** — não é só
+  formato. Os processos usados no plano de testes precisaram de números CNJ com DV
+  correto (`compute_check_digit`, reaproveitado no teste), não dígitos arbitrários como
+  o rascunho inicial da spec sugeria. `Lawsuit.process_number` também já é guardado só
+  com dígitos pelo service (regra 9 da 025) — a comparação por máscara desta spec importa
+  sobretudo para o lado da publicação, que pode chegar com o número em formatos distintos.
+- **`routed_by` ganha um 5º valor não previsto no comentário da migration.** O comentário
+  original (`'action_group' | 'term_user' | 'general' | 'manual'`) esqueceu a rota 4
+  (fallback GESTOR). Não há `CHECK CONSTRAINT` na coluna — usei `'gestor_fallback'` sem
+  quebrar nada; `matched_by` ganhou `'ambiguous'` pelo mesmo motivo (regra 11). Os dois
+  campos são texto livre por design (auditoria, não enum fechado).
+- **Roteamento automático plugado no ponto que a 044 já previu.** `TermSyncService.
+  _process_item` chama `PublicationRoutingService.route()` logo após registrar uma
+  publicação nova, e `handle_cancellation()` no ramo de anulação (regra 8) — sem isso, a
+  spec criaria a máquina de roteamento mas nada a acionaria automaticamente, e o
+  objetivo #1 ("a publicação chega... e cria uma tarefa") não se cumpriria fora de
+  chamadas manuais. Os testes existentes da 044 não quebraram: nenhum deles tem
+  processo/termo com responsável configurado, então o casamento sempre falha rápido
+  (zero candidatos) e a publicação só fica marcada `processed_at`, sem side effect.
+- **`created_by` da tarefa sistêmica é o próprio responsável roteado.** Não existe
+  conceito de "usuário sistema" no domínio de usuários — `Post.created_by` é
+  `NOT NULL`; usar o `routed_to` como criador é a opção menos arbitrária disponível.
+- **`POST /publications` (registro avulso, spec 042) também passou a rotear** — mesma
+  razão do worker: toda publicação nova, veio de onde vier, entra no mesmo funil.
 
 ## 10. Definição de pronto
 
-Checklist padrão · 7 caminhos testados · Nenhum prazo inventado · Commit `feat(045): intimação → tarefa`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (15 integração — as 3 estratégias de
+      casamento + as 4 rotas de roteamento cobertas individualmente, regra 12 verificada
+      via `matched_by`/`routed_by` em cada asserção)
+- [x] Teste de isolamento por tenant (tabela existente ganhou colunas, não é tabela
+      nova; RLS de `publications`/`accounts` já coberto nas specs 003/042 — cada teste
+      desta spec roda em tenant isolado via `make_user`)
+- [x] `make test` verde e wall-clock < 300 s (210 s — 681 backend, 134 frontend, 7 e2e)
+- [x] `make lint` verde (ruff, black, mypy, eslint, tsc, prettier)
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] Componentes reutilizáveis extraídos quando bateu 3 usos (`_find_term_responsible`
+      reusado por casamento estratégia 2 e rota 2 — regra dos 3 usos não bateu para
+      abstração além disso; `get_or_404` e `PUBLICATIONS_TASK_TYPE_NAME` da 036
+      reaproveitados, não recriados)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(045): intimação → tarefa`

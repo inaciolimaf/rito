@@ -35,6 +35,7 @@ from app.domain.monitored_terms.repository import (
 )
 from app.domain.monitored_terms.schemas import BACKFILL_DEFAULT_DAYS
 from app.domain.publications.repository import PublicationRepository
+from app.domain.publications.routing import PublicationRoutingService
 from app.domain.publications.service import PublicationService
 from app.integrations.djen.parser import ParsedCommunication
 
@@ -104,6 +105,7 @@ class TermSyncService:
         self.runs = TermSyncRunRepository(session)
         self.publications = PublicationRepository(session)
         self.publication_service = PublicationService(session=session, tenant_id=tenant_id)
+        self.routing = PublicationRoutingService(session=session, tenant_id=tenant_id)
 
     async def _commit(self) -> None:
         await self.session.commit()
@@ -230,7 +232,10 @@ class TermSyncService:
         new_count da run só conta inserção — dedup e anulação não)."""
         existing = await self.publications.get_by_hash(parsed.hash)
         if existing is None:
-            await self.publication_service.register(parsed)  # regra 1: hash é a chave
+            registered = await self.publication_service.register(parsed)  # regra 1: hash é a chave
+            # Spec 045: toda publicação nova passa pelo roteamento — o casamento decide
+            # se vira tarefa; sem processo casado, ela só fica marcada como processada.
+            await self.routing.route(registered)
             return True
         if _is_cancellation(parsed) and existing.is_active:
             # Regra 2: anulação marca, nunca apaga — a linha fica com motivo e data.
@@ -238,4 +243,5 @@ class TermSyncService:
             existing.cancellation_reason = parsed.cancellation_reason
             existing.cancelled_at = parsed.cancelled_at
             existing.status = parsed.status
+            await self.routing.handle_cancellation(existing)  # regra 8 da spec 045
         return False

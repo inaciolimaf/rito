@@ -1,7 +1,7 @@
 # 041 — Cliente HTTP resiliente
 
 **Fase:** 4 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 002 · **Status:** ⬜ pendente
+**Depende de:** 002 · **Status:** ✅ concluída
 
 ---
 
@@ -102,8 +102,45 @@ Servidor HTTP falso local (`pytest-httpserver`) — nenhuma chamada externa real
 
 ## 9. Descobertas
 
-*(preencher)*
+- **pytest-httpserver descartado.** O plano sugeria um servidor HTTP falso local, mas o
+  `httpx.MockTransport` injetado no client cobre todos os cenários (status, timeout,
+  header, corpo) sem nova dependência e sem disputar porta/soquete com o pytest-socket.
+  O transporte é parâmetro do construtor — é isso que viabiliza tanto o mock nos testes
+  quanto o `FixtureTransport` em `app_env=test`.
+- **`external_requests` tem `tenant_id` NULO** (chamada de sistema em worker), então não
+  usa `TenantMixin` nem `enable_rls_statements`: a política RLS própria libera a linha
+  quando `tenant_id IS NULL` ou bate com o contexto, e o predicado usa
+  `NULLIF(current_setting(...), '')` para o GUC "resetado" de conexão de pool não
+  quebrar o cast `::uuid` (mesmo problema anotado em `test_rls.py`).
+- **Rate limit reutilizou `core.rate_limit.check_and_increment`** (janela de 60 s no
+  Redis) em vez de criar um token bucket novo — a semântica de janela fixa por minuto é
+  suficiente para `rate_limit_per_minute` e evita duplicar a defesa de TTL já existente.
+- **Circuit breaker é em memória, por processo** (a spec só exige o rate limit global).
+  Cada worker tem o seu; na pior hipótese N workers fazem N provas por janela de reset.
+  Documentado no docstring de `breaker.py`.
+- **Sucesso amostrado a 10% por padrão** (`audit_success_sample_rate`), falha sempre
+  gravada — uma linha por tentativa falha, não por request, porque a coluna `attempt`
+  existe exatamente para reconstruir a sequência de retentativas.
+- **Jornada e2e 6/25 (agenda) revelou bug latente de re-run**, não flake de contenção:
+  duas falhas seguidas mostraram que a visão mês só exibe 3 chips por dia
+  (`MAX_VISIBLE` do `MonthView`) e cada run acumulava uma tarefa no dia-alvo — o chip
+  novo caía atrás do "+N mais". A jornada ganhou higiene: apaga via API as tarefas
+  "Compromisso E2E" do dia-alvo antes de criar. Mudança só no teste; comportamento do
+  produto intacto.
+- Dívida para a 050: `breaker_state()` existe para o painel da 049, mas o estado em
+  memória por processo pode divergir do que o painel mostrará se houver mais de um
+  worker — avaliar então se vale mover o estado para o Redis.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Guarda de fixture ativa · Commit `feat(041): cliente HTTP resiliente`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (12 casos do plano + cache condicional + replay/redação de fixture + amostragem de sucesso)
+- [x] Teste de isolamento por tenant (`test_rls_tenant_nao_ve_linha_de_outro_tenant_mas_ve_linhas_de_sistema`)
+- [x] `make test` verde e wall-clock < 300 s (173 s)
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] Componentes reutilizáveis extraídos quando bateu 3 usos (reuso de `check_and_increment`; sem UI nesta spec)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(041): cliente HTTP resiliente`
+
+Guarda de fixture ativa: `test_fixture_ausente_falha_explicitamente_sem_cair_na_rede`.

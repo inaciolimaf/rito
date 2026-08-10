@@ -26,7 +26,16 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.scores.refresh_scores",
         "schedule": crontab(minute="*/15"),
     },
+    # Spec 041, §4: retenção de 30 dias da auditoria de chamadas externas.
+    "external-requests-purge": {
+        "task": "app.workers.external_requests.purge_external_requests",
+        "schedule": crontab(hour=4, minute=7),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
-celery_app.conf.imports = ("app.workers.recurrences", "app.workers.scores")
+celery_app.conf.imports = (
+    "app.workers.recurrences",
+    "app.workers.scores",
+    "app.workers.external_requests",
+)

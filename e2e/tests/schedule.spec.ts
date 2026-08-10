@@ -71,6 +71,17 @@ test("jornada 6/25: criar compromisso na agenda → ver no mês → abrir", asyn
   const now = new Date();
   const target = new Date(now.getFullYear(), now.getMonth() + 1, 15);
   const targetIso = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}-15`;
+  // Higiene de re-run (spec 041, descobertas): a visão mês mostra só 3 chips por dia
+  // (MAX_VISIBLE do MonthView) e cada run acumula uma tarefa neste dia — sem limpar,
+  // o chip novo cai atrás do "+N mais" e a jornada falha de forma intermitente.
+  const dayEvents = await (
+    await api.get(`/api/v1/schedule?from=${targetIso}&to=${targetIso}`, { headers })
+  ).json();
+  for (const event of dayEvents.items as { post_id: string; task_type_name: string }[]) {
+    if (event.task_type_name.startsWith("Compromisso E2E")) {
+      await api.delete(`/api/v1/posts/${event.post_id}`, { headers });
+    }
+  }
   // Clique no canto superior esquerdo (no número do dia), não no centro: com tarefas
   // acumuladas de runs anteriores, o centro da célula cai num chip e abre a tarefa em
   // vez do formulário (flake de re-run dentro do mesmo mês — spec 039, descobertas).

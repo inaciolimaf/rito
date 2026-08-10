@@ -184,7 +184,7 @@ Meta mensal por grupo de ação e por usuário; ranking com "classificar por" (p
 
 ## Fase 4 — Integração CNJ (041–050)
 
-### ⬜ 041 — Cliente HTTP resiliente
+### ✅ 041 — Cliente HTTP resiliente
 Camada comum: retry com backoff exponencial, rate limit por host, circuit breaker, timeout, cache condicional, **gravação de fixtures** para teste.
 **Aceite:** 429 aciona backoff; circuito abre após N falhas. **t:** 4 s. **Deps:** 002
 

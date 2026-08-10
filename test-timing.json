@@ -1,7 +1,7 @@
 {
  "budget_seconds": 300,
- "last_measured_wall_clock_seconds": 174,
- "last_measured_at": "2026-08-09",
+ "last_measured_wall_clock_seconds": 173,
+ "last_measured_at": "2026-08-10",
  "specs": {
   "001": {
    "wall_clock_seconds": 2,
@@ -162,6 +162,10 @@
   "040": {
    "wall_clock_seconds": 174,
    "notes": "613 backend (611 + 2 perf inbox com seed 20k module-scoped/worker: counts 1 query rápida, página + EXPLAIN índice parcial), 130 frontend, 7 e2e — tudo inalterado. Refatoração: core/dates.py (shims mantêm testes 034/038 sem edição), PostService dividido (creation/completion/detail), inbox sem acesso privado. Medição isolada 20k linhas: counts 79ms, página 87ms, batch 14ms (< 200ms DoD). Wall-clock subiu 156→174 pelo seed de 20k × worker + contenção do host; meta de 90s não batida — dívida #17 re-atribuída à 050 (custo do boot por teste)."
+  },
+  "041": {
+   "wall_clock_seconds": 173,
+   "notes": "636 backend (613 + 23: retry 500/502/503/504/timeout, 4xx não retenta, backoff com teto, Retry-After, breaker abre/meio-aberto/sem rede, corpo >10MB por header e por leitura, cache condicional 304, replay/redação/ausência de fixture, rate limit teto e compartilhado entre clients, auditoria de falha por tentativa, amostragem de sucesso, RLS com tenant NULL), 130 frontend (inalterado), 7 e2e (inalterado — mas jornada 6/25 ganhou higiene de re-run: apaga 'Compromisso E2E' do dia-alvo antes de criar; sem isso o chip novo caía atrás do '+N mais' do MonthView e a jornada flakava — bug latente revelado por 2 falhas seguidas)."
   }
  }
 }

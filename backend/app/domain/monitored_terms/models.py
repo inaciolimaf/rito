@@ -62,6 +62,9 @@ class MonitoredTerm(Base, TenantMixin):
     last_success_at: Mapped[datetime | None]
     next_sync_at: Mapped[datetime | None]
     backfill_from: Mapped[date | None]
+    # Spec 044: até onde a captura já chegou — a janela incremental parte daqui
+    # (com 1 dia de sobreposição); nula, a primeira execução usa backfill_from.
+    last_captured_date: Mapped[date | None]
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 

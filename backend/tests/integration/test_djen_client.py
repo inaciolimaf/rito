@@ -108,3 +108,24 @@ async def test_resposta_nao_200_levanta_api_error() -> None:
             availability_start=date(2026, 8, 7), availability_end=date(2026, 8, 8)
         )
     assert exc_info.value.status_code == 403
+
+
+async def test_text_query_envia_parametro_texto() -> None:
+    """Spec 044: termos CPF/CNPJ consultam pelo `texto` (full-text no corpo) —
+    o DJEN não tem filtro por documento (descoberta verificada ao vivo)."""
+    seen_query = ""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal seen_query
+        seen_query = request.url.query.decode()
+        return httpx.Response(200, json={"status": "success", "count": 0, "items": []})
+
+    client = make_djen_client(httpx.MockTransport(handler))
+    await client.fetch_communications(
+        availability_start=date(2026, 8, 7),
+        availability_end=date(2026, 8, 8),
+        text_query="52998224725",
+    )
+
+    assert "texto=52998224725" in seen_query
+    assert "numeroOab" not in seen_query

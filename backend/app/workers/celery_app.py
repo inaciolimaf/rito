@@ -14,6 +14,23 @@ _settings = get_settings()
 
 celery_app = Celery("rito", broker=_settings.redis_url, backend=_settings.redis_url)
 
+
+def _daily_crontab(expression: str) -> crontab:
+    """Crontab a partir do DJEN_SYNC_CRON ("m h * * *" — 5 campos, diário).
+
+    A forma diária é exigida porque o cálculo de `next_sync_at`
+    (domain/monitored_terms/sync.next_daily_run) só sabe avançar um dia; um
+    cron semanal agendaria o beat certo mas marcaria o próximo run errado.
+    Falhar no boot é melhor que agendar errado em silêncio.
+    """
+    parts = expression.split()
+    if len(parts) != 5 or parts[2] != "*" or parts[3] != "*" or parts[4] != "*":
+        raise ValueError(
+            f"DJEN_SYNC_CRON precisa ser diário ('m h * * *'), recebido: {expression!r}"
+        )
+    return crontab(minute=parts[0], hour=parts[1])
+
+
 celery_app.conf.beat_schedule = {
     # Spec 034, regra 2: varredura diária das séries de recorrência atrasadas.
     "post-recurrence-sweep": {
@@ -31,6 +48,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.external_requests.purge_external_requests",
         "schedule": crontab(hour=4, minute=7),
     },
+    # Spec 044: varredura diária dos termos monitorados (DJEN_SYNC_CRON).
+    "djen-sync": {
+        "task": "app.workers.djen_sync.sync_due_terms",
+        "schedule": _daily_crontab(_settings.djen_sync_cron),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -38,4 +60,5 @@ celery_app.conf.imports = (
     "app.workers.recurrences",
     "app.workers.scores",
     "app.workers.external_requests",
+    "app.workers.djen_sync",
 )

@@ -26,6 +26,7 @@ from app.domain.monitored_terms.service import (
     ResponsibleUserNotFoundError,
 )
 from app.domain.users.models import User
+from app.workers.djen_sync import schedule_term_sync
 
 router = APIRouter(prefix="/monitored-terms", tags=["monitored-terms"])
 
@@ -135,7 +136,8 @@ async def sync_monitored_term(
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TermSyncRunResponse:
-    """Sync manual (regra 10): abre a execução; o processamento é do worker (044)."""
+    """Sync manual (regra 10): abre a execução e agenda o processamento (044);
+    o countdown do agendamento cobre o commit desta request."""
     service = MonitoredTermService(session=session, tenant_id=current_user.tenant_id)
     term = await _get_term(service, term_id)
     try:
@@ -144,6 +146,7 @@ async def sync_monitored_term(
         raise HTTPException(
             status_code=409, detail="Já existe uma sincronização em andamento para esse termo."
         ) from exc
+    schedule_term_sync(term.id)
     return _run_to_response(run)
 
 

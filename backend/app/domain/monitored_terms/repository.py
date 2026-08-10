@@ -55,6 +55,23 @@ class MonitoredTermRepository(BaseRepository[MonitoredTerm]):
         result = await self.session.scalars(stmt)
         return result.all()
 
+    async def list_with_open_run(self) -> Sequence[MonitoredTerm]:
+        """Termos com execução aberta (sync manual da 043) — a varredura da 044
+        consome essas runs além dos termos devidos. Mesmo predicado do
+        ix_terms_due: pausado/inativo fica de fora."""
+        stmt = (
+            select(MonitoredTerm)
+            .join(TermSyncRun, TermSyncRun.term_id == MonitoredTerm.id)
+            .where(
+                MonitoredTerm.is_active.is_(True),
+                MonitoredTerm.status != TermStatus.PAUSADO,
+                TermSyncRun.finished_at.is_(None),
+            )
+            .order_by(MonitoredTerm.next_sync_at)
+        )
+        result = await self.session.scalars(stmt)
+        return result.all()
+
 
 class TermSyncRunRepository(BaseRepository[TermSyncRun]):
     model = TermSyncRun

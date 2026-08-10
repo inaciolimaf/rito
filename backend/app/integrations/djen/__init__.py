@@ -16,6 +16,11 @@ from app.integrations.djen.parser import (
     parse_communication,
 )
 
+# DjenPublicationSource NÃO é re-exportado aqui de propósito: o módulo source
+# importa o contrato PublicationSource de domain/monitored_terms/sync, que por
+# sua vez importa publications/service → djen.parser → este __init__ — ciclo.
+# Quem precisa do adapter importa de app.integrations.djen.source direto.
+
 __all__ = [
     "MAX_PER_PAGE",
     "DjenApiError",

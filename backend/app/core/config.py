@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     djen_base_url: str = "https://comunicaapi.pje.jus.br/api/v1"
     djen_user_agent: str = ""
     djen_rate_limit_per_minute: int = 30
+    # Spec 044: agenda diária da varredura (5 campos, diária: "m h * * *") e TTL do
+    # lock por termo — uma execução por vez, mesmo com worker duplicado (regra 10).
+    djen_sync_cron: str = "17 3 * * *"
+    djen_sync_lock_ttl_seconds: int = 3600
 
     # Spec 041: fixtures da camada HTTP — replay em app_env=test; HTTP_RECORD=1 grava.
     http_fixtures_dir: str = "tests/fixtures/http"

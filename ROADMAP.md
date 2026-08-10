@@ -196,7 +196,7 @@ Client de `comunicaapi.pje.jus.br/api/v1/comunicacao` (**sem autenticação**, e
 CRUD de termos (OAB/UF, CPF, CNPJ); vínculo a usuário; status de monitoramento; custo por termo.
 **Aceite:** termo duplicado bloqueado; status transita corretamente. **t:** 4 s. **Deps:** 042
 
-### ⬜ 044 — DJEN: sincronização
+### ✅ 044 — DJEN: sincronização
 Worker Celery beat diário + sync manual; **deduplicação por `hash`**; tratamento de `status`/`motivo_cancelamento` (publicação anulada); janela de datas; paginação.
 **Aceite:** reprocessar o mesmo payload não duplica; cancelamento marca a comunicação. **t:** 6 s. **Deps:** 043
 

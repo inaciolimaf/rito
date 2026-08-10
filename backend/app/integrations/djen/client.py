@@ -51,6 +51,7 @@ class DjenClient:
         oab_number: str | None = None,
         oab_state: str | None = None,
         process_number: str | None = None,
+        text_query: str | None = None,
         page: int = 1,
         per_page: int = MAX_PER_PAGE,
     ) -> DjenPage:
@@ -67,6 +68,10 @@ class DjenClient:
             params["ufOab"] = oab_state
         if process_number:
             params["numeroProcesso"] = process_number
+        if text_query:
+            # Spec 044: termos CPF/CNPJ — o DJEN não filtra por documento, mas o
+            # `texto` faz full-text no corpo (verificado ao vivo em 2026-08-10).
+            params["texto"] = text_query
 
         response = await self._http.request(
             "GET",

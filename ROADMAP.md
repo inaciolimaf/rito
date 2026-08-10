@@ -204,7 +204,7 @@ Worker Celery beat diário + sync manual; **deduplicação por `hash`**; tratame
 Roteamento: responsável do **grupo de ação** do processo → senão **responsável geral**; casamento por `numero_processo` e por `destinatarioadvogados[].advogado_id`; cria tarefa do tipo "Intimações Judiciais"; `data_disponibilizacao` como base de prazo.
 **Aceite:** os 3 caminhos de roteamento testados. **t:** 5 s. **Deps:** 044, 032
 
-### ⬜ 046 — DataJud: client
+### ✅ 046 — DataJud: client
 Client de `api-publica.datajud.cnj.jus.br` com **APIKey pública em configuração** (nunca hardcode); alias por tribunal; query Elasticsearch; alerta em 401 (chave rotacionada).
 **Aceite:** parse contra fixture; 401 gera alerta. **t:** 3 s. **Deps:** 041
 

@@ -2,6 +2,7 @@ import * as React from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { IntegrationAlertBanner } from "@/components/domain/IntegrationAlertBanner";
 import { Breadcrumbs } from "@/components/shell/Breadcrumbs";
 import { Header } from "@/components/shell/Header";
 import { Sidebar } from "@/components/shell/Sidebar";
@@ -48,6 +49,7 @@ export function AppLayout(): JSX.Element {
           onToggleMobileSidebar={() => setIsMobileDrawerOpen((current) => !current)}
           onNewTask={() => setTaskModalOpen(true)}
         />
+        <IntegrationAlertBanner />
         <div className="border-b border-default px-4 py-2">
           <Breadcrumbs />
         </div>

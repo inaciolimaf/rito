@@ -3,7 +3,13 @@ from collections.abc import Sequence
 from sqlalchemy import func, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.courts.models import Court, CourtSegment, CourtSystem, CourtSystemLink
+from app.domain.courts.models import (
+    CnjMovementCode,
+    Court,
+    CourtSegment,
+    CourtSystem,
+    CourtSystemLink,
+)
 
 
 class CourtRepository:
@@ -60,3 +66,18 @@ class CourtSystemRepository:
 
     async def list_all(self) -> Sequence[CourtSystem]:
         return (await self.session.scalars(select(CourtSystem).order_by(CourtSystem.name))).all()
+
+
+class CnjMovementCodeRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def existing_codes(self, codes: set[int]) -> set[int]:
+        """Regra 7 (spec 046): quais dos códigos passados já estão no seed — o que
+        sobra é logado como aviso pelo `DatajudService`, não travado."""
+        if not codes:
+            return set()
+        result = await self.session.scalars(
+            select(CnjMovementCode.code).where(CnjMovementCode.code.in_(codes))
+        )
+        return set(result.all())

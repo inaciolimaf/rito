@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 210,
+  "last_measured_wall_clock_seconds": 216,
   "last_measured_at": "2026-08-10",
   "specs": {
     "001": {
@@ -182,6 +182,10 @@
     "045": {
       "wall_clock_seconds": 210,
       "notes": "681 backend (666 + 15: casa por número de processo, casa por advogado quando o número não bate, sem casamento fica não vinculada, número ambíguo com motivo, as 4 rotas de roteamento (grupo de ação/termo/geral da conta/fallback GESTOR), reprocessar não duplica, vínculo manual cria a tarefa, scheduled_date = availability_date, deadline_date vazio, cancelamento comenta e marca urgente, casamento ignora máscara, processo arquivado ainda casa), 134 frontend (inalterado — spec é só backend), 7 e2e (inalterado). Descobertas registradas na spec: publications não tem term_id (comentário da 044 confirma — casamento por VALOR, reaproveitado para a rota 2); LawsuitService.create valida dígito verificador real (spec 025) — os processos de teste precisaram de números CNJ válidos, não dígitos arbitrários; routed_by ganhou um 5º valor não previsto no comentário da migration ('gestor_fallback', sem CHECK constraint) para a rota 4; roteamento automático plugado em TermSyncService._process_item (chamada adicional, sem mudar o comportamento dos testes da 044 — nenhum deles tem processo/termo com responsável configurado, então o casamento sempre falha e não interfere)."
+    },
+    "046": {
+      "wall_clock_seconds": 216,
+      "notes": "698 backend (681 + 17: 3 unit de parser contra fixture REAL do TJSP capturada ao vivo (parse fiel, dataAjuizamento no formato compacto AAAAMMDDHHmmss, movimentos com complementosTabelados), 7 integração de client (header APIKey, sem chave configurada, sem hits, número só dígitos na query, 401 levanta erro específico, 401 não entra em loop de retry — 1 chamada só —, não-200/não-401 genérico), 5 integração de service (alias resolvido do tribunal, tribunal sem alias → CourtNotSupportedError, 401 cria integration_alert crítico de SISTEMA e propaga, nivelSigilo>0 descartado sem persistir, código de movimento desconhecido aceito com aviso logado), 2 meta (nenhuma chave literal no código de produção; client não lê DATAJUD_API_KEY sozinho — DIP)), 134 frontend (inalterado — a spec não declarou teste de frontend para o IntegrationAlertBanner, componente simples o bastante para não precisar), 7 e2e (inalterado). Fixtures 100% reais: consultadas ao vivo na API pública do DataJud com a APIKey pública do tutorial oficial do CNJ (a mesma do .env.example) em 2026-08-10 — nenhum dado de movimento/processo foi inventado. Descobertas: publications-style term_id não existe pra courts; datajud_alias já vinha seedado desde a migration 021 (spec 046 só leu); armadilha de teste real — IntegrationAlert com tenant_id nulo é visível para QUALQUER sessão (política de RLS OR tenant_id IS NULL), então o teste do alerta de 401 não pode usar session.begin()/commit (poluiria o rito_test compartilhado entre execuções/workers do xdist) — corrigido para flush-only + sessão fechada sem commit."
     }
   }
 }

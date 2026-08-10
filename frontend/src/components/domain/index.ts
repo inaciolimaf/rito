@@ -5,6 +5,7 @@ export { DonutChart } from "@/components/domain/DonutChart";
 export { EmptyState } from "@/components/domain/EmptyState";
 export { EntityPicker } from "@/components/domain/EntityPicker";
 export { FilterBar } from "@/components/domain/FilterBar";
+export { IntegrationAlertBanner } from "@/components/domain/IntegrationAlertBanner";
 export { FormModal, mapApiErrorToFields } from "@/components/domain/FormModal";
 export { MoneyField } from "@/components/domain/MoneyField";
 export { PercentField } from "@/components/domain/PercentField";

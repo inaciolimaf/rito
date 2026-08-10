@@ -1,0 +1,256 @@
+{
+  "took": 1291,
+  "timed_out": false,
+  "_shards": {
+    "total": 20,
+    "successful": 20,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": {
+      "value": 2,
+      "relation": "eq"
+    },
+    "max_score": 14.494478,
+    "hits": [
+      {
+        "_index": "api_publica_tjsp",
+        "_id": "TJSP_TR_00001333920258260334",
+        "_score": 14.494478,
+        "_source": {
+          "id": "TJSP_TR_00001333920258260334",
+          "tribunal": "TJSP",
+          "grau": "TR",
+          "numeroProcesso": "00001333920258260334",
+          "dataAjuizamento": "20250312140424",
+          "nivelSigilo": 0,
+          "orgaoJulgador": {
+            "codigo": 87686,
+            "nome": "1ª Turma Recursal Cível",
+            "codigoMunicipioIBGE": 3550308
+          },
+          "classe": {
+            "codigo": 460,
+            "nome": "Recurso Inominado Cível"
+          },
+          "sistema": {
+            "codigo": 4,
+            "nome": "Projudi"
+          },
+          "formato": {
+            "codigo": 1,
+            "nome": "Eletrônico"
+          },
+          "dataHoraUltimaAtualizacao": "2026-08-04T05:38:47.908000Z",
+          "@timestamp": "2026-08-04T05:38:47.908000Z",
+          "movimentos": [
+            {
+              "codigo": 123,
+              "dataHora": "2026-07-08T12:03:30.000Z",
+              "nome": "Remessa",
+              "complementosTabelados": [
+                {
+                  "codigo": 18,
+                  "descricao": "motivo_da_remessa",
+                  "valor": 194,
+                  "nome": "por julgamento definitivo do recurso"
+                }
+              ],
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 848,
+              "dataHora": "2026-07-08T12:03:07.000Z",
+              "nome": "Trânsito em julgado",
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 1051,
+              "dataHora": "2026-07-07T01:34:38.000Z",
+              "nome": "Decurso de Prazo",
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 1051,
+              "dataHora": "2026-07-01T02:14:19.000Z",
+              "nome": "Decurso de Prazo",
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 1051,
+              "dataHora": "2026-06-30T01:34:51.000Z",
+              "nome": "Decurso de Prazo",
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            }
+          ],
+          "assuntos": [
+            {
+              "codigo": 7768,
+              "nome": "Rescisão do contrato e devolução do dinheiro"
+            }
+          ]
+        }
+      },
+      {
+        "_index": "api_publica_tjsp",
+        "_id": "TJSP_JE_00001333920258260334",
+        "_score": 13.885899,
+        "_source": {
+          "id": "TJSP_JE_00001333920258260334",
+          "tribunal": "TJSP",
+          "grau": "JE",
+          "numeroProcesso": "00001333920258260334",
+          "dataAjuizamento": "20250312134505",
+          "nivelSigilo": 0,
+          "orgaoJulgador": {
+            "codigo": 10879,
+            "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal",
+            "codigoMunicipioIBGE": 3528106
+          },
+          "classe": {
+            "codigo": 436,
+            "nome": "Procedimento do Juizado Especial Cível"
+          },
+          "sistema": {
+            "codigo": 4,
+            "nome": "Projudi"
+          },
+          "formato": {
+            "codigo": 1,
+            "nome": "Eletrônico"
+          },
+          "dataHoraUltimaAtualizacao": "2026-08-04T05:38:47.898000Z",
+          "@timestamp": "2026-08-04T05:38:47.898000Z",
+          "movimentos": [
+            {
+              "codigo": 51,
+              "dataHora": "2026-07-29T12:06:30.000Z",
+              "nome": "Conclusão",
+              "complementosTabelados": [
+                {
+                  "codigo": 3,
+                  "descricao": "tipo_de_conclusao",
+                  "valor": 5,
+                  "nome": "para despacho"
+                }
+              ],
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 12291,
+              "dataHora": "2026-07-29T12:05:46.000Z",
+              "nome": "Movimentação processual",
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 1051,
+              "dataHora": "2026-07-29T04:15:08.000Z",
+              "nome": "Decurso de Prazo",
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 92,
+              "dataHora": "2026-07-14T07:10:46.000Z",
+              "nome": "Publicação",
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 1061,
+              "dataHora": "2026-07-13T03:24:19.000Z",
+              "nome": "Disponibilização no Diário da Justiça Eletrônico",
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 51,
+              "dataHora": "2026-07-08T13:39:06.000Z",
+              "nome": "Conclusão",
+              "complementosTabelados": [
+                {
+                  "codigo": 3,
+                  "descricao": "tipo_de_conclusao",
+                  "valor": 5,
+                  "nome": "para despacho"
+                }
+              ],
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 123,
+              "dataHora": "2026-04-06T11:04:35.000Z",
+              "nome": "Remessa",
+              "complementosTabelados": [
+                {
+                  "codigo": 18,
+                  "descricao": "motivo_da_remessa",
+                  "valor": 38,
+                  "nome": "em grau de recurso"
+                }
+              ],
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            },
+            {
+              "codigo": 581,
+              "dataHora": "2026-04-06T11:03:33.000Z",
+              "nome": "Documento",
+              "complementosTabelados": [
+                {
+                  "codigo": 4,
+                  "descricao": "tipo_de_documento",
+                  "valor": 107,
+                  "nome": "Certidão"
+                }
+              ],
+              "orgaoJulgador": {
+                "codigo": "10879",
+                "nome": "Juízo Titular I - Vara do Juizado Especial Cível e Criminal da Comarca de Macaubal"
+              }
+            }
+          ],
+          "assuntos": [
+            {
+              "codigo": 7768,
+              "nome": "Rescisão do contrato e devolução do dinheiro"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

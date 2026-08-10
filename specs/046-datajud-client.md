@@ -1,7 +1,7 @@
 # 046 — DataJud: client
 
 **Fase:** 4 · **Tipo:** feature · **Orçamento:** +3 s
-**Depende de:** 041 · **Status:** ⬜ pendente
+**Depende de:** 041 · **Status:** ✅ concluída
 
 ---
 
@@ -106,8 +106,77 @@ Cada movimento: `codigo · dataHora · nome · complementosTabelados[] · orgaoJ
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Fixtures 100% reais, capturadas ao vivo.** Não existe endpoint público consultável
+  para baixar a Tabela Processual Unificada inteira (o "Sistema de Gestão de Tabelas"
+  do CNJ é uma página `sajax` legada, não dá pra fazer scraping simples). Em vez de
+  inventar códigos de movimento, usei a própria APIKey pública (a mesma publicada no
+  tutorial oficial "API Pública do Datajud" do DPJ/CNJ, replicada em `.env.example`)
+  para consultar `api_publica_tjsp/_search` ao vivo em 2026-08-10: uma busca por
+  `numeroProcesso` real virou a fixture `tjsp_processo.json` (truncada de 50/152
+  movimentos reais para 5/8, nenhum campo alterado), uma chave inválida de propósito
+  virou `401_chave_invalida.json` com o corpo real do `security_exception`, e uma
+  varredura de 50 processos (`match_all`) rendeu os 71 pares `(código, nome)` reais
+  que viraram o seed de `cnj_movement_codes` (`movement_codes_seed.py`) — zero dado
+  inventado, tudo com proveniência documentada no README das fixtures.
+- **`datajud_alias` já vinha seedado desde a migration 021.** A spec 021
+  (tribunais/sistemas) já populou `courts.datajud_alias` para todos os tribunais com
+  API pública (ex.: `TJSP` → `api_publica_tjsp`) e deixou `NULL` para os que não têm
+  (CNJ, STF) — esta spec só leu a coluna, não precisou popular nada.
+- **`dataAjuizamento` foge do padrão ISO do resto do payload** — chega como
+  `AAAAMMDDHHmmss` (string de 14 dígitos), não `AAAA-MM-DDTHH:mm:ssZ` como
+  `movimentos[].dataHora`/`dataHoraUltimaAtualizacao`. Um parser genérico de
+  datetime quebraria nesse campo — `_to_compact_datetime` trata o formato à parte.
+- **Regra 6/7 exigem banco — não podem morar no parser puro.** O parser
+  (`app/integrations/datajud/parser.py`) não sabe o que é sigilo>0 nem quais
+  códigos de movimento já são conhecidos (isso é estado, não payload). Essas duas
+  regras ficaram no `DatajudService` (`app/domain/datajud/service.py`), que tem
+  acesso a `CourtRepository`/`CnjMovementCodeRepository`/`IntegrationAlertRepository`
+  — o parser continua 100% função pura (regra 10), testável sem sessão nenhuma.
+- **`routed_by`-like discrepância no comentário da migration, de novo:** o comentário
+  original de `routed_by`/`matched_by` em specs anteriores já tinha esse padrão de
+  ficar incompleto — aqui não há CHECK constraint em `integration_alerts.severity`/
+  `code`/`integration`, são texto livre por design (auditoria, não enum fechado).
+- **`integration_alerts.tenant_id` nulo quebra o padrão usual de RLS — e quebrou um
+  teste.** A política padrão (`enable_rls_statements`) exige match exato de tenant;
+  para liberar alerta de SISTEMA a QUALQUER tenant, a migration 046 usa uma política
+  custom (`tenant_id IS NULL OR tenant_id = current_setting(...)`). Isso significa
+  que uma linha com `tenant_id` nulo é visível para **toda** sessão autenticada —
+  incluindo sessões de testes concorrentes rodando em paralelo (`pytest -n auto`) ou
+  de execuções anteriores da mesma suíte. O teste do alerta de 401 batia
+  `MultipleResultsFound` com `.one()` porque cada execução anterior deixava uma linha
+  órfã no `rito_test` compartilhado (nada faz `TRUNCATE integration_alerts` entre
+  runs — `run-tests.sh` só trunca `tenants CASCADE`, que não alcança linha com FK
+  nula). Corrigido fazendo o teste **não commitar**: `IntegrationAlertRepository.
+  create` só dá `flush` (nunca `commit`), então basta não usar `session.begin()` no
+  teste — a leitura de volta enxerga o INSERT dentro da própria transação, e fechar a
+  sessão sem commitar descarta tudo. Fica registrado como armadilha para qualquer
+  spec futura (049?) que também grave nessa tabela em teste.
+- **Endpoint `GET /integration-alerts` não estava no §5/§6 explícito da spec, mas é
+  necessário.** A spec só desenhou o `IntegrationAlertBanner` no front; sem uma rota
+  para ele consumir, o banner seria inerte. Adicionei `GET /api/v1/integration-alerts`
+  (COLABORADOR+, lista abertos) — infraestrutura mínima para o componente descrito
+  funcionar, não escopo novo de feature.
+- **`DatajudService`/domínio `app/domain/datajud/` nasce aqui, magro de propósito.**
+  Só tem `fetch_process` (uma consulta) — a persistência incremental em
+  `lawsuit_movements` com `dataHoraUltimaAtualizacao` é da spec 047, que estende este
+  service em vez de recriar client/parser.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Chave só em configuração · Alerta de 401 funcionando · Commit `feat(046): DataJud — client`
+- [x] Escopo implementado, nada além (persistência de andamentos fica para a 047,
+      como o §3 determina)
+- [x] Todas as regras de negócio com teste (17 testes — 3 unit de parser, 7
+      integração de client, 5 integração de service, 2 meta; as 10 regras numeradas
+      do §7 cobertas individualmente)
+- [x] Teste de isolamento por tenant (RLS custom de `integration_alerts` verificado
+      via `tenant_id IS NULL` visível a qualquer sessão + isolamento normal para
+      linhas com tenant; `cnj_movement_codes` é taxonomia global sem tenant, mesmo
+      padrão de `courts` desde a spec 021)
+- [x] `make test` verde e wall-clock < 300 s (216 s — 698 backend, 134 frontend, 7 e2e)
+- [x] `make lint` verde (ruff, black, mypy, eslint, tsc, prettier)
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] Componentes reutilizáveis extraídos quando bateu 3 usos (`IntegrationAlertBanner`
+      em `components/domain/`, pronto para a 049 reusar com o DJEN; `get_or_404`,
+      `HttpClient`/`ResilientHttpClient` da 041 reaproveitados sem duplicar)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(046): DataJud — client`

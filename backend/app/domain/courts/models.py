@@ -52,3 +52,17 @@ class CourtSystemLink(CourtBase):
 
     court_id: Mapped[int] = mapped_column(ForeignKey("courts.id"), primary_key=True)
     system_id: Mapped[int] = mapped_column(ForeignKey("court_systems.id"), primary_key=True)
+
+
+class CnjMovementCode(CourtBase):
+    """Tabela nacional de movimentos processuais (TPU, spec 046 §4) — global, sem
+    tenant_id, mesmo padrão de `Court`. `parent_code` fica nulo: a API pública do
+    Datajud não devolve hierarquia de movimento, só `codigo`/`nome` (Descobertas
+    da spec 046). Código de movimento fora daqui é aceito e persistido do mesmo
+    jeito (regra 7) — esta tabela é só para exibição amigável, nunca uma trava."""
+
+    __tablename__ = "cnj_movement_codes"
+
+    code: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    name: Mapped[str]
+    parent_code: Mapped[int | None] = mapped_column(ForeignKey("cnj_movement_codes.code"))

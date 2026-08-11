@@ -239,7 +239,7 @@ Marcação de estagnado por `stagnant_days` da etapa; filtro estagnados/em andam
 Sugestão de workflow ao mover para etapa configurada; confirmação; criação das tarefas.
 **Aceite:** mover para etapa com workflow sugere e cria após confirmar. **t:** 4 s. **Deps:** 052, 038
 
-### ⬜ 054 — Financeiro: plano de contas
+### ✅ 054 — Financeiro: plano de contas
 10 grupos DRE; 61 categorias padrão (14 receita, 47 despesa); centros de custo; CRUD.
 **Aceite:** categoria sempre tem grupo e tipo; seed idempotente. **t:** 3 s. **Deps:** 011
 

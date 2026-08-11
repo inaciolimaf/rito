@@ -18,6 +18,7 @@ import { LawsuitTypesListPage } from "@/features/lawsuit-types/LawsuitTypesListP
 import { LawsuitsPage } from "@/features/lawsuits/LawsuitsPage";
 import { LawsuitDetailPage } from "@/features/lawsuits/LawsuitDetailPage";
 import { CrmPage } from "@/features/crm/CrmPage";
+import { FinancialSettingsPage } from "@/features/financial/FinancialSettingsPage";
 import { InboxPage } from "@/features/inbox/InboxPage";
 import { IntegrationsSettingsPage } from "@/features/integrations/IntegrationsSettingsPage";
 import { PostDetailPage } from "@/features/posts/PostDetailPage";
@@ -71,6 +72,7 @@ export function App(): JSX.Element {
                     <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
                     <Route path="/settings/monitored-terms" element={<MonitoredTermsListPage />} />
                     <Route path="/settings/integrations" element={<IntegrationsSettingsPage />} />
+                    <Route path="/settings/financial" element={<FinancialSettingsPage />} />
                     <Route path="/customers" element={<CustomerListPage />} />
                     <Route path="/lawsuits" element={<LawsuitsPage />} />
                     <Route path="/lawsuits/:id" element={<LawsuitDetailPage />} />

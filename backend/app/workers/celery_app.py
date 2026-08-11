@@ -56,6 +56,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.datajud_sync.sync_due_movements",
         "schedule": _daily_crontab(_settings.datajud_sync_cron),
     },
+    # Spec 049: saúde das integrações + taxa de vínculo automático por tenant
+    # (INTEGRATION_HEALTH_CRON).
+    "integration-health": {
+        "task": "app.workers.integration_health.run_daily_health_check",
+        "schedule": _daily_crontab(_settings.integration_health_cron),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -65,4 +71,5 @@ celery_app.conf.imports = (
     "app.workers.external_requests",
     "app.workers.djen_sync",
     "app.workers.datajud_sync",
+    "app.workers.integration_health",
 )

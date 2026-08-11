@@ -216,7 +216,7 @@ Sync de capa e `movimentos[]` com códigos da tabela CNJ; só processos cadastra
 Tela de listagem com filtros (período, usuário, cliente, tribunal, número); leitura; vínculo manual a processo.
 **Aceite:** filtros combinam; vínculo manual cria relação. **t:** 5 s. **Deps:** 045, 007
 
-### ⬜ 049 — Observabilidade da sincronização
+### ✅ 049 — Observabilidade da sincronização
 Painel de status por termo; histórico de execuções; **falha vira tarefa** para o responsável; métricas de captura.
 **Aceite:** falha simulada gera tarefa de alerta. **t:** 4 s. **Deps:** 048
 

@@ -28,6 +28,7 @@ from app.domain.customer_origins.router import router as customer_origins_router
 from app.domain.customers.router import customers_router, marital_statuses_router
 from app.domain.inbox.router import router as inbox_router
 from app.domain.integration_alerts.router import router as integration_alerts_router
+from app.domain.integrations.router import router as integrations_router
 from app.domain.lawsuits.router import router as lawsuits_router
 from app.domain.locations.router import cities_router, states_router
 from app.domain.monitored_terms.router import router as monitored_terms_router
@@ -115,6 +116,7 @@ def create_app() -> FastAPI:
     app.include_router(publications_router, prefix="/api/v1")
     app.include_router(monitored_terms_router, prefix="/api/v1")
     app.include_router(integration_alerts_router, prefix="/api/v1")
+    app.include_router(integrations_router, prefix="/api/v1")
 
     return app
 

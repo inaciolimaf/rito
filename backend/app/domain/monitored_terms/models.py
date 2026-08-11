@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import CHAR, Boolean, ForeignKey, Index, Text, UniqueConstraint, func
+from sqlalchemy import CHAR, Boolean, ForeignKey, Index, SmallInteger, Text, UniqueConstraint, func
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -66,6 +66,12 @@ class MonitoredTerm(Base, TenantMixin):
     # (com 1 dia de sobreposição); nula, a primeira execução usa backfill_from.
     last_captured_date: Mapped[date | None]
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Spec 049, regras 1-3: zera em todo sucesso; 3 seguidas abrem `alert_id` (um só por
+    # termo — nova falha atualiza a mensagem em vez de duplicar).
+    consecutive_failures: Mapped[int] = mapped_column(SmallInteger, default=0, server_default="0")
+    alert_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("integration_alerts.id")
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 

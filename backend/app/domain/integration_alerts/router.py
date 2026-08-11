@@ -30,6 +30,9 @@ async def list_open_alerts(
                 severity=alert.severity,
                 code=alert.code,
                 message=alert.message,
+                responsible_user_id=alert.responsible_user_id,
+                resolved_at=alert.resolved_at,
+                resolved_by=alert.resolved_by,
                 created_at=alert.created_at,
             )
             for alert in alerts

@@ -17,6 +17,7 @@ from app.domain.monitored_terms.schemas import (
     MonitoredTermListResponse,
     MonitoredTermResponse,
     MonitoredTermUpdateRequest,
+    TermHealthResponse,
     TermSyncRunListResponse,
     TermSyncRunResponse,
 )
@@ -50,6 +51,7 @@ def _term_to_response(term: MonitoredTerm, captured_count: int = 0) -> Monitored
         is_active=term.is_active,
         created_at=term.created_at,
         captured_count=captured_count,
+        consecutive_failures=term.consecutive_failures,
     )
 
 
@@ -178,6 +180,25 @@ async def resume_monitored_term(
     except InvalidTermStateError as exc:
         raise HTTPException(status_code=409, detail="O termo não está pausado.") from exc
     return _term_to_response(term)
+
+
+@router.get("/{term_id}/health")
+async def get_term_health(
+    term_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TermHealthResponse:
+    service = MonitoredTermService(session=session, tenant_id=current_user.tenant_id)
+    term = await _get_term(service, term_id)
+    return TermHealthResponse(
+        id=term.id,
+        status=term.status,
+        consecutive_failures=term.consecutive_failures,
+        last_sync_at=term.last_sync_at,
+        last_success_at=term.last_success_at,
+        next_sync_at=term.next_sync_at,
+        alert_id=term.alert_id,
+    )
 
 
 @router.get("/{term_id}/runs")

@@ -18,6 +18,7 @@ import { LawsuitTypesListPage } from "@/features/lawsuit-types/LawsuitTypesListP
 import { LawsuitsPage } from "@/features/lawsuits/LawsuitsPage";
 import { LawsuitDetailPage } from "@/features/lawsuits/LawsuitDetailPage";
 import { InboxPage } from "@/features/inbox/InboxPage";
+import { IntegrationsSettingsPage } from "@/features/integrations/IntegrationsSettingsPage";
 import { PostDetailPage } from "@/features/posts/PostDetailPage";
 import { PublicationListPage } from "@/features/publications/PublicationListPage";
 import { CalendarPage } from "@/features/schedule/CalendarPage";
@@ -68,6 +69,7 @@ export function App(): JSX.Element {
                     <Route path="/goals" element={<Navigate to="/settings/goals" replace />} />
                     <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
                     <Route path="/settings/monitored-terms" element={<MonitoredTermsListPage />} />
+                    <Route path="/settings/integrations" element={<IntegrationsSettingsPage />} />
                     <Route path="/customers" element={<CustomerListPage />} />
                     <Route path="/lawsuits" element={<LawsuitsPage />} />
                     <Route path="/lawsuits/:id" element={<LawsuitDetailPage />} />

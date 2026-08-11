@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     djen_sync_cron: str = "17 3 * * *"
     djen_sync_lock_ttl_seconds: int = 3600
 
+    # Spec 049: agenda diária do job de saúde das integrações (5 campos, diária).
+    integration_health_cron: str = "0 6 * * *"
+
     # Spec 041: fixtures da camada HTTP — replay em app_env=test; HTTP_RECORD=1 grava.
     http_fixtures_dir: str = "tests/fixtures/http"
     http_record: bool = False

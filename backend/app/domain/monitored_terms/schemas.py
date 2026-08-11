@@ -8,6 +8,7 @@ from app.domain.monitored_terms.models import TermKind, TermStatus
 
 BACKFILL_DEFAULT_DAYS = 30  # regra 6: padrão 30 dias atrás
 BACKFILL_MAX_DAYS = 365  # regra 6: máximo 12 meses
+SYNC_RUN_RETENTION_DAYS = 90  # spec 049, regra 9
 
 
 class MonitoredTermCreateRequest(BaseModel):
@@ -76,11 +77,25 @@ class MonitoredTermResponse(BaseModel):
     is_active: bool
     created_at: datetime
     captured_count: int = 0
+    consecutive_failures: int = 0
 
 
 class MonitoredTermListResponse(BaseModel):
     items: list[MonitoredTermResponse]
     total: int
+
+
+class TermHealthResponse(BaseModel):
+    """Spec 049, §5 — o `TermHealthCard` do front; o histórico completo de
+    execuções continua em `GET /{id}/runs` (spec 043/044), não duplicado aqui."""
+
+    id: uuid.UUID
+    status: TermStatus
+    consecutive_failures: int
+    last_sync_at: datetime | None
+    last_success_at: datetime | None
+    next_sync_at: datetime | None
+    alert_id: uuid.UUID | None
 
 
 class TermSyncRunResponse(BaseModel):

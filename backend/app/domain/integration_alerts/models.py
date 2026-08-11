@@ -23,5 +23,13 @@ class IntegrationAlert(Base):
     severity: Mapped[str] = mapped_column(Text)  # 'warning' | 'critical'
     code: Mapped[str] = mapped_column(Text)  # 'api_key_rotated' | ...
     message: Mapped[str] = mapped_column(Text)
+    # Spec 049: a quem o alerta foi atribuído (responsável do termo, ou GESTOR de fallback) —
+    # informativo, não controla visibilidade (isso continua sendo tenant_id + RLS).
+    responsible_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
+    )
     resolved_at: Mapped[datetime | None] = mapped_column(default=None)
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

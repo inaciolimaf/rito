@@ -31,6 +31,7 @@ import {
   type MonitoredTermFormValues,
 } from "@/features/monitored-terms/schema";
 import { SyncRunsTable } from "@/features/monitored-terms/SyncRunsTable";
+import { TermHealthCard } from "@/features/monitored-terms/TermHealthCard";
 import { TermStatusBadge } from "@/features/monitored-terms/TermStatusBadge";
 import { listUsers } from "@/features/users/api";
 import { ApiError } from "@/lib/errors";
@@ -267,6 +268,7 @@ export function MonitoredTermsListPage(): JSX.Element {
       <Dialog open={runsTerm !== null} onOpenChange={(open) => !open && setRunsTerm(null)}>
         <DialogContent>
           <DialogTitle>Histórico — {runsTerm ? formatTerm(runsTerm) : ""}</DialogTitle>
+          {runsTerm && <TermHealthCard termId={runsTerm.id} />}
           {runsLoading ? (
             <p className="text-sm text-muted">Carregando…</p>
           ) : (

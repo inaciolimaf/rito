@@ -42,6 +42,22 @@ class PublicationCounts:
 
 
 @dataclass
+class PublicationMetricsRow:
+    """Insumo cru pra `PublicationMetricsService` (spec 049, §7) — período/taxa
+    ficam por conta do service, aqui é só agregação de banco."""
+
+    total: int
+    auto_linked: int
+    per_day: dict[date, int]
+    per_court: dict[str, int]
+
+
+# regra 7 da 049: casamento automático é `process_number`/`lawyer_id` — `manual`
+# e `ambiguous` não contam como vínculo automático.
+_AUTO_MATCHED_BY = ("process_number", "lawyer_id")
+
+
+@dataclass
 class PublicationListRow:
     """Linha enriquecida (spec 048) — partes e nome do responsável resolvidos sem
     N+1, reaproveitada pela listagem e pelo export (mesmo padrão de `LawsuitListRow`,
@@ -149,6 +165,39 @@ class PublicationRepository(BaseRepository[Publication]):
             stmt = stmt.where(condition)
         total, unlinked, cancelled, unread = (await self.session.execute(stmt)).one()
         return PublicationCounts(total=total, unlinked=unlinked, cancelled=cancelled, unread=unread)
+
+    async def metrics(self, *, since: date) -> PublicationMetricsRow:
+        """Spec 049, regra 7: publicações por dia e por tribunal, mais o total
+        casado automaticamente (base da taxa de vínculo automático da regra 8)."""
+        totals_stmt = (
+            select(
+                func.count(),
+                func.count().filter(Publication.matched_by.in_(_AUTO_MATCHED_BY)),
+            )
+            .select_from(Publication)
+            .where(Publication.availability_date >= since)
+        )
+        total, auto_linked = (await self.session.execute(totals_stmt)).one()
+
+        per_day_stmt = (
+            select(Publication.availability_date, func.count())
+            .where(Publication.availability_date >= since)
+            .group_by(Publication.availability_date)
+            .order_by(Publication.availability_date)
+        )
+        per_day = dict((await self.session.execute(per_day_stmt)).tuples().all())
+
+        per_court_stmt = (
+            select(Publication.court_code, func.count())
+            .where(Publication.availability_date >= since)
+            .group_by(Publication.court_code)
+            .order_by(Publication.court_code)
+        )
+        per_court = dict((await self.session.execute(per_court_stmt)).tuples().all())
+
+        return PublicationMetricsRow(
+            total=total, auto_linked=auto_linked, per_day=per_day, per_court=per_court
+        )
 
 
 class PublicationRecipientRepository(BaseRepository[PublicationRecipient]):

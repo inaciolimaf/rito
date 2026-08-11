@@ -12,6 +12,7 @@ from app.domain.publications.exceptions import (
     LawsuitNotFoundError,
     PublicationAlreadyExistsError,
 )
+from app.domain.publications.metrics import PublicationMetricsService
 from app.domain.publications.models import Publication
 from app.domain.publications.repository import PublicationListRow
 from app.domain.publications.routing import PublicationRoutingService
@@ -25,6 +26,7 @@ from app.domain.publications.schemas import (
     PublicationLawyerResponse,
     PublicationListItemResponse,
     PublicationListResponse,
+    PublicationMetricsResponse,
     PublicationRecipientResponse,
     PublicationResponse,
 )
@@ -210,6 +212,25 @@ async def get_publication_counts(
         unlinked=counts.unlinked,
         cancelled=counts.cancelled,
         unread=counts.unread,
+    )
+
+
+@router.get("/metrics")
+async def get_publication_metrics(
+    period: int = Query(default=7, ge=1, le=90),
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> PublicationMetricsResponse:
+    """Spec 049, §5/§7: publicações por dia/tribunal e taxa de vínculo automático."""
+    service = PublicationMetricsService(session=session, tenant_id=current_user.tenant_id)
+    metrics = await service.get_metrics(period_days=period)
+    return PublicationMetricsResponse(
+        period_days=metrics.period_days,
+        total=metrics.total,
+        auto_linked=metrics.auto_linked,
+        auto_link_rate=metrics.auto_link_rate,
+        per_day={day.isoformat(): count for day, count in metrics.per_day.items()},
+        per_court=metrics.per_court,
     )
 
 

@@ -5,10 +5,12 @@ import { useNavigate } from "react-router-dom";
 import { EmptyState } from "@/components/domain/EmptyState";
 import { DataTable } from "@/components/domain/DataTable";
 import { ListPageLayout } from "@/components/domain/ListPageLayout";
+import { StatCard } from "@/components/domain/StatCard";
 import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
 import { useFilters } from "@/components/domain/useFilters";
 import { useListPage } from "@/components/domain/useListPage";
 import { Button } from "@/components/ui/button";
+import { getPublicationMetrics } from "@/features/integrations/api";
 import { listMonitoredTerms } from "@/features/monitored-terms/api";
 import {
   exportPublications,
@@ -21,6 +23,7 @@ import { CancelledBadge } from "@/features/publications/CancelledBadge";
 import { LinkToLawsuitDialog } from "@/features/publications/LinkToLawsuitDialog";
 import { PublicationDetailDrawer } from "@/features/publications/PublicationDetailDrawer";
 import { UnlinkedBanner } from "@/features/publications/UnlinkedBanner";
+import { useAuth } from "@/providers/AuthProvider";
 
 const FILTER_FIELDS: FilterFieldDef[] = [
   {
@@ -49,12 +52,22 @@ const FILTER_FIELDS: FilterFieldDef[] = [
 export function PublicationListPage(): JSX.Element {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canSeeMetrics = user?.role === "ADMINISTRADOR" || user?.role === "GESTOR";
 
   const { data: termsPage, isLoading: isLoadingTerms } = useQuery({
     queryKey: ["monitored-terms", "for-publications-empty-state"],
     queryFn: () => listMonitoredTerms({}),
   });
   const hasNoTermConfigured = !isLoadingTerms && (termsPage?.total ?? 0) === 0;
+
+  // Spec 049 §6: "painel no topo de /publications" — a taxa de vínculo automático
+  // (regra 8) é o que mais importa pra controladoria enxergar de cara.
+  const { data: metrics } = useQuery({
+    queryKey: ["publications", "metrics", 7],
+    queryFn: () => getPublicationMetrics(7),
+    enabled: canSeeMetrics && !hasNoTermConfigured,
+  });
 
   const { values, setValue } = useFilters(FILTER_FIELDS);
   const dateFrom = typeof values.date_from === "string" ? values.date_from : undefined;
@@ -168,6 +181,19 @@ export function PublicationListPage(): JSX.Element {
         />
       ) : (
         <>
+          {metrics && (
+            <div className="max-w-xs">
+              <StatCard
+                label={`Taxa de vínculo automático (${metrics.period_days} dias)`}
+                value={
+                  metrics.auto_link_rate === null
+                    ? "—"
+                    : `${Math.round(metrics.auto_link_rate * 100)}%`
+                }
+              />
+            </div>
+          )}
+
           <UnlinkedBanner
             count={counts?.unlinked ?? 0}
             onFilterUnlinked={() => setValue("linked", "false")}

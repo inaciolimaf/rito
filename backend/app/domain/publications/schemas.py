@@ -66,6 +66,18 @@ class PublicationCountsResponse(BaseModel):
     unread: int
 
 
+class PublicationMetricsResponse(BaseModel):
+    """Spec 049, §5/§7 — `per_day`/`per_court` chaveados por string pro JSON (a
+    data vira ISO); "por termo" fica de fora (Descobertas da 049)."""
+
+    period_days: int
+    total: int
+    auto_linked: int
+    auto_link_rate: float | None
+    per_day: dict[str, int]
+    per_court: dict[str, int]
+
+
 class PublicationListItemResponse(BaseModel):
     id: uuid.UUID
     availability_date: date

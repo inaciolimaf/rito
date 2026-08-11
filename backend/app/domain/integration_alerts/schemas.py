@@ -10,6 +10,9 @@ class IntegrationAlertResponse(BaseModel):
     severity: str
     code: str
     message: str
+    responsible_user_id: uuid.UUID | None
+    resolved_at: datetime | None
+    resolved_by: uuid.UUID | None
     created_at: datetime
 
 

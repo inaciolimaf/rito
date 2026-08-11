@@ -2,7 +2,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import func, literal, or_, select, tuple_
+from sqlalchemy import delete, func, literal, or_, select, tuple_
 
 from app.core.repository import BaseRepository
 from app.domain.monitored_terms.models import MonitoredTerm, TermKind, TermStatus, TermSyncRun
@@ -54,6 +54,13 @@ class MonitoredTermRepository(BaseRepository[MonitoredTerm]):
         )
         result = await self.session.scalars(stmt)
         return result.all()
+
+    async def count_by_status(self) -> dict[TermStatus, int]:
+        """Spec 049, §5: "termos por status" do painel de observabilidade — RLS
+        restringe ao tenant da sessão, como qualquer outra query deste repositório."""
+        stmt = select(MonitoredTerm.status, func.count()).group_by(MonitoredTerm.status)
+        rows = await self.session.execute(stmt)
+        return dict(rows.tuples().all())
 
     async def list_with_open_run(self) -> Sequence[MonitoredTerm]:
         """Termos com execução aberta (sync manual da 043) — a varredura da 044
@@ -114,3 +121,11 @@ class TermSyncRunRepository(BaseRepository[TermSyncRun]):
             select(func.count()).select_from(TermSyncRun).where(TermSyncRun.term_id == term_id)
         )
         return total or 0
+
+    async def purge_older_than(self, cutoff: datetime) -> int:
+        """Spec 049, regra 9: histórico mantido por 90 dias — chamado pelo job
+        diário, um tenant por vez (RLS restringe ao tenant da sessão)."""
+        result = await self.session.execute(
+            delete(TermSyncRun).where(TermSyncRun.started_at < cutoff)
+        )
+        return int(result.rowcount)  # type: ignore[attr-defined]

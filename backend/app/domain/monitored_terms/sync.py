@@ -28,6 +28,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.locks import SyncLock
 from app.core.rls import set_tenant_context
+from app.domain.integration_alerts.models import IntegrationAlert
+from app.domain.integration_alerts.repository import IntegrationAlertRepository
 from app.domain.monitored_terms.models import MonitoredTerm, TermStatus, TermSyncRun
 from app.domain.monitored_terms.repository import (
     MonitoredTermRepository,
@@ -37,6 +39,7 @@ from app.domain.monitored_terms.schemas import BACKFILL_DEFAULT_DAYS
 from app.domain.publications.repository import PublicationRepository
 from app.domain.publications.routing import PublicationRoutingService
 from app.domain.publications.service import PublicationService
+from app.domain.users.repository import UserRepository
 from app.integrations.djen.parser import ParsedCommunication
 
 logger = logging.getLogger("rito.djen_sync")
@@ -45,6 +48,7 @@ MAX_WINDOW_DAYS = 90  # regra 12: fatia máxima por execução
 WINDOW_OVERLAP_DAYS = 1  # regra 3: cobre publicação que entra atrasada no DJEN
 ITEMS_PER_PAGE = 100  # regra 9 da spec 042: teto da API, protege o rate limit
 _STATUS_MESSAGE_MAX = 500
+CONSECUTIVE_FAILURE_ALERT_THRESHOLD = 3  # spec 049, regra 1
 
 
 @dataclass
@@ -84,6 +88,10 @@ def _is_cancellation(parsed: ParsedCommunication) -> bool:
     return not parsed.is_active or parsed.cancellation_reason is not None
 
 
+def _append_note(existing: str, note: str) -> str:
+    return f"{existing}\n\n{note}"
+
+
 class TermSyncService:
     def __init__(
         self,
@@ -106,6 +114,8 @@ class TermSyncService:
         self.publications = PublicationRepository(session)
         self.publication_service = PublicationService(session=session, tenant_id=tenant_id)
         self.routing = PublicationRoutingService(session=session, tenant_id=tenant_id)
+        self.alerts = IntegrationAlertRepository(session)
+        self.users = UserRepository(session)
 
     async def _commit(self) -> None:
         await self.session.commit()
@@ -182,24 +192,74 @@ class TermSyncService:
                 start = end + timedelta(days=1)
         except Exception as exc:
             # Regra 9: rollback descarta a página em andamento — as páginas já
-            # commitadas ficam e o re-run não as duplica (regra 1).
+            # commitadas ficam e o re-run não as duplica (regra 1). O rollback
+            # expira os atributos do objeto — refresh() explícito porque a sessão
+            # é assíncrona e não faz lazy-load implícito (levantaria MissingGreenlet
+            # no primeiro acesso a um atributo não tocado, como term.user_id/alert_id
+            # logo abaixo, spec 049).
             await self._rollback()
+            await self.session.refresh(term)
             message = str(exc)[:_STATUS_MESSAGE_MAX]
             run.error = message
             run.finished_at = now
             term.status = TermStatus.FALHA  # regra 6
             term.status_message = message
             term.next_sync_at = next_daily_run(self.cron, now)
+            term.consecutive_failures += 1  # spec 049, regra 1
+            if term.consecutive_failures >= CONSECUTIVE_FAILURE_ALERT_THRESHOLD:
+                await self._raise_or_update_alert(term, message)
             await self._commit()
             return run
 
+        if term.consecutive_failures > 0 or term.alert_id is not None:
+            await self._resolve_alert(term, now)  # spec 049, regra 3
         run.finished_at = now
         term.status = TermStatus.ATIVO
         term.status_message = None
         term.last_success_at = now  # regra 11: silêncio é resultado válido
         term.next_sync_at = next_daily_run(self.cron, now)
+        term.consecutive_failures = 0
         await self._commit()
         return run
+
+    async def _raise_or_update_alert(self, term: MonitoredTerm, message: str) -> None:
+        """Spec 049, regras 1-2: alerta é um só por termo — nova falha atualiza a
+        mensagem do alerta aberto em vez de criar outro."""
+        if term.alert_id is not None:
+            alert = await self.alerts.get_by_id(term.alert_id)
+            if alert is not None and alert.resolved_at is None:
+                alert.message = _append_note(alert.message, f"Nova falha: {message}")
+                return
+        responsible_id = term.user_id
+        if responsible_id is None:
+            gestor = await self.users.get_oldest_active_gestor()
+            responsible_id = gestor.id if gestor is not None else None
+        alert = IntegrationAlert(
+            tenant_id=self.tenant_id,
+            integration="djen",
+            severity="warning",
+            code="term_sync_failed",
+            message=(
+                f"O termo {term.value} falhou {term.consecutive_failures} vezes seguidas "
+                f"na sincronização: {message}"
+            ),
+            responsible_user_id=responsible_id,
+        )
+        await self.alerts.create(alert)
+        term.alert_id = alert.id
+
+    async def _resolve_alert(self, term: MonitoredTerm, now: datetime) -> None:
+        """Spec 049, regra 3: sucesso resolve o alerta aberto e anota a normalização."""
+        if term.alert_id is None:
+            return
+        alert = await self.alerts.get_by_id(term.alert_id)
+        if alert is not None and alert.resolved_at is None:
+            alert.message = _append_note(
+                alert.message,
+                f"Normalizado em {now.isoformat()} — sincronização voltou a funcionar.",
+            )
+            alert.resolved_at = now
+        term.alert_id = None
 
     @staticmethod
     def _window_start(term: MonitoredTerm, today: date) -> date:

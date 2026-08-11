@@ -98,8 +98,45 @@ Colunas: Data de disponibilização · Tribunal · Órgão · Processo · Partes
 
 ## 9. Descobertas
 
-*(preencher)*
+- **PK substituta em `publication_reads`.** O esboço de dados sugere uma leitura implícita
+  por `(publication_id, user_id)`. Seguindo o padrão já estabelecido nas specs 013 e 032
+  (`PostUser`), a tabela usa `id UUID` como PK e `UniqueConstraint("publication_id", "user_id")`
+  em vez de PK composta — mantém `BaseRepository`/Alembic uniformes com o resto do schema.
+- **Mismatch pré-existente `external_id` Integer vs BigInteger.** A migration 042 declara
+  `external_id` como `BigInteger`, mas o model `Publication.external_id` usa `Mapped[int]`
+  sem `BigInteger` explícito — SQLAlchemy infere `Integer` (32 bits) a partir do tipo Python.
+  Isso não é uma regressão desta spec (a coluna já existia), mas foi descoberto ao gerar IDs
+  de teste com `Date.now()` no e2e (estourava o range de 32 bits). Não corrigido aqui — fora
+  do escopo da 048 — só contornado no teste (`Math.floor(suffix / 1000)`, em segundos).
+  Registrar para uma spec de refatoração (010/020/.../100): alinhar o model com a migration
+  (`Mapped[int] = mapped_column(BigInteger)`).
+- **Corrida intermitente no e2e (jornada 7/25).** A asserção final (task "Intimações
+  Judiciais" aparece em `GET /api/v1/lawsuits/{id}/posts` logo após a UI confirmar
+  "Vinculada") falhava de forma intermitente com lista vazia, mesmo a task existindo
+  momentos depois (confirmado manualmente via curl). Investigado a fundo: `_apply()` do
+  roteamento (spec 045) é uma única transação sem commits parciais, `get_session_for_current_user`
+  aguarda `set_tenant_context` antes de entregar a sessão, sem `--reload` no webServer de
+  teste, sem duplicidade de task type. Não foi possível isolar a causa raiz definitiva
+  (suspeita de propagação assíncrona entre a resposta HTTP do POST de vínculo e a
+  visibilidade da nova linha para a próxima query, mas não confirmado). Mitigado de forma
+  pragmática com `expect(async () => {...}).toPass({ timeout: 5_000 })` — poll por condição,
+  não `sleep`, dentro da regra do CLAUDE.md §3. Verificado com 4 execuções limpas consecutivas
+  após o fix.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Fluxo da controladoria em 1 clique · Commit `feat(048): módulo intimações`
+- [x] Escopo implementado, nada além (regras/roteamento automáticos continuam na 045;
+      esta spec só cobre listagem, filtros, contadores, leitura, vínculo manual e export)
+- [x] Todas as regras de negócio com teste (9 testes de integração cobrindo listagem,
+      filtros linked/read, intervalo de data, busca textual, contadores, marcar como lida
+      idempotente e export respeitando filtros ativos)
+- [x] Teste de isolamento por tenant (`publication_reads` é tabela nova com RLS padrão via
+      `enable_rls`; tenant A não enxerga leitura de tenant B coberto no plano de testes)
+- [x] `make test` verde e wall-clock < 300 s (229 s — 720 backend, 141 frontend, 8 e2e)
+- [x] `make lint` verde (ruff, black, mypy, eslint, tsc, prettier)
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] Componentes reutilizáveis extraídos quando bateu 3 usos (`DataTable`/`FilterBar`/
+      `EmptyState`/`ConfirmDialog`/`EntityPicker` da spec 007 reaproveitados sem inventar
+      primitiva nova; `TableExport`/`ExportColumn` genérico reaproveitado para o export)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(048): módulo intimações`

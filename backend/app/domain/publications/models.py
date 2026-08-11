@@ -100,3 +100,22 @@ class PublicationLawyer(Base, TenantMixin):
     name: Mapped[str | None] = mapped_column(Text)
     oab_number: Mapped[str | None] = mapped_column(Text)
     oab_state: Mapped[str | None] = mapped_column(String(2))
+
+
+class PublicationRead(Base, TenantMixin):
+    """Leitura por usuário (spec 048, regra 5) — o que um advogado leu não marca
+    como lida pros outros. PK surrogate + UNIQUE(publication_id, user_id), mesmo
+    padrão de `post_users` (spec 032) em vez da PK composta do §4 original."""
+
+    __tablename__ = "publication_reads"
+    __table_args__ = (
+        UniqueConstraint("publication_id", "user_id", name="uq_publication_reads_pub_user"),
+    )
+
+    publication_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("publications.id", ondelete="CASCADE")
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    read_at: Mapped[datetime] = mapped_column(server_default=func.now())

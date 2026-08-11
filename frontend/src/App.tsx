@@ -19,6 +19,7 @@ import { LawsuitsPage } from "@/features/lawsuits/LawsuitsPage";
 import { LawsuitDetailPage } from "@/features/lawsuits/LawsuitDetailPage";
 import { InboxPage } from "@/features/inbox/InboxPage";
 import { PostDetailPage } from "@/features/posts/PostDetailPage";
+import { PublicationListPage } from "@/features/publications/PublicationListPage";
 import { CalendarPage } from "@/features/schedule/CalendarPage";
 import { StagesListPage } from "@/features/stages/StagesListPage";
 import { TaskTypesListPage } from "@/features/task-types/TaskTypesListPage";
@@ -72,13 +73,15 @@ export function App(): JSX.Element {
                     <Route path="/lawsuits/:id" element={<LawsuitDetailPage />} />
                     <Route path="/posts/:id" element={<PostDetailPage />} />
                     <Route path="/schedules" element={<CalendarPage />} />
+                    <Route path="/publications" element={<PublicationListPage />} />
                     {ROUTABLE_NAV_ITEMS.filter(
                       (item) =>
                         item.path !== "/home" &&
                         item.path !== "/subscription/account" &&
                         item.path !== "/customers" &&
                         item.path !== "/lawsuits" &&
-                        item.path !== "/schedules",
+                        item.path !== "/schedules" &&
+                        item.path !== "/publications",
                     ).map((item) => (
                       <Route
                         key={item.path}

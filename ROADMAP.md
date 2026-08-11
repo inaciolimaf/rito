@@ -212,7 +212,7 @@ Client de `api-publica.datajud.cnj.jus.br` com **APIKey pública em configuraç�
 Sync de capa e `movimentos[]` com códigos da tabela CNJ; só processos cadastrados; `dataHoraUltimaAtualizacao` para incremental.
 **Aceite:** movimento novo aparece na timeline; reprocesso não duplica. **t:** 5 s. **Deps:** 046, 026
 
-### ⬜ 048 — Módulo Intimações
+### ✅ 048 — Módulo Intimações
 Tela de listagem com filtros (período, usuário, cliente, tribunal, número); leitura; vínculo manual a processo.
 **Aceite:** filtros combinam; vínculo manual cria relação. **t:** 5 s. **Deps:** 045, 007
 

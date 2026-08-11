@@ -62,6 +62,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.integration_health.run_daily_health_check",
         "schedule": _daily_crontab(_settings.integration_health_cron),
     },
+    # Spec 052, regra 4: recálculo diário de estagnação do CRM, às 3h.
+    "stagnation-sweep": {
+        "task": "app.workers.stagnation.sweep_all_tenants",
+        "schedule": crontab(hour=3, minute=0),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -72,4 +77,5 @@ celery_app.conf.imports = (
     "app.workers.djen_sync",
     "app.workers.datajud_sync",
     "app.workers.integration_health",
+    "app.workers.stagnation",
 )

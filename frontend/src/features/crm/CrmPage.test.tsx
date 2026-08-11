@@ -29,6 +29,9 @@ const BOARD_BODY = {
           stage_entered_at: "2026-08-01T00:00:00Z",
           parties: [{ name: "Cliente Teste", pole: "A" }],
           parties_total: 1,
+          is_stagnant: false,
+          stagnant_since: null,
+          stagnant_days: null,
         },
       ],
     },
@@ -36,6 +39,15 @@ const BOARD_BODY = {
   ],
   total: 1,
   suggest_refine_filters: false,
+};
+
+const STATS_BODY = {
+  total_lawsuits: 1,
+  received_this_month: 1,
+  total_value: 0,
+  stagnant_count: 0,
+  stagnant_value: 0,
+  by_step: [],
 };
 
 const STAGES_BODY = {
@@ -81,6 +93,7 @@ describe("CrmPage", () => {
   it("falha da API ao mover reverte a UI pro estado do servidor", async () => {
     server.use(
       http.get(`${BASE_URL}/api/v1/crm/board`, () => HttpResponse.json(BOARD_BODY)),
+      http.get(`${BASE_URL}/api/v1/crm/stats`, () => HttpResponse.json(STATS_BODY)),
       http.get(`${BASE_URL}/api/v1/stages`, () => HttpResponse.json(STAGES_BODY)),
       http.post(`${BASE_URL}/api/v1/lawsuits/lawsuit-1/move-stage`, async () => {
         // Atraso de propósito: sem ele, o revert (onError → invalida → refetch) resolve

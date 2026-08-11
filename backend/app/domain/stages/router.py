@@ -25,6 +25,7 @@ from app.domain.stages.schemas import (
 )
 from app.domain.stages.service import StageService, StepService
 from app.domain.users.models import User
+from app.workers.stagnation import schedule_stage_recalculation
 
 steps_router = APIRouter(prefix="/steps", tags=["steps"])
 stages_router = APIRouter(prefix="/stages", tags=["stages"])
@@ -100,6 +101,7 @@ async def update_stage(
 ) -> StageResponse:
     service = StageService(session=session, tenant_id=current_user.tenant_id)
     stage, _ = await get_or_404(lambda: service.get(stage_id), "Etapa não encontrada.")
+    previous_rule = (stage.enable_stagnant_days, stage.stagnant_days)
 
     try:
         updated, step_name = await service.update(stage, payload)
@@ -109,6 +111,9 @@ async def update_stage(
         ) from exc
     except StepNotFoundError as exc:
         raise HTTPException(status_code=422, detail="Fase não encontrada.") from exc
+    # Spec 052, regra 10: só recalcula quando a regra de estagnação de fato mudou.
+    if (updated.enable_stagnant_days, updated.stagnant_days) != previous_rule:
+        schedule_stage_recalculation(updated.id, current_user.tenant_id)
     return _stage_to_response(updated, step_name)
 
 

@@ -11,17 +11,29 @@ import {
   bulkMoveLawsuitStage,
   getBoard,
   getBoardColumn,
+  getCrmStats,
   moveLawsuitStage,
   type Board,
   type BoardCard,
   type BoardFilters,
 } from "@/features/crm/api";
+import { CrmStatsBar } from "@/features/crm/CrmStatsBar";
 import { LawsuitCard } from "@/features/crm/LawsuitCard";
 import { listStages } from "@/features/stages/api";
 
 const FILTER_FIELDS: FilterFieldDef[] = [
   { key: "q", label: "Buscar", type: "text" },
   { key: "archived", label: "Arquivados", type: "boolean" },
+  {
+    key: "display_stagnant",
+    label: "Estagnação",
+    type: "select",
+    options: [
+      { value: "all", label: "Todos" },
+      { value: "stagnant", label: "Só estagnados" },
+      { value: "active", label: "Só em andamento" },
+    ],
+  },
 ];
 
 /** Tela do CRM — board Kanban (spec 051). Filtros são os mesmos de `/lawsuits`
@@ -32,8 +44,13 @@ export function CrmPage(): JSX.Element {
   const { values } = useFilters(FILTER_FIELDS);
   const q = typeof values.q === "string" ? values.q : undefined;
   const archived = values.archived === undefined ? undefined : values.archived === "true";
-  const filters: BoardFilters = { q, archived };
+  const displayStagnant =
+    values.display_stagnant === "stagnant" || values.display_stagnant === "active"
+      ? values.display_stagnant
+      : "all";
+  const filters: BoardFilters = { q, archived, display_stagnant: displayStagnant };
   const boardKey = ["crm", "board", filters] as const;
+  const statsKey = ["crm", "stats", filters] as const;
 
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [bulkTargetStage, setBulkTargetStage] = React.useState("");
@@ -47,6 +64,10 @@ export function CrmPage(): JSX.Element {
   const { data: board, isLoading } = useQuery({
     queryKey: boardKey,
     queryFn: () => getBoard(filters),
+  });
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: statsKey,
+    queryFn: () => getCrmStats(filters),
   });
   const { data: stagesPage } = useQuery({
     queryKey: ["stages", "all-for-crm"],
@@ -67,7 +88,10 @@ export function CrmPage(): JSX.Element {
   }, [stagesPage]);
 
   const invalidateBoard = (): Promise<void> =>
-    queryClient.invalidateQueries({ queryKey: ["crm", "board"] }).then(() => undefined);
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["crm", "board"] }),
+      queryClient.invalidateQueries({ queryKey: ["crm", "stats"] }),
+    ]).then(() => undefined);
 
   const move = useMutation({
     mutationFn: ({ lawsuitId, stageId }: { lawsuitId: string; stageId: string }) =>
@@ -194,6 +218,8 @@ export function CrmPage(): JSX.Element {
           </div>
         )}
       </div>
+
+      <CrmStatsBar stats={stats} isLoading={statsLoading} />
 
       {board.suggest_refine_filters && (
         <p

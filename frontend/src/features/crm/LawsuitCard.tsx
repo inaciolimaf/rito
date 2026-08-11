@@ -1,3 +1,4 @@
+import { StagnantBadge } from "@/components/domain/StagnantBadge";
 import type { BoardCard } from "@/features/crm/api";
 import { formatBrl } from "@/lib/money";
 
@@ -19,6 +20,7 @@ export function LawsuitCard({ card }: { card: BoardCard }): JSX.Element {
   const days = daysInStage(card.stage_entered_at);
   return (
     <div className="space-y-1 text-sm">
+      {card.is_stagnant && <StagnantBadge daysInStage={days} stagnantDays={card.stagnant_days} />}
       <p className="font-medium text-primary">{partiesSummary(card)}</p>
       <p className="text-xs text-muted">{card.lawsuit_type_name}</p>
       {card.process_number && <p className="text-xs text-muted">{card.process_number}</p>}

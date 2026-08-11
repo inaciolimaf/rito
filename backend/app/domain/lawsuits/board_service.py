@@ -24,6 +24,7 @@ from app.domain.lawsuits.listing import (
     BOARD_DEFAULT_LIMIT_PER_COLUMN,
     BOARD_TOTAL_REFINE_THRESHOLD,
     BoardCardRow,
+    CrmStatsRow,
     LawsuitFilters,
     LawsuitListingRepository,
 )
@@ -89,6 +90,9 @@ class BoardService:
             next_cursor = encode_cursor(last.stage_entered_at.isoformat(), last.id)
         return BoardColumnPage(items=list(items), next_cursor=next_cursor, total=total)
 
+    async def get_stats(self, *, filters: LawsuitFilters) -> CrmStatsRow:
+        return await self.listing.crm_stats(filters=filters)
+
     async def move_stage(self, lawsuit: Lawsuit, *, stage_id: uuid.UUID, actor: User) -> Lawsuit:
         """Regras 3/5/10: move para a etapa exata pedida (o front já resolveu "primeira
         etapa da fase destino" — regra 3 — antes de chamar); Colaborador só move o que
@@ -143,3 +147,8 @@ class BoardService:
         # relê-lo fora de um await (na serialização do response) explode com
         # MissingGreenlet — mesmo motivo documentado em LawsuitService.update.
         lawsuit.updated_at = datetime.now(UTC)
+        # Spec 052, regra 4: mover reseta o relógio da etapa (trigger cuida de
+        # stage_entered_at) — 0 dias na etapa nova nunca é estagnação, então zera direto
+        # em vez de rodar StagnationService.recalculate_stage por uma query a mais.
+        lawsuit.is_stagnant = False
+        lawsuit.stagnant_since = None

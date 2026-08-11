@@ -8,7 +8,8 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from decimal import Decimal
+from typing import Any, Literal
 
 from sqlalchemy import ColumnElement, Row, Select, and_, func, literal, or_, select, text
 from sqlalchemy.dialects.postgresql import JSONB
@@ -98,6 +99,7 @@ class LawsuitFilters:
     archived_from: date | None = None
     archived_to: date | None = None
     archived: bool | None = None
+    display_stagnant: Literal["all", "stagnant", "active"] = "all"
 
 
 @dataclass
@@ -129,6 +131,26 @@ class BoardCardRow:
     responsible_name: str
     parties: list[dict[str, object]]
     parties_total: int
+    stagnant_days: int | None  # regra 7 (052): base do tooltip do badge de estagnação
+
+
+@dataclass
+class CrmStatsByStepRow:
+    step_id: int
+    total: int
+    stagnant_count: int
+
+
+@dataclass
+class CrmStatsRow:
+    """§5: `stats` do CRM — mesmos filtros do board (regra 8 da 051)."""
+
+    total_lawsuits: int
+    received_this_month: int
+    total_value: Decimal
+    stagnant_count: int
+    stagnant_value: Decimal
+    by_step: list[CrmStatsByStepRow]
 
 
 def filters_from_query(payload: LawsuitFiltersQuery) -> LawsuitFilters:
@@ -176,6 +198,7 @@ def filters_from_query(payload: LawsuitFiltersQuery) -> LawsuitFilters:
         archived_from=payload.archived_from,
         archived_to=payload.archived_to,
         archived=payload.archived,
+        display_stagnant=payload.display_stagnant,
     )
 
 
@@ -259,6 +282,10 @@ def _build_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
     conditions += date_range(Lawsuit.archived_date, filters.archived_from, filters.archived_to)
     if filters.archived is not None:
         conditions.append(Lawsuit.is_archived.is_(filters.archived))
+    if filters.display_stagnant == "stagnant":
+        conditions.append(Lawsuit.is_stagnant.is_(True))
+    elif filters.display_stagnant == "active":
+        conditions.append(Lawsuit.is_stagnant.is_(False))
 
     return conditions
 
@@ -385,6 +412,7 @@ class LawsuitListingRepository:
                 User.name,
                 parties.c.parties,
                 parties.c.parties_total,
+                Stage.stagnant_days,
             )
             .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
             .join(ActionGroup, ActionGroup.id == LawsuitType.action_group_id)
@@ -407,6 +435,7 @@ class LawsuitListingRepository:
             responsible_name=row[5],
             parties=list(row[6] or []),
             parties_total=row[7] or 0,
+            stagnant_days=row[8],
         )
 
     async def board_counts(self, *, filters: LawsuitFilters) -> dict[int, int]:
@@ -491,3 +520,47 @@ class LawsuitListingRepository:
         )
         rows = (await self.session.execute(stmt)).all()
         return [self._row_to_board_card(row) for row in rows], total
+
+    async def crm_stats(self, *, filters: LawsuitFilters) -> CrmStatsRow:
+        """§5: cards de topo do CRM — 2 statements (totais + quebra por fase)."""
+        conditions = _build_conditions(filters)
+
+        def _base(*columns: Any) -> Select[Any]:
+            stmt: Select[Any] = (
+                select(*columns)
+                .select_from(Lawsuit)
+                .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+                .join(Stage, Stage.id == Lawsuit.stage_id)
+            )
+            for condition in conditions:
+                stmt = stmt.where(condition)
+            return stmt
+
+        received_this_month = Lawsuit.created_at >= func.date_trunc("month", func.now())
+        totals_stmt = _base(
+            func.count(),
+            func.count().filter(received_this_month),
+            func.coalesce(func.sum(Lawsuit.case_value), 0),
+            func.count().filter(Lawsuit.is_stagnant.is_(True)),
+            func.coalesce(func.sum(Lawsuit.case_value).filter(Lawsuit.is_stagnant.is_(True)), 0),
+        )
+        total, received, total_value, stagnant_count, stagnant_value = (
+            await self.session.execute(totals_stmt)
+        ).one()
+
+        by_step_stmt = _base(
+            Stage.step_id, func.count(), func.count().filter(Lawsuit.is_stagnant.is_(True))
+        ).group_by(Stage.step_id)
+        by_step_rows = (await self.session.execute(by_step_stmt)).all()
+
+        return CrmStatsRow(
+            total_lawsuits=total,
+            received_this_month=received,
+            total_value=total_value,
+            stagnant_count=stagnant_count,
+            stagnant_value=stagnant_value,
+            by_step=[
+                CrmStatsByStepRow(step_id=row[0], total=row[1], stagnant_count=row[2])
+                for row in by_step_rows
+            ],
+        )

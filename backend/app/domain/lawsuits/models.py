@@ -116,6 +116,11 @@ class Lawsuit(TenantMixin, Base):
     # pela aplicação; base do "tempo na etapa" do card do Kanban (spec 051, regra 2) e
     # da estagnação (052).
     stage_entered_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Escritas só por StagnationService (spec 052) — mover processo (na hora, regra 4),
+    # job diário às 3h e troca de `stagnant_days` da etapa (regra 10). Nunca via trigger:
+    # a regra depende de `stages.enable_stagnant_days`/`stagnant_days`, de outra tabela.
+    is_stagnant: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    stagnant_since: Mapped[date | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

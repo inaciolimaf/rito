@@ -13,6 +13,9 @@ export interface BoardCard {
   stage_entered_at: string;
   parties: { name: string; pole: string | null }[];
   parties_total: number;
+  is_stagnant: boolean;
+  stagnant_since: string | null;
+  stagnant_days: number | null;
 }
 
 export interface BoardColumn {
@@ -41,6 +44,23 @@ export interface BoardFilters {
   lawsuit_type_id?: string;
   user_id?: string;
   archived?: boolean;
+  display_stagnant?: "all" | "stagnant" | "active";
+}
+
+export interface CrmStatsByStep {
+  step_id: number;
+  step_name: string;
+  total: number;
+  stagnant_count: number;
+}
+
+export interface CrmStats {
+  total_lawsuits: number;
+  received_this_month: number;
+  total_value: number;
+  stagnant_count: number;
+  stagnant_value: number;
+  by_step: CrmStatsByStep[];
 }
 
 function toQuery(params: object): string {
@@ -77,5 +97,15 @@ export async function bulkMoveLawsuitStage(
   return apiRequest<{ moved: number }>("/api/v1/lawsuits/bulk/move-stage", {
     method: "POST",
     body: { lawsuit_ids: lawsuitIds, stage_id: stageId },
+  });
+}
+
+export async function getCrmStats(filters: BoardFilters = {}): Promise<CrmStats> {
+  return apiRequest<CrmStats>(`/api/v1/crm/stats${toQuery(filters)}`);
+}
+
+export async function recalculateStagnation(): Promise<{ recalculated_count: number }> {
+  return apiRequest<{ recalculated_count: number }>("/api/v1/crm/recalculate-stagnation", {
+    method: "POST",
   });
 }

@@ -231,7 +231,7 @@ Painel de status por termo; histórico de execuções; **falha vira tarefa** par
 `KanbanBoard` reutilizável; colunas por fase; drag & drop; mudança de fase persiste; virtualização para volume.
 **Aceite:** arrastar card muda a fase no banco. **t:** 7 s. **Deps:** 027, 007
 
-### ⬜ 052 — CRM: estagnação e métricas
+### ✅ 052 — CRM: estagnação e métricas
 Marcação de estagnado por `stagnant_days` da etapa; filtro estagnados/em andamento; cards de topo (processos, recebidos no mês, valor, estagnado).
 **Aceite:** estagnação calculada a partir da última tarefa. **t:** 4 s. **Deps:** 051
 

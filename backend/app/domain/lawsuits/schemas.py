@@ -369,6 +369,9 @@ class LawsuitFiltersQuery(BaseModel):
     archived_from: date | None = None
     archived_to: date | None = None
     archived: bool | None = None
+    # Spec 052 §5: "todos"/"só estagnados"/"só em andamento" — filtro do board do CRM,
+    # mas vive no schema compartilhado (regra 8 da spec 051: mesmos filtros de /lawsuits).
+    display_stagnant: Literal["all", "stagnant", "active"] = "all"
 
 
 class LawsuitExportRequest(BaseModel):

@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_redis
 from app.core.permissions import UserRole, require_role
+from app.core.rate_limit import check_and_increment
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.crm.schemas import (
     BoardCardResponse,
     BoardColumnPageResponse,
     BoardColumnResponse,
     BoardResponse,
+    CrmStatsByStepResponse,
+    CrmStatsResponse,
+    RecalculateStagnationResponse,
 )
 from app.domain.lawsuits.board_service import BoardService
 from app.domain.lawsuits.listing import (
@@ -16,10 +22,15 @@ from app.domain.lawsuits.listing import (
     filters_from_query,
 )
 from app.domain.lawsuits.schemas import LawsuitFiltersQuery
+from app.domain.lawsuits.stagnation_service import StagnationService
 from app.domain.stages.repository import StepRepository
 from app.domain.users.models import User
 
 router = APIRouter(prefix="/crm", tags=["crm"])
+
+# Regra 9 (052): recálculo manual limitado a 1x por hora por tenant.
+_RECALCULATE_STAGNATION_LIMIT = 1
+_RECALCULATE_STAGNATION_WINDOW_SECONDS = 3600
 
 
 def _card_to_response(card: BoardCardRow) -> BoardCardResponse:
@@ -37,6 +48,9 @@ def _card_to_response(card: BoardCardRow) -> BoardCardResponse:
         stage_entered_at=lawsuit.stage_entered_at,
         parties=card.parties,
         parties_total=card.parties_total,
+        is_stagnant=lawsuit.is_stagnant,
+        stagnant_since=lawsuit.stagnant_since,
+        stagnant_days=card.stagnant_days,
     )
 
 
@@ -86,3 +100,52 @@ async def get_board_column(
         next_cursor=page.next_cursor,
         total=page.total,
     )
+
+
+@router.get("/stats")
+async def get_stats(
+    filters: LawsuitFiltersQuery = Depends(),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> CrmStatsResponse:
+    """§5: cards de topo do CRM — mesmos filtros do board (regra 8, spec 051)."""
+    steps = await StepRepository(session).list_all()
+    service = BoardService(session=session, tenant_id=current_user.tenant_id)
+    stats = await service.get_stats(filters=filters_from_query(filters))
+    by_step = {row.step_id: row for row in stats.by_step}
+    return CrmStatsResponse(
+        total_lawsuits=stats.total_lawsuits,
+        received_this_month=stats.received_this_month,
+        total_value=stats.total_value,
+        stagnant_count=stats.stagnant_count,
+        stagnant_value=stats.stagnant_value,
+        by_step=[
+            CrmStatsByStepResponse(
+                step_id=step.id,
+                step_name=step.name,
+                total=by_step[step.id].total if step.id in by_step else 0,
+                stagnant_count=by_step[step.id].stagnant_count if step.id in by_step else 0,
+            )
+            for step in steps
+        ],
+    )
+
+
+@router.post("/recalculate-stagnation")
+async def recalculate_stagnation(
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
+) -> RecalculateStagnationResponse:
+    """Regra 9: 1x por hora por tenant — o job diário (regra 4) é quem cobre o resto."""
+    allowed = await check_and_increment(
+        redis,
+        f"stagnation_recalc:{current_user.tenant_id}",
+        limit=_RECALCULATE_STAGNATION_LIMIT,
+        window_seconds=_RECALCULATE_STAGNATION_WINDOW_SECONDS,
+    )
+    if not allowed:
+        raise HTTPException(status_code=429, detail="Recálculo manual já foi feito na última hora.")
+    service = StagnationService(session=session, tenant_id=current_user.tenant_id)
+    recalculated = await service.recalculate_tenant()
+    return RecalculateStagnationResponse(recalculated_count=recalculated)

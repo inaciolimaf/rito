@@ -220,7 +220,7 @@ Tela de listagem com filtros (período, usuário, cliente, tribunal, número); l
 Painel de status por termo; histórico de execuções; **falha vira tarefa** para o responsável; métricas de captura.
 **Aceite:** falha simulada gera tarefa de alerta. **t:** 4 s. **Deps:** 048
 
-### ⬜ 050 — 🔧 REFATORAÇÃO — Integrações CNJ
+### ✅ 050 — 🔧 REFATORAÇÃO — Integrações CNJ
 **t:** −
 
 ---

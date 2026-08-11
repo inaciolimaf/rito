@@ -1,6 +1,13 @@
 import { apiRequest, apiRequestBlob } from "@/lib/api";
 import type { ListResponse } from "@/components/domain/types";
 
+// Mesmo valor de PUBLICATIONS_TASK_TYPE_NAME (backend, app/domain/inbox/sections.py,
+// spec 045) — a tarefa sistêmica que o roteamento de intimações cria. Dívida técnica
+// #18 (docs/DIVIDA-TECNICA.md, spec 050): o cálculo de prazo real fica pra spec 086; até
+// lá, essa tarefa nunca tem deadline_date preenchido — o front usa este nome pra
+// distinguir "prazo não calculado" (regra 3 da 045) de "usuário não definiu prazo".
+export const PUBLICATIONS_TASK_TYPE_NAME = "Intimações Judiciais";
+
 export interface PublicationListItem {
   id: string;
   availability_date: string;

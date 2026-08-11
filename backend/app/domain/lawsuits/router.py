@@ -15,6 +15,7 @@ from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.datajud.exceptions import LawsuitSyncInProgressError
 from app.domain.datajud.movement_sync_service import MovementSyncService, sync_lock_key
+from app.domain.datajud.repository import LawsuitSyncRunRepository
 from app.domain.datajud.service import DatajudService
 from app.domain.lawsuits.cnj import SEGMENT_NAMES, CNJValidationError
 from app.domain.lawsuits.exceptions import (
@@ -66,6 +67,8 @@ from app.domain.lawsuits.schemas import (
     StatsCardResponse,
     StepVolumeResponse,
     SyncMovementsResponse,
+    SyncRunListResponse,
+    SyncRunResponse,
     SyncStatusResponse,
     TimelineItemResponse,
     TimelineResponse,
@@ -687,6 +690,32 @@ async def get_sync_status(
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
     is_syncing = bool(await redis.exists(sync_lock_key(lawsuit_id)))
     return _to_sync_status_response(detail.lawsuit, is_syncing=is_syncing)
+
+
+@router.get("/{lawsuit_id}/sync-runs")
+async def list_sync_runs(
+    lawsuit_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> SyncRunListResponse:
+    """Spec 050, alvo 1: histórico de execução do DataJud — mesma `sync_runs`
+    do DJEN (spec 043), agora também pelo lado `lawsuit_id`."""
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    runs = await LawsuitSyncRunRepository(session).list_for_lawsuit(lawsuit_id)
+    return SyncRunListResponse(
+        items=[
+            SyncRunResponse(
+                id=run.id,
+                started_at=run.started_at,
+                finished_at=run.finished_at,
+                found_count=run.found_count,
+                new_count=run.new_count,
+                error=run.error,
+            )
+            for run in runs
+        ]
+    )
 
 
 @router.post("/{lawsuit_id}/sync-movements")

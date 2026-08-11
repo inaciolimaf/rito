@@ -18,6 +18,7 @@ from app.core.locks import SyncLock
 from app.domain.courts.models import Court
 from app.domain.courts.repository import CourtRepository
 from app.domain.datajud.exceptions import LawsuitSyncInProgressError
+from app.domain.datajud.repository import LawsuitSyncRunRepository
 from app.domain.datajud.service import DatajudService
 from app.domain.integration_alerts.models import IntegrationAlert
 from app.domain.integration_alerts.repository import IntegrationAlertRepository
@@ -29,11 +30,14 @@ from app.domain.lawsuits.repository import (
     LawsuitRepository,
     LawsuitSubjectRepository,
 )
+from app.domain.monitored_terms.models import TermSyncRun
+from app.integrations.datajud.client import DatajudUnauthorizedError
 from app.integrations.datajud.parser import ParsedMovement, ParsedProcess
 
 logger = logging.getLogger("rito.datajud")
 
 SYNC_LOCK_TTL_SECONDS = 120
+_RUN_ERROR_MAX = 500  # mesmo teto de _STATUS_MESSAGE_MAX do TermSyncService (spec 044)
 
 
 def sync_lock_key(lawsuit_id: uuid.UUID) -> str:
@@ -77,6 +81,7 @@ class MovementSyncService:
         self.subjects = LawsuitSubjectRepository(session)
         self.courts = CourtRepository(session)
         self.alerts = IntegrationAlertRepository(session)
+        self.runs = LawsuitSyncRunRepository(session)
 
     async def resolve_court(self, lawsuit: Lawsuit) -> Court | None:
         """Regra do §5: alias pelo tribunal já vinculado ao processo, ou inferido
@@ -115,13 +120,54 @@ class MovementSyncService:
         for lawsuit in lawsuits:
             try:
                 result = await self.sync_lawsuit(lawsuit)
+            except DatajudUnauthorizedError:
+                # Spec 050, alvo 2 (achado da auditoria de caos "401 permanente"): a
+                # chave é config GLOBAL — se um processo bateu 401, todos os outros do
+                # lote vão bater também. Insistir por processo só multiplica chamada
+                # (contra o rate limit de uma chave já sabida inválida) e alerta
+                # duplicado (dedup na 046/service.py cobre o alerta; aqui é o lote).
+                # Para o lote inteiro; o próximo agendamento tenta de novo.
+                logger.warning(
+                    "datajud_sync: 401 interrompe o lote (%d de %d processos não tentados)",
+                    len(lawsuits) - len(results) - 1,
+                    len(lawsuits),
+                )
+                results.append(
+                    LawsuitSyncResult(lawsuit.id, "error", error="DataJud: 401 (chave inválida)")
+                )
+                break
             except Exception as exc:  # regra 11: um processo ruim não trava o lote
                 logger.exception("datajud_sync: falha inesperada no processo %s", lawsuit.id)
                 result = LawsuitSyncResult(lawsuit.id, "error", error=str(exc))
+                results.append(result)
+                continue
             results.append(result)
         return results
 
     async def sync_lawsuit(self, lawsuit: Lawsuit) -> LawsuitSyncResult:
+        """Spec 050, alvo 1: toda execução fecha uma `TermSyncRun` (lado
+        `lawsuit_id`/`integration='datajud'`) — o DataJud ganha o mesmo histórico
+        que o DJEN já tinha desde a 043, sem tabela nova. A run SEMPRE fecha,
+        inclusive quando `_sync_lawsuit_inner` levanta (mesma garantia do
+        `TermSyncService._execute`, spec 044) — nunca fica pendurada."""
+        run = await self.runs.create(
+            TermSyncRun(tenant_id=self.tenant_id, lawsuit_id=lawsuit.id, integration="datajud")
+        )
+        try:
+            result = await self._sync_lawsuit_inner(lawsuit)
+        except Exception as exc:
+            run.error = str(exc)[:_RUN_ERROR_MAX]
+            run.finished_at = datetime.now(UTC)
+            await self.session.flush()
+            raise
+        run.found_count = 0 if result.status in ("not_found", "sealed", "no_court") else 1
+        run.new_count = result.new_movements
+        run.error = result.error
+        run.finished_at = datetime.now(UTC)
+        await self.session.flush()
+        return result
+
+    async def _sync_lawsuit_inner(self, lawsuit: Lawsuit) -> LawsuitSyncResult:
         court = await self.resolve_court(lawsuit)
         if court is None or not court.datajud_alias:
             return LawsuitSyncResult(lawsuit.id, "no_court")

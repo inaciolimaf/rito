@@ -391,3 +391,18 @@ class SyncMovementsResponse(BaseModel):
     last_sync_at: datetime | None
     last_update: datetime | None
     not_found_count: int
+
+
+class SyncRunResponse(BaseModel):
+    """Spec 050, alvo 1 — mesma `sync_runs` do DJEN (spec 043), lado `lawsuit_id`."""
+
+    id: uuid.UUID
+    started_at: datetime
+    finished_at: datetime | None
+    found_count: int
+    new_count: int
+    error: str | None
+
+
+class SyncRunListResponse(BaseModel):
+    items: list[SyncRunResponse]

@@ -77,7 +77,12 @@ class DatajudService:
 
     async def _create_key_rotated_alert(self) -> None:
         # Regra 3: tenant_id nulo — DATAJUD_API_KEY é config global, o problema é
-        # de todo mundo, não de um tenant específico.
+        # de todo mundo, não de um tenant específico. Dedup (spec 050, alvo 2 — achado
+        # da auditoria de caos "401 permanente"): sem isso, cada processo do lote que
+        # bate 401 criava um alerta novo, inundando o banner/painel com duplicatas.
+        existing = await self.alerts.get_open_by_code(integration="datajud", code="api_key_rotated")
+        if existing is not None:
+            return
         await self.alerts.create(
             IntegrationAlert(
                 tenant_id=None,

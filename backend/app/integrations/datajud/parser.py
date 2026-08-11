@@ -9,15 +9,14 @@ movimento desconhecido (regra 7) exigem consulta ao banco — ficam no
 """
 
 import logging
-import re
 from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger("rito.datajud")
+from app.core.br_documents import strip_document_mask
 
-_NON_DIGITS = re.compile(r"\D")
+logger = logging.getLogger("rito.datajud")
 
 # Chaves de primeiro nível do `_source` conhecidas (Anexo I do tutorial oficial
 # da API Pública do Datajud, DPJ/CNJ).
@@ -130,8 +129,9 @@ def _to_compact_datetime(value: Any) -> datetime | None:
 
 
 def normalize_process_number(value: Any) -> str:
+    # Spec 050 (duplicação): mesmo strip_document_mask do CPF/CNPJ (app.core.br_documents).
     text = _to_str(value) or ""
-    return _NON_DIGITS.sub("", text)
+    return strip_document_mask(text)
 
 
 def _parse_movement(item: dict[str, Any]) -> ParsedMovement | None:

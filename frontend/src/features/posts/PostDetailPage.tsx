@@ -7,6 +7,7 @@ import { uploadAttachment, type AttachmentData } from "@/features/attachments/ap
 import { CommentThread } from "@/features/comments/CommentThread";
 import { getPost } from "@/features/posts/api";
 import { PriorityBadge } from "@/features/posts/PriorityBadge";
+import { PUBLICATIONS_TASK_TYPE_NAME } from "@/features/publications/api";
 import { apiRequest } from "@/lib/api";
 
 function formatDate(iso: string | null): string {
@@ -45,6 +46,17 @@ export function PostDetailPage(): JSX.Element {
     await queryClient.invalidateQueries({ queryKey: ["post-attachments", id] });
   }
 
+  // Dívida técnica #18 (spec 050): a tarefa de intimação (spec 045) nunca calcula prazo
+  // de verdade (fica pra 086) — sem isso, "sem prazo" e "prazo não calculado" ficariam
+  // visualmente idênticos (nada aparece). Distinguir evita o usuário achar que é só um
+  // campo vazio que ele pode preencher à toa.
+  const isPublicationTask = post.task_type_name === PUBLICATIONS_TASK_TYPE_NAME;
+  const deadlineLabel = post.deadline_date
+    ? `Prazo fatal: ${formatDate(post.deadline_date)}`
+    : isPublicationTask
+      ? "Prazo não calculado"
+      : null;
+
   return (
     <div className="space-y-6 p-6">
       <div>
@@ -65,7 +77,7 @@ export function PostDetailPage(): JSX.Element {
         <p className="text-sm text-muted">
           {formatDate(post.scheduled_date)}
           {post.scheduled_time ? ` às ${post.scheduled_time.slice(0, 5)}` : ""}
-          {post.deadline_date ? ` · Prazo fatal: ${formatDate(post.deadline_date)}` : ""}
+          {deadlineLabel ? ` · ${deadlineLabel}` : ""}
           {post.location ? ` · ${post.location}` : ""}
         </p>
         <p className="text-sm text-muted">

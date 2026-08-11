@@ -226,3 +226,58 @@ CNJ), com o caminho já validado na 033 — reduzir o custo do boot do app por t
 (lifespan completo com engine/Redis/S3 por teste via fixture `client`), não mexer em
 escopo de fixture nem em waitFor às cegas. Se a 050 não bastar, a 098 (performance)
 fecha a conta com divisão da suíte em grupos paralelos por domínio.
+
+**ATUALIZAÇÃO (050):** investigado o caminho da 033/040 — `create_engine_from_url`
+(`app/core/db.py`) usa `pool_size`/`max_overflow` padrão do SQLAlchemy (5/10), mas o
+pool é preenchido **sob demanda** no primeiro checkout, não na criação do engine; um
+teste típico (1-2 queries) só abre 1 conexão de qualquer forma, então `pool_size`
+menor não reduziria o custo real por teste — a hipótese original (registrada na 033)
+não se confirmou na leitura do código. O custo por teste é dominado por
+handshake TCP/auth do Postgres por engine novo (`client`/`app_session_factory` são
+function-scoped, um engine por teste, sem reuso) somado à contenção do host
+compartilhado (mesma causa raiz apontada desde a primeira medição, spec 032) — nenhum
+dos dois se resolve mudando `pool_size`. Não mexido: o risco de tocar `client`
+(fixture usada por 49 arquivos de teste) sem um ganho validado não compensa,
+especialmente depois da tentativa de escopo de sessão/módulo ter quebrado 151 testes
+na 033. Medido no fechamento da 050: **ver `test-timing.json`** — segue **bem abaixo**
+do gate de 300 s. Item **permanece aberto, re-atribuído definitivamente à 098**
+(performance) com a recomendação já mais específica: dividir a suíte em grupos
+paralelos por domínio (xdist com `--dist=loadgroup` ou execução por diretório), não
+mais tentar reduzir custo de boot por teste — essa via já foi auditada duas vezes
+(033, 050) sem alvo real encontrado.
+
+## 18. Cálculo de prazo fatal das intimações roteadas ainda não existe
+
+A spec 045 (roteamento de intimação → tarefa) cria a tarefa sistêmica "Intimações
+Judiciais" com `scheduled_date = availability_date` (regra 3), mas nunca calcula
+`deadline_date` — o cálculo de prazo processual de verdade (contagem de dias úteis,
+suspensões, tipo de prazo por classe/assunto do CNJ) é um problema em si, fora do
+escopo da 045. O campo fica `NULL`, indistinguível na UI de "usuário não definiu prazo"
+(qualquer tarefa manual também começa assim). Regra registrada de propósito na 050
+(auditoria §4): `PostDetailPage` agora mostra "Prazo não calculado" em vez de omitir o
+campo quando `task_type_name === "Intimações Judiciais"` e `deadline_date` é nulo —
+resolve a ambiguidade visual sem inventar um cálculo que não existe.
+
+**Spec-alvo:** 086 (prazo processual) — implementar o cálculo de verdade e então trocar
+"Prazo não calculado" por `deadline_date` preenchido no momento do roteamento.
+
+## 19. Fixtures HTTP do DJEN/DataJud têm dado real de pessoa identificável
+
+Achado na auditoria de segurança da spec 050 (checklist "fixtures sem dado real,
+anonimize"): `tests/fixtures/http/comunicaapi.pje.jus.br/oab_mg.json` tem um CPF real
+completo (`093.026.046-59`) e vários fixtures (`oab_mg.json`, `cancelada.json`,
+`trt2.json`, `tjsp.json`, `tjsp_processo.json`) têm nomes completos de partes reais —
+dado capturado ao vivo da API pública do DJEN/DataJud para gravar os fixtures das
+specs 042/044/046/047. Juridicamente é dado público (comunicação processual É pública
+por lei), mas a prática do projeto pede anonimização mesmo assim.
+
+**Não corrigido na 050 de propósito:** esses fixtures são consumidos por ~40 testes
+espalhados de 042 a 049 (parsers, sync, roteamento, movimento) — vários fazem
+asserção sobre contagem/conteúdo específico de destinatários/nomes. Trocar o
+conteúdo sem uma varredura completa de quem depende de qual valor arrisca quebrar
+teste "sem edição" às cegas, o oposto do que uma spec de refatoração deve fazer.
+
+**Spec-alvo:** 098 (performance/qualidade) ou uma spec dedicada — mapear TODA
+asserção que depende do conteúdo desses fixtures, trocar nomes/CPF por sintéticos
+preservando forma (mesma quantidade de destinatários, mesmo formato de CPF/nome)
+e reconfirmar os ~40 testes um por um.

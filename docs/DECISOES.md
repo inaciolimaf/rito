@@ -201,6 +201,55 @@
   O teste automatizado (`test_inbox_perf.py`) usa limiares de 200 ms (≈2,5× o medido)
   para não flakkar sob `-n auto`; o seed é module-scoped por worker e se autodestrói.
 
+## Refatoração das integrações CNJ (spec 050)
+
+- **`SyncRun` unificado, não `SyncJob[T]` genérico.** O esqueleto de DJEN (044) e DataJud
+  (047) parece igual de longe (buscar unidades, iterar, isolar falha, atualizar status),
+  mas diverge em pontos que importam: DJEN faz *paginação multi-fetch* dentro de uma
+  janela de datas por termo; DataJud faz *um fetch por processo*, sem paginação. DJEN
+  trata falha como algo que se resolve sozinho (alerta + retry diário — spec 049); DataJud
+  trata "não encontrado" como um estado que se acumula e PAUSA o processo (regra 5 da
+  047) — dois modelos de "unidade com problema" genuinamente diferentes, não a mesma
+  coisa com nomes diferentes. Forçar um `SyncJob[T]` com um contrato só para os dois teria
+  exigido ou (a) um design genérico o bastante para não perder nenhuma das duas nuances —
+  na prática, tão genérico quanto duas classes concretas, só que com uma camada de
+  indireção a mais — ou (b) apagar uma das distinções pra caber no molde. Nenhuma opção
+  reduz risco ou complexidade de verdade. O que É genuinamente igual — "toda execução
+  produz um registro de histórico com contadores e erro" — foi extraído: `sync_runs`
+  (antes `term_sync_runs`, só do DJEN) ganhou `lawsuit_id`/`integration`, e
+  `MovementSyncService.sync_lawsuit` agora abre/fecha uma run como o
+  `TermSyncService._execute` sempre fez. Ganho concreto sem inventar abstração.
+- **Auditoria de caos (alvo 2) achou 2 bugs reais, não só teoria.** (1) `_create_key_rotated_alert`
+  (spec 046) não deduplicava — um lote inteiro de processos batendo 401 no DataJud criava
+  um `IntegrationAlert` POR PROCESSO, inundando o painel/banner. (2) `sync_due` tratava
+  401 como erro-por-processo igual a qualquer outro, insistindo no próximo processo do
+  lote mesmo sabendo que a causa (chave inválida) é global — desperdiçava chamada contra
+  um rate limit já sabido inútil. Os dois corrigidos: dedup via
+  `IntegrationAlertRepository.get_open_by_code` (reaproveitado da 049) e o lote agora
+  para no primeiro 401, retomando no próximo agendamento.
+- **Normalização de número de processo estava implementada 3 vezes** (`br_documents.
+  strip_document_mask`, `djen/parser.py::normalize_process_number`,
+  `datajud/parser.py::normalize_process_number`) com o mesmo regex `\D` copiado. Os dois
+  parsers passaram a delegar a limpeza pro helper de `core` — a assinatura/regra de `None`
+  de cada um continua diferente de propósito (cada call site trata ausência de forma
+  diferente), só o "tirar tudo que não é dígito" ficou em um lugar.
+- **`lawsuit_subjects` (spec 047) tinha RLS mas nenhum teste provando isolamento** — RLS
+  "por padrão" nunca é suficiente sozinho; o CLAUDE.md §4 pede o teste explícito por
+  tabela nova, e essa tinha ficado pra trás. Adicionado.
+- **Fixtures HTTP com dado real de pessoa identificável — achado e NÃO corrigido de
+  propósito.** ~40 testes de 042-047 dependem do conteúdo exato dos fixtures gravados ao
+  vivo do DJEN/DataJud (CPF e nomes reais, ainda que legalmente públicos). Anonimizar sem
+  mapear toda asserção dependente arrisca quebrar "teste passa sem edição" — o oposto do
+  que uma refatoração deve fazer. Registrado como dívida (#19), não forçado.
+- **Dívida #17 (wall-clock) investigada de novo, sem alvo de código encontrado.**
+  `create_engine_from_url` usa pool padrão do SQLAlchemy, mas o pool enche sob demanda —
+  um teste típico abre 1 conexão de qualquer forma, então `pool_size` menor não muda o
+  custo real por teste. A hipótese registrada na 033 não se sustenta na leitura do
+  código; o custo é dominado por handshake de conexão nova (fixtures function-scoped,
+  sem reuso) + contenção do host compartilhado — nenhum dos dois é redutível por
+  configuração de pool. Item re-atribuído à 098 com recomendação mais específica
+  (dividir a suíte em grupos paralelos por domínio), não mais "reduzir custo de boot".
+
 ## Ambiente de execução do agente (não é decisão de produto)
 
 - Este sandbox resolve Postgres/Redis via o hostname `dind` (Docker-in-Docker remoto), não

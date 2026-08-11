@@ -7,11 +7,12 @@ nulo nunca quebra o parse; campo desconhecido loga aviso e sobrevive no
 """
 
 import logging
-import re
 from datetime import date
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from app.core.br_documents import strip_document_mask
 
 logger = logging.getLogger("rito.djen")
 
@@ -46,8 +47,6 @@ _KNOWN_FIELDS = frozenset(
         "destinatarioadvogados",
     }
 )
-
-_NON_DIGITS = re.compile(r"\D")
 
 
 class DjenParseError(Exception):
@@ -121,11 +120,15 @@ def _to_date(value: Any) -> date | None:
 
 
 def normalize_process_number(value: Any) -> str | None:
-    """Regra 4: numero_processo chega sem máscara e é guardado só com dígitos."""
+    """Regra 4: numero_processo chega sem máscara e é guardado só com dígitos.
+    Spec 050 (alvo/duplicação): mesmo `strip_document_mask` de `app.core.br_documents`
+    usado por CPF/CNPJ — a "normalização de número de processo em um só lugar" do
+    checklist é o algoritmo em si, não a assinatura (cada parser tem sua própria
+    regra de None, ver `datajud/parser.py::normalize_process_number`)."""
     text = _to_str(value)
     if text is None:
         return None
-    digits = _NON_DIGITS.sub("", text)
+    digits = strip_document_mask(text)
     return digits or None
 
 

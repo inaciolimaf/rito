@@ -2,7 +2,17 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import CHAR, Boolean, ForeignKey, Index, SmallInteger, Text, UniqueConstraint, func
+from sqlalchemy import (
+    CHAR,
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    SmallInteger,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -76,14 +86,27 @@ class MonitoredTerm(Base, TenantMixin):
 
 
 class TermSyncRun(Base, TenantMixin):
-    """Histórico de execuções de sincronização do termo (spec 043, §4)."""
+    """Histórico de execuções de sincronização — DJEN (spec 043, §4) e, desde a
+    refatoração 050 (alvo 1), DataJud também: a tabela virou `sync_runs`,
+    genérica por `integration`/`term_id`|`lawsuit_id` (exatamente um dos dois).
+    A classe continua `TermSyncRun` de propósito — renomeá-la quebraria o import
+    usado por 041-049 sem edição (`from ...monitored_terms.models import
+    TermSyncRun`); ver Descobertas da 050."""
 
-    __tablename__ = "term_sync_runs"
-    __table_args__ = (Index("ix_sync_runs_term", "term_id", "started_at"),)
+    __tablename__ = "sync_runs"
+    __table_args__ = (
+        Index("ix_sync_runs_term", "term_id", "started_at"),
+        Index("ix_sync_runs_lawsuit", "lawsuit_id", "started_at"),
+        CheckConstraint("num_nonnulls(term_id, lawsuit_id) = 1", name="ck_sync_runs_subject"),
+    )
 
-    term_id: Mapped[uuid.UUID] = mapped_column(
+    term_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("monitored_terms.id", ondelete="CASCADE")
     )
+    lawsuit_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("lawsuits.id", ondelete="CASCADE")
+    )
+    integration: Mapped[str] = mapped_column(Text, default="djen", server_default="djen")
     started_at: Mapped[datetime] = mapped_column(server_default=func.now())
     finished_at: Mapped[datetime | None]
     found_count: Mapped[int] = mapped_column(default=0, server_default="0")

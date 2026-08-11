@@ -1,4 +1,5 @@
-from datetime import datetime
+import uuid
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
@@ -12,6 +13,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.models import Base, TenantMixin
@@ -128,3 +130,73 @@ class BankAccount(TenantMixin, Base):
     is_default: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class TransactionKind(StrEnum):
+    """Os 3 tipos de lançamento (spec 056, regra 6) — o sinal vem do `kind`, `amount`
+    é sempre positivo."""
+
+    RECEITA = "RECEITA"
+    DESPESA = "DESPESA"
+    TRANSFERENCIA = "TRANSFERENCIA"
+
+
+class Transaction(TenantMixin, Base):
+    """Lançamento financeiro (spec 056) — receita, despesa ou transferência entre
+    contas. `debit_account_id` é a conta do lançamento (RECEITA/DESPESA, opcional) ou
+    a origem da transferência; `credit_account_id` só existe para transferência, o
+    destino (regra 2 — as duas obrigatórias e diferentes só nesse caso)."""
+
+    __tablename__ = "transactions"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_tx_amount_positive"),
+        CheckConstraint(
+            "kind <> 'TRANSFERENCIA' OR (credit_account_id IS NOT NULL "
+            "AND debit_account_id IS NOT NULL AND debit_account_id <> credit_account_id)",
+            name="ck_tx_transfer_accounts",
+        ),
+        CheckConstraint(
+            "kind = 'TRANSFERENCIA' OR (category_id IS NOT NULL AND cost_center_id IS NOT NULL)",
+            name="ck_tx_non_transfer_needs_category",
+        ),
+        CheckConstraint(
+            "lawsuit_id IS NULL OR customer_id IS NOT NULL", name="ck_tx_lawsuit_needs_customer"
+        ),
+        CheckConstraint(
+            "payment_date IS NULL OR payment_date <= CURRENT_DATE",
+            name="ck_tx_payment_not_future",
+        ),
+    )
+
+    kind: Mapped[TransactionKind] = mapped_column(
+        PGENUM(TransactionKind, name="transaction_kind", create_type=False)
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    debit_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("bank_accounts.id"), default=None
+    )
+    credit_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("bank_accounts.id"), default=None
+    )
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("financial_categories.id"), default=None
+    )
+    cost_center_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("cost_centers.id"), default=None
+    )
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("customers.id"), default=None
+    )
+    lawsuit_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("lawsuits.id"), default=None
+    )
+    # Regra 4: convertida para maiúsculas na gravação (paridade ADVBOX) — feito no
+    # service, não aqui (a coluna só guarda o que a aplicação já normalizou).
+    description: Mapped[str | None] = mapped_column(default=None)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    due_date: Mapped[date]
+    payment_date: Mapped[date | None] = mapped_column(default=None)
+    # Regra 5: 1º dia do mês de `due_date` quando não informada — calculado no service.
+    competence: Mapped[date]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

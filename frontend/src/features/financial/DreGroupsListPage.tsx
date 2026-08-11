@@ -37,7 +37,7 @@ export function DreGroupsListPage(): JSX.Element {
       <DataTable
         columns={columns}
         data={groups}
-        getRowId={(row) => row.id}
+        getRowId={(row) => String(row.id)}
         isLoading={isLoading}
         error={error instanceof ApiError ? error.message : null}
         emptyMessage="Nenhum grupo DRE encontrado."

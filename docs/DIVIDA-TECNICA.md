@@ -281,3 +281,34 @@ teste "sem edição" às cegas, o oposto do que uma spec de refatoração deve f
 asserção que depende do conteúdo desses fixtures, trocar nomes/CPF por sintéticos
 preservando forma (mesma quantidade de destinatários, mesmo formato de CPF/nome)
 e reconfirmar os ~40 testes um por um.
+
+## 20. `transactions` (spec 056) não retroalimenta as regras "em uso" de contas/categorias/centros de custo
+
+A spec 056 criou a tabela `transactions`, que é exatamente o dado que faltava para as
+regras já documentadas como pendentes nas specs 054/055:
+
+- **Contas bancárias** (`app/domain/financial/service.py`, `BankAccountService`):
+  regra 3 (saldo real = `initial_amount` + lançamentos pagos), regra 4 (fatura do
+  cartão = lançamentos do ciclo em aberto), regra 6 ("conta com lançamento não pode
+  ser excluída") e regra 9 (`initial_amount` imutável após o 1º lançamento) — hoje
+  saldo devolve sempre `initial_amount`, exclusão é livre e `initial_amount` é
+  editável sem checagem. Ver `tests/integration/test_bank_accounts.py` (docstring do
+  módulo) e Descobertas da spec 055.
+- **Categorias e centros de custo** (`FinancialCategoryService`/`CostCenterService`):
+  regra 4/6 ("excluir em uso exige transferência") — a validação de "está em uso" é
+  sempre `False` hoje, então `validated_transfer()` nunca dispara o caminho de
+  reatribuição de verdade. Ver `app/domain/financial/service.py:131,187`.
+
+Deliberadamente **não** retrofitado na própria 056: essas checagens pertencem aos
+domínios de contas/categorias/centros (specs 055/054), não ao de lançamentos, e
+misturar as duas coisas no mesmo ciclo violaria o escopo declarado da 056
+(`transactions` + regra 11 do painel financeiro do processo). Uma
+`TransactionRepository.account_is_referenced()`/`category_is_referenced()` chegou a
+ser esboçada durante a 056 e foi removida de propósito por ser código sem uso
+enquanto o retrofit não é feito de verdade.
+
+**Spec-alvo:** próxima spec de refatoração (070) — implementar as 6 regras acima
+(3/4/6/9 de contas, 4/6 de categorias e centros), com teste que primeiro cria um
+lançamento e SÓ DEPOIS confirma que saldo/exclusão/imutabilidade mudam de
+comportamento (os testes atuais de 054/055 continuam cobrindo o caminho "sem
+lançamento nenhum", que segue válido).

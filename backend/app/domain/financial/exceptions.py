@@ -28,3 +28,36 @@ class InstitutionNotFoundError(Exception):
 
 class DefaultAccountNeedsReplacementError(Exception):
     """Regra 7 (spec 055): inativar a conta padrão exige eleger outra antes."""
+
+
+class TransactionCategoryNotFoundError(Exception):
+    """`category_id` precisa apontar pra uma categoria existente do tenant."""
+
+
+class TransactionCategoryTypeMismatchError(Exception):
+    """Regra 1 (spec 056): RECEITA só aceita categoria de tipo RECEITA; DESPESA só de
+    DESPESA — a regra que mais quebra integração."""
+
+    def __init__(self, category_type: str) -> None:
+        super().__init__(category_type)
+        self.category_type = category_type
+
+
+class TransactionCostCenterNotFoundError(Exception):
+    """`cost_center_id` precisa apontar pra um centro de custo existente do tenant."""
+
+
+class TransactionAccountNotFoundError(Exception):
+    """`debit_account_id`/`credit_account_id` precisam apontar pra contas existentes."""
+
+
+class TransactionCustomerNotFoundError(Exception):
+    """`customer_id` precisa apontar pra um contato existente do tenant."""
+
+
+class TransactionLawsuitNotFoundError(Exception):
+    """`lawsuit_id` precisa apontar pra um processo existente do tenant."""
+
+
+class PaidTransactionNotDeletableError(Exception):
+    """Regra 10: excluir lançamento pago exige estornar antes."""

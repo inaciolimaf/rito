@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.transfer import validated_transfer
+from app.domain.customers.repository import CustomerRepository
 from app.domain.financial.exceptions import (
     BankAccountNameAlreadyExistsError,
     CostCenterNameAlreadyExistsError,
@@ -14,6 +15,13 @@ from app.domain.financial.exceptions import (
     DreGroupNotFoundError,
     FinancialCategoryNameAlreadyExistsError,
     InstitutionNotFoundError,
+    PaidTransactionNotDeletableError,
+    TransactionAccountNotFoundError,
+    TransactionCategoryNotFoundError,
+    TransactionCategoryTypeMismatchError,
+    TransactionCostCenterNotFoundError,
+    TransactionCustomerNotFoundError,
+    TransactionLawsuitNotFoundError,
 )
 from app.domain.financial.models import (
     AccountKind,
@@ -23,6 +31,8 @@ from app.domain.financial.models import (
     EntryType,
     FinancialCategory,
     FinancialInstitution,
+    Transaction,
+    TransactionKind,
 )
 from app.domain.financial.repository import (
     BankAccountRepository,
@@ -30,6 +40,8 @@ from app.domain.financial.repository import (
     DreGroupRepository,
     FinancialCategoryRepository,
     FinancialInstitutionRepository,
+    TransactionRepository,
+    TransactionRow,
 )
 from app.domain.financial.schemas import (
     BankAccountCreateRequest,
@@ -38,7 +50,11 @@ from app.domain.financial.schemas import (
     CostCenterUpdateRequest,
     FinancialCategoryCreateRequest,
     FinancialCategoryUpdateRequest,
+    TransactionCreateRequest,
+    TransactionUpdateRequest,
 )
+from app.domain.lawsuits.repository import LawsuitRepository
+from app.domain.users.models import User
 
 
 class DreGroupService:
@@ -297,3 +313,140 @@ class BankAccountService:
         if institution is None:
             raise InstitutionNotFoundError
         return institution.name
+
+
+class TransactionService:
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        self.session = session
+        self.tenant_id = tenant_id
+        self.transactions = TransactionRepository(session)
+        self.categories = FinancialCategoryRepository(session)
+        self.cost_centers = CostCenterRepository(session)
+        self.accounts = BankAccountRepository(session)
+        self.customers = CustomerRepository(session)
+        self.lawsuits = LawsuitRepository(session)
+
+    async def list_transactions(
+        self,
+        *,
+        kind: TransactionKind | None,
+        customer_id: uuid.UUID | None,
+        lawsuit_id: uuid.UUID | None,
+        status: str | None,
+        due_from: date | None,
+        due_to: date | None,
+        q: str | None,
+    ) -> list[TransactionRow]:
+        return list(
+            await self.transactions.list_filtered(
+                kind=kind,
+                customer_id=customer_id,
+                lawsuit_id=lawsuit_id,
+                status=status,
+                due_from=due_from,
+                due_to=due_to,
+                q=q,
+            )
+        )
+
+    async def get(self, transaction_id: uuid.UUID) -> TransactionRow | None:
+        return await self.transactions.get_by_id_detail(transaction_id)
+
+    async def create(self, payload: TransactionCreateRequest, actor: User) -> TransactionRow:
+        await self._validate_references(payload)
+        transaction = Transaction(
+            tenant_id=self.tenant_id,
+            kind=payload.kind,
+            user_id=payload.user_id or actor.id,
+            debit_account_id=payload.debit_account_id,
+            credit_account_id=payload.credit_account_id,
+            category_id=payload.category_id,
+            cost_center_id=payload.cost_center_id,
+            customer_id=payload.customer_id,
+            lawsuit_id=payload.lawsuit_id,
+            description=self._normalize_description(payload.description),
+            amount=payload.amount,
+            due_date=payload.due_date,
+            payment_date=payload.payment_date,
+            competence=payload.competence or self._derive_competence(payload.due_date),
+        )
+        created = await self.transactions.create(transaction)
+        detail = await self.transactions.get_by_id_detail(created.id)
+        assert detail is not None  # acabou de criar — sempre existe
+        return detail
+
+    async def update(
+        self, transaction: Transaction, payload: TransactionUpdateRequest, actor: User
+    ) -> TransactionRow:
+        await self._validate_references(payload)
+        transaction.kind = payload.kind
+        transaction.user_id = payload.user_id or actor.id
+        transaction.debit_account_id = payload.debit_account_id
+        transaction.credit_account_id = payload.credit_account_id
+        transaction.category_id = payload.category_id
+        transaction.cost_center_id = payload.cost_center_id
+        transaction.customer_id = payload.customer_id
+        transaction.lawsuit_id = payload.lawsuit_id
+        transaction.description = self._normalize_description(payload.description)
+        transaction.amount = payload.amount
+        transaction.due_date = payload.due_date
+        transaction.payment_date = payload.payment_date
+        transaction.competence = payload.competence or self._derive_competence(payload.due_date)
+        detail = await self.transactions.get_by_id_detail(transaction.id)
+        assert detail is not None  # acabou de atualizar — sempre existe
+        return detail
+
+    async def delete(self, transaction: Transaction) -> None:
+        # Regra 10: lançamento pago exige estornar antes.
+        if transaction.payment_date is not None:
+            raise PaidTransactionNotDeletableError
+        await self.transactions.delete(transaction)
+
+    async def pay(self, transaction: Transaction, payment_date: date) -> Transaction:
+        transaction.payment_date = payment_date
+        return transaction
+
+    async def unpay(self, transaction: Transaction) -> Transaction:
+        transaction.payment_date = None
+        return transaction
+
+    async def _validate_references(
+        self, payload: TransactionCreateRequest | TransactionUpdateRequest
+    ) -> None:
+        # Regra 1: RECEITA só aceita categoria RECEITA; DESPESA só DESPESA — a regra
+        # que mais quebra integração (spec 056, Objetivo). Transferência não tem
+        # categoria (já garantido pelo `_TransactionMixin._validate_shape`).
+        if payload.category_id is not None:
+            category = await self.categories.get_by_id(payload.category_id)
+            if category is None:
+                raise TransactionCategoryNotFoundError
+            expected = (
+                EntryType.RECEITA if payload.kind is TransactionKind.RECEITA else EntryType.DESPESA
+            )
+            if payload.kind is not TransactionKind.TRANSFERENCIA and category.type != expected:
+                raise TransactionCategoryTypeMismatchError(category.type)
+        if payload.cost_center_id is not None and (
+            await self.cost_centers.get_by_id(payload.cost_center_id) is None
+        ):
+            raise TransactionCostCenterNotFoundError
+        for account_id in (payload.debit_account_id, payload.credit_account_id):
+            if account_id is not None and await self.accounts.get_by_id(account_id) is None:
+                raise TransactionAccountNotFoundError
+        if payload.customer_id is not None and (
+            await self.customers.get_by_id(payload.customer_id) is None
+        ):
+            raise TransactionCustomerNotFoundError
+        if payload.lawsuit_id is not None and (
+            await self.lawsuits.get_by_id(payload.lawsuit_id) is None
+        ):
+            raise TransactionLawsuitNotFoundError
+
+    @staticmethod
+    def _normalize_description(description: str | None) -> str | None:
+        # Regra 4: maiúsculas na gravação (paridade ADVBOX).
+        return description.upper() if description else description
+
+    @staticmethod
+    def _derive_competence(due_date: date) -> date:
+        # Regra 5: 1º dia do mês de due_date quando não informada.
+        return due_date.replace(day=1)

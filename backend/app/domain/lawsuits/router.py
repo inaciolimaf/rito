@@ -663,7 +663,7 @@ async def get_financial_summary(
 ) -> FinancialSummaryResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
-    summary = service.financial_summary(detail.lawsuit)
+    summary = await service.financial_summary(detail.lawsuit)
     return FinancialSummaryResponse(
         case_value=summary.case_value,
         fees_value=summary.fees_value,

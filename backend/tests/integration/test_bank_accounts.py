@@ -3,9 +3,10 @@ ciclo/vencimento do cartão, unicidade da conta padrão (aplicação + banco), i
 padrão sem substituta e isolamento por tenant.
 
 Regras 3/4/6/9 (saldo real, fatura, "conta em uso" e imutabilidade do saldo inicial)
-dependem de lançamentos (spec 056, ainda não existe) — os testes abaixo cobrem o
-comportamento ATUAL (documentado, não um bug): saldo = initial_amount, exclusão livre,
-initial_amount editável. Ver Descobertas da spec 055.
+dependem de lançamentos, que a spec 056 introduziu — mas o retrofit dessas regras foi
+deliberadamente deixado fora do escopo da 056 (ver Descobertas da 056 e
+`docs/DIVIDA-TECNICA.md`). Os testes abaixo cobrem o comportamento ATUAL (documentado,
+não um bug): saldo = initial_amount, exclusão livre, initial_amount editável.
 """
 
 import uuid

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.action_groups.repository import ActionGroupRepository, LawsuitTypeRepository
 from app.domain.courts.repository import CourtRepository
+from app.domain.financial.repository import TransactionRepository
 from app.domain.lawsuits.board_service import BoardService
 from app.domain.lawsuits.cnj import (
     CNJNumber,
@@ -249,15 +250,20 @@ class LawsuitService:
         # fato (não há tabela financeira ainda para checar, então hoje é sempre soft).
         lawsuit.is_archived = True
 
-    def financial_summary(self, lawsuit: Lawsuit) -> FinancialSummary:
-        zero = Decimal("0.00")
+    async def financial_summary(self, lawsuit: Lawsuit) -> FinancialSummary:
+        """Regra 11 (spec 056): agregados vêm de `transactions` via
+        `TransactionRepository.lawsuit_financial_totals` — só o que foi pago compõe
+        `received`/`expenses`; `to_receive` é RECEITA em aberto."""
+        totals = await TransactionRepository(session=self.session).lawsuit_financial_totals(
+            lawsuit.id
+        )
         return FinancialSummary(
             case_value=lawsuit.case_value,
             fees_value=lawsuit.fees_value,
-            received=zero,
-            to_receive=zero,
-            expenses=zero,
-            net_result=zero,
+            received=totals.received,
+            to_receive=totals.to_receive,
+            expenses=totals.expenses,
+            net_result=totals.received - totals.expenses,
         )
 
     async def validate_number(self, process_number: str) -> NumberValidation:

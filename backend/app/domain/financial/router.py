@@ -18,6 +18,13 @@ from app.domain.financial.exceptions import (
     DreGroupNotFoundError,
     FinancialCategoryNameAlreadyExistsError,
     InstitutionNotFoundError,
+    PaidTransactionNotDeletableError,
+    TransactionAccountNotFoundError,
+    TransactionCategoryNotFoundError,
+    TransactionCategoryTypeMismatchError,
+    TransactionCostCenterNotFoundError,
+    TransactionCustomerNotFoundError,
+    TransactionLawsuitNotFoundError,
 )
 from app.domain.financial.models import (
     AccountKind,
@@ -25,7 +32,9 @@ from app.domain.financial.models import (
     CostCenter,
     EntryType,
     FinancialCategory,
+    TransactionKind,
 )
+from app.domain.financial.repository import TransactionRow
 from app.domain.financial.schemas import (
     AccountBalanceResponse,
     BankAccountCreateRequest,
@@ -43,6 +52,11 @@ from app.domain.financial.schemas import (
     FinancialCategoryUpdateRequest,
     FinancialInstitutionListResponse,
     FinancialInstitutionResponse,
+    PayTransactionRequest,
+    TransactionCreateRequest,
+    TransactionListResponse,
+    TransactionResponse,
+    TransactionUpdateRequest,
     TransferCostCentersRequest,
     TransferFinancialCategoriesRequest,
 )
@@ -52,6 +66,7 @@ from app.domain.financial.service import (
     DreGroupService,
     FinancialCategoryService,
     FinancialInstitutionService,
+    TransactionService,
 )
 from app.domain.users.models import User
 
@@ -98,6 +113,33 @@ def _account_to_response(account: BankAccount, institution_name: str | None) -> 
         is_default=account.is_default,
         is_active=account.is_active,
         created_at=account.created_at,
+    )
+
+
+def _transaction_to_response(row: TransactionRow) -> TransactionResponse:
+    transaction = row.transaction
+    return TransactionResponse(
+        id=transaction.id,
+        kind=transaction.kind,
+        user_id=transaction.user_id,
+        user_name=row.user_name,
+        debit_account_id=transaction.debit_account_id,
+        debit_account_name=row.debit_account_name,
+        credit_account_id=transaction.credit_account_id,
+        credit_account_name=row.credit_account_name,
+        category_id=transaction.category_id,
+        category_name=row.category_name,
+        cost_center_id=transaction.cost_center_id,
+        cost_center_name=row.cost_center_name,
+        customer_id=transaction.customer_id,
+        customer_name=row.customer_name,
+        lawsuit_id=transaction.lawsuit_id,
+        description=transaction.description,
+        amount=transaction.amount,
+        due_date=transaction.due_date,
+        payment_date=transaction.payment_date,
+        competence=transaction.competence,
+        created_at=transaction.created_at,
     )
 
 
@@ -392,11 +434,146 @@ async def get_bank_account_balance(
     current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> AccountBalanceResponse:
-    """Regras 3/4 completas na spec 056 (dependem de lançamentos) — por enquanto
-    devolve o saldo inicial (ver Descobertas)."""
+    """Regras 3/4 (spec 055) ainda devolvem só o saldo inicial — completar com os
+    lançamentos reais (spec 056) ficou pra um refactor futuro, ver
+    docs/DIVIDA-TECNICA.md e Descobertas da spec 056."""
     service = BankAccountService(session=session, tenant_id=current_user.tenant_id)
     account, _ = await get_or_404(lambda: service.get(account_id), "Conta não encontrada.")
     balance = await service.get_balance(account, at=at)
     return AccountBalanceResponse(
         account_id=account.id, kind=account.kind, balance=balance, as_of=at or date.today()
     )
+
+
+def _handle_transaction_errors(exc: Exception) -> HTTPException:
+    if isinstance(exc, TransactionCategoryNotFoundError):
+        return HTTPException(status_code=422, detail="Categoria não encontrada.")
+    if isinstance(exc, TransactionCategoryTypeMismatchError):
+        return HTTPException(
+            status_code=422,
+            detail=(
+                f"A categoria escolhida é do tipo {exc.category_type}, "
+                "incompatível com o lançamento."
+            ),
+        )
+    if isinstance(exc, TransactionCostCenterNotFoundError):
+        return HTTPException(status_code=422, detail="Centro de custo não encontrado.")
+    if isinstance(exc, TransactionAccountNotFoundError):
+        return HTTPException(status_code=422, detail="Conta não encontrada.")
+    if isinstance(exc, TransactionCustomerNotFoundError):
+        return HTTPException(status_code=422, detail="Cliente não encontrado.")
+    return HTTPException(status_code=422, detail="Processo não encontrado.")
+
+
+_TRANSACTION_VALIDATION_ERRORS = (
+    TransactionCategoryNotFoundError,
+    TransactionCategoryTypeMismatchError,
+    TransactionCostCenterNotFoundError,
+    TransactionAccountNotFoundError,
+    TransactionCustomerNotFoundError,
+    TransactionLawsuitNotFoundError,
+)
+
+
+@router.get("/transactions")
+async def list_transactions(
+    kind: TransactionKind | None = Query(default=None),
+    customer_id: uuid.UUID | None = Query(default=None),
+    lawsuit_id: uuid.UUID | None = Query(default=None),
+    status_: Literal["paid", "open"] | None = Query(default=None, alias="status"),
+    due_from: date | None = Query(default=None),
+    due_to: date | None = Query(default=None),
+    q: str | None = Query(default=None),
+    current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TransactionListResponse:
+    service = TransactionService(session=session, tenant_id=current_user.tenant_id)
+    rows = await service.list_transactions(
+        kind=kind,
+        customer_id=customer_id,
+        lawsuit_id=lawsuit_id,
+        status=status_,
+        due_from=due_from,
+        due_to=due_to,
+        q=q,
+    )
+    return TransactionListResponse(
+        items=[_transaction_to_response(row) for row in rows], total=len(rows)
+    )
+
+
+@router.post("/transactions", status_code=201)
+async def create_transaction(
+    payload: TransactionCreateRequest,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TransactionResponse:
+    service = TransactionService(session=session, tenant_id=current_user.tenant_id)
+    try:
+        row = await service.create(payload, current_user)
+    except _TRANSACTION_VALIDATION_ERRORS as exc:
+        raise _handle_transaction_errors(exc) from exc
+    return _transaction_to_response(row)
+
+
+@router.put("/transactions/{transaction_id}")
+async def update_transaction(
+    transaction_id: uuid.UUID,
+    payload: TransactionUpdateRequest,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TransactionResponse:
+    service = TransactionService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(transaction_id), "Lançamento não encontrado.")
+    try:
+        row = await service.update(detail.transaction, payload, current_user)
+    except _TRANSACTION_VALIDATION_ERRORS as exc:
+        raise _handle_transaction_errors(exc) from exc
+    return _transaction_to_response(row)
+
+
+@router.delete("/transactions/{transaction_id}", status_code=204)
+async def delete_transaction(
+    transaction_id: uuid.UUID,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> None:
+    service = TransactionService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(transaction_id), "Lançamento não encontrado.")
+    try:
+        await service.delete(detail.transaction)
+    except PaidTransactionNotDeletableError as exc:
+        raise HTTPException(
+            status_code=409, detail="Lançamento pago — estorne antes de excluir."
+        ) from exc
+
+
+@router.post("/transactions/{transaction_id}/pay")
+async def pay_transaction(
+    transaction_id: uuid.UUID,
+    payload: PayTransactionRequest,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TransactionResponse:
+    service = TransactionService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(transaction_id), "Lançamento não encontrado.")
+    if payload.payment_date > date.today():
+        raise HTTPException(status_code=422, detail="Data de pagamento não pode ser no futuro.")
+    await service.pay(detail.transaction, payload.payment_date)
+    updated = await service.get(transaction_id)
+    assert updated is not None
+    return _transaction_to_response(updated)
+
+
+@router.post("/transactions/{transaction_id}/unpay")
+async def unpay_transaction(
+    transaction_id: uuid.UUID,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TransactionResponse:
+    service = TransactionService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(transaction_id), "Lançamento não encontrado.")
+    await service.unpay(detail.transaction)
+    updated = await service.get(transaction_id)
+    assert updated is not None
+    return _transaction_to_response(updated)

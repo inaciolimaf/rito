@@ -247,7 +247,7 @@ Sugestão de workflow ao mover para etapa configurada; confirmação; criação 
 5 tipos; ~95 instituições; agência, número, `cycle_day`, `due_day`, saldo inicial, conta padrão.
 **Aceite:** cartão exige ciclo e vencimento; só uma conta padrão. **t:** 4 s. **Deps:** 054
 
-### ⬜ 056 — Financeiro: lançamentos
+### ✅ 056 — Financeiro: lançamentos
 Receita / despesa / **transferência**; **validação `entry_type` × tipo da categoria**; vínculo cliente e processo (processo exige cliente); descrição em maiúsculas; competência derivada do vencimento.
 **Aceite:** receita com categoria de despesa é rejeitada; transferência move saldo entre contas. **t:** 6 s. **Deps:** 055
 

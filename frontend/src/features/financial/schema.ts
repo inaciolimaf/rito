@@ -56,3 +56,60 @@ export const DEFAULT_BANK_ACCOUNT_FORM_VALUES: BankAccountFormValues = {
   initial_amount: "0",
   is_default: false,
 };
+
+const TRANSACTION_KINDS = ["RECEITA", "DESPESA", "TRANSFERENCIA"] as const;
+
+/** Espelha as regras 1/2/3 (spec 056) no cliente, pra dar 422 sem round-trip — o
+ * backend continua sendo a fonte de verdade (`_TransactionMixin._validate_shape`). */
+export const transactionFormSchema = z
+  .object({
+    kind: z.enum(TRANSACTION_KINDS),
+    debit_account_id: z.string(),
+    credit_account_id: z.string(),
+    category_id: z.string(),
+    cost_center_id: z.string(),
+    customer_id: z.string(),
+    lawsuit_id: z.string(),
+    description: z.string(),
+    amount: z.string().min(1, "Valor é obrigatório."),
+    due_date: z.string().min(1, "Vencimento é obrigatório."),
+  })
+  .refine((values) => values.debit_account_id.trim() !== "", {
+    message: "Conta é obrigatória.",
+    path: ["debit_account_id"],
+  })
+  .refine(
+    (values) =>
+      values.kind !== "TRANSFERENCIA" ||
+      (values.credit_account_id.trim() !== "" &&
+        values.credit_account_id !== values.debit_account_id),
+    {
+      message: "Transferência exige uma conta de destino diferente da origem.",
+      path: ["credit_account_id"],
+    },
+  )
+  .refine(
+    (values) =>
+      values.kind === "TRANSFERENCIA" ||
+      (values.category_id.trim() !== "" && values.cost_center_id.trim() !== ""),
+    { message: "Categoria e centro de custo são obrigatórios.", path: ["category_id"] },
+  )
+  .refine((values) => values.lawsuit_id.trim() === "" || values.customer_id.trim() !== "", {
+    message: "Vincular processo exige cliente.",
+    path: ["lawsuit_id"],
+  });
+
+export type TransactionFormValues = z.infer<typeof transactionFormSchema>;
+
+export const DEFAULT_TRANSACTION_FORM_VALUES: TransactionFormValues = {
+  kind: "RECEITA",
+  debit_account_id: "",
+  credit_account_id: "",
+  category_id: "",
+  cost_center_id: "",
+  customer_id: "",
+  lawsuit_id: "",
+  description: "",
+  amount: "",
+  due_date: "",
+};

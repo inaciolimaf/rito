@@ -2,10 +2,10 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from app.core.schemas import JsonDecimal
-from app.domain.financial.models import AccountKind, EntryType
+from app.domain.financial.models import AccountKind, EntryType, TransactionKind
 
 
 class DreGroupResponse(BaseModel):
@@ -156,3 +156,85 @@ class AccountBalanceResponse(BaseModel):
     kind: AccountKind
     balance: JsonDecimal
     as_of: date
+
+
+class _TransactionMixin(BaseModel):
+    kind: TransactionKind
+    debit_account_id: uuid.UUID | None = None
+    credit_account_id: uuid.UUID | None = None
+    category_id: uuid.UUID | None = None
+    cost_center_id: uuid.UUID | None = None
+    customer_id: uuid.UUID | None = None
+    lawsuit_id: uuid.UUID | None = None
+    description: str | None = None
+    amount: Decimal = Field(gt=0)
+    due_date: date
+    payment_date: date | None = None
+    competence: date | None = None
+
+    @model_validator(mode="after")
+    def _validate_shape(self) -> "_TransactionMixin":
+        """Regras 2/3/7 que dá pra checar sem consultar o banco — a regra 1 (tipo ×
+        categoria) precisa buscar a categoria, fica no service (mesmo padrão de
+        `FinancialCategoryService._group_name`, que também valida com uma query)."""
+        if self.kind is TransactionKind.TRANSFERENCIA:
+            if (
+                self.debit_account_id is None
+                or self.credit_account_id is None
+                or self.debit_account_id == self.credit_account_id
+            ):
+                raise ValueError("Transferência exige conta de origem e destino diferentes.")
+            if self.category_id is not None or self.cost_center_id is not None:
+                raise ValueError("Transferência não usa categoria nem centro de custo.")
+        else:
+            if self.category_id is None or self.cost_center_id is None:
+                raise ValueError("Categoria e centro de custo são obrigatórios.")
+            if self.credit_account_id is not None:
+                raise ValueError("credit_account_id é só para transferência.")
+        if self.lawsuit_id is not None and self.customer_id is None:
+            raise ValueError("Vincular processo exige cliente.")
+        if self.payment_date is not None and self.payment_date > date.today():
+            raise ValueError("Data de pagamento não pode ser no futuro.")
+        return self
+
+
+class TransactionCreateRequest(_TransactionMixin):
+    user_id: uuid.UUID | None = None
+
+
+class TransactionUpdateRequest(_TransactionMixin):
+    user_id: uuid.UUID | None = None
+
+
+class TransactionResponse(BaseModel):
+    id: uuid.UUID
+    kind: TransactionKind
+    user_id: uuid.UUID
+    user_name: str
+    debit_account_id: uuid.UUID | None
+    debit_account_name: str | None
+    credit_account_id: uuid.UUID | None
+    credit_account_name: str | None
+    category_id: uuid.UUID | None
+    category_name: str | None
+    cost_center_id: uuid.UUID | None
+    cost_center_name: str | None
+    customer_id: uuid.UUID | None
+    customer_name: str | None
+    lawsuit_id: uuid.UUID | None
+    description: str | None
+    amount: JsonDecimal
+    due_date: date
+    payment_date: date | None
+    competence: date
+    created_at: datetime
+
+
+class TransactionListResponse(BaseModel):
+    items: list[TransactionResponse]
+    next_cursor: None = None
+    total: int
+
+
+class PayTransactionRequest(BaseModel):
+    payment_date: date = Field(default_factory=date.today)

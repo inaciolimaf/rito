@@ -239,3 +239,94 @@ export interface AccountBalance {
 export async function getBankAccountBalance(id: string): Promise<AccountBalance> {
   return apiRequest<AccountBalance>(`/api/v1/bank-accounts/${id}/balance`);
 }
+
+export type TransactionKind = "RECEITA" | "DESPESA" | "TRANSFERENCIA";
+
+export interface TransactionData {
+  id: string;
+  kind: TransactionKind;
+  user_id: string;
+  user_name: string;
+  debit_account_id: string | null;
+  debit_account_name: string | null;
+  credit_account_id: string | null;
+  credit_account_name: string | null;
+  category_id: string | null;
+  category_name: string | null;
+  cost_center_id: string | null;
+  cost_center_name: string | null;
+  customer_id: string | null;
+  customer_name: string | null;
+  lawsuit_id: string | null;
+  description: string | null;
+  amount: number;
+  due_date: string;
+  payment_date: string | null;
+  competence: string;
+  created_at: string;
+}
+
+export interface ListTransactionsParams {
+  kind?: TransactionKind;
+  customer_id?: string;
+  lawsuit_id?: string;
+  status?: "paid" | "open";
+  due_from?: string;
+  due_to?: string;
+  q?: string;
+}
+
+export async function listTransactions(
+  params: ListTransactionsParams,
+): Promise<ListResponse<TransactionData>> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const queryString = query.toString();
+  return apiRequest<ListResponse<TransactionData>>(
+    `/api/v1/transactions${queryString ? `?${queryString}` : ""}`,
+  );
+}
+
+export interface TransactionFormPayload {
+  kind: TransactionKind;
+  debit_account_id?: string | null;
+  credit_account_id?: string | null;
+  category_id?: string | null;
+  cost_center_id?: string | null;
+  customer_id?: string | null;
+  lawsuit_id?: string | null;
+  description?: string | null;
+  amount: string;
+  due_date: string;
+}
+
+export async function createTransaction(values: TransactionFormPayload): Promise<TransactionData> {
+  return apiRequest<TransactionData>("/api/v1/transactions", { method: "POST", body: values });
+}
+
+export async function updateTransaction(
+  id: string,
+  values: TransactionFormPayload,
+): Promise<TransactionData> {
+  return apiRequest<TransactionData>(`/api/v1/transactions/${id}`, {
+    method: "PUT",
+    body: values,
+  });
+}
+
+export async function deleteTransaction(id: string): Promise<void> {
+  await apiRequest<void>(`/api/v1/transactions/${id}`, { method: "DELETE" });
+}
+
+export async function payTransaction(id: string, paymentDate: string): Promise<TransactionData> {
+  return apiRequest<TransactionData>(`/api/v1/transactions/${id}/pay`, {
+    method: "POST",
+    body: { payment_date: paymentDate },
+  });
+}
+
+export async function unpayTransaction(id: string): Promise<TransactionData> {
+  return apiRequest<TransactionData>(`/api/v1/transactions/${id}/unpay`, { method: "POST" });
+}

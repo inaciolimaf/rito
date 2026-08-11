@@ -19,6 +19,7 @@ import { LawsuitsPage } from "@/features/lawsuits/LawsuitsPage";
 import { LawsuitDetailPage } from "@/features/lawsuits/LawsuitDetailPage";
 import { CrmPage } from "@/features/crm/CrmPage";
 import { FinancialSettingsPage } from "@/features/financial/FinancialSettingsPage";
+import { TransactionsListPage } from "@/features/financial/TransactionsListPage";
 import { InboxPage } from "@/features/inbox/InboxPage";
 import { IntegrationsSettingsPage } from "@/features/integrations/IntegrationsSettingsPage";
 import { PostDetailPage } from "@/features/posts/PostDetailPage";
@@ -80,6 +81,7 @@ export function App(): JSX.Element {
                     <Route path="/schedules" element={<CalendarPage />} />
                     <Route path="/publications" element={<PublicationListPage />} />
                     <Route path="/crm" element={<CrmPage />} />
+                    <Route path="/transactions" element={<TransactionsListPage />} />
                     {ROUTABLE_NAV_ITEMS.filter(
                       (item) =>
                         item.path !== "/home" &&
@@ -88,7 +90,8 @@ export function App(): JSX.Element {
                         item.path !== "/lawsuits" &&
                         item.path !== "/schedules" &&
                         item.path !== "/publications" &&
-                        item.path !== "/crm",
+                        item.path !== "/crm" &&
+                        item.path !== "/transactions",
                     ).map((item) => (
                       <Route
                         key={item.path}

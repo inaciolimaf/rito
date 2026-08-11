@@ -182,7 +182,7 @@ async def test_valor_negativo_retorna_422(
         assert response.status_code == 422, field
 
 
-async def test_financial_summary_zerado_ate_a_spec_056(
+async def test_financial_summary_sem_lancamentos_fica_zerado(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor, headers, type_id, stage_id = await _setup(client, make_user)

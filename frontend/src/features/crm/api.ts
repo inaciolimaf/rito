@@ -1,3 +1,4 @@
+import type { ApplyResult } from "@/features/workflows/api";
 import { apiRequest } from "@/lib/api";
 
 export interface BoardCard {
@@ -63,6 +64,11 @@ export interface CrmStats {
   by_step: CrmStatsByStep[];
 }
 
+export interface SuggestedWorkflow {
+  id: string;
+  name: string;
+}
+
 function toQuery(params: object): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -83,8 +89,31 @@ export async function getBoardColumn(
   return apiRequest<BoardColumnPage>(`/api/v1/crm/board/column/${stepId}${toQuery(params)}`);
 }
 
-export async function moveLawsuitStage(lawsuitId: string, stageId: string): Promise<void> {
-  await apiRequest(`/api/v1/lawsuits/${lawsuitId}/move-stage`, {
+export async function moveLawsuitStage(
+  lawsuitId: string,
+  stageId: string,
+): Promise<{ suggested_workflow: SuggestedWorkflow | null }> {
+  const result = await apiRequest<{ suggested_workflow: SuggestedWorkflow | null }>(
+    `/api/v1/lawsuits/${lawsuitId}/move-stage`,
+    { method: "POST", body: { stage_id: stageId } },
+  );
+  return { suggested_workflow: result.suggested_workflow };
+}
+
+export async function applyLawsuitWorkflow(
+  workflowId: string,
+  lawsuitId: string,
+  confirmDuplicate: boolean,
+  stageId: string | null = null,
+): Promise<ApplyResult> {
+  return apiRequest<ApplyResult>(`/api/v1/lawsuits/${lawsuitId}/apply-workflow`, {
+    method: "POST",
+    body: { workflow_id: workflowId, stage_id: stageId, confirm_duplicate: confirmDuplicate },
+  });
+}
+
+export async function suppressLawsuitWorkflow(lawsuitId: string, stageId: string): Promise<void> {
+  await apiRequest(`/api/v1/lawsuits/${lawsuitId}/suppress-workflow`, {
     method: "POST",
     body: { stage_id: stageId },
   });

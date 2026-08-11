@@ -427,3 +427,58 @@ class BulkMoveStageRequest(BaseModel):
 
 class BulkMoveStageResponse(BaseModel):
     moved: int
+
+
+class SuggestedWorkflowResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class MoveStageResponse(BaseModel):
+    """Spec 053, regra 1: mover passa a devolver a sugestão de workflow da etapa
+    destino — `null` se a etapa não tem workflow configurado ou está suprimido
+    para este processo (regra 6/7). Ação em massa nunca sugere (regra 10) — o
+    endpoint de bulk continua devolvendo só `BulkMoveStageResponse`."""
+
+    lawsuit: LawsuitResponse
+    suggested_workflow: SuggestedWorkflowResponse | None
+
+
+class ApplyWorkflowRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    workflow_id: uuid.UUID
+    stage_id: uuid.UUID | None = None
+    confirm_duplicate: bool = False
+
+
+class SkippedWorkflowStepResponse(BaseModel):
+    task_type_name: str
+    reason: str
+
+
+class ApplyWorkflowResponse(BaseModel):
+    application_id: uuid.UUID
+    created: int
+    post_ids: list[uuid.UUID]
+    skipped: list[SkippedWorkflowStepResponse]
+
+
+class SuppressWorkflowRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    stage_id: uuid.UUID
+
+
+class WorkflowApplicationResponse(BaseModel):
+    id: uuid.UUID
+    workflow_id: uuid.UUID
+    workflow_name: str
+    stage_id: uuid.UUID | None
+    applied_by: uuid.UUID
+    posts_created: list[uuid.UUID]
+    applied_at: datetime
+
+
+class WorkflowApplicationListResponse(BaseModel):
+    items: list[WorkflowApplicationResponse]

@@ -8,7 +8,7 @@ function daysInStage(stageEnteredAt: string): number {
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
 
-function partiesSummary(card: BoardCard): string {
+export function partiesSummary(card: BoardCard): string {
   const names = card.parties.slice(0, 2).map((party) => party.name);
   const extra = card.parties_total - names.length;
   return extra > 0 ? `${names.join(", ")} +${extra}` : names.join(", ") || "Sem partes";

@@ -6,7 +6,13 @@ import type { EntityOption } from "@/components/domain/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { listLawsuits } from "@/features/lawsuits/api";
-import { applyWorkflow, previewWorkflow, type WorkflowPreview } from "@/features/workflows/api";
+import {
+  applyWorkflow,
+  previewWorkflow,
+  type ApplyResult,
+  type WorkflowPreview,
+} from "@/features/workflows/api";
+import { ApiError } from "@/lib/errors";
 
 export interface WorkflowPreviewDialogProps {
   open: boolean;
@@ -16,6 +22,16 @@ export interface WorkflowPreviewDialogProps {
   /** Quando já vem da troca de etapa (regra 7), o processo é conhecido; na aplicação
    * manual (§2) o usuário escolhe aqui. */
   lawsuit?: EntityOption | null;
+  /** Spec 053: a sugestão ao mover etapa aplica via `/lawsuits/{id}/apply-workflow`
+   * (grava `workflow_applications`, permite desfazer) em vez do `/workflows/{id}/apply`
+   * genérico da spec 038 — mesmo diálogo, destino diferente. */
+  applyFn?: (
+    workflowId: string,
+    lawsuitId: string,
+    confirmDuplicate: boolean,
+  ) => Promise<ApplyResult>;
+  /** Spec 053, regra 6: "não sugerir novamente" — só existe no fluxo de sugestão. */
+  onSuppress?: () => void;
 }
 
 async function searchLawsuits(query: string): Promise<EntityOption[]> {
@@ -41,6 +57,8 @@ export function WorkflowPreviewDialog({
   workflowId,
   workflowName,
   lawsuit = null,
+  applyFn = applyWorkflow,
+  onSuppress,
 }: WorkflowPreviewDialogProps): JSX.Element {
   const queryClient = useQueryClient();
   const [selected, setSelected] = React.useState<EntityOption | null>(null);
@@ -69,14 +87,19 @@ export function WorkflowPreviewDialog({
     setApplying(true);
     setApplyError(null);
     try {
-      const result = await applyWorkflow(workflowId, selected.id, confirmDuplicate);
+      const result = await applyFn(workflowId, selected.id, confirmDuplicate);
       setAppliedMessage(
         `${result.created} tarefa(s) criada(s)${result.skipped.length > 0 ? `, ${result.skipped.length} etapa(s) pulada(s)` : ""}.`,
       );
       await queryClient.invalidateQueries({ queryKey: ["lawsuit-posts"] });
       await queryClient.invalidateQueries({ queryKey: ["posts"] });
-    } catch {
-      setApplyError("Não foi possível aplicar o workflow — nenhuma tarefa foi criada.");
+    } catch (error) {
+      // Regra 8 (spec 053): o 409 de reaplicar já vem com "quando foi" no detail.
+      setApplyError(
+        error instanceof ApiError
+          ? error.message
+          : "Não foi possível aplicar o workflow — nenhuma tarefa foi criada.",
+      );
     } finally {
       setApplying(false);
     }
@@ -149,6 +172,18 @@ export function WorkflowPreviewDialog({
             {applyError && <p className="text-sm text-danger">{applyError}</p>}
 
             <div className="flex justify-end gap-2">
+              {onSuppress && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    onSuppress();
+                    onOpenChange(false);
+                  }}
+                >
+                  Não sugerir novamente
+                </Button>
+              )}
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>

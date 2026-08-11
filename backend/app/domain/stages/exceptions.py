@@ -14,3 +14,10 @@ class InvalidReorderError(Exception):
     "ordenação é por position dentro da fase")."""
 
     pass
+
+
+class SuggestedWorkflowNotFoundError(Exception):
+    """Spec 053: `suggested_workflow_id` precisa apontar pra um workflow existente
+    do tenant."""
+
+    pass

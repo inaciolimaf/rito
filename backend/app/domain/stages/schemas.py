@@ -28,12 +28,16 @@ class _StagnantDaysMixin(BaseModel):
 class StageCreateRequest(_StagnantDaysMixin):
     name: str
     step_id: int
+    # Spec 053, regra 1: workflow sugerido ao mover processo para esta etapa. A coluna
+    # existe desde a spec 038 — só faltava expor no contrato de escrita.
+    suggested_workflow_id: uuid.UUID | None = None
 
 
 class StageUpdateRequest(_StagnantDaysMixin):
     name: str
     step_id: int
     is_active: bool = True
+    suggested_workflow_id: uuid.UUID | None = None
 
 
 class StageResponse(BaseModel):

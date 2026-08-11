@@ -13,6 +13,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import ARRAY as PGARRAY
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -226,3 +227,45 @@ class LawsuitStageHistory(TenantMixin, Base):
     to_stage_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("stages.id"))
     changed_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     changed_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class WorkflowApplication(TenantMixin, Base):
+    """Registro do que um workflow criou num processo (spec 053, regra 4) — a única
+    forma de saber quais posts desfazer (regra 5), já que `Post` não guarda vínculo
+    com o workflow que o gerou (mesma limitação documentada em
+    `WorkflowService._already_applied`, spec 038)."""
+
+    __tablename__ = "workflow_applications"
+    __table_args__ = (Index("ix_wf_app_lawsuit", "lawsuit_id", "applied_at"),)
+
+    workflow_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("workflows.id"))
+    lawsuit_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("lawsuits.id", ondelete="CASCADE")
+    )
+    # NULL = aplicado manualmente, fora do gatilho de mover etapa (regra 1 sugere,
+    # nunca aplica sozinho — toda aplicação passa por confirmação humana).
+    stage_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("stages.id"), default=None
+    )
+    applied_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    posts_created: Mapped[list[uuid.UUID]] = mapped_column(
+        PGARRAY(PGUUID(as_uuid=True)), default=list, server_default=text("'{}'")
+    )
+    applied_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class WorkflowSuppression(TenantMixin, Base):
+    """ "Não sugerir novamente" (spec 053, regra 6) para o par processo+etapa. PK
+    surrogate padrão de `Base` (a spec descreve PK composta lawsuit_id+stage_id, mas
+    toda tabela do projeto usa o `id` UUID de `Base` sem exceção — o UNIQUE abaixo
+    cumpre a mesma regra de "1 supressão por par")."""
+
+    __tablename__ = "workflow_suppressions"
+    __table_args__ = (
+        UniqueConstraint("lawsuit_id", "stage_id", name="uq_workflow_suppressions_lawsuit_stage"),
+    )
+
+    lawsuit_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("lawsuits.id", ondelete="CASCADE")
+    )
+    stage_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("stages.id"))

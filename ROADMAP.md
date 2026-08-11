@@ -235,7 +235,7 @@ Painel de status por termo; histórico de execuções; **falha vira tarefa** par
 Marcação de estagnado por `stagnant_days` da etapa; filtro estagnados/em andamento; cards de topo (processos, recebidos no mês, valor, estagnado).
 **Aceite:** estagnação calculada a partir da última tarefa. **t:** 4 s. **Deps:** 051
 
-### ⬜ 053 — CRM: workflow ao mover
+### ✅ 053 — CRM: workflow ao mover
 Sugestão de workflow ao mover para etapa configurada; confirmação; criação das tarefas.
 **Aceite:** mover para etapa com workflow sugere e cria após confirmar. **t:** 4 s. **Deps:** 052, 038
 

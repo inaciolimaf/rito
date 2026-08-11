@@ -7,10 +7,12 @@ from app.domain.stages.exceptions import (
     InvalidReorderError,
     StageNameAlreadyExistsError,
     StepNotFoundError,
+    SuggestedWorkflowNotFoundError,
 )
 from app.domain.stages.models import Stage, Step
 from app.domain.stages.repository import StageRepository, StepRepository
 from app.domain.stages.schemas import StageCreateRequest, StageUpdateRequest
+from app.domain.workflows.repository import WorkflowRepository
 
 
 class StepService:
@@ -27,6 +29,11 @@ class StageService:
         self.tenant_id = tenant_id
         self.stages = StageRepository(session)
         self.steps = StepRepository(session)
+        self.workflows = WorkflowRepository(session)
+
+    async def _validate_suggested_workflow(self, workflow_id: uuid.UUID | None) -> None:
+        if workflow_id is not None and await self.workflows.get_by_id(workflow_id) is None:
+            raise SuggestedWorkflowNotFoundError
 
     async def list_stages(
         self, *, step_id: int | None, is_active: bool | None, query: str | None
@@ -44,6 +51,7 @@ class StageService:
         step_name = await self._step_name(payload.step_id)
         if await self.stages.get_by_name(step_id=payload.step_id, name=payload.name) is not None:
             raise StageNameAlreadyExistsError
+        await self._validate_suggested_workflow(payload.suggested_workflow_id)
 
         position = await self.stages.next_position(payload.step_id)
         stage = Stage(
@@ -53,6 +61,7 @@ class StageService:
             position=position,
             enable_stagnant_days=payload.enable_stagnant_days,
             stagnant_days=payload.stagnant_days,
+            suggested_workflow_id=payload.suggested_workflow_id,
         )
         created = await self.stages.create(stage)
         return created, step_name
@@ -64,6 +73,7 @@ class StageService:
             existing = await self.stages.get_by_name(step_id=payload.step_id, name=payload.name)
             if existing is not None and existing.id != stage.id:
                 raise StageNameAlreadyExistsError
+        await self._validate_suggested_workflow(payload.suggested_workflow_id)
 
         if changed_step:
             # Mudou de fase: vai para o fim da nova fase, não herda a position da antiga
@@ -73,6 +83,7 @@ class StageService:
         stage.step_id = payload.step_id
         stage.enable_stagnant_days = payload.enable_stagnant_days
         stage.stagnant_days = payload.stagnant_days
+        stage.suggested_workflow_id = payload.suggested_workflow_id
         stage.is_active = payload.is_active
         return stage, step_name
 

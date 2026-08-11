@@ -12,6 +12,7 @@ from app.domain.stages.exceptions import (
     InvalidReorderError,
     StageNameAlreadyExistsError,
     StepNotFoundError,
+    SuggestedWorkflowNotFoundError,
 )
 from app.domain.stages.models import Stage
 from app.domain.stages.schemas import (
@@ -89,6 +90,8 @@ async def create_stage(
         ) from exc
     except StepNotFoundError as exc:
         raise HTTPException(status_code=422, detail="Fase não encontrada.") from exc
+    except SuggestedWorkflowNotFoundError as exc:
+        raise HTTPException(status_code=422, detail="Workflow sugerido não encontrado.") from exc
     return _stage_to_response(stage, step_name)
 
 
@@ -111,6 +114,8 @@ async def update_stage(
         ) from exc
     except StepNotFoundError as exc:
         raise HTTPException(status_code=422, detail="Fase não encontrada.") from exc
+    except SuggestedWorkflowNotFoundError as exc:
+        raise HTTPException(status_code=422, detail="Workflow sugerido não encontrado.") from exc
     # Spec 052, regra 10: só recalcula quando a regra de estagnação de fato mudou.
     if (updated.enable_stagnant_days, updated.stagnant_days) != previous_rule:
         schedule_stage_recalculation(updated.id, current_user.tenant_id)

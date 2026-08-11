@@ -66,8 +66,9 @@ async def test_mover_grava_historico(factory: LawsuitFactory) -> None:
         headers=factory.headers,
     )
     assert response.status_code == 200
-    assert response.json()["stage_id"] == target_stage
-    assert response.json()["step_id"] == _NEGOTIATION_STEP_ID
+    # Spec 053, §5: move-stage passou a devolver {lawsuit, suggested_workflow}.
+    assert response.json()["lawsuit"]["stage_id"] == target_stage
+    assert response.json()["lawsuit"]["step_id"] == _NEGOTIATION_STEP_ID
 
     history = await _history_for(factory, lawsuit_id)
     assert len(history) == 1
@@ -99,7 +100,7 @@ async def test_mover_para_primeira_etapa_da_fase(factory: LawsuitFactory) -> Non
         headers=factory.headers,
     )
     assert move.status_code == 200
-    assert move.json()["stage_id"] == first_stage
+    assert move.json()["lawsuit"]["stage_id"] == first_stage
 
 
 async def test_trigger_atualiza_stage_entered_at(factory: LawsuitFactory) -> None:

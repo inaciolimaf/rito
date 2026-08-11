@@ -1,3 +1,6 @@
+from datetime import datetime
+
+
 class LawsuitTypeNotFoundError(Exception):
     """Regra 1: tipo de ação é obrigatório e precisa existir no tenant."""
 
@@ -58,3 +61,25 @@ class NotResponsibleForLawsuitError(Exception):
 class LawsuitNotFoundError(Exception):
     """Regra 9 (spec 051): ação em massa é transacional — um id inexistente no lote
     (de outro tenant ou apagado) derruba a operação inteira, nenhuma mudança parcial."""
+
+
+class WorkflowAlreadyAppliedError(Exception):
+    """Regra 8 (spec 053): reaplicar exige confirmação explícita, mostrando quando a
+    última aplicação aconteceu."""
+
+    def __init__(self, applied_at: datetime) -> None:
+        super().__init__(applied_at)
+        self.applied_at = applied_at
+
+
+class WorkflowApplicationNotFoundError(Exception):
+    """Spec 053: id de aplicação inexistente (de outro tenant/processo, ou já
+    desfeita) — 404 no desfazer."""
+
+
+class WorkflowUndoWindowExpiredError(Exception):
+    """Regra 5 (spec 053): desfazer só é possível em até 1 h da aplicação."""
+
+
+class WorkflowUndoHasCompletedTaskError(Exception):
+    """Regra 5 (spec 053): nenhuma das tarefas geradas pode ter sido concluída."""

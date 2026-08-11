@@ -18,7 +18,8 @@ import {
   type BoardFilters,
 } from "@/features/crm/api";
 import { CrmStatsBar } from "@/features/crm/CrmStatsBar";
-import { LawsuitCard } from "@/features/crm/LawsuitCard";
+import { LawsuitCard, partiesSummary } from "@/features/crm/LawsuitCard";
+import { SuggestWorkflowDialog } from "@/features/crm/SuggestWorkflowDialog";
 import { listStages } from "@/features/stages/api";
 
 const FILTER_FIELDS: FilterFieldDef[] = [
@@ -60,6 +61,12 @@ export function CrmPage(): JSX.Element {
     {},
   );
   const [loadingColumnId, setLoadingColumnId] = React.useState<string | null>(null);
+  const [suggestion, setSuggestion] = React.useState<{
+    workflowId: string;
+    workflowName: string;
+    lawsuit: { id: string; label: string };
+    stageId: string;
+  } | null>(null);
 
   const { data: board, isLoading } = useQuery({
     queryKey: boardKey,
@@ -94,17 +101,33 @@ export function CrmPage(): JSX.Element {
     ]).then(() => undefined);
 
   const move = useMutation({
-    mutationFn: ({ lawsuitId, stageId }: { lawsuitId: string; stageId: string }) =>
+    mutationFn: ({ lawsuitId, stageId }: { lawsuitId: string; stageId: string; label: string }) =>
       moveLawsuitStage(lawsuitId, stageId),
     // Regra 4: reverte buscando o board de novo do servidor se a API falhar.
     onError: invalidateBoard,
-    onSuccess: invalidateBoard,
+    onSuccess: async (result, variables) => {
+      await invalidateBoard();
+      // Spec 053, regra 1: sugere, nunca aplica sozinho — abre o diálogo, quem decide é
+      // o usuário. Regra 10: ação em massa nunca passa por aqui (endpoint diferente).
+      if (result.suggested_workflow) {
+        setSuggestion({
+          workflowId: result.suggested_workflow.id,
+          workflowName: result.suggested_workflow.name,
+          lawsuit: { id: variables.lawsuitId, label: variables.label },
+          stageId: variables.stageId,
+        });
+      }
+    },
   });
 
   function handleMove(itemId: string, fromColumnId: string, toColumnId: string): void {
     const toStepId = Number(toColumnId);
     const targetStageId = firstStageByStep.get(toStepId); // regra 3
     if (!targetStageId) return;
+    const movedCard = board?.columns
+      .find((column) => String(column.step_id) === fromColumnId)
+      ?.items.find((item) => item.id === itemId);
+    const movedLabel = movedCard ? partiesSummary(movedCard) : "Processo";
 
     // Otimista: move o card na hora no cache local (regra 4); onError/onSuccess
     // acima confirmam com um fetch de verdade do servidor.
@@ -132,7 +155,7 @@ export function CrmPage(): JSX.Element {
         ),
       };
     });
-    move.mutate({ lawsuitId: itemId, stageId: targetStageId });
+    move.mutate({ lawsuitId: itemId, stageId: targetStageId, label: movedLabel });
   }
 
   async function handleLoadMore(columnId: string): Promise<void> {
@@ -263,6 +286,20 @@ export function CrmPage(): JSX.Element {
         confirmLabel="Mover"
         onConfirm={() => bulkMove.mutate()}
       />
+
+      {suggestion && (
+        <SuggestWorkflowDialog
+          open={suggestion !== null}
+          onOpenChange={(open) => {
+            if (!open) setSuggestion(null);
+          }}
+          workflowId={suggestion.workflowId}
+          workflowName={suggestion.workflowName}
+          lawsuit={suggestion.lawsuit}
+          stageId={suggestion.stageId}
+          onSuppressed={() => setSuggestion(null)}
+        />
+      )}
     </div>
   );
 }

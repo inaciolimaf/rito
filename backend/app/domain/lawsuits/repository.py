@@ -18,6 +18,8 @@ from app.domain.lawsuits.models import (
     LawsuitSubject,
     MovementOrigin,
     PartyPole,
+    WorkflowApplication,
+    WorkflowSuppression,
 )
 from app.domain.users.models import User
 
@@ -273,3 +275,42 @@ class LawsuitSubjectRepository(BaseRepository[LawsuitSubject]):
 
 class LawsuitStageHistoryRepository(BaseRepository[LawsuitStageHistory]):
     model = LawsuitStageHistory
+
+
+class WorkflowApplicationRepository(BaseRepository[WorkflowApplication]):
+    model = WorkflowApplication
+
+    async def list_for_lawsuit(self, lawsuit_id: uuid.UUID) -> Sequence[WorkflowApplication]:
+        stmt = (
+            select(WorkflowApplication)
+            .where(WorkflowApplication.lawsuit_id == lawsuit_id)
+            .order_by(WorkflowApplication.applied_at.desc())
+        )
+        return (await self.session.scalars(stmt)).all()
+
+    async def latest_for(
+        self, lawsuit_id: uuid.UUID, workflow_id: uuid.UUID
+    ) -> WorkflowApplication | None:
+        """Regra 8: base do "já aplicado, mostrando quando foi" — registro real, não a
+        heurística de `WorkflowService._already_applied` (que existe só porque, antes
+        desta spec, `Post` não tinha de onde vir essa informação)."""
+        stmt = (
+            select(WorkflowApplication)
+            .where(
+                WorkflowApplication.lawsuit_id == lawsuit_id,
+                WorkflowApplication.workflow_id == workflow_id,
+            )
+            .order_by(WorkflowApplication.applied_at.desc())
+            .limit(1)
+        )
+        return (await self.session.scalars(stmt)).first()
+
+
+class WorkflowSuppressionRepository(BaseRepository[WorkflowSuppression]):
+    model = WorkflowSuppression
+
+    async def is_suppressed(self, lawsuit_id: uuid.UUID, stage_id: uuid.UUID) -> bool:
+        stmt = select(WorkflowSuppression.id).where(
+            WorkflowSuppression.lawsuit_id == lawsuit_id, WorkflowSuppression.stage_id == stage_id
+        )
+        return (await self.session.scalar(stmt)) is not None

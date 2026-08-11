@@ -33,6 +33,10 @@ from app.domain.lawsuits.exceptions import (
     ResponsibleNotActiveError,
     StageNotFoundError,
     TribunalMovementImmutableError,
+    WorkflowAlreadyAppliedError,
+    WorkflowApplicationNotFoundError,
+    WorkflowUndoHasCompletedTaskError,
+    WorkflowUndoWindowExpiredError,
 )
 from app.domain.lawsuits.export import build_pdf, build_xlsx
 from app.domain.lawsuits.folders import FolderService
@@ -42,6 +46,8 @@ from app.domain.lawsuits.movements_service import MovementsService
 from app.domain.lawsuits.parties_service import PartiesService, PartyDetail
 from app.domain.lawsuits.repository import TIMELINE_KINDS
 from app.domain.lawsuits.schemas import (
+    ApplyWorkflowRequest,
+    ApplyWorkflowResponse,
     BulkMoveStageRequest,
     BulkMoveStageResponse,
     ClosureGoalResponse,
@@ -65,13 +71,17 @@ from app.domain.lawsuits.schemas import (
     MovementResponse,
     MovementUpdateRequest,
     MoveStageRequest,
+    MoveStageResponse,
     ParsedCNJResponse,
     PartyBriefResponse,
     PartyCreateRequest,
     PartyResponse,
     PartyUpdateRequest,
+    SkippedWorkflowStepResponse,
     StatsCardResponse,
     StepVolumeResponse,
+    SuggestedWorkflowResponse,
+    SuppressWorkflowRequest,
     SyncMovementsResponse,
     SyncRunListResponse,
     SyncRunResponse,
@@ -80,10 +90,16 @@ from app.domain.lawsuits.schemas import (
     TimelineResponse,
     ValidateNumberRequest,
     ValidateNumberResponse,
+    WorkflowApplicationListResponse,
+    WorkflowApplicationResponse,
 )
 from app.domain.lawsuits.service import LawsuitDetail, LawsuitService
 from app.domain.lawsuits.stats import invalidate_stats_cache
+from app.domain.lawsuits.workflow_service import LawsuitWorkflowService
+from app.domain.stages.repository import StageRepository
 from app.domain.users.models import User
+from app.domain.workflows.repository import WorkflowRepository
+from app.domain.workflows.service import InactiveAssigneeError
 from app.integrations.datajud.client import (
     DatajudClient,
     DatajudConfigError,
@@ -480,9 +496,10 @@ async def move_lawsuit_stage(
     payload: MoveStageRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
-) -> LawsuitResponse:
+) -> MoveStageResponse:
     """Spec 051 — arrastar card no Kanban chama isto (regra 4: otimista na UI, reverte
-    se der 403/422)."""
+    se der 403/422). Spec 053, regra 1: devolve a sugestão de workflow da etapa
+    destino, se houver — a UI decide se mostra o diálogo de confirmação."""
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
     board = BoardService(session=session, tenant_id=current_user.tenant_id)
@@ -495,7 +512,131 @@ async def move_lawsuit_stage(
     except StageNotFoundError as exc:
         raise HTTPException(status_code=422, detail="Etapa não encontrada.") from exc
     updated = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
-    return _to_response(updated)
+
+    target_stage = await StageRepository(session).get_by_id(payload.stage_id)
+    suggested = None
+    if target_stage is not None:
+        workflows = LawsuitWorkflowService(session=session, tenant_id=current_user.tenant_id)
+        workflow = await workflows.suggest_for_move(updated.lawsuit, target_stage)
+        if workflow is not None:
+            suggested = SuggestedWorkflowResponse(id=workflow.id, name=workflow.name)
+    return MoveStageResponse(lawsuit=_to_response(updated), suggested_workflow=suggested)
+
+
+@router.post("/{lawsuit_id}/apply-workflow")
+async def apply_lawsuit_workflow(
+    lawsuit_id: uuid.UUID,
+    payload: ApplyWorkflowRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> ApplyWorkflowResponse:
+    """Spec 053, regras 2/3/8: preview mora em `POST /workflows/{id}/preview` (spec
+    038, mesma resolução) — este endpoint aplica de fato e grava o registro que
+    permite desfazer (regra 4)."""
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    workflow = await get_or_404(
+        lambda: WorkflowRepository(session).get_by_id(payload.workflow_id),
+        "Workflow não encontrado.",
+    )
+    workflows = LawsuitWorkflowService(session=session, tenant_id=current_user.tenant_id)
+    try:
+        outcome = await workflows.apply(
+            detail.lawsuit,
+            workflow,
+            current_user,
+            stage_id=payload.stage_id,
+            confirm_duplicate=payload.confirm_duplicate,
+        )
+    except WorkflowAlreadyAppliedError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Este workflow já foi aplicado neste processo em "
+                f"{exc.applied_at.isoformat()}. Confirme para aplicar de novo."
+            ),
+        ) from exc
+    except InactiveAssigneeError as exc:
+        raise HTTPException(
+            status_code=422, detail="Um responsável configurado está inativo — nada foi criado."
+        ) from exc
+    return ApplyWorkflowResponse(
+        application_id=outcome.application.id,
+        created=len(outcome.application.posts_created),
+        post_ids=list(outcome.application.posts_created),
+        skipped=[
+            SkippedWorkflowStepResponse(task_type_name=item.task_type_name, reason=item.reason)
+            for item in outcome.skipped
+        ],
+    )
+
+
+@router.post("/{lawsuit_id}/suppress-workflow", status_code=204)
+async def suppress_lawsuit_workflow(
+    lawsuit_id: uuid.UUID,
+    payload: SuppressWorkflowRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> None:
+    """Spec 053, regra 6: "não sugerir novamente" para este processo+etapa."""
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    workflows = LawsuitWorkflowService(session=session, tenant_id=current_user.tenant_id)
+    await workflows.suppress(lawsuit_id, payload.stage_id)
+
+
+@router.get("/{lawsuit_id}/workflow-applications")
+async def list_lawsuit_workflow_applications(
+    lawsuit_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> WorkflowApplicationListResponse:
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    workflows = LawsuitWorkflowService(session=session, tenant_id=current_user.tenant_id)
+    rows = await workflows.list_applications(lawsuit_id)
+    return WorkflowApplicationListResponse(
+        items=[
+            WorkflowApplicationResponse(
+                id=application.id,
+                workflow_id=application.workflow_id,
+                workflow_name=name,
+                stage_id=application.stage_id,
+                applied_by=application.applied_by,
+                posts_created=list(application.posts_created),
+                applied_at=application.applied_at,
+            )
+            for application, name in rows
+        ]
+    )
+
+
+@router.delete("/{lawsuit_id}/workflow-applications/{application_id}", status_code=204)
+async def undo_lawsuit_workflow_application(
+    lawsuit_id: uuid.UUID,
+    application_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> None:
+    """Spec 053, regra 5: desfazer só em até 1 h e só se nenhuma tarefa criada foi
+    concluída — remove as tarefas e o próprio registro de aplicação."""
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    workflows = LawsuitWorkflowService(session=session, tenant_id=current_user.tenant_id)
+    try:
+        application = await workflows.get_application(lawsuit_id, application_id)
+        await workflows.undo(application)
+    except WorkflowApplicationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Aplicação não encontrada.") from exc
+    except WorkflowUndoWindowExpiredError as exc:
+        raise HTTPException(
+            status_code=409, detail="Desfazer só é possível em até 1 hora após aplicar."
+        ) from exc
+    except WorkflowUndoHasCompletedTaskError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Uma das tarefas criadas já foi concluída — não é possível desfazer.",
+        ) from exc
 
 
 @router.delete("/{lawsuit_id}", status_code=204)

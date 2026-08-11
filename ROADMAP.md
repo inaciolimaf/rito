@@ -243,7 +243,7 @@ Sugestão de workflow ao mover para etapa configurada; confirmação; criação 
 10 grupos DRE; 61 categorias padrão (14 receita, 47 despesa); centros de custo; CRUD.
 **Aceite:** categoria sempre tem grupo e tipo; seed idempotente. **t:** 3 s. **Deps:** 011
 
-### ⬜ 055 — Financeiro: contas e cartões
+### ✅ 055 — Financeiro: contas e cartões
 5 tipos; ~95 instituições; agência, número, `cycle_day`, `due_day`, saldo inicial, conta padrão.
 **Aceite:** cartão exige ciclo e vencimento; só uma conta padrão. **t:** 4 s. **Deps:** 054
 

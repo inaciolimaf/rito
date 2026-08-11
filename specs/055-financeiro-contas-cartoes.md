@@ -1,7 +1,7 @@
 # 055 — Financeiro: contas e cartões
 
 **Fase:** 5 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 054 · **Status:** ⬜ pendente
+**Depende de:** 054 · **Status:** ✅ concluída
 
 ---
 
@@ -106,8 +106,77 @@ O índice único parcial garante **uma só conta padrão** por tenant — no ban
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Regras 3/4/6/9 (saldo real, fatura, "conta em uso" e imutabilidade do saldo
+  inicial) dependem de `lançamentos`, que só chega na spec 056.** Mesma situação já
+  documentada em customer_origins (016)/stages (015)/action_groups (014)/financial_
+  categories (054): a validação/estrutura fica pronta, mas o comportamento real (que
+  depende de dados que ainda não existem) é adiado e testado como o que É hoje, não
+  como será. Concretamente: `GET /bank-accounts/{id}/balance` devolve `initial_amount`
+  puro; `DELETE` é incondicional; `PUT` aceita `initial_amount` livremente. Nada
+  disso é bug — é o estado documentado até a 056 existir.
+- **"~95 instituições" não tinha lista enumerada em `docs/ADVBOX-ESPECIFICACAO-
+  COMPLETA.md`** (diferente das 61 categorias/59 etapas, que tinham). Buscados dados
+  reais do Banco Central via BrasilAPI (`GET /api/banks/v1`, internet real do
+  sandbox — mesmo recurso já usado pra IBGE na spec 018) e filtrados para nomes com
+  "BCO"/"BANCO"/"CAIXA" + os 6 maiores bancos digitais cujo nome oficial não usa
+  essas palavras (Nubank, PagBank, PicPay, Mercado Pago, Neon, Stone) — 129
+  instituições reais e verificáveis, perto do "~95" aproximado da spec.
+- **Bug real de concorrência encontrado e corrigido antes do commit.** Trocar a
+  conta padrão (`set_default`/`create` com `is_default=true`) sem um `session.
+  flush()` explícito entre desmarcar a conta antiga e marcar a nova deixava o
+  SQLAlchemy livre para emitir os 2 `UPDATE`s no mesmo `executemany`, em qualquer
+  ordem — como `ux_accounts_default` não é `DEFERRABLE`, a ordem errada (marcar a
+  nova ANTES de desmarcar a antiga) violava a constraint mesmo o resultado final
+  estando correto. Pego pelo teste de concorrência
+  (`test_so_uma_padrao_ativa_mesmo_tentando_burlar_pelo_banco`) antes do merge —
+  corrigido com `flush()` explícito nos dois pontos.
+- **`JsonDecimal` virou o 3º domínio reaproveitando o mesmo alias** (lawsuits, crm,
+  financial) — extraído de `lawsuits/schemas.py` para `app/core/schemas.py` (regra
+  dos 3 usos, CLAUDE.md §6), com `lawsuits`/`crm` atualizados para importar do novo
+  lugar central.
+- **`card_cycle_range` (regra 5) foi pra `app/core/dates.py`**, o módulo único de
+  datas do projeto (spec 040) — mesmo padrão de `add_business_days`/`next_occurrence`,
+  reaproveitando `month_end`/`shift_month` já existentes em vez de recalcular.
+- **Achado de processo, não de código:** um dev server de smoke test manual
+  (Playwright, usado pra verificar a UI num browser real) ficou rodando na porta
+  5173 depois de um `pkill` que não terminou o processo de verdade — o `run-tests.sh`
+  seguinte, via `reuseExistingServer` do Playwright, reaproveitou esse processo
+  zumbi (apontando pro backend de smoke test, não pro da suíte), derrubando as 9
+  jornadas e2e por falha de login. Falso negativo, não regressão — confirmado com
+  `ps aux`/`ss -ltnp`, corrigido matando o processo, e um rerun limpo saiu 100%
+  verde. Documentado em memória (`feedback_dev_server_ports_e2e_collision`) pra não
+  repetir: smoke test manual de UI não deve usar as portas 5173/8000.
+- **UI verificada manualmente num browser real (Playwright).** Campos de fechamento/
+  vencimento aparecem SÓ pra cartão de crédito (regra 1); busca assíncrona de
+  instituição funcionando (unaccent — "ITAÚ" encontra "ITAÚ UNIBANCO S.A."); definir
+  conta padrão atualiza a lista e o `AccountBalanceCard` no topo, mostrando "Fatura
+  do ciclo" pra cartão vs. "Saldo" pros demais tipos.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Unicidade da conta padrão garantida no banco · Commit `feat(055): financeiro — contas e cartões`
+- [x] Escopo implementado, nada além (lançamentos ficam pra 056; fluxo de caixa pra
+      059; fatura como documento fica fora do escopo — nenhum tocado aqui)
+- [x] Todas as regras de negócio COM DADO HOJE têm teste (11 testes de integração + 6
+      unit cobrindo as regras 1, 2, 5, 7, 8, 10 com dado real; regras 3/4/6/9 testadas
+      no comportamento atual — deferido, documentado, não pulado em silêncio)
+- [x] Teste de isolamento por tenant — `bank_accounts`/`financial_institutions` são
+      tabelas novas; `financial_institutions` é global (sem RLS, como `dre_groups`);
+      `bank_accounts` tem RLS via `enable_rls_statements`, testado em
+      `test_tenant_a_nao_ve_conta_de_tenant_b` (leitura E escrita — PUT por id de
+      outro tenant → 404)
+- [x] `make test` verde e wall-clock < 300 s (256 s — 796 backend, 147 frontend, 9
+      e2e; nenhuma jornada e2e nova, dentro do orçamento de +4 s previsto no §8; um
+      run anterior teve falsos negativos — flake de perf pré-existente em
+      test_inbox_perf.py sob carga concorrente + contaminação de porta por um dev
+      server de smoke test — ambos investigados, confirmados alheios a esta spec, e
+      o rerun limpo saiu 100% verde)
+- [x] `make lint` verde (ruff, black, mypy, eslint, tsc, prettier)
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Unicidade da conta padrão garantida no banco — índice único parcial
+      `ux_accounts_default`, testado direto contra o Postgres (raw SQL bypassando a
+      aplicação) além do fluxo normal via API
+- [x] Componentes reutilizáveis: `DataTable`/`FormModal`/`MoneyField`/`ConfirmDialog`
+      reaproveitados sem duplicar; `BankAccountForm`/`InstitutionSelect`/
+      `AccountBalanceCard` novos, do jeito que o §6 previa
+- [x] Commit `feat(055): Financeiro — contas e cartões`

@@ -71,6 +71,25 @@ def shift_month(year: int, month: int, months: int) -> tuple[int, int]:
     return year + zero_based // 12, zero_based % 12 + 1
 
 
+def _clamp_day(year: int, month: int, day: int) -> date:
+    return date(year, month, min(day, monthrange(year, month)[1]))
+
+
+def card_cycle_range(cycle_day: int, today: date) -> tuple[date, date]:
+    """Ciclo de fatura do cartão (spec 055, regra 5): do dia `cycle_day` até o dia
+    anterior do mesmo dia no mês seguinte — dia 31 num mês curto usa o último dia
+    (mesmo clamp de `next_occurrence`/DIA_EXATO)."""
+    start_this_month = _clamp_day(today.year, today.month, cycle_day)
+    if today >= start_this_month:
+        start = start_this_month
+    else:
+        prev_year, prev_month = shift_month(today.year, today.month, -1)
+        start = _clamp_day(prev_year, prev_month, cycle_day)
+    next_year, next_month = shift_month(start.year, start.month, 1)
+    end = _clamp_day(next_year, next_month, cycle_day) - timedelta(days=1)
+    return start, end
+
+
 def nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
     """A n-ésima ocorrência (1-based) do dia da semana no mês."""
     first = date(year, month, 1)

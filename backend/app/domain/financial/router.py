@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,14 +10,28 @@ from app.core.http import get_or_404, parse_active_status
 from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.financial.exceptions import (
+    BankAccountNameAlreadyExistsError,
     CostCenterNameAlreadyExistsError,
+    DefaultAccountNeedsReplacementError,
     DefaultCategoryNotDeletableError,
     DefaultCostCenterNotDeletableError,
     DreGroupNotFoundError,
     FinancialCategoryNameAlreadyExistsError,
+    InstitutionNotFoundError,
 )
-from app.domain.financial.models import CostCenter, EntryType, FinancialCategory
+from app.domain.financial.models import (
+    AccountKind,
+    BankAccount,
+    CostCenter,
+    EntryType,
+    FinancialCategory,
+)
 from app.domain.financial.schemas import (
+    AccountBalanceResponse,
+    BankAccountCreateRequest,
+    BankAccountListResponse,
+    BankAccountResponse,
+    BankAccountUpdateRequest,
     CostCenterCreateRequest,
     CostCenterListResponse,
     CostCenterResponse,
@@ -26,13 +41,17 @@ from app.domain.financial.schemas import (
     FinancialCategoryListResponse,
     FinancialCategoryResponse,
     FinancialCategoryUpdateRequest,
+    FinancialInstitutionListResponse,
+    FinancialInstitutionResponse,
     TransferCostCentersRequest,
     TransferFinancialCategoriesRequest,
 )
 from app.domain.financial.service import (
+    BankAccountService,
     CostCenterService,
     DreGroupService,
     FinancialCategoryService,
+    FinancialInstitutionService,
 )
 from app.domain.users.models import User
 
@@ -61,6 +80,24 @@ def _cost_center_to_response(cost_center: CostCenter) -> CostCenterResponse:
         is_default=cost_center.is_default,
         is_active=cost_center.is_active,
         created_at=cost_center.created_at,
+    )
+
+
+def _account_to_response(account: BankAccount, institution_name: str | None) -> BankAccountResponse:
+    return BankAccountResponse(
+        id=account.id,
+        kind=account.kind,
+        name=account.name,
+        institution_id=account.institution_id,
+        institution_name=institution_name,
+        agency=account.agency,
+        account_number=account.account_number,
+        cycle_day=account.cycle_day,
+        due_day=account.due_day,
+        initial_amount=account.initial_amount,
+        is_default=account.is_default,
+        is_active=account.is_active,
+        created_at=account.created_at,
     )
 
 
@@ -251,3 +288,115 @@ async def transfer_cost_centers(
             detail="from_id/to_id inválidos — precisam ser centros de custo distintos.",
         ) from exc
     return {"transferred_count": transferred}
+
+
+@router.get("/financial-institutions")
+async def list_financial_institutions(
+    q: str | None = Query(default=None),
+    _current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> FinancialInstitutionListResponse:
+    """Autenticado só — sem gate de `financial_access` (regra genérica de referência,
+    mesmo padrão de `/courts`/`/steps`)."""
+    institutions = await FinancialInstitutionService(session).list_institutions(query=q)
+    return FinancialInstitutionListResponse(
+        items=[
+            FinancialInstitutionResponse(id=i.id, name=i.name, compe_code=i.compe_code)
+            for i in institutions
+        ]
+    )
+
+
+@router.get("/bank-accounts")
+async def list_bank_accounts(
+    kind: AccountKind | None = Query(default=None),
+    status_: Literal["active", "inactive"] | None = Query(default=None, alias="status"),
+    current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> BankAccountListResponse:
+    service = BankAccountService(session=session, tenant_id=current_user.tenant_id)
+    items = await service.list_accounts(kind=kind, is_active=parse_active_status(status_))
+    return BankAccountListResponse(
+        items=[_account_to_response(account, name) for account, name in items], total=len(items)
+    )
+
+
+@router.post("/bank-accounts", status_code=201)
+async def create_bank_account(
+    payload: BankAccountCreateRequest,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> BankAccountResponse:
+    service = BankAccountService(session=session, tenant_id=current_user.tenant_id)
+    try:
+        account, institution_name = await service.create(payload)
+    except BankAccountNameAlreadyExistsError as exc:
+        raise HTTPException(status_code=409, detail="Já existe uma conta com esse nome.") from exc
+    except InstitutionNotFoundError as exc:
+        raise HTTPException(status_code=422, detail="Instituição não encontrada.") from exc
+    return _account_to_response(account, institution_name)
+
+
+@router.put("/bank-accounts/{account_id}")
+async def update_bank_account(
+    account_id: uuid.UUID,
+    payload: BankAccountUpdateRequest,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> BankAccountResponse:
+    service = BankAccountService(session=session, tenant_id=current_user.tenant_id)
+    account, _ = await get_or_404(lambda: service.get(account_id), "Conta não encontrada.")
+    try:
+        updated, institution_name = await service.update(account, payload)
+    except BankAccountNameAlreadyExistsError as exc:
+        raise HTTPException(status_code=409, detail="Já existe uma conta com esse nome.") from exc
+    except InstitutionNotFoundError as exc:
+        raise HTTPException(status_code=422, detail="Instituição não encontrada.") from exc
+    except DefaultAccountNeedsReplacementError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Eleja outra conta padrão antes de inativar esta.",
+        ) from exc
+    return _account_to_response(updated, institution_name)
+
+
+@router.delete("/bank-accounts/{account_id}", status_code=204)
+async def delete_bank_account(
+    account_id: uuid.UUID,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> None:
+    service = BankAccountService(session=session, tenant_id=current_user.tenant_id)
+    account, _ = await get_or_404(lambda: service.get(account_id), "Conta não encontrada.")
+    await service.delete(account)
+
+
+@router.post("/bank-accounts/{account_id}/set-default")
+async def set_default_bank_account(
+    account_id: uuid.UUID,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> BankAccountResponse:
+    service = BankAccountService(session=session, tenant_id=current_user.tenant_id)
+    account, institution_name = await get_or_404(
+        lambda: service.get(account_id), "Conta não encontrada."
+    )
+    updated = await service.set_default(account)
+    return _account_to_response(updated, institution_name)
+
+
+@router.get("/bank-accounts/{account_id}/balance")
+async def get_bank_account_balance(
+    account_id: uuid.UUID,
+    at: date | None = Query(default=None),
+    current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> AccountBalanceResponse:
+    """Regras 3/4 completas na spec 056 (dependem de lançamentos) — por enquanto
+    devolve o saldo inicial (ver Descobertas)."""
+    service = BankAccountService(session=session, tenant_id=current_user.tenant_id)
+    account, _ = await get_or_404(lambda: service.get(account_id), "Conta não encontrada.")
+    balance = await service.get_balance(account, at=at)
+    return AccountBalanceResponse(
+        account_id=account.id, kind=account.kind, balance=balance, as_of=at or date.today()
+    )

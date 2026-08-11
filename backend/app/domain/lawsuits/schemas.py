@@ -1,16 +1,12 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.schemas import JsonDecimal
 from app.domain.lawsuits.models import ContingencyLevel, LawsuitOutcome, MovementOrigin, PartyPole
-
-# Regra 1 (spec 024): a API devolve dinheiro como NÚMERO JSON — o default do Pydantic v2
-# para Decimal é string. O float round-trips exato até 15 dígitos significativos, e
-# NUMERIC(14,2) tem no máximo 14.
-JsonDecimal = Annotated[Decimal, PlainSerializer(lambda value: float(value), return_type=float)]
 
 
 class LawsuitBaseRequest(BaseModel):

@@ -1,22 +1,39 @@
 import uuid
+from datetime import date
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.transfer import validated_transfer
 from app.domain.financial.exceptions import (
+    BankAccountNameAlreadyExistsError,
     CostCenterNameAlreadyExistsError,
+    DefaultAccountNeedsReplacementError,
     DefaultCategoryNotDeletableError,
     DefaultCostCenterNotDeletableError,
     DreGroupNotFoundError,
     FinancialCategoryNameAlreadyExistsError,
+    InstitutionNotFoundError,
 )
-from app.domain.financial.models import CostCenter, DreGroup, EntryType, FinancialCategory
+from app.domain.financial.models import (
+    AccountKind,
+    BankAccount,
+    CostCenter,
+    DreGroup,
+    EntryType,
+    FinancialCategory,
+    FinancialInstitution,
+)
 from app.domain.financial.repository import (
+    BankAccountRepository,
     CostCenterRepository,
     DreGroupRepository,
     FinancialCategoryRepository,
+    FinancialInstitutionRepository,
 )
 from app.domain.financial.schemas import (
+    BankAccountCreateRequest,
+    BankAccountUpdateRequest,
     CostCenterCreateRequest,
     CostCenterUpdateRequest,
     FinancialCategoryCreateRequest,
@@ -161,3 +178,122 @@ class CostCenterService:
             get_by_id=self.cost_centers.get_by_id,
             reassign=reassign,
         )
+
+
+class FinancialInstitutionService:
+    def __init__(self, session: AsyncSession) -> None:
+        self.institutions = FinancialInstitutionRepository(session)
+
+    async def list_institutions(self, *, query: str | None) -> list[FinancialInstitution]:
+        return list(await self.institutions.list_filtered(query=query))
+
+
+class BankAccountService:
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        self.session = session
+        self.tenant_id = tenant_id
+        self.accounts = BankAccountRepository(session)
+        self.institutions = FinancialInstitutionRepository(session)
+
+    async def list_accounts(
+        self, *, kind: AccountKind | None, is_active: bool | None
+    ) -> list[tuple[BankAccount, str | None]]:
+        items = await self.accounts.list_filtered(kind=kind, is_active=is_active)
+        return [
+            (account, await self._institution_name(account.institution_id)) for account in items
+        ]
+
+    async def get(self, account_id: uuid.UUID) -> tuple[BankAccount, str | None] | None:
+        account = await self.accounts.get_by_id(account_id)
+        if account is None:
+            return None
+        return account, await self._institution_name(account.institution_id)
+
+    async def create(self, payload: BankAccountCreateRequest) -> tuple[BankAccount, str | None]:
+        institution_name = await self._institution_name(payload.institution_id)
+        if await self.accounts.get_by_name(payload.name) is not None:
+            raise BankAccountNameAlreadyExistsError
+
+        if payload.is_default:
+            # flush() explícito (mesmo motivo de `set_default`): sem ele, o INSERT da
+            # nova conta e o UPDATE que desmarca a antiga podem sair na ordem errada
+            # dentro do mesmo flush e violar `ux_accounts_default`.
+            await self._unset_current_default()
+            await self.session.flush()
+
+        account = BankAccount(
+            tenant_id=self.tenant_id,
+            kind=payload.kind,
+            name=payload.name,
+            institution_id=payload.institution_id,
+            agency=payload.agency,
+            account_number=payload.account_number,
+            cycle_day=payload.cycle_day,
+            due_day=payload.due_day,
+            initial_amount=payload.initial_amount,
+            is_default=payload.is_default,
+        )
+        created = await self.accounts.create(account)
+        return created, institution_name
+
+    async def update(
+        self, account: BankAccount, payload: BankAccountUpdateRequest
+    ) -> tuple[BankAccount, str | None]:
+        institution_name = await self._institution_name(payload.institution_id)
+        if payload.name != account.name:
+            existing = await self.accounts.get_by_name(payload.name)
+            if existing is not None and existing.id != account.id:
+                raise BankAccountNameAlreadyExistsError
+        # Regra 7: inativar a conta padrão exige eleger outra antes (via set-default).
+        if account.is_default and account.is_active and not payload.is_active:
+            raise DefaultAccountNeedsReplacementError
+
+        account.kind = payload.kind
+        account.name = payload.name
+        account.institution_id = payload.institution_id
+        account.agency = payload.agency
+        account.account_number = payload.account_number
+        account.cycle_day = payload.cycle_day
+        account.due_day = payload.due_day
+        # Regra 9: imutável depois do 1º lançamento — sem lançamentos ainda (spec 056),
+        # não há o que guardar; livre por enquanto (ver Descobertas).
+        account.initial_amount = payload.initial_amount
+        account.is_active = payload.is_active
+        return account, institution_name
+
+    async def set_default(self, account: BankAccount) -> BankAccount:
+        """Regra 2: só uma padrão ativa — desmarca a anterior na mesma transação.
+
+        `flush()` explícito entre as duas mudanças: sem ele, o SQLAlchemy pode emitir
+        os 2 UPDATEs no mesmo `executemany` em qualquer ordem, e como o índice único
+        parcial não é `DEFERRABLE`, setar a nova ANTES de desmarcar a antiga viola a
+        constraint mesmo as duas terminando corretas (achado ao testar — spec 055,
+        Descobertas)."""
+        await self._unset_current_default(except_id=account.id)
+        await self.session.flush()
+        account.is_default = True
+        return account
+
+    async def delete(self, account: BankAccount) -> None:
+        # Regra 6: "conta com lançamento não pode ser excluída" — sem lançamentos
+        # ainda (spec 056), nada bloqueia a exclusão por enquanto (ver Descobertas).
+        await self.accounts.delete(account)
+
+    async def get_balance(self, account: BankAccount, *, at: date | None) -> Decimal:
+        # Regras 3/4: saldo = initial_amount + entradas - saídas / fatura = soma do
+        # ciclo — ambas dependem de lançamentos (spec 056). Por enquanto devolve só o
+        # saldo inicial, mesmo pra CARTAO_CREDITO (ver Descobertas).
+        return account.initial_amount
+
+    async def _unset_current_default(self, *, except_id: uuid.UUID | None = None) -> None:
+        current = await self.accounts.get_default()
+        if current is not None and current.id != except_id:
+            current.is_default = False
+
+    async def _institution_name(self, institution_id: int | None) -> str | None:
+        if institution_id is None:
+            return None
+        institution = await self.institutions.get_by_id(institution_id)
+        if institution is None:
+            raise InstitutionNotFoundError
+        return institution.name

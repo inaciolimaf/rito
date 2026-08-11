@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
-from app.domain.lawsuits.schemas import JsonDecimal
+from app.core.schemas import JsonDecimal
 
 
 class BoardCardResponse(BaseModel):

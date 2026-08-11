@@ -1,25 +1,28 @@
 import { useSearchParams } from "react-router-dom";
 
+import { BankAccountsListPage } from "@/features/financial/BankAccountsListPage";
 import { CostCentersListPage } from "@/features/financial/CostCentersListPage";
 import { DreGroupsListPage } from "@/features/financial/DreGroupsListPage";
 import { FinancialCategoriesListPage } from "@/features/financial/FinancialCategoriesListPage";
 import { cn } from "@/lib/utils";
 
-type Tab = "categories" | "cost-centers" | "dre-groups";
+type Tab = "categories" | "accounts" | "cost-centers" | "dre-groups";
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "categories", label: "Categorias" },
+  { value: "accounts", label: "Contas e cartões" },
   { value: "cost-centers", label: "Centros de custo" },
   { value: "dre-groups", label: "Grupos DRE" },
 ];
 
-/** 3 abas na mesma tela (spec 054 §6, rota `/settings/financial`) — mesmo padrão de
- * `/settings/users?tab=squads` (spec 013). */
+const TAB_VALUES: Tab[] = ["accounts", "cost-centers", "dre-groups"];
+
+/** 4 abas na mesma tela (spec 054 §6 + spec 055 §6, rota `/settings/financial`) —
+ * mesmo padrão de `/settings/users?tab=squads` (spec 013). */
 export function FinancialSettingsPage(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("tab");
-  const tab: Tab =
-    requested === "cost-centers" || requested === "dre-groups" ? requested : "categories";
+  const tab: Tab = TAB_VALUES.includes(requested as Tab) ? (requested as Tab) : "categories";
 
   return (
     <div>
@@ -48,6 +51,7 @@ export function FinancialSettingsPage(): JSX.Element {
       </div>
 
       {tab === "categories" && <FinancialCategoriesListPage />}
+      {tab === "accounts" && <BankAccountsListPage />}
       {tab === "cost-centers" && <CostCentersListPage />}
       {tab === "dre-groups" && <DreGroupsListPage />}
     </div>

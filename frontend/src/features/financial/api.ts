@@ -142,3 +142,100 @@ export async function transferCostCenters(
     body: { from_id: fromId, to_id: toId },
   });
 }
+
+export type AccountKind = "CORRENTE" | "POUPANCA" | "INVESTIMENTO" | "CARTAO_CREDITO" | "OUTRO";
+
+export interface FinancialInstitutionData {
+  id: number;
+  name: string;
+  compe_code: string | null;
+}
+
+export async function listFinancialInstitutions(q?: string): Promise<FinancialInstitutionData[]> {
+  const query = q ? `?q=${encodeURIComponent(q)}` : "";
+  const body = await apiRequest<{ items: FinancialInstitutionData[] }>(
+    `/api/v1/financial-institutions${query}`,
+  );
+  return body.items;
+}
+
+export interface BankAccountData {
+  id: string;
+  kind: AccountKind;
+  name: string;
+  institution_id: number | null;
+  institution_name: string | null;
+  agency: string | null;
+  account_number: string | null;
+  cycle_day: number | null;
+  due_day: number | null;
+  initial_amount: number;
+  is_default: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ListBankAccountsParams {
+  kind?: AccountKind;
+  status?: "active" | "inactive";
+}
+
+export async function listBankAccounts(
+  params: ListBankAccountsParams,
+): Promise<ListResponse<BankAccountData>> {
+  const query = new URLSearchParams();
+  if (params.kind) query.set("kind", params.kind);
+  if (params.status) query.set("status", params.status);
+  const queryString = query.toString();
+  return apiRequest<ListResponse<BankAccountData>>(
+    `/api/v1/bank-accounts${queryString ? `?${queryString}` : ""}`,
+  );
+}
+
+export interface BankAccountFormPayload {
+  kind: AccountKind;
+  name: string;
+  institution_id?: number | null;
+  agency?: string | null;
+  account_number?: string | null;
+  cycle_day?: number | null;
+  due_day?: number | null;
+  initial_amount: string;
+  is_default?: boolean;
+  is_active?: boolean;
+}
+
+export async function createBankAccount(values: BankAccountFormPayload): Promise<BankAccountData> {
+  return apiRequest<BankAccountData>("/api/v1/bank-accounts", { method: "POST", body: values });
+}
+
+export async function updateBankAccount(
+  id: string,
+  values: BankAccountFormPayload,
+): Promise<BankAccountData> {
+  return apiRequest<BankAccountData>(`/api/v1/bank-accounts/${id}`, {
+    method: "PUT",
+    body: values,
+  });
+}
+
+export async function deleteBankAccount(id: string): Promise<void> {
+  await apiRequest<void>(`/api/v1/bank-accounts/${id}`, { method: "DELETE" });
+}
+
+export async function setDefaultBankAccount(id: string): Promise<BankAccountData> {
+  return apiRequest<BankAccountData>(`/api/v1/bank-accounts/${id}/set-default`, {
+    method: "POST",
+  });
+}
+
+export interface AccountBalance {
+  account_id: string;
+  kind: AccountKind;
+  balance: number;
+  as_of: string;
+}
+
+export async function getBankAccountBalance(id: string): Promise<AccountBalance> {
+  return apiRequest<AccountBalance>(`/api/v1/bank-accounts/${id}/balance`);
+}

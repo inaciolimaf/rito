@@ -16,3 +16,15 @@ class CostCenterNameAlreadyExistsError(Exception):
 
 class DefaultCostCenterNotDeletableError(Exception):
     """Regra 8: o centro de custo `GERAL` (semeado) nunca é excluível."""
+
+
+class BankAccountNameAlreadyExistsError(Exception):
+    """Regra 8 (spec 055): nome único por tenant."""
+
+
+class InstitutionNotFoundError(Exception):
+    """`institution_id` precisa apontar pra uma instituição existente, quando informado."""
+
+
+class DefaultAccountNeedsReplacementError(Exception):
+    """Regra 7 (spec 055): inativar a conta padrão exige eleger outra antes."""

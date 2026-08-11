@@ -255,7 +255,7 @@ Receita / despesa / **transferência**; **validação `entry_type` × tipo da ca
 Recorrente com ciclo; parcelado até 100x com geração das parcelas; edição da série.
 **Aceite:** 12x gera 12 lançamentos com vencimentos mensais corretos. **t:** 5 s. **Deps:** 056
 
-### ⬜ 058 — Financeiro: registro interno e anexos
+### ✅ 058 — Financeiro: registro interno e anexos
 Flag "apenas registro interno" (não afeta saldo); anexos por lançamento.
 **Aceite:** registro interno não entra no saldo. **t:** 3 s. **Deps:** 056
 

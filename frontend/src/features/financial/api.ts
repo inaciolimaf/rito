@@ -1,4 +1,5 @@
 import type { ListResponse } from "@/components/domain/types";
+import type { AttachmentData } from "@/features/attachments/api";
 import { apiRequest } from "@/lib/api";
 
 export type EntryType = "RECEITA" | "DESPESA";
@@ -266,6 +267,8 @@ export interface TransactionData {
   created_at: string;
   series_id: string | null;
   installment_number: number | null;
+  is_internal: boolean;
+  internal_note: string | null;
 }
 
 export interface ListTransactionsParams {
@@ -276,6 +279,7 @@ export interface ListTransactionsParams {
   due_from?: string;
   due_to?: string;
   q?: string;
+  internal?: "true" | "false" | "all";
 }
 
 export async function listTransactions(
@@ -306,6 +310,8 @@ export interface TransactionFormPayload {
   due_date: string;
   installment?: { count: number } | null;
   recurrence?: { period: FinancialRecurrence; until_date?: string | null } | null;
+  is_internal?: boolean;
+  internal_note?: string | null;
 }
 
 export async function createTransaction(values: TransactionFormPayload): Promise<TransactionData> {
@@ -391,4 +397,20 @@ export async function deleteTransactionSeries(seriesId: string, scope: SeriesSco
   await apiRequest<void>(`/api/v1/transaction-series/${seriesId}?scope=${scope}`, {
     method: "DELETE",
   });
+}
+
+export async function uploadTransactionAttachment(
+  transactionId: string,
+  file: File,
+): Promise<AttachmentData> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiRequest<AttachmentData>(`/api/v1/transactions/${transactionId}/attachments`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+export async function listTransactionAttachments(transactionId: string): Promise<AttachmentData[]> {
+  return apiRequest<AttachmentData[]>(`/api/v1/transactions/${transactionId}/attachments`);
 }

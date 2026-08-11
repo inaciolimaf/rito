@@ -211,6 +211,7 @@ class TransactionRepository(BaseRepository[Transaction]):
         due_from: date | None = None,
         due_to: date | None = None,
         q: str | None = None,
+        internal: str | None = None,
     ) -> Sequence[TransactionRow]:
         stmt = self._select_with_names().order_by(Transaction.due_date.desc(), Transaction.id)
         if kind is not None:
@@ -229,27 +230,40 @@ class TransactionRepository(BaseRepository[Transaction]):
             stmt = stmt.where(Transaction.due_date <= due_to)
         if q:
             stmt = stmt.where(Transaction.description.ilike(f"%{q}%"))
+        # Regra 9 (spec 058): filtro padrão é "all" — só filtra quando pedido de propósito.
+        if internal == "true":
+            stmt = stmt.where(Transaction.is_internal.is_(True))
+        elif internal == "false":
+            stmt = stmt.where(Transaction.is_internal.is_(False))
         rows = (await self.session.execute(stmt)).all()
         return [self._row_to_transaction_row(row) for row in rows]
 
     async def lawsuit_financial_totals(self, lawsuit_id: uuid.UUID) -> LawsuitFinancialTotals:
         """Regra 11 (spec 056): alimenta o painel financeiro do processo (spec 024).
-        `received`/`expenses` só contam o que foi PAGO; `to_receive` é RECEITA aberta."""
+        `received`/`expenses` só contam o que foi PAGO; `to_receive` é RECEITA aberta.
+        Regra 1 (spec 058): lançamento interno nunca entra nesses agregados — é
+        informação de gestão, não caixa (`NOT is_internal` em todos os filtros)."""
         paid_receita = func.coalesce(
             func.sum(Transaction.amount).filter(
-                Transaction.kind == TransactionKind.RECEITA, Transaction.payment_date.is_not(None)
+                Transaction.kind == TransactionKind.RECEITA,
+                Transaction.payment_date.is_not(None),
+                Transaction.is_internal.is_(False),
             ),
             0,
         )
         open_receita = func.coalesce(
             func.sum(Transaction.amount).filter(
-                Transaction.kind == TransactionKind.RECEITA, Transaction.payment_date.is_(None)
+                Transaction.kind == TransactionKind.RECEITA,
+                Transaction.payment_date.is_(None),
+                Transaction.is_internal.is_(False),
             ),
             0,
         )
         paid_despesa = func.coalesce(
             func.sum(Transaction.amount).filter(
-                Transaction.kind == TransactionKind.DESPESA, Transaction.payment_date.is_not(None)
+                Transaction.kind == TransactionKind.DESPESA,
+                Transaction.payment_date.is_not(None),
+                Transaction.is_internal.is_(False),
             ),
             0,
         )

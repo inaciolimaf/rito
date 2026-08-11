@@ -2,12 +2,20 @@ import uuid
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_file_storage
 from app.core.exceptions import InvalidTransferError
 from app.core.http import get_or_404, parse_active_status
 from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
+from app.domain.attachments.rules import AttachmentTooLargeError, AttachmentTypeBlockedError
+from app.domain.attachments.service import (
+    AttachmentResponse,
+    AttachmentService,
+    AttachmentTargetNotFoundError,
+    TransactionAttachmentLimitError,
+)
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.financial.exceptions import (
     BankAccountNameAlreadyExistsError,
@@ -18,6 +26,7 @@ from app.domain.financial.exceptions import (
     DreGroupNotFoundError,
     FinancialCategoryNameAlreadyExistsError,
     InstitutionNotFoundError,
+    PaidTransactionCannotBecomeInternalError,
     PaidTransactionNotDeletableError,
     SeriesHasPaidTransactionError,
     TransactionAccountNotFoundError,
@@ -76,6 +85,7 @@ from app.domain.financial.service import (
     TransactionService,
 )
 from app.domain.users.models import User
+from app.integrations.storage.base import FileStorage
 
 router = APIRouter(tags=["financial"])
 
@@ -149,6 +159,8 @@ def _transaction_to_response(row: TransactionRow) -> TransactionResponse:
         created_at=transaction.created_at,
         series_id=transaction.series_id,
         installment_number=transaction.installment_number,
+        is_internal=transaction.is_internal,
+        internal_note=transaction.internal_note,
     )
 
 
@@ -493,6 +505,7 @@ async def list_transactions(
     due_from: date | None = Query(default=None),
     due_to: date | None = Query(default=None),
     q: str | None = Query(default=None),
+    internal: Literal["true", "false", "all"] = Query(default="all"),
     current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TransactionListResponse:
@@ -505,6 +518,7 @@ async def list_transactions(
         due_from=due_from,
         due_to=due_to,
         q=q,
+        internal=None if internal == "all" else internal,
     )
     return TransactionListResponse(
         items=[_transaction_to_response(row) for row in rows], total=len(rows)
@@ -538,6 +552,10 @@ async def update_transaction(
         row = await service.update(detail.transaction, payload, current_user)
     except _TRANSACTION_VALIDATION_ERRORS as exc:
         raise _handle_transaction_errors(exc) from exc
+    except PaidTransactionCannotBecomeInternalError as exc:
+        raise HTTPException(
+            status_code=409, detail="Lançamento pago não pode virar interno — estorne antes."
+        ) from exc
     return _transaction_to_response(row)
 
 
@@ -546,6 +564,7 @@ async def delete_transaction(
     transaction_id: uuid.UUID,
     current_user: User = Depends(require_financial(FinancialAccess.FULL)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
 ) -> None:
     service = TransactionService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(transaction_id), "Lançamento não encontrado.")
@@ -555,6 +574,11 @@ async def delete_transaction(
         raise HTTPException(
             status_code=409, detail="Lançamento pago — estorne antes de excluir."
         ) from exc
+    # Regra 8 (spec 058): excluir lançamento remove os anexos dele.
+    attachments = AttachmentService(
+        session=session, storage=storage, tenant_id=current_user.tenant_id
+    )
+    await attachments.remove_all_for("transaction", transaction_id)
 
 
 @router.post("/transactions/{transaction_id}/pay")
@@ -685,3 +709,71 @@ async def delete_transaction_series(
         raise HTTPException(
             status_code=409, detail="Série tem lançamento pago — estorne antes de excluir tudo."
         ) from exc
+
+
+@router.post("/transactions/{transaction_id}/attachments", status_code=201)
+async def upload_transaction_attachment(
+    transaction_id: uuid.UUID,
+    file: UploadFile,
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> AttachmentResponse:
+    service = AttachmentService(session=session, storage=storage, tenant_id=current_user.tenant_id)
+    content = await file.read()
+    try:
+        attachment = await service.upload(
+            current_user,
+            attached_to_type="transaction",
+            attached_to_id=transaction_id,
+            filename=file.filename or "arquivo",
+            content_type=file.content_type or "application/octet-stream",
+            content=content,
+        )
+    except AttachmentTooLargeError as exc:
+        raise HTTPException(status_code=422, detail="Anexo acima de 50 MB.") from exc
+    except AttachmentTypeBlockedError as exc:
+        raise HTTPException(status_code=422, detail="Tipo de arquivo não permitido.") from exc
+    except TransactionAttachmentLimitError as exc:
+        raise HTTPException(
+            status_code=422, detail="Limite de 20 anexos por lançamento atingido."
+        ) from exc
+    except AttachmentTargetNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Lançamento não encontrado.") from exc
+    return AttachmentResponse(
+        id=attachment.id,
+        filename=attachment.filename,
+        content_type=attachment.content_type,
+        size_bytes=attachment.size_bytes,
+        attached_to_type=attachment.attached_to_type,
+        attached_to_id=attachment.attached_to_id,
+        uploaded_by=attachment.uploaded_by,
+        created_at=attachment.created_at,
+    )
+
+
+@router.get("/transactions/{transaction_id}/attachments")
+async def list_transaction_attachments(
+    transaction_id: uuid.UUID,
+    current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> list[AttachmentResponse]:
+    service = AttachmentService(session=session, storage=storage, tenant_id=current_user.tenant_id)
+    try:
+        items = await service.list_for("transaction", transaction_id, current_user)
+    except AttachmentTargetNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Lançamento não encontrado.") from exc
+    return [
+        AttachmentResponse(
+            id=item.id,
+            filename=item.filename,
+            content_type=item.content_type,
+            size_bytes=item.size_bytes,
+            attached_to_type=item.attached_to_type,
+            attached_to_id=item.attached_to_id,
+            uploaded_by=item.uploaded_by,
+            created_at=item.created_at,
+        )
+        for item in items
+    ]

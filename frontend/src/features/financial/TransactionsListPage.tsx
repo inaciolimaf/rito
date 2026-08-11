@@ -26,6 +26,7 @@ import {
 import { listCustomers } from "@/features/customers/api";
 import { listLawsuits } from "@/features/lawsuits/api";
 import { InstallmentBadge } from "@/features/financial/InstallmentBadge";
+import { InternalBadge } from "@/features/financial/InternalBadge";
 import { PayTransactionDialog } from "@/features/financial/PayTransactionDialog";
 import { SeriesScopeDialog } from "@/features/financial/SeriesScopeDialog";
 import { TransactionForm } from "@/features/financial/TransactionForm";
@@ -61,6 +62,15 @@ const FILTER_FIELDS: FilterFieldDef[] = [
     ],
   },
   { key: "q", label: "Descrição", type: "text" },
+  {
+    key: "internal",
+    label: "Interno",
+    type: "select",
+    options: [
+      { value: "true", label: "Só internos" },
+      { value: "false", label: "Só efetivos" },
+    ],
+  },
 ];
 
 function formatDate(value: string | null): string {
@@ -88,6 +98,8 @@ function toPayload(values: TransactionFormValues): TransactionFormPayload {
       values.seriesMode === "recurrence"
         ? { period: values.recurrencePeriod, until_date: values.recurrenceUntilDate || null }
         : null,
+    is_internal: values.is_internal,
+    internal_note: values.internal_note || null,
   };
 }
 
@@ -107,6 +119,8 @@ function toFormValues(transaction: TransactionData): TransactionFormValues {
     installmentCount: "",
     recurrencePeriod: "MENSAL",
     recurrenceUntilDate: "",
+    is_internal: transaction.is_internal,
+    internal_note: transaction.internal_note ?? "",
   };
 }
 
@@ -121,10 +135,12 @@ export function TransactionsListPage(): JSX.Element {
   const kind = typeof values.kind === "string" ? (values.kind as TransactionKind) : undefined;
   const status = typeof values.status === "string" ? (values.status as "open" | "paid") : undefined;
   const q = typeof values.q === "string" ? values.q : undefined;
+  const internal =
+    typeof values.internal === "string" ? (values.internal as "true" | "false") : undefined;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["transactions", { kind, status, q }],
-    queryFn: () => listTransactions({ kind, status, q }),
+    queryKey: ["transactions", { kind, status, q, internal }],
+    queryFn: () => listTransactions({ kind, status, q, internal }),
   });
   const transactions = data?.items ?? [];
 
@@ -217,6 +233,7 @@ export function TransactionsListPage(): JSX.Element {
               ? `${row.debit_account_name} → ${row.credit_account_name}`
               : (row.category_name ?? "—"))}
           <InstallmentBadge description={row.description} />
+          <InternalBadge isInternal={row.is_internal} />
         </>
       ),
     },
@@ -313,6 +330,7 @@ export function TransactionsListPage(): JSX.Element {
             key={editingTransaction?.id ?? "new"}
             form={form}
             mode={editingTransaction ? "edit" : "create"}
+            transactionId={editingTransaction?.id}
             onSearchAccounts={searchAccounts}
             onSearchCostCenters={searchCostCenters}
             onSearchCustomers={searchCustomers}

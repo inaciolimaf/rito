@@ -176,6 +176,8 @@ class _TransactionMixin(BaseModel):
     due_date: date
     payment_date: date | None = None
     competence: date | None = None
+    is_internal: bool = False
+    internal_note: str | None = None
 
     @model_validator(mode="after")
     def _validate_shape(self) -> "_TransactionMixin":
@@ -254,6 +256,8 @@ class TransactionResponse(BaseModel):
     created_at: datetime
     series_id: uuid.UUID | None
     installment_number: int | None
+    is_internal: bool
+    internal_note: str | None
 
 
 class TransactionListResponse(BaseModel):

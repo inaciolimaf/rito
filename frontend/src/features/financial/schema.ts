@@ -80,6 +80,8 @@ export const transactionFormSchema = z
     installmentCount: z.string(),
     recurrencePeriod: z.enum(FINANCIAL_RECURRENCES),
     recurrenceUntilDate: z.string(),
+    is_internal: z.boolean(),
+    internal_note: z.string(),
   })
   .refine((values) => values.debit_account_id.trim() !== "", {
     message: "Conta é obrigatória.",
@@ -131,4 +133,6 @@ export const DEFAULT_TRANSACTION_FORM_VALUES: TransactionFormValues = {
   installmentCount: "",
   recurrencePeriod: "MENSAL",
   recurrenceUntilDate: "",
+  is_internal: false,
+  internal_note: "",
 };

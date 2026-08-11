@@ -66,3 +66,9 @@ class PaidTransactionNotDeletableError(Exception):
 class SeriesHasPaidTransactionError(Exception):
     """Regra 8 (spec 057): excluir a série inteira (`scope=all`) com alguma parcela/
     ocorrência já paga exige estornar antes — mesmo espírito da regra 10 da 056."""
+
+
+class PaidTransactionCannotBecomeInternalError(Exception):
+    """Regra 4 (spec 058): converter lançamento efetivo PAGO em interno exige estornar
+    antes — o histórico de caixa não pode "desaparecer" silenciosamente virando registro
+    de controle."""

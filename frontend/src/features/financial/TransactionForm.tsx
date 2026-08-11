@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import type { UseFormReturn } from "react-hook-form";
 
@@ -6,17 +7,28 @@ import { MoneyField } from "@/components/domain/MoneyField";
 import type { EntityOption } from "@/components/domain/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AttachmentList } from "@/features/attachments/AttachmentList";
+import { FileDropzone } from "@/features/attachments/FileDropzone";
 import { CategorySelect } from "@/features/financial/CategorySelect";
 import { FinancialRecurrenceFields } from "@/features/financial/FinancialRecurrenceFields";
 import { InstallmentFields } from "@/features/financial/InstallmentFields";
-import type { EntryType, TransactionKind } from "@/features/financial/api";
+import { InternalToggle } from "@/features/financial/InternalToggle";
+import {
+  listTransactionAttachments,
+  uploadTransactionAttachment,
+  type EntryType,
+  type TransactionKind,
+} from "@/features/financial/api";
 import type { TransactionFormValues } from "@/features/financial/schema";
 
 export interface TransactionFormProps {
   form: UseFormReturn<TransactionFormValues>;
   /** Parcelamento/recorrência só fazem sentido na criação (regras 1/4, spec 057) — o
-   * backend nem aceita esses campos em `TransactionUpdateRequest`. */
+   * backend nem aceita esses campos em `TransactionUpdateRequest`. Anexos (spec 058)
+   * só fazem sentido em edição — precisam de um `transactionId` que só existe depois
+   * de criado. */
   mode: "create" | "edit";
+  transactionId?: string;
   onSearchAccounts: (query: string) => Promise<EntityOption[]>;
   onSearchCostCenters: (query: string) => Promise<EntityOption[]>;
   onSearchCustomers: (query: string) => Promise<EntityOption[]>;
@@ -57,6 +69,7 @@ const SELECT_CLASS =
 export function TransactionForm({
   form,
   mode,
+  transactionId,
   onSearchAccounts,
   onSearchCostCenters,
   onSearchCustomers,
@@ -79,6 +92,17 @@ export function TransactionForm({
   const kind = watch("kind");
   const isTransfer = kind === "TRANSFERENCIA";
   const seriesMode = watch("seriesMode");
+
+  const queryClient = useQueryClient();
+  const { data: attachments } = useQuery({
+    queryKey: ["transaction-attachments", transactionId],
+    queryFn: () => listTransactionAttachments(transactionId!),
+    enabled: mode === "edit" && !!transactionId,
+  });
+
+  async function invalidateAttachments(): Promise<void> {
+    await queryClient.invalidateQueries({ queryKey: ["transaction-attachments", transactionId] });
+  }
 
   const [debitAccount, setDebitAccount] = React.useState<EntityOption | null>(currentDebitAccount);
   const [creditAccount, setCreditAccount] = React.useState<EntityOption | null>(
@@ -250,6 +274,25 @@ export function TransactionForm({
 
           {seriesMode === "installment" && <InstallmentFields form={form} />}
           {seriesMode === "recurrence" && <FinancialRecurrenceFields form={form} />}
+        </div>
+      )}
+
+      <InternalToggle form={form} />
+
+      {mode === "edit" && transactionId && (
+        <div className="space-y-2 border-t border-default pt-3">
+          <Label>Anexos</Label>
+          <AttachmentList
+            attachments={attachments ?? []}
+            onRemoved={() => void invalidateAttachments()}
+          />
+          <FileDropzone
+            onFiles={(files) => {
+              void Promise.all(
+                files.map((file) => uploadTransactionAttachment(transactionId, file)),
+              ).then(invalidateAttachments);
+            }}
+          />
         </div>
       )}
     </>

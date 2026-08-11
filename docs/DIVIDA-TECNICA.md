@@ -312,3 +312,10 @@ enquanto o retrofit não é feito de verdade.
 lançamento e SÓ DEPOIS confirma que saldo/exclusão/imutabilidade mudam de
 comportamento (os testes atuais de 054/055 continuam cobrindo o caminho "sem
 lançamento nenhum", que segue válido).
+
+**Atualização (spec 058):** `transactions` ganhou `is_internal` (lançamento de
+controle, nunca deve contar em saldo/caixa/DRE/DFC/inadimplência — regra 1 da 058).
+Quando a 070 implementar o saldo real de conta (regra 3 acima), a query TEM que
+filtrar `NOT is_internal`, do mesmo jeito que `TransactionRepository.
+lawsuit_financial_totals` já faz desde a 058 — registrado aqui pra não esquecer no
+retrofit.

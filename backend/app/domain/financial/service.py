@@ -17,6 +17,7 @@ from app.domain.financial.exceptions import (
     DreGroupNotFoundError,
     FinancialCategoryNameAlreadyExistsError,
     InstitutionNotFoundError,
+    PaidTransactionCannotBecomeInternalError,
     PaidTransactionNotDeletableError,
     SeriesHasPaidTransactionError,
     TransactionAccountNotFoundError,
@@ -343,6 +344,7 @@ class TransactionService:
         due_from: date | None,
         due_to: date | None,
         q: str | None,
+        internal: str | None = None,
     ) -> list[TransactionRow]:
         return list(
             await self.transactions.list_filtered(
@@ -353,6 +355,7 @@ class TransactionService:
                 due_from=due_from,
                 due_to=due_to,
                 q=q,
+                internal=internal,
             )
         )
 
@@ -394,6 +397,8 @@ class TransactionService:
                 due_date=payload.due_date,
                 payment_date=payload.payment_date,
                 competence=payload.competence or self._derive_competence(payload.due_date),
+                is_internal=payload.is_internal,
+                internal_note=payload.internal_note,
             )
             created = await self.transactions.create(transaction)
         detail = await self.transactions.get_by_id_detail(created.id)
@@ -404,6 +409,14 @@ class TransactionService:
         self, transaction: Transaction, payload: TransactionUpdateRequest, actor: User
     ) -> TransactionRow:
         await self._validate_references(payload)
+        # Regra 4 (spec 058): efetivo PAGO não pode virar interno silenciosamente —
+        # estornar primeiro. Já interno (ou ainda não pago) segue liberado.
+        if (
+            payload.is_internal
+            and not transaction.is_internal
+            and transaction.payment_date is not None
+        ):
+            raise PaidTransactionCannotBecomeInternalError
         transaction.kind = payload.kind
         transaction.user_id = payload.user_id or actor.id
         transaction.debit_account_id = payload.debit_account_id
@@ -417,6 +430,8 @@ class TransactionService:
         transaction.due_date = payload.due_date
         transaction.payment_date = payload.payment_date
         transaction.competence = payload.competence or self._derive_competence(payload.due_date)
+        transaction.is_internal = payload.is_internal
+        transaction.internal_note = payload.internal_note
         detail = await self.transactions.get_by_id_detail(transaction.id)
         assert detail is not None  # acabou de atualizar — sempre existe
         return detail
@@ -550,6 +565,8 @@ class TransactionSeriesService:
                 competence=due_date.replace(day=1),
                 series_id=series.id,
                 installment_number=number,
+                is_internal=payload.is_internal,
+                internal_note=payload.internal_note,
             )
             created = await self.transactions.create(transaction)
             if first is None:
@@ -591,6 +608,8 @@ class TransactionSeriesService:
             due_date=payload.due_date,
             competence=payload.competence or payload.due_date.replace(day=1),
             series_id=series.id,
+            is_internal=payload.is_internal,
+            internal_note=payload.internal_note,
         )
         return await self.transactions.create(transaction)
 
@@ -636,6 +655,8 @@ class TransactionSeriesService:
                 due_date=candidate,
                 competence=candidate.replace(day=1),
                 series_id=series.id,
+                is_internal=template.is_internal,
+                internal_note=template.internal_note,
             )
             await self.transactions.create(transaction)
             series.generated_until = candidate

@@ -206,6 +206,11 @@ class Transaction(TenantMixin, Base):
         PGUUID(as_uuid=True), ForeignKey("transaction_series.id"), default=None
     )
     installment_number: Mapped[int | None] = mapped_column(SmallInteger(), default=None)
+    # Regra 1 (spec 058): lançamento de controle — nunca entra em saldo/fluxo de
+    # caixa/DRE/DFC/inadimplência (excluído explicitamente onde esses cálculos existem,
+    # ex.: TransactionRepository.lawsuit_financial_totals).
+    is_internal: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    internal_note: Mapped[str | None] = mapped_column(default=None)
 
 
 class FinancialRecurrence(StrEnum):

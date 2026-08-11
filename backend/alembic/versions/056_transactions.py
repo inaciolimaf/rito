@@ -45,7 +45,9 @@ def upgrade() -> None:
             ),
             nullable=False,
         ),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False),
+        sa.Column(
+            "user_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False
+        ),
         sa.Column(
             "debit_account_id",
             postgresql.UUID(as_uuid=True),
@@ -71,7 +73,10 @@ def upgrade() -> None:
             nullable=True,
         ),
         sa.Column(
-            "customer_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("customers.id"), nullable=True
+            "customer_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("customers.id"),
+            nullable=True,
         ),
         sa.Column(
             "lawsuit_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("lawsuits.id"), nullable=True
@@ -115,11 +120,12 @@ def upgrade() -> None:
         ["tenant_id", sa.text("payment_date DESC")],
         postgresql_where=sa.text("payment_date IS NOT NULL"),
     )
+    op.create_index("ix_tx_competence", "transactions", ["tenant_id", sa.text("competence DESC")])
     op.create_index(
-        "ix_tx_competence", "transactions", ["tenant_id", sa.text("competence DESC")]
-    )
-    op.create_index(
-        "ix_tx_lawsuit", "transactions", ["lawsuit_id"], postgresql_where=sa.text("lawsuit_id IS NOT NULL")
+        "ix_tx_lawsuit",
+        "transactions",
+        ["lawsuit_id"],
+        postgresql_where=sa.text("lawsuit_id IS NOT NULL"),
     )
     op.create_index(
         "ix_tx_customer",

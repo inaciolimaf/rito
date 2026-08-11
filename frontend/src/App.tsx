@@ -17,6 +17,7 @@ import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
 import { LawsuitTypesListPage } from "@/features/lawsuit-types/LawsuitTypesListPage";
 import { LawsuitsPage } from "@/features/lawsuits/LawsuitsPage";
 import { LawsuitDetailPage } from "@/features/lawsuits/LawsuitDetailPage";
+import { CrmPage } from "@/features/crm/CrmPage";
 import { InboxPage } from "@/features/inbox/InboxPage";
 import { IntegrationsSettingsPage } from "@/features/integrations/IntegrationsSettingsPage";
 import { PostDetailPage } from "@/features/posts/PostDetailPage";
@@ -76,6 +77,7 @@ export function App(): JSX.Element {
                     <Route path="/posts/:id" element={<PostDetailPage />} />
                     <Route path="/schedules" element={<CalendarPage />} />
                     <Route path="/publications" element={<PublicationListPage />} />
+                    <Route path="/crm" element={<CrmPage />} />
                     {ROUTABLE_NAV_ITEMS.filter(
                       (item) =>
                         item.path !== "/home" &&
@@ -83,7 +85,8 @@ export function App(): JSX.Element {
                         item.path !== "/customers" &&
                         item.path !== "/lawsuits" &&
                         item.path !== "/schedules" &&
-                        item.path !== "/publications",
+                        item.path !== "/publications" &&
+                        item.path !== "/crm",
                     ).map((item) => (
                       <Route
                         key={item.path}

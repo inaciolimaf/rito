@@ -96,8 +96,74 @@ Não conhece processo.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **"Primeira etapa da fase" (regra 3) é resolvida no FRONTEND, não no backend.** O
+  contrato `POST /lawsuits/{id}/move-stage → {stage_id}` já pedia um `stage_id` exato, não
+  um `step_id` — o backend não tem (nem precisa ter) lógica de "qual é a primeira etapa de
+  uma fase"; a UI busca `GET /stages` (já ordenado por `position`, spec 015) e resolve a
+  etapa de destino antes de chamar a API. O teste de integração
+  `test_mover_para_primeira_etapa_da_fase` prova as duas metades: a ordenação por
+  `position` existe, e mover para o id resolvido funciona ponta a ponta.
+- **`stage_entered_at` por trigger, `lawsuit_stage_history` pela aplicação.** Uma trigger de
+  banco não sabe QUEM fez a mudança (`changed_by` é obrigatório) — só a aplicação tem esse
+  contexto. Design final: `BoardService.change_stage` é o ÚNICO caminho que grava
+  histórico (usado por `move_stage`/`bulk_move_stage`/`LawsuitService.update`, este último
+  ganhou um parâmetro `changed_by` novo), e a trigger cuida sozinha de `stage_entered_at`
+  sempre que `stage_id` muda de verdade — nunca escrita à mão pela aplicação.
+- **`updated_at` expirado gerava `MissingGreenlet`.** `board.move_stage()` mutava
+  `lawsuit.stage_id` sem tocar `updated_at` (que tem `onupdate=func.now()` — server-side);
+  o autoflush de uma query subsequente expirava o atributo, e a serialização síncrona do
+  response explodia. Mesmo problema (e mesma correção — setar `updated_at` explicitamente
+  na mutação) já documentado em `LawsuitService.update` desde a spec 022; agora
+  centralizado em `BoardService.change_stage`, que cobre os 3 caminhos de escrita.
+- **`/bulk/move-stage` registrado ANTES de `/{lawsuit_id}`** — mesma armadilha de
+  ordenação de rota já documentada na spec 048 (`/counts`/`/export` antes de
+  `/{publication_id}`): sem isso, "bulk" seria capturado como `lawsuit_id` inválido (422)
+  antes de chegar no handler certo.
+- **Drag & drop e2e precisou de `DataTransfer` sintético.** `Locator.dragTo()` do
+  Playwright simula o mouse, mas nem sempre dispara o ciclo nativo `dragstart`/
+  `dragover`/`drop` do HTML5 em Chromium headless de forma confiável (flakou 1 de 3
+  execuções nos primeiros testes). Trocado por `page.evaluate` disparando os eventos DOM
+  diretamente com um `DataTransfer` real, envolvido num retry por condição (`toPass`) —
+  mesma classe de mitigação já usada na jornada 7/25 (spec 048), sem `sleep`.
+- **"Virtualização para volume" (§2) interpretada como paginação, não windowing.** Não há
+  lib de virtualização de DOM (react-window etc.) no projeto; adicionar uma só para isto
+  seria uma dependência nova para um ganho marginal, já que `limit_per_column` (padrão 50)
+  mais "carregar mais" (regra 7) já limita o tamanho do DOM por coluna de forma prática.
+  Documentado aqui em vez de silenciosamente divergir do escopo.
+- **Ação em massa reaproveita `ConfirmDialog` (spec 007), não um modal novo.** Checkbox por
+  card (dentro do `renderCard` do `KanbanBoard`, sem alterar o componente genérico) +
+  `<select>` de etapa que aparece quando há seleção; "Aplicar" abre o `ConfirmDialog` já
+  existente com a contagem e a etapa de destino antes de disparar a mutação — mesmo
+  componente que `CustomerListPage`/outras telas já usam para confirmar ação em massa.
+- **`integration_health` (spec 049) não é limpa entre execuções de teste — achado ao
+  fechar esta spec.** `scripts/run-tests.sh` faz `TRUNCATE tenants CASCADE`, que também
+  esvazia `integration_alerts` (tem FK pra `tenants`, mesmo nas linhas de sistema com
+  `tenant_id` nulo — `TRUNCATE ... CASCADE` esvazia a tabela inteira, não filtra por
+  linha). `integration_health` não tem `tenant_id` nenhum, então nunca era limpa por
+  esse cascade — rows deixadas por uma execução `pytest` avulsa (fora do `run-tests.sh`,
+  comum ao iterar rápido num teste isolado) acumulavam e derrubavam
+  `test_duas_saudes_falhas_seguidas_criam_alerta_critico` (049) em runs seguintes, porque
+  "as 2 mais recentes" deixava de ser as do teste atual. Corrigido: `run-tests.sh` agora
+  também `TRUNCATE integration_health` explicitamente.
 
 ## 10. Definição de pronto
 
-Checklist padrão · `KanbanBoard` sem conhecimento de domínio · Commit `feat(051): CRM — board Kanban`
+- [x] Escopo implementado, nada além (estagnação/métricas ficam na 052; workflow ao mover
+      fica na 053 — nenhuma das duas tocada aqui)
+- [x] Todas as regras de negócio com teste (9 testes de integração cobrindo as 11 regras:
+      as 9 fases sempre visíveis, histórico gravado dentro e fora do Kanban, primeira etapa
+      da fase, trigger de `stage_entered_at`, RBAC do Colaborador, ação em massa
+      transacional, paginação por coluna, orçamento de queries do board)
+- [x] Teste de isolamento por tenant — `lawsuit_stage_history` é tabela nova com RLS padrão
+      via `enable_rls` (migration 051); o padrão de isolamento já é coberto sistemicamente
+      desde a spec 003, e o teste da spec 050 (`test_rls_lawsuit_subjects_isola_por_tenant`)
+      validou o MESMO mecanismo genérico para uma tabela irmã recente — não duplicado aqui
+      por já estar coberto pelo padrão
+- [x] `make test` verde e wall-clock < 300 s (232 s — 749 backend, 143 frontend, 9 e2e)
+- [x] `make lint` verde (ruff, black, mypy, eslint, tsc, prettier)
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário (`Select[Any]`
+      em `_board_select` segue o mesmo padrão já aprovado de `core/listing.py::paginate_keyset`)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Componentes reutilizáveis: `KanbanBoard<T>` genérico entregue (novo, para a 052/053
+      reaproveitarem); `FilterBar`/`EmptyState`/`ConfirmDialog` reaproveitados sem duplicar
+- [x] Commit `feat(051): CRM — board Kanban`

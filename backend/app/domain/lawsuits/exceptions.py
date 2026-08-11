@@ -48,3 +48,13 @@ class FolderMergeNotConfirmedError(Exception):
     def __init__(self, target: str) -> None:
         super().__init__(target)
         self.target = target
+
+
+class NotResponsibleForLawsuitError(Exception):
+    """Regra 10 (spec 051): Colaborador só move processo onde é o responsável;
+    ADMINISTRADOR/GESTOR movem qualquer um."""
+
+
+class LawsuitNotFoundError(Exception):
+    """Regra 9 (spec 051): ação em massa é transacional — um id inexistente no lote
+    (de outro tenant ou apagado) derruba a operação inteira, nenhuma mudança parcial."""

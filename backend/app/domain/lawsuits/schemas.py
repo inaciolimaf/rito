@@ -406,3 +406,21 @@ class SyncRunResponse(BaseModel):
 
 class SyncRunListResponse(BaseModel):
     items: list[SyncRunResponse]
+
+
+class MoveStageRequest(BaseModel):
+    """Spec 051, regra 3: o front resolve a etapa exata (primeira da fase destino,
+    por `position`) antes de chamar — este endpoint só aplica e grava histórico."""
+
+    stage_id: uuid.UUID
+
+
+class BulkMoveStageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    lawsuit_ids: list[uuid.UUID]
+    stage_id: uuid.UUID
+
+
+class BulkMoveStageResponse(BaseModel):
+    moved: int

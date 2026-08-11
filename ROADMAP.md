@@ -227,7 +227,7 @@ Painel de status por termo; histórico de execuções; **falha vira tarefa** par
 
 ## Fase 5 — CRM e Financeiro I (051–060)
 
-### ⬜ 051 — CRM: board Kanban
+### ✅ 051 — CRM: board Kanban
 `KanbanBoard` reutilizável; colunas por fase; drag & drop; mudança de fase persiste; virtualização para volume.
 **Aceite:** arrastar card muda a fase no banco. **t:** 7 s. **Deps:** 027, 007
 

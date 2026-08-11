@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.action_groups.repository import ActionGroupRepository, LawsuitTypeRepository
 from app.domain.courts.repository import CourtRepository
+from app.domain.lawsuits.board_service import BoardService
 from app.domain.lawsuits.cnj import (
     CNJNumber,
     CNJValidationError,
@@ -110,6 +111,7 @@ class LawsuitService:
         self.listing = LawsuitListingRepository(session)
         self.parties_service = PartiesService(session, tenant_id)
         self.movements_service = MovementsService(session, tenant_id)
+        self.board_service = BoardService(session, tenant_id)
 
     async def list_timeline(
         self,
@@ -202,11 +204,17 @@ class LawsuitService:
             await self.parties_service.create_party(created.id, party_input)
         return await self._with_derived(created)
 
-    async def update(self, lawsuit: Lawsuit, payload: LawsuitUpdateRequest) -> LawsuitDetail:
+    async def update(
+        self, lawsuit: Lawsuit, payload: LawsuitUpdateRequest, *, changed_by: uuid.UUID
+    ) -> LawsuitDetail:
         await self._validate_references(payload)
         lawsuit.user_id = payload.user_id
         lawsuit.lawsuit_type_id = payload.lawsuit_type_id
-        lawsuit.stage_id = payload.stage_id
+        # Spec 051, regra 5: troca de etapa "fora do Kanban" (este PUT) também grava
+        # lawsuit_stage_history — via BoardService.change_stage, o único caminho que grava.
+        await self.board_service.change_stage(
+            lawsuit, to_stage_id=payload.stage_id, changed_by=changed_by
+        )
         lawsuit.court_id = payload.court_id
         lawsuit.court_system_id = payload.court_system_id
         lawsuit.process_number = _validated_digits(payload.process_number)

@@ -35,6 +35,11 @@ async def main() -> None:
     engine = create_async_engine(os.environ['MIGRATIONS_DATABASE_URL'])
     async with engine.begin() as conn:
         await conn.execute(text('TRUNCATE tenants CASCADE'))
+        # integration_health (spec 049) não tem tenant_id — nunca é limpa pelo CASCADE
+        # acima. Sem isso, rows que vazam de um pytest standalone (sem passar por este
+        # script) se acumulam entre execuções e derrubam os testes de 'N verificações
+        # seguidas' da 049/050 (achado ao fechar a spec 051).
+        await conn.execute(text('TRUNCATE integration_health'))
     await engine.dispose()
 
 

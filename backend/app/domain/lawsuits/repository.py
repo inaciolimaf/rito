@@ -14,6 +14,7 @@ from app.domain.lawsuits.models import (
     Lawsuit,
     LawsuitMovement,
     LawsuitParty,
+    LawsuitStageHistory,
     LawsuitSubject,
     MovementOrigin,
     PartyPole,
@@ -73,6 +74,14 @@ class LawsuitRepository(BaseRepository[Lawsuit]):
         """Candidatos da estratégia 2 de casamento (spec 045, §5) — processos do
         advogado identificado pelo termo monitorado que capturou a publicação."""
         stmt = select(Lawsuit).where(Lawsuit.user_id == user_id)
+        return (await self.session.scalars(stmt)).all()
+
+    async def list_by_ids(self, ids: Sequence[uuid.UUID]) -> Sequence[Lawsuit]:
+        """Spec 051: base da ação em massa do Kanban (regra 9) — os processos do lote
+        numa query só, RLS garante que só vêm os do tenant da sessão."""
+        if not ids:
+            return []
+        stmt = select(Lawsuit).where(Lawsuit.id.in_(ids))
         return (await self.session.scalars(stmt)).all()
 
     async def list_due_for_datajud_sync(self, *, limit: int) -> Sequence[Lawsuit]:
@@ -260,3 +269,7 @@ class LawsuitSubjectRepository(BaseRepository[LawsuitSubject]):
             select(LawsuitSubject.code).where(LawsuitSubject.lawsuit_id == lawsuit_id)
         )
         return set(result.all())
+
+
+class LawsuitStageHistoryRepository(BaseRepository[LawsuitStageHistory]):
+    model = LawsuitStageHistory

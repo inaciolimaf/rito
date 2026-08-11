@@ -8,8 +8,9 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from typing import Any
 
-from sqlalchemy import ColumnElement, and_, func, literal, or_, select, text
+from sqlalchemy import ColumnElement, Row, Select, and_, func, literal, or_, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import ScalarSelect, Subquery
@@ -25,6 +26,7 @@ from app.domain.lawsuits.models import (
 )
 from app.domain.lawsuits.schemas import LawsuitFiltersQuery
 from app.domain.stages.models import Stage
+from app.domain.users.models import User
 
 
 def _idle(days: int) -> ColumnElement[bool]:
@@ -107,6 +109,26 @@ class LawsuitListRow:
     parties: list[dict[str, object]]
     parties_total: int
     last_movement_title: str | None
+
+
+BOARD_DEFAULT_LIMIT_PER_COLUMN = 50  # regra 7
+BOARD_TOTAL_REFINE_THRESHOLD = 2_000  # regra 11: sugestão, nunca bloqueia
+
+
+@dataclass
+class BoardCardRow:
+    """Card do Kanban (spec 051, regra 2) — mesmas peças de `LawsuitListRow`, mais
+    `step_id` (a coluna) e o nome do responsável, sem `last_movement_title` (o board
+    não mostra o último andamento, a listagem sim)."""
+
+    lawsuit: Lawsuit
+    lawsuit_type_name: str
+    action_group_name: str
+    stage_name: str
+    step_id: int
+    responsible_name: str
+    parties: list[dict[str, object]]
+    parties_total: int
 
 
 def filters_from_query(payload: LawsuitFiltersQuery) -> LawsuitFilters:
@@ -347,3 +369,125 @@ class LawsuitListingRepository:
             for row in rows
         ]
         return items, total
+
+    def _board_select(self, conditions: list[ColumnElement[bool]]) -> Select[Any]:
+        """Shape comum de `board`/`board_column`. Any: `Select` composto de 8 colunas
+        heterogêneas (entidade + nomes + agregados) — mesmo padrão de `Select[Any]`
+        genérico já usado em `core/listing.py::paginate_keyset`."""
+        parties = self._parties_subquery()
+        stmt = (
+            select(
+                Lawsuit,
+                LawsuitType.name,
+                ActionGroup.name,
+                Stage.name,
+                Stage.step_id,
+                User.name,
+                parties.c.parties,
+                parties.c.parties_total,
+            )
+            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+            .join(ActionGroup, ActionGroup.id == LawsuitType.action_group_id)
+            .join(Stage, Stage.id == Lawsuit.stage_id)
+            .join(User, User.id == Lawsuit.user_id)
+            .outerjoin(parties, parties.c.lawsuit_id == Lawsuit.id)
+        )
+        for condition in conditions:
+            stmt = stmt.where(condition)
+        return stmt
+
+    @staticmethod
+    def _row_to_board_card(row: Row[Any]) -> BoardCardRow:
+        return BoardCardRow(
+            lawsuit=row[0],
+            lawsuit_type_name=row[1],
+            action_group_name=row[2],
+            stage_name=row[3],
+            step_id=row[4],
+            responsible_name=row[5],
+            parties=list(row[6] or []),
+            parties_total=row[7] or 0,
+        )
+
+    async def board_counts(self, *, filters: LawsuitFilters) -> dict[int, int]:
+        """Totais reais por fase (regra 7: "o contador mostra o total real", mesmo
+        além do `limit_per_column`) — 1 statement."""
+        conditions = _build_conditions(filters)
+        stmt = (
+            select(Stage.step_id, func.count())
+            .select_from(Lawsuit)
+            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+            .join(Stage, Stage.id == Lawsuit.stage_id)
+            .group_by(Stage.step_id)
+        )
+        for condition in conditions:
+            stmt = stmt.where(condition)
+        return dict((await self.session.execute(stmt)).tuples().all())
+
+    async def board(
+        self, *, filters: LawsuitFilters, limit_per_column: int = BOARD_DEFAULT_LIMIT_PER_COLUMN
+    ) -> dict[int, list[BoardCardRow]]:
+        """Board Kanban (spec 051, regras 1/3/7): até `limit_per_column` cards por fase,
+        1 statement — a fase (`step_id`) vem via ranking numa subquery de ids (regra do
+        orçamento §8: `board_counts` + este método = 2 statements no total)."""
+        conditions = _build_conditions(filters)
+        rank_subq = (
+            select(
+                Lawsuit.id,
+                func.row_number()
+                .over(
+                    partition_by=Stage.step_id,
+                    order_by=(Lawsuit.stage_entered_at.desc(), Lawsuit.id),
+                )
+                .label("rn"),
+            )
+            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+            .join(Stage, Stage.id == Lawsuit.stage_id)
+        )
+        for condition in conditions:
+            rank_subq = rank_subq.where(condition)
+        ranked = rank_subq.subquery()
+        ranked_ids = select(ranked.c.id).where(ranked.c.rn <= limit_per_column)
+
+        stmt = self._board_select(conditions).where(Lawsuit.id.in_(ranked_ids))
+        stmt = stmt.order_by(Stage.step_id, Lawsuit.stage_entered_at.desc(), Lawsuit.id)
+        rows = (await self.session.execute(stmt)).all()
+
+        cards_by_step: dict[int, list[BoardCardRow]] = {}
+        for row in rows:
+            card = self._row_to_board_card(row)
+            cards_by_step.setdefault(card.step_id, []).append(card)
+        return cards_by_step
+
+    async def board_column(
+        self,
+        *,
+        filters: LawsuitFilters,
+        step_id: int,
+        cursor: tuple[datetime, uuid.UUID] | None,
+        limit: int,
+    ) -> tuple[Sequence[BoardCardRow], int]:
+        """Paginação de UMA coluna (regra 7, `GET /crm/board/column/{step_id}`) —
+        keyset por `stage_entered_at`, mesmo critério de ordenação do board inicial."""
+        conditions = [*_build_conditions(filters), Stage.step_id == step_id]
+
+        count_stmt = (
+            select(func.count())
+            .select_from(Lawsuit)
+            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+            .join(Stage, Stage.id == Lawsuit.stage_id)
+        )
+        for condition in conditions:
+            count_stmt = count_stmt.where(condition)
+        total = (await self.session.execute(count_stmt)).scalar_one()
+
+        stmt = paginate_keyset(
+            self._board_select(conditions),
+            sort_column=Lawsuit.stage_entered_at,
+            id_column=Lawsuit.id,
+            descending=True,
+            cursor=cursor,
+            limit=limit,
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [self._row_to_board_card(row) for row in rows], total

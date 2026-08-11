@@ -17,6 +17,7 @@ from app.domain.datajud.exceptions import LawsuitSyncInProgressError
 from app.domain.datajud.movement_sync_service import MovementSyncService, sync_lock_key
 from app.domain.datajud.repository import LawsuitSyncRunRepository
 from app.domain.datajud.service import DatajudService
+from app.domain.lawsuits.board_service import BoardService
 from app.domain.lawsuits.cnj import SEGMENT_NAMES, CNJValidationError
 from app.domain.lawsuits.exceptions import (
     CourtSystemIncompatibleError,
@@ -24,8 +25,10 @@ from app.domain.lawsuits.exceptions import (
     FolderMergeNotConfirmedError,
     FolderNotFoundError,
     LastPartyError,
+    LawsuitNotFoundError,
     LawsuitTypeNotFoundError,
     MovementNotAuthorError,
+    NotResponsibleForLawsuitError,
     PartyCustomerNotFoundError,
     ResponsibleNotActiveError,
     StageNotFoundError,
@@ -39,6 +42,8 @@ from app.domain.lawsuits.movements_service import MovementsService
 from app.domain.lawsuits.parties_service import PartiesService, PartyDetail
 from app.domain.lawsuits.repository import TIMELINE_KINDS
 from app.domain.lawsuits.schemas import (
+    BulkMoveStageRequest,
+    BulkMoveStageResponse,
     ClosureGoalResponse,
     FinancialSummaryResponse,
     FolderGroupItemResponse,
@@ -59,6 +64,7 @@ from app.domain.lawsuits.schemas import (
     MovementCreateRequest,
     MovementResponse,
     MovementUpdateRequest,
+    MoveStageRequest,
     ParsedCNJResponse,
     PartyBriefResponse,
     PartyCreateRequest,
@@ -393,6 +399,31 @@ async def validate_number(
     )
 
 
+@router.post("/bulk/move-stage")
+async def bulk_move_lawsuit_stage(
+    payload: BulkMoveStageRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> BulkMoveStageResponse:
+    """Spec 051, regra 9: transacional — tudo ou nada. Registrada ANTES de
+    `/{lawsuit_id}` (regra de ordenação do CLAUDE.md §6 — "bulk" bateria no path
+    param dinâmico se viesse depois, como o /counts e /export da 048)."""
+    board = BoardService(session=session, tenant_id=current_user.tenant_id)
+    try:
+        moved = await board.bulk_move_stage(
+            payload.lawsuit_ids, stage_id=payload.stage_id, actor=current_user
+        )
+    except LawsuitNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL) from exc
+    except NotResponsibleForLawsuitError as exc:
+        raise HTTPException(
+            status_code=403, detail="Só o responsável pelo processo pode mover a etapa."
+        ) from exc
+    except StageNotFoundError as exc:
+        raise HTTPException(status_code=422, detail="Etapa não encontrada.") from exc
+    return BulkMoveStageResponse(moved=moved)
+
+
 @router.get("/{lawsuit_id}")
 async def get_lawsuit(
     lawsuit_id: uuid.UUID,
@@ -418,7 +449,7 @@ async def update_lawsuit(
     # antigo também precisa cair (regra 7, spec 028).
     previous_cycle_dates = (detail.lawsuit.closure_date, detail.lawsuit.archived_date)
     try:
-        updated = await service.update(detail.lawsuit, payload)
+        updated = await service.update(detail.lawsuit, payload, changed_by=current_user.id)
     except LawsuitTypeNotFoundError as exc:
         raise HTTPException(status_code=422, detail="Tipo de ação não encontrado.") from exc
     except StageNotFoundError as exc:
@@ -440,6 +471,30 @@ async def update_lawsuit(
         updated.lawsuit.closure_date,
         updated.lawsuit.archived_date,
     )
+    return _to_response(updated)
+
+
+@router.post("/{lawsuit_id}/move-stage")
+async def move_lawsuit_stage(
+    lawsuit_id: uuid.UUID,
+    payload: MoveStageRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> LawsuitResponse:
+    """Spec 051 — arrastar card no Kanban chama isto (regra 4: otimista na UI, reverte
+    se der 403/422)."""
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    board = BoardService(session=session, tenant_id=current_user.tenant_id)
+    try:
+        await board.move_stage(detail.lawsuit, stage_id=payload.stage_id, actor=current_user)
+    except NotResponsibleForLawsuitError as exc:
+        raise HTTPException(
+            status_code=403, detail="Só o responsável pelo processo pode mover a etapa."
+        ) from exc
+    except StageNotFoundError as exc:
+        raise HTTPException(status_code=422, detail="Etapa não encontrada.") from exc
+    updated = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
     return _to_response(updated)
 
 

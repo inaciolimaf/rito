@@ -6,6 +6,7 @@ from enum import StrEnum
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
+    Index,
     Numeric,
     SmallInteger,
     UniqueConstraint,
@@ -111,6 +112,10 @@ class Lawsuit(TenantMixin, Base):
     filing_date: Mapped[date | None] = mapped_column(default=None)
     cnj_class_code: Mapped[int | None] = mapped_column(default=None)
     cnj_class_name: Mapped[str | None] = mapped_column(default=None)
+    # Mantida pela trigger trg_lawsuits_stage_entered_at (migration 051) — nunca escrita
+    # pela aplicação; base do "tempo na etapa" do card do Kanban (spec 051, regra 2) e
+    # da estagnação (052).
+    stage_entered_at: Mapped[datetime] = mapped_column(server_default=func.now())
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -196,3 +201,23 @@ class LawsuitSubject(TenantMixin, Base):
     )
     code: Mapped[int]
     name: Mapped[str]
+
+
+class LawsuitStageHistory(TenantMixin, Base):
+    """Histórico de mudança de etapa (spec 051, regra 5) — gravado pela aplicação
+    (`LawsuitService`) toda vez que `stage_id` muda, Kanban ou não; `stage_entered_at`
+    em `Lawsuit` é quem o trigger mantém sozinho (`changed_by` exige saber quem mudou,
+    informação que uma trigger de banco não tem)."""
+
+    __tablename__ = "lawsuit_stage_history"
+    __table_args__ = (Index("ix_stage_history", "lawsuit_id", "changed_at"),)
+
+    lawsuit_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("lawsuits.id", ondelete="CASCADE")
+    )
+    from_stage_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("stages.id")
+    )
+    to_stage_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("stages.id"))
+    changed_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    changed_at: Mapped[datetime] = mapped_column(server_default=func.now())

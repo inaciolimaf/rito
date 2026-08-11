@@ -58,9 +58,12 @@ export const DEFAULT_BANK_ACCOUNT_FORM_VALUES: BankAccountFormValues = {
 };
 
 const TRANSACTION_KINDS = ["RECEITA", "DESPESA", "TRANSFERENCIA"] as const;
+const FINANCIAL_RECURRENCES = ["MENSAL", "BIMESTRAL", "TRIMESTRAL", "SEMESTRAL", "ANUAL"] as const;
+const SERIES_MODES = ["none", "installment", "recurrence"] as const;
 
-/** Espelha as regras 1/2/3 (spec 056) no cliente, pra dar 422 sem round-trip — o
- * backend continua sendo a fonte de verdade (`_TransactionMixin._validate_shape`). */
+/** Espelha as regras 1/2/3 (spec 056) e 1/11 (spec 057, parcelamento × recorrência são
+ * exclusivos) no cliente, pra dar 422 sem round-trip — o backend continua sendo a fonte
+ * de verdade (`_TransactionMixin._validate_shape`/`TransactionCreateRequest._validate_series`). */
 export const transactionFormSchema = z
   .object({
     kind: z.enum(TRANSACTION_KINDS),
@@ -73,6 +76,10 @@ export const transactionFormSchema = z
     description: z.string(),
     amount: z.string().min(1, "Valor é obrigatório."),
     due_date: z.string().min(1, "Vencimento é obrigatório."),
+    seriesMode: z.enum(SERIES_MODES),
+    installmentCount: z.string(),
+    recurrencePeriod: z.enum(FINANCIAL_RECURRENCES),
+    recurrenceUntilDate: z.string(),
   })
   .refine((values) => values.debit_account_id.trim() !== "", {
     message: "Conta é obrigatória.",
@@ -97,7 +104,15 @@ export const transactionFormSchema = z
   .refine((values) => values.lawsuit_id.trim() === "" || values.customer_id.trim() !== "", {
     message: "Vincular processo exige cliente.",
     path: ["lawsuit_id"],
-  });
+  })
+  .refine(
+    (values) => {
+      if (values.seriesMode !== "installment") return true;
+      const count = Number(values.installmentCount);
+      return Number.isInteger(count) && count >= 2 && count <= 100;
+    },
+    { message: "Parcelamento vai de 2 a 100 vezes.", path: ["installmentCount"] },
+  );
 
 export type TransactionFormValues = z.infer<typeof transactionFormSchema>;
 
@@ -112,4 +127,8 @@ export const DEFAULT_TRANSACTION_FORM_VALUES: TransactionFormValues = {
   description: "",
   amount: "",
   due_date: "",
+  seriesMode: "none",
+  installmentCount: "",
+  recurrencePeriod: "MENSAL",
+  recurrenceUntilDate: "",
 };

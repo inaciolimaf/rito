@@ -1,9 +1,11 @@
 import uuid
+from calendar import monthrange
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import RecurrencePeriod, RecurrenceWeek, next_occurrence, shift_month
 from app.core.transfer import validated_transfer
 from app.domain.customers.repository import CustomerRepository
 from app.domain.financial.exceptions import (
@@ -16,6 +18,7 @@ from app.domain.financial.exceptions import (
     FinancialCategoryNameAlreadyExistsError,
     InstitutionNotFoundError,
     PaidTransactionNotDeletableError,
+    SeriesHasPaidTransactionError,
     TransactionAccountNotFoundError,
     TransactionCategoryNotFoundError,
     TransactionCategoryTypeMismatchError,
@@ -31,8 +34,10 @@ from app.domain.financial.models import (
     EntryType,
     FinancialCategory,
     FinancialInstitution,
+    FinancialRecurrence,
     Transaction,
     TransactionKind,
+    TransactionSeries,
 )
 from app.domain.financial.repository import (
     BankAccountRepository,
@@ -42,6 +47,7 @@ from app.domain.financial.repository import (
     FinancialInstitutionRepository,
     TransactionRepository,
     TransactionRow,
+    TransactionSeriesRepository,
 )
 from app.domain.financial.schemas import (
     BankAccountCreateRequest,
@@ -51,6 +57,7 @@ from app.domain.financial.schemas import (
     FinancialCategoryCreateRequest,
     FinancialCategoryUpdateRequest,
     TransactionCreateRequest,
+    TransactionSeriesUpdateRequest,
     TransactionUpdateRequest,
 )
 from app.domain.lawsuits.repository import LawsuitRepository
@@ -354,23 +361,41 @@ class TransactionService:
 
     async def create(self, payload: TransactionCreateRequest, actor: User) -> TransactionRow:
         await self._validate_references(payload)
-        transaction = Transaction(
-            tenant_id=self.tenant_id,
-            kind=payload.kind,
-            user_id=payload.user_id or actor.id,
-            debit_account_id=payload.debit_account_id,
-            credit_account_id=payload.credit_account_id,
-            category_id=payload.category_id,
-            cost_center_id=payload.cost_center_id,
-            customer_id=payload.customer_id,
-            lawsuit_id=payload.lawsuit_id,
-            description=self._normalize_description(payload.description),
-            amount=payload.amount,
-            due_date=payload.due_date,
-            payment_date=payload.payment_date,
-            competence=payload.competence or self._derive_competence(payload.due_date),
-        )
-        created = await self.transactions.create(transaction)
+        if payload.installment is not None:
+            series_service = TransactionSeriesService(
+                session=self.session, tenant_id=self.tenant_id
+            )
+            created = await series_service.create_installments(
+                payload, actor, count=payload.installment.count
+            )
+        elif payload.recurrence is not None:
+            series_service = TransactionSeriesService(
+                session=self.session, tenant_id=self.tenant_id
+            )
+            created = await series_service.create_recurrence(
+                payload,
+                actor,
+                period=payload.recurrence.period,
+                until_date=payload.recurrence.until_date,
+            )
+        else:
+            transaction = Transaction(
+                tenant_id=self.tenant_id,
+                kind=payload.kind,
+                user_id=payload.user_id or actor.id,
+                debit_account_id=payload.debit_account_id,
+                credit_account_id=payload.credit_account_id,
+                category_id=payload.category_id,
+                cost_center_id=payload.cost_center_id,
+                customer_id=payload.customer_id,
+                lawsuit_id=payload.lawsuit_id,
+                description=self._normalize_description(payload.description),
+                amount=payload.amount,
+                due_date=payload.due_date,
+                payment_date=payload.payment_date,
+                competence=payload.competence or self._derive_competence(payload.due_date),
+            )
+            created = await self.transactions.create(transaction)
         detail = await self.transactions.get_by_id_detail(created.id)
         assert detail is not None  # acabou de criar — sempre existe
         return detail
@@ -450,3 +475,233 @@ class TransactionService:
     def _derive_competence(due_date: date) -> date:
         # Regra 5: 1º dia do mês de due_date quando não informada.
         return due_date.replace(day=1)
+
+
+def _split_amount(total: Decimal, count: int) -> list[Decimal]:
+    """Regra 2 (spec 057): divide `total` em `count` parcelas de 2 casas, com a
+    diferença de arredondamento inteira na ÚLTIMA parcela — a soma bate sempre.
+    100,00 ÷ 3 = 33,33 + 33,33 + 33,34."""
+    share = (total / count).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    shares = [share] * count
+    remainder = total - (share * count)
+    if remainder != 0:
+        shares[-1] = shares[-1] + remainder
+    return shares
+
+
+def _installment_due_dates(base_due_date: date, count: int) -> list[date]:
+    """Regra 6: vencimento mensal a partir de `base_due_date`; dia 31 num mês curto usa
+    o último dia do mês (`RecurrenceWeek.DIA_EXATO` clampa, mesma lógica de `next_occurrence`
+    já usada pelas séries de tarefa — spec 034 — e pelo ciclo de cartão — spec 055)."""
+    dates = [base_due_date]
+    current = base_due_date
+    for _ in range(count - 1):
+        current = next_occurrence(
+            RecurrencePeriod.MENSAL, RecurrenceWeek.DIA_EXATO, anchor=base_due_date, current=current
+        )
+        dates.append(current)
+    return dates
+
+
+class TransactionSeriesService:
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        self.session = session
+        self.tenant_id = tenant_id
+        self.series = TransactionSeriesRepository(session)
+        self.transactions = TransactionRepository(session)
+
+    async def get(self, series_id: uuid.UUID) -> TransactionSeries | None:
+        return await self.series.get_by_id(series_id)
+
+    async def preview(self, series_id: uuid.UUID) -> list[Transaction]:
+        return list(await self.transactions.list_by_series(series_id))
+
+    async def create_installments(
+        self, payload: TransactionCreateRequest, actor: User, *, count: int
+    ) -> Transaction:
+        """Regra 1: todas as parcelas são geradas de uma vez na criação."""
+        series = await self.series.create(
+            TransactionSeries(
+                tenant_id=self.tenant_id, is_installment=True, total_installments=count
+            )
+        )
+        shares = _split_amount(payload.amount, count)
+        due_dates = _installment_due_dates(payload.due_date, count)
+        base_description = TransactionService._normalize_description(payload.description)
+
+        first: Transaction | None = None
+        for number, (share, due_date) in enumerate(zip(shares, due_dates, strict=True), start=1):
+            # Regra 3: sufixo "(n/N)" — sempre presente, mesmo sem descrição própria.
+            suffix = f"({number}/{count})"
+            description = f"{base_description} {suffix}" if base_description else suffix
+            transaction = Transaction(
+                tenant_id=self.tenant_id,
+                kind=payload.kind,
+                user_id=payload.user_id or actor.id,
+                debit_account_id=payload.debit_account_id,
+                credit_account_id=payload.credit_account_id,
+                category_id=payload.category_id,
+                cost_center_id=payload.cost_center_id,
+                customer_id=payload.customer_id,
+                lawsuit_id=payload.lawsuit_id,
+                description=description,
+                amount=share,
+                due_date=due_date,
+                competence=due_date.replace(day=1),
+                series_id=series.id,
+                installment_number=number,
+            )
+            created = await self.transactions.create(transaction)
+            if first is None:
+                first = created
+        assert first is not None  # count >= 2 (InstallmentRequest.count)
+        return first
+
+    async def create_recurrence(
+        self,
+        payload: TransactionCreateRequest,
+        actor: User,
+        *,
+        period: FinancialRecurrence,
+        until_date: date | None,
+    ) -> Transaction:
+        """Regra 4/5: só a primeira ocorrência nasce aqui — o worker mensal
+        (`generate_recurrence`) gera o resto, avançando `generated_until`."""
+        series = await self.series.create(
+            TransactionSeries(
+                tenant_id=self.tenant_id,
+                is_installment=False,
+                recurrence=period,
+                until_date=until_date,
+                generated_until=payload.due_date,
+            )
+        )
+        transaction = Transaction(
+            tenant_id=self.tenant_id,
+            kind=payload.kind,
+            user_id=payload.user_id or actor.id,
+            debit_account_id=payload.debit_account_id,
+            credit_account_id=payload.credit_account_id,
+            category_id=payload.category_id,
+            cost_center_id=payload.cost_center_id,
+            customer_id=payload.customer_id,
+            lawsuit_id=payload.lawsuit_id,
+            description=TransactionService._normalize_description(payload.description),
+            amount=payload.amount,
+            due_date=payload.due_date,
+            competence=payload.competence or payload.due_date.replace(day=1),
+            series_id=series.id,
+        )
+        return await self.transactions.create(transaction)
+
+    async def generate_recurrence(self, series: TransactionSeries, reference_date: date) -> int:
+        """Regra 4: gera as próximas ocorrências até 3 meses à frente de `reference_date`,
+        respeitando `until_date` (regra 5/9) — nunca gera tudo de uma vez para recorrência
+        indefinida. Devolve quantas ocorrências criou."""
+        if series.is_installment or not series.is_active:
+            return 0
+        anchor = await self.transactions.first_due_date_in_series(series.id)
+        template = await self.transactions.latest_in_series(series.id)
+        if anchor is None or template is None or series.generated_until is None:
+            return 0
+        assert (
+            series.recurrence is not None
+        )  # garantido pelo CHECK ck_series_recurrence_needs_period
+        year, month = shift_month(reference_date.year, reference_date.month, 3)
+        horizon = date(year, month, min(reference_date.day, monthrange(year, month)[1]))
+        period = RecurrencePeriod(series.recurrence.value)
+        current = series.generated_until
+        generated = 0
+        while True:
+            candidate = next_occurrence(
+                period, RecurrenceWeek.DIA_EXATO, anchor=anchor, current=current
+            )
+            if candidate > horizon:
+                break
+            if series.until_date is not None and candidate > series.until_date:
+                series.is_active = False
+                break
+            transaction = Transaction(
+                tenant_id=self.tenant_id,
+                kind=template.kind,
+                user_id=template.user_id,
+                debit_account_id=template.debit_account_id,
+                credit_account_id=template.credit_account_id,
+                category_id=template.category_id,
+                cost_center_id=template.cost_center_id,
+                customer_id=template.customer_id,
+                lawsuit_id=template.lawsuit_id,
+                description=template.description,
+                amount=template.amount,
+                due_date=candidate,
+                competence=candidate.replace(day=1),
+                series_id=series.id,
+            )
+            await self.transactions.create(transaction)
+            series.generated_until = candidate
+            current = candidate
+            generated += 1
+        return generated
+
+    async def sweep_recurring(self, reference_date: date) -> int:
+        """Worker mensal (regra 4) — varre as séries de recorrência ativas do tenant
+        corrente. Devolve o total de ocorrências geradas."""
+        generated = 0
+        for series in await self.series.list_active_recurring():
+            generated += await self.generate_recurrence(series, reference_date)
+        return generated
+
+    async def update_series(
+        self, series: TransactionSeries, payload: TransactionSeriesUpdateRequest, scope: str
+    ) -> list[Transaction]:
+        """Regra 7: `scope=future` afeta as não pagas com vencimento a partir de hoje;
+        `scope=all` afeta todas as não pagas. Parcela/ocorrência paga nunca muda."""
+        if payload.category_id is not None:
+            transactions_for_kind = await self.transactions.list_by_series(series.id)
+            kind = transactions_for_kind[0].kind if transactions_for_kind else None
+            category = await FinancialCategoryRepository(self.session).get_by_id(
+                payload.category_id
+            )
+            if category is None:
+                raise TransactionCategoryNotFoundError
+            expected = EntryType.RECEITA if kind is TransactionKind.RECEITA else EntryType.DESPESA
+            if kind is not TransactionKind.TRANSFERENCIA and category.type != expected:
+                raise TransactionCategoryTypeMismatchError(category.type)
+
+        today = date.today()
+        updated: list[Transaction] = []
+        for transaction in await self.transactions.list_by_series(series.id):
+            if transaction.payment_date is not None:
+                continue
+            if scope == "future" and transaction.due_date < today:
+                continue
+            if payload.amount is not None:
+                transaction.amount = payload.amount
+            if payload.category_id is not None:
+                transaction.category_id = payload.category_id
+            if payload.cost_center_id is not None:
+                transaction.cost_center_id = payload.cost_center_id
+            if payload.description is not None:
+                transaction.description = TransactionService._normalize_description(
+                    payload.description
+                )
+            updated.append(transaction)
+        return updated
+
+    async def delete_series(self, series: TransactionSeries, scope: str) -> None:
+        """Regra 8: `scope=all` com alguma parcela paga → erro (estornar antes);
+        `scope=future` sempre funciona, removendo só as não pagas. Regra 9: encerrar
+        recorrência (`scope=future`) para a geração e preserva o que já existe."""
+        transactions = await self.transactions.list_by_series(series.id)
+        has_paid = any(transaction.payment_date is not None for transaction in transactions)
+        if scope == "all":
+            if has_paid:
+                raise SeriesHasPaidTransactionError
+            for transaction in transactions:
+                await self.transactions.delete(transaction)
+            await self.session.delete(series)
+        else:
+            for transaction in transactions:
+                if transaction.payment_date is None:
+                    await self.transactions.delete(transaction)
+            series.is_active = False

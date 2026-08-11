@@ -251,7 +251,7 @@ Sugestão de workflow ao mover para etapa configurada; confirmação; criação 
 Receita / despesa / **transferência**; **validação `entry_type` × tipo da categoria**; vínculo cliente e processo (processo exige cliente); descrição em maiúsculas; competência derivada do vencimento.
 **Aceite:** receita com categoria de despesa é rejeitada; transferência move saldo entre contas. **t:** 6 s. **Deps:** 055
 
-### ⬜ 057 — Financeiro: recorrência e parcelamento
+### ✅ 057 — Financeiro: recorrência e parcelamento
 Recorrente com ciclo; parcelado até 100x com geração das parcelas; edição da série.
 **Aceite:** 12x gera 12 lançamentos com vencimentos mensais corretos. **t:** 5 s. **Deps:** 056
 

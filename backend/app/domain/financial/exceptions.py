@@ -61,3 +61,8 @@ class TransactionLawsuitNotFoundError(Exception):
 
 class PaidTransactionNotDeletableError(Exception):
     """Regra 10: excluir lançamento pago exige estornar antes."""
+
+
+class SeriesHasPaidTransactionError(Exception):
+    """Regra 8 (spec 057): excluir a série inteira (`scope=all`) com alguma parcela/
+    ocorrência já paga exige estornar antes — mesmo espírito da regra 10 da 056."""

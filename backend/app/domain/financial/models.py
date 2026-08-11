@@ -200,3 +200,54 @@ class Transaction(TenantMixin, Base):
     competence: Mapped[date]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    # Regra 057/1-9: preenchidos só quando o lançamento pertence a uma série (parcela
+    # ou ocorrência de recorrência) — a maioria dos lançamentos continua avulsa.
+    series_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("transaction_series.id"), default=None
+    )
+    installment_number: Mapped[int | None] = mapped_column(SmallInteger(), default=None)
+
+
+class FinancialRecurrence(StrEnum):
+    """Os 5 períodos aceitos por lançamentos recorrentes (spec 057, regra 12) — mensal
+    a anual; diária/semanal (que existem para tarefas, spec 034) não fazem sentido
+    aqui. Mesmos nomes de `app.core.dates.RecurrencePeriod`, casa PG à parte."""
+
+    MENSAL = "MENSAL"
+    BIMESTRAL = "BIMESTRAL"
+    TRIMESTRAL = "TRIMESTRAL"
+    SEMESTRAL = "SEMESTRAL"
+    ANUAL = "ANUAL"
+
+
+class TransactionSeries(TenantMixin, Base):
+    """Série de lançamentos (spec 057) — parcelamento (`is_installment=True`, todas as
+    parcelas geradas na criação) ou recorrência (`is_installment=False`, gerada aos
+    poucos por um worker que avança `generated_until`, regra 4)."""
+
+    __tablename__ = "transaction_series"
+    __table_args__ = (
+        CheckConstraint(
+            "is_installment = (total_installments IS NOT NULL)",
+            name="ck_series_installment_has_count",
+        ),
+        CheckConstraint(
+            "total_installments IS NULL OR total_installments BETWEEN 2 AND 100",
+            name="ck_series_installment_range",
+        ),
+        CheckConstraint(
+            "is_installment OR recurrence IS NOT NULL", name="ck_series_recurrence_needs_period"
+        ),
+    )
+
+    is_installment: Mapped[bool]
+    recurrence: Mapped[FinancialRecurrence | None] = mapped_column(
+        PGENUM(FinancialRecurrence, name="financial_recurrence", create_type=False), default=None
+    )
+    total_installments: Mapped[int | None] = mapped_column(SmallInteger(), default=None)
+    until_date: Mapped[date | None] = mapped_column(default=None)
+    # Regra 4: a última data já gerada — o worker avança a partir daqui, nunca gera tudo
+    # de uma vez para recorrência indefinida.
+    generated_until: Mapped[date | None] = mapped_column(default=None)
+    is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

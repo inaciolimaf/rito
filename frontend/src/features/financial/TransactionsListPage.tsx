@@ -13,17 +13,21 @@ import { listBankAccounts, listCostCenters } from "@/features/financial/api";
 import {
   createTransaction,
   deleteTransaction,
+  deleteTransactionSeries,
   listTransactions,
   payTransaction,
   unpayTransaction,
   updateTransaction,
+  type SeriesScope,
   type TransactionData,
   type TransactionFormPayload,
   type TransactionKind,
 } from "@/features/financial/api";
 import { listCustomers } from "@/features/customers/api";
 import { listLawsuits } from "@/features/lawsuits/api";
+import { InstallmentBadge } from "@/features/financial/InstallmentBadge";
 import { PayTransactionDialog } from "@/features/financial/PayTransactionDialog";
+import { SeriesScopeDialog } from "@/features/financial/SeriesScopeDialog";
 import { TransactionForm } from "@/features/financial/TransactionForm";
 import {
   DEFAULT_TRANSACTION_FORM_VALUES,
@@ -78,6 +82,12 @@ function toPayload(values: TransactionFormValues): TransactionFormPayload {
     description: values.description || null,
     amount: values.amount,
     due_date: values.due_date,
+    installment:
+      values.seriesMode === "installment" ? { count: Number(values.installmentCount) } : null,
+    recurrence:
+      values.seriesMode === "recurrence"
+        ? { period: values.recurrencePeriod, until_date: values.recurrenceUntilDate || null }
+        : null,
   };
 }
 
@@ -93,6 +103,10 @@ function toFormValues(transaction: TransactionData): TransactionFormValues {
     description: transaction.description ?? "",
     amount: String(transaction.amount),
     due_date: transaction.due_date,
+    seriesMode: "none",
+    installmentCount: "",
+    recurrencePeriod: "MENSAL",
+    recurrenceUntilDate: "",
   };
 }
 
@@ -172,6 +186,13 @@ export function TransactionsListPage(): JSX.Element {
   });
 
   const [payingTransaction, setPayingTransaction] = React.useState<TransactionData | null>(null);
+  const [deletingSeriesOf, setDeletingSeriesOf] = React.useState<TransactionData | null>(null);
+
+  const deleteSeries = useMutation({
+    mutationFn: ({ seriesId, scope }: { seriesId: string; scope: SeriesScope }) =>
+      deleteTransactionSeries(seriesId, scope),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+  });
 
   const unpay = useMutation({
     mutationFn: (transactionId: string) => unpayTransaction(transactionId),
@@ -189,11 +210,15 @@ export function TransactionsListPage(): JSX.Element {
     {
       id: "description",
       header: "Descrição",
-      cell: (row) =>
-        row.description ??
-        (row.kind === "TRANSFERENCIA"
-          ? `${row.debit_account_name} → ${row.credit_account_name}`
-          : (row.category_name ?? "—")),
+      cell: (row) => (
+        <>
+          {row.description ??
+            (row.kind === "TRANSFERENCIA"
+              ? `${row.debit_account_name} → ${row.credit_account_name}`
+              : (row.category_name ?? "—"))}
+          <InstallmentBadge description={row.description} />
+        </>
+      ),
     },
     { id: "due_date", header: "Vencimento", cell: (row) => formatDate(row.due_date) },
     {
@@ -257,6 +282,15 @@ export function TransactionsListPage(): JSX.Element {
                       Excluir
                     </button>
                   )}
+                  {row.series_id && (
+                    <button
+                      type="button"
+                      className="text-sm text-danger underline"
+                      onClick={() => setDeletingSeriesOf(row)}
+                    >
+                      Excluir série
+                    </button>
+                  )}
                 </div>
               )
             : undefined
@@ -278,6 +312,7 @@ export function TransactionsListPage(): JSX.Element {
           <TransactionForm
             key={editingTransaction?.id ?? "new"}
             form={form}
+            mode={editingTransaction ? "edit" : "create"}
             onSearchAccounts={searchAccounts}
             onSearchCostCenters={searchCostCenters}
             onSearchCustomers={searchCustomers}
@@ -339,6 +374,20 @@ export function TransactionsListPage(): JSX.Element {
         onConfirm={async (paymentDate) => {
           if (!payingTransaction) return;
           await pay.mutateAsync({ transactionId: payingTransaction.id, paymentDate });
+        }}
+      />
+
+      <SeriesScopeDialog
+        open={deletingSeriesOf !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingSeriesOf(null);
+        }}
+        title="Excluir série?"
+        description="Lançamentos já pagos nunca são excluídos — em 'todas', a exclusão é bloqueada se houver algum pago."
+        destructive
+        onConfirm={async (scope) => {
+          if (!deletingSeriesOf?.series_id) return;
+          await deleteSeries.mutateAsync({ seriesId: deletingSeriesOf.series_id, scope });
         }}
       />
 

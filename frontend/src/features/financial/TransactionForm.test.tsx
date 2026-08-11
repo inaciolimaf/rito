@@ -30,6 +30,7 @@ function Harness(): JSX.Element {
   return (
     <TransactionForm
       form={form}
+      mode="create"
       onSearchAccounts={() => Promise.resolve([])}
       onSearchCostCenters={() => Promise.resolve([])}
       onSearchCustomers={() => Promise.resolve([])}
@@ -78,5 +79,22 @@ describe("TransactionForm", () => {
         expect.objectContaining({ type: "DESPESA" }),
       ),
     );
+  });
+
+  it("modo parcelado mostra o preview das parcelas antes de salvar (regra 2/6, spec 057)", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.type(screen.getByLabelText("Valor"), "10000"); // 100,00 em centavos
+    await user.type(screen.getByLabelText("Vencimento"), "2026-01-31");
+    await user.selectOptions(screen.getByLabelText("Modo"), "installment");
+    await user.type(screen.getByLabelText("Número de parcelas"), "3");
+
+    await waitFor(() => expect(screen.getByText(/1\/3/)).toBeInTheDocument());
+    expect(screen.getByText(/2\/3/)).toBeInTheDocument();
+    expect(screen.getByText(/3\/3/)).toBeInTheDocument();
+    expect(screen.getByText(/31\/01\/2026/)).toBeInTheDocument();
+    expect(screen.getByText(/28\/02\/2026/)).toBeInTheDocument();
+    expect(screen.getByText(/31\/03\/2026/)).toBeInTheDocument();
   });
 });

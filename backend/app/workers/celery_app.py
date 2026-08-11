@@ -67,6 +67,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.stagnation.sweep_all_tenants",
         "schedule": crontab(hour=3, minute=0),
     },
+    # Spec 057, regra 4: recorrência financeira nunca gera tudo de uma vez — varredura
+    # mensal (dia 1, 3h30) mantém `generated_until` sempre 3 meses à frente.
+    "financial-recurrence-sweep": {
+        "task": "app.workers.financial_recurrence.sweep_financial_recurrences",
+        "schedule": crontab(day_of_month=1, hour=3, minute=30),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -78,4 +84,5 @@ celery_app.conf.imports = (
     "app.workers.datajud_sync",
     "app.workers.integration_health",
     "app.workers.stagnation",
+    "app.workers.financial_recurrence",
 )

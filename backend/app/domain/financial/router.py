@@ -19,6 +19,7 @@ from app.domain.financial.exceptions import (
     FinancialCategoryNameAlreadyExistsError,
     InstitutionNotFoundError,
     PaidTransactionNotDeletableError,
+    SeriesHasPaidTransactionError,
     TransactionAccountNotFoundError,
     TransactionCategoryNotFoundError,
     TransactionCategoryTypeMismatchError,
@@ -33,6 +34,7 @@ from app.domain.financial.models import (
     EntryType,
     FinancialCategory,
     TransactionKind,
+    TransactionSeries,
 )
 from app.domain.financial.repository import TransactionRow
 from app.domain.financial.schemas import (
@@ -53,9 +55,13 @@ from app.domain.financial.schemas import (
     FinancialInstitutionListResponse,
     FinancialInstitutionResponse,
     PayTransactionRequest,
+    SeriesPreviewItem,
+    SeriesPreviewResponse,
     TransactionCreateRequest,
     TransactionListResponse,
     TransactionResponse,
+    TransactionSeriesResponse,
+    TransactionSeriesUpdateRequest,
     TransactionUpdateRequest,
     TransferCostCentersRequest,
     TransferFinancialCategoriesRequest,
@@ -66,6 +72,7 @@ from app.domain.financial.service import (
     DreGroupService,
     FinancialCategoryService,
     FinancialInstitutionService,
+    TransactionSeriesService,
     TransactionService,
 )
 from app.domain.users.models import User
@@ -140,6 +147,8 @@ def _transaction_to_response(row: TransactionRow) -> TransactionResponse:
         payment_date=transaction.payment_date,
         competence=transaction.competence,
         created_at=transaction.created_at,
+        series_id=transaction.series_id,
+        installment_number=transaction.installment_number,
     )
 
 
@@ -577,3 +586,102 @@ async def unpay_transaction(
     updated = await service.get(transaction_id)
     assert updated is not None
     return _transaction_to_response(updated)
+
+
+def _series_not_found() -> HTTPException:
+    return HTTPException(status_code=404, detail="Série não encontrada.")
+
+
+def _series_to_response(series: TransactionSeries) -> TransactionSeriesResponse:
+    return TransactionSeriesResponse(
+        id=series.id,
+        is_installment=series.is_installment,
+        recurrence=series.recurrence,
+        total_installments=series.total_installments,
+        until_date=series.until_date,
+        generated_until=series.generated_until,
+        is_active=series.is_active,
+        created_at=series.created_at,
+    )
+
+
+@router.get("/transactions/{transaction_id}/series-preview")
+async def get_series_preview(
+    transaction_id: uuid.UUID,
+    current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> SeriesPreviewResponse:
+    transaction_service = TransactionService(session=session, tenant_id=current_user.tenant_id)
+    detail = await get_or_404(
+        lambda: transaction_service.get(transaction_id), "Lançamento não encontrado."
+    )
+    if detail.transaction.series_id is None:
+        return SeriesPreviewResponse(items=[])
+    series_service = TransactionSeriesService(session=session, tenant_id=current_user.tenant_id)
+    items = await series_service.preview(detail.transaction.series_id)
+    return SeriesPreviewResponse(
+        items=[
+            SeriesPreviewItem(
+                id=item.id,
+                installment_number=item.installment_number,
+                due_date=item.due_date,
+                amount=item.amount,
+                payment_date=item.payment_date,
+            )
+            for item in items
+        ]
+    )
+
+
+@router.get("/transaction-series/{series_id}")
+async def get_transaction_series(
+    series_id: uuid.UUID,
+    current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TransactionSeriesResponse:
+    service = TransactionSeriesService(session=session, tenant_id=current_user.tenant_id)
+    series = await service.get(series_id)
+    if series is None:
+        raise _series_not_found()
+    return _series_to_response(series)
+
+
+@router.put("/transaction-series/{series_id}")
+async def update_transaction_series(
+    series_id: uuid.UUID,
+    payload: TransactionSeriesUpdateRequest,
+    scope: Literal["future", "all"] = Query(default="future"),
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TransactionListResponse:
+    service = TransactionSeriesService(session=session, tenant_id=current_user.tenant_id)
+    series = await service.get(series_id)
+    if series is None:
+        raise _series_not_found()
+    try:
+        updated = await service.update_series(series, payload, scope)
+    except (TransactionCategoryNotFoundError, TransactionCategoryTypeMismatchError) as exc:
+        raise _handle_transaction_errors(exc) from exc
+    detail_repo = TransactionService(session=session, tenant_id=current_user.tenant_id)
+    rows = [await detail_repo.get(transaction.id) for transaction in updated]
+    items = [_transaction_to_response(row) for row in rows if row is not None]
+    return TransactionListResponse(items=items, total=len(items))
+
+
+@router.delete("/transaction-series/{series_id}", status_code=204)
+async def delete_transaction_series(
+    series_id: uuid.UUID,
+    scope: Literal["future", "all"] = Query(default="future"),
+    current_user: User = Depends(require_financial(FinancialAccess.FULL)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> None:
+    service = TransactionSeriesService(session=session, tenant_id=current_user.tenant_id)
+    series = await service.get(series_id)
+    if series is None:
+        raise _series_not_found()
+    try:
+        await service.delete_series(series, scope)
+    except SeriesHasPaidTransactionError as exc:
+        raise HTTPException(
+            status_code=409, detail="Série tem lançamento pago — estorne antes de excluir tudo."
+        ) from exc

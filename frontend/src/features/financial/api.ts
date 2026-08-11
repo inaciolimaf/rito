@@ -264,6 +264,8 @@ export interface TransactionData {
   payment_date: string | null;
   competence: string;
   created_at: string;
+  series_id: string | null;
+  installment_number: number | null;
 }
 
 export interface ListTransactionsParams {
@@ -289,6 +291,8 @@ export async function listTransactions(
   );
 }
 
+export type FinancialRecurrence = "MENSAL" | "BIMESTRAL" | "TRIMESTRAL" | "SEMESTRAL" | "ANUAL";
+
 export interface TransactionFormPayload {
   kind: TransactionKind;
   debit_account_id?: string | null;
@@ -300,6 +304,8 @@ export interface TransactionFormPayload {
   description?: string | null;
   amount: string;
   due_date: string;
+  installment?: { count: number } | null;
+  recurrence?: { period: FinancialRecurrence; until_date?: string | null } | null;
 }
 
 export async function createTransaction(values: TransactionFormPayload): Promise<TransactionData> {
@@ -329,4 +335,60 @@ export async function payTransaction(id: string, paymentDate: string): Promise<T
 
 export async function unpayTransaction(id: string): Promise<TransactionData> {
   return apiRequest<TransactionData>(`/api/v1/transactions/${id}/unpay`, { method: "POST" });
+}
+
+export interface SeriesPreviewItem {
+  id: string;
+  installment_number: number | null;
+  due_date: string;
+  amount: number;
+  payment_date: string | null;
+}
+
+export async function getSeriesPreview(transactionId: string): Promise<SeriesPreviewItem[]> {
+  const body = await apiRequest<{ items: SeriesPreviewItem[] }>(
+    `/api/v1/transactions/${transactionId}/series-preview`,
+  );
+  return body.items;
+}
+
+export interface TransactionSeriesData {
+  id: string;
+  is_installment: boolean;
+  recurrence: FinancialRecurrence | null;
+  total_installments: number | null;
+  until_date: string | null;
+  generated_until: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export async function getTransactionSeries(seriesId: string): Promise<TransactionSeriesData> {
+  return apiRequest<TransactionSeriesData>(`/api/v1/transaction-series/${seriesId}`);
+}
+
+export type SeriesScope = "future" | "all";
+
+export interface TransactionSeriesUpdatePayload {
+  amount?: string | null;
+  category_id?: string | null;
+  cost_center_id?: string | null;
+  description?: string | null;
+}
+
+export async function updateTransactionSeries(
+  seriesId: string,
+  scope: SeriesScope,
+  values: TransactionSeriesUpdatePayload,
+): Promise<ListResponse<TransactionData>> {
+  return apiRequest<ListResponse<TransactionData>>(
+    `/api/v1/transaction-series/${seriesId}?scope=${scope}`,
+    { method: "PUT", body: values },
+  );
+}
+
+export async function deleteTransactionSeries(seriesId: string, scope: SeriesScope): Promise<void> {
+  await apiRequest<void>(`/api/v1/transaction-series/${seriesId}?scope=${scope}`, {
+    method: "DELETE",
+  });
 }

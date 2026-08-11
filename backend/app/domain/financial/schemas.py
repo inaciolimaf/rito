@@ -5,7 +5,12 @@ from decimal import Decimal
 from pydantic import BaseModel, Field, model_validator
 
 from app.core.schemas import JsonDecimal
-from app.domain.financial.models import AccountKind, EntryType, TransactionKind
+from app.domain.financial.models import (
+    AccountKind,
+    EntryType,
+    FinancialRecurrence,
+    TransactionKind,
+)
 
 
 class DreGroupResponse(BaseModel):
@@ -198,8 +203,27 @@ class _TransactionMixin(BaseModel):
         return self
 
 
+class InstallmentRequest(BaseModel):
+    count: int = Field(ge=2, le=100)
+
+
+class RecurrenceCreateRequest(BaseModel):
+    period: FinancialRecurrence
+    until_date: date | None = None
+
+
 class TransactionCreateRequest(_TransactionMixin):
     user_id: uuid.UUID | None = None
+    installment: InstallmentRequest | None = None
+    recurrence: RecurrenceCreateRequest | None = None
+
+    @model_validator(mode="after")
+    def _validate_series(self) -> "TransactionCreateRequest":
+        """Regra 057/objetivo: parcelamento e recorrência são coisas diferentes — nunca
+        os dois ao mesmo tempo no mesmo lançamento."""
+        if self.installment is not None and self.recurrence is not None:
+            raise ValueError("Escolha parcelamento ou recorrência, não os dois.")
+        return self
 
 
 class TransactionUpdateRequest(_TransactionMixin):
@@ -228,6 +252,8 @@ class TransactionResponse(BaseModel):
     payment_date: date | None
     competence: date
     created_at: datetime
+    series_id: uuid.UUID | None
+    installment_number: int | None
 
 
 class TransactionListResponse(BaseModel):
@@ -238,3 +264,36 @@ class TransactionListResponse(BaseModel):
 
 class PayTransactionRequest(BaseModel):
     payment_date: date = Field(default_factory=date.today)
+
+
+class TransactionSeriesResponse(BaseModel):
+    id: uuid.UUID
+    is_installment: bool
+    recurrence: FinancialRecurrence | None
+    total_installments: int | None
+    until_date: date | None
+    generated_until: date | None
+    is_active: bool
+    created_at: datetime
+
+
+class TransactionSeriesUpdateRequest(BaseModel):
+    """Regra 7 (spec 057): campos omitidos (`None`) não mudam — só o que vier
+    preenchido é reescrito nos lançamentos não pagos do escopo escolhido."""
+
+    amount: Decimal | None = Field(default=None, gt=0)
+    category_id: uuid.UUID | None = None
+    cost_center_id: uuid.UUID | None = None
+    description: str | None = None
+
+
+class SeriesPreviewItem(BaseModel):
+    id: uuid.UUID
+    installment_number: int | None
+    due_date: date
+    amount: JsonDecimal
+    payment_date: date | None
+
+
+class SeriesPreviewResponse(BaseModel):
+    items: list[SeriesPreviewItem]

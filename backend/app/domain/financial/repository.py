@@ -21,6 +21,7 @@ from app.domain.financial.models import (
     FinancialInstitution,
     Transaction,
     TransactionKind,
+    TransactionSeries,
 )
 from app.domain.users.models import User
 
@@ -257,3 +258,39 @@ class TransactionRepository(BaseRepository[Transaction]):
         )
         received, to_receive, expenses = (await self.session.execute(stmt)).one()
         return LawsuitFinancialTotals(received=received, to_receive=to_receive, expenses=expenses)
+
+    async def list_by_series(self, series_id: uuid.UUID) -> Sequence[Transaction]:
+        stmt = (
+            select(Transaction)
+            .where(Transaction.series_id == series_id)
+            .order_by(Transaction.due_date, Transaction.installment_number)
+        )
+        return (await self.session.scalars(stmt)).all()
+
+    async def latest_in_series(self, series_id: uuid.UUID) -> Transaction | None:
+        """A ocorrência mais recente por vencimento — serve de molde (categoria, centro
+        de custo, conta, valor) pras próximas ocorrências que o worker gerar, refletindo
+        edições feitas via `PUT /transaction-series/{id}` (regra 7)."""
+        stmt = (
+            select(Transaction)
+            .where(Transaction.series_id == series_id)
+            .order_by(Transaction.due_date.desc())
+            .limit(1)
+        )
+        return (await self.session.scalars(stmt)).first()
+
+    async def first_due_date_in_series(self, series_id: uuid.UUID) -> date | None:
+        stmt = select(func.min(Transaction.due_date)).where(Transaction.series_id == series_id)
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+
+class TransactionSeriesRepository(BaseRepository[TransactionSeries]):
+    model = TransactionSeries
+
+    async def list_active_recurring(self) -> Sequence[TransactionSeries]:
+        """Séries de recorrência (não-parceladas) ativas do tenant — o worker mensal
+        (regra 4, spec 057) varre só estas."""
+        stmt = select(TransactionSeries).where(
+            TransactionSeries.is_installment.is_(False), TransactionSeries.is_active.is_(True)
+        )
+        return (await self.session.scalars(stmt)).all()

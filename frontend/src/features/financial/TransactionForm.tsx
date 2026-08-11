@@ -7,11 +7,16 @@ import type { EntityOption } from "@/components/domain/types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CategorySelect } from "@/features/financial/CategorySelect";
+import { FinancialRecurrenceFields } from "@/features/financial/FinancialRecurrenceFields";
+import { InstallmentFields } from "@/features/financial/InstallmentFields";
 import type { EntryType, TransactionKind } from "@/features/financial/api";
 import type { TransactionFormValues } from "@/features/financial/schema";
 
 export interface TransactionFormProps {
   form: UseFormReturn<TransactionFormValues>;
+  /** Parcelamento/recorrência só fazem sentido na criação (regras 1/4, spec 057) — o
+   * backend nem aceita esses campos em `TransactionUpdateRequest`. */
+  mode: "create" | "edit";
   onSearchAccounts: (query: string) => Promise<EntityOption[]>;
   onSearchCostCenters: (query: string) => Promise<EntityOption[]>;
   onSearchCustomers: (query: string) => Promise<EntityOption[]>;
@@ -23,6 +28,12 @@ export interface TransactionFormProps {
   currentCustomer?: EntityOption | null;
   currentLawsuit?: EntityOption | null;
 }
+
+const SERIES_MODE_LABELS: Record<TransactionFormValues["seriesMode"], string> = {
+  none: "Lançamento único",
+  installment: "Parcelado",
+  recurrence: "Recorrente",
+};
 
 const KIND_LABELS: Record<TransactionKind, string> = {
   RECEITA: "Receita",
@@ -45,6 +56,7 @@ const SELECT_CLASS =
  * nunca vaza de um registro pro outro. */
 export function TransactionForm({
   form,
+  mode,
   onSearchAccounts,
   onSearchCostCenters,
   onSearchCustomers,
@@ -66,10 +78,9 @@ export function TransactionForm({
 
   const kind = watch("kind");
   const isTransfer = kind === "TRANSFERENCIA";
+  const seriesMode = watch("seriesMode");
 
-  const [debitAccount, setDebitAccount] = React.useState<EntityOption | null>(
-    currentDebitAccount,
-  );
+  const [debitAccount, setDebitAccount] = React.useState<EntityOption | null>(currentDebitAccount);
   const [creditAccount, setCreditAccount] = React.useState<EntityOption | null>(
     currentCreditAccount,
   );
@@ -225,6 +236,22 @@ export function TransactionForm({
         <Input id="transaction-due-date" type="date" {...register("due_date")} />
         {errors.due_date && <p className="text-sm text-danger">{errors.due_date.message}</p>}
       </div>
+
+      {mode === "create" && (
+        <div className="space-y-2 border-t border-default pt-3">
+          <Label htmlFor="transaction-series-mode">Modo</Label>
+          <select id="transaction-series-mode" className={SELECT_CLASS} {...register("seriesMode")}>
+            {Object.entries(SERIES_MODE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+
+          {seriesMode === "installment" && <InstallmentFields form={form} />}
+          {seriesMode === "recurrence" && <FinancialRecurrenceFields form={form} />}
+        </div>
+      )}
     </>
   );
 }

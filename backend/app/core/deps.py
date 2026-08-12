@@ -1,4 +1,4 @@
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping
 from typing import cast
 from uuid import UUID
 
@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rls import set_tenant_context
+from app.integrations.messaging.base import MessagingChannel
 from app.integrations.storage.base import FileStorage
 
 
@@ -46,3 +47,7 @@ async def get_redis(request: Request) -> Redis:
 
 async def get_file_storage(request: Request) -> FileStorage:
     return cast(FileStorage, request.app.state.file_storage)
+
+
+async def get_messaging_channels(request: Request) -> Mapping[str, MessagingChannel]:
+    return cast(Mapping[str, MessagingChannel], request.app.state.messaging_channels)

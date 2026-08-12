@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
@@ -28,6 +29,7 @@ import { listLawsuits } from "@/features/lawsuits/api";
 import { FinancialDashboard } from "@/features/financial/FinancialDashboard";
 import { InstallmentBadge } from "@/features/financial/InstallmentBadge";
 import { InternalBadge } from "@/features/financial/InternalBadge";
+import { OverduePanel } from "@/features/financial/OverduePanel";
 import { PayTransactionDialog } from "@/features/financial/PayTransactionDialog";
 import { SeriesScopeDialog } from "@/features/financial/SeriesScopeDialog";
 import { TransactionForm } from "@/features/financial/TransactionForm";
@@ -38,7 +40,15 @@ import {
 } from "@/features/financial/schema";
 import { formatBrl } from "@/lib/money";
 import { ApiError } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
+
+type Tab = "lancamentos" | "overdue";
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: "lancamentos", label: "Lançamentos" },
+  { value: "overdue", label: "Inadimplência" },
+];
 
 const KIND_LABELS: Record<TransactionKind, string> = {
   RECEITA: "Receita",
@@ -132,6 +142,11 @@ export function TransactionsListPage(): JSX.Element {
   const canWrite = user?.financialAccess === "FULL";
   const queryClient = useQueryClient();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const tab: Tab = requestedTab === "overdue" ? "overdue" : "lancamentos";
+  const isLancamentos = tab === "lancamentos";
+
   const { values } = useFilters(FILTER_FIELDS);
   const kind = typeof values.kind === "string" ? (values.kind as TransactionKind) : undefined;
   const status = typeof values.status === "string" ? (values.status as "open" | "paid") : undefined;
@@ -142,18 +157,21 @@ export function TransactionsListPage(): JSX.Element {
   const { data, isLoading, error } = useQuery({
     queryKey: ["transactions", { kind, status, q, internal }],
     queryFn: () => listTransactions({ kind, status, q, internal }),
+    enabled: isLancamentos,
   });
   const transactions = data?.items ?? [];
 
   const { data: accountsPage } = useQuery({
     queryKey: ["bank-accounts", "for-transaction-form"],
     queryFn: () => listBankAccounts({ status: "active" }),
+    enabled: isLancamentos,
   });
   const accounts = accountsPage?.items ?? [];
 
   const { data: costCentersPage } = useQuery({
     queryKey: ["cost-centers", "for-transaction-form"],
     queryFn: () => listCostCenters({ status: "active" }),
+    enabled: isLancamentos,
   });
   const costCenters = costCentersPage?.items ?? [];
 
@@ -254,89 +272,122 @@ export function TransactionsListPage(): JSX.Element {
   return (
     <div className="space-y-4 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-primary">Financeiro — Lançamentos</h1>
-        {canWrite && <Button onClick={openCreateModal}>Novo lançamento</Button>}
+        <h1 className="text-lg font-semibold text-primary">Financeiro</h1>
+        {isLancamentos && canWrite && <Button onClick={openCreateModal}>Novo lançamento</Button>}
       </div>
 
-      <FinancialDashboard />
+      <div
+        role="tablist"
+        aria-label="Seções do Financeiro"
+        className="flex gap-1 border-b border-default"
+      >
+        {TABS.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.value}
+            className={cn(
+              "rounded-t px-3 py-2 text-sm font-medium",
+              tab === item.value
+                ? "border-b-2 border-accent text-primary"
+                : "text-muted hover:text-primary",
+            )}
+            onClick={() => setSearchParams(item.value === "lancamentos" ? {} : { tab: item.value })}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
-      <FilterBar fields={FILTER_FIELDS} />
+      {tab === "overdue" && <OverduePanel />}
 
-      <DataTable
-        columns={columns}
-        data={transactions}
-        getRowId={(row) => row.id}
-        isLoading={isLoading}
-        error={error instanceof ApiError ? error.message : null}
-        emptyMessage="Nenhum lançamento cadastrado ainda."
-        rowActions={
-          canWrite
-            ? (row) => (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="text-sm text-accent underline"
-                    onClick={() => openEditModal(row)}
-                  >
-                    Editar
-                  </button>
-                  {row.payment_date ? (
-                    <button
-                      type="button"
-                      className="text-sm text-accent underline"
-                      onClick={() => unpay.mutate(row.id)}
-                    >
-                      Estornar
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="text-sm text-accent underline"
-                      onClick={() => setPayingTransaction(row)}
-                    >
-                      Baixar
-                    </button>
-                  )}
-                  {!row.payment_date && (
-                    <button
-                      type="button"
-                      className="text-sm text-danger underline"
-                      onClick={() => setPendingDelete(row)}
-                    >
-                      Excluir
-                    </button>
-                  )}
-                  {row.series_id && (
-                    <button
-                      type="button"
-                      className="text-sm text-danger underline"
-                      onClick={() => setDeletingSeriesOf(row)}
-                    >
-                      Excluir série
-                    </button>
-                  )}
-                </div>
-              )
-            : undefined
-        }
-      />
+      {isLancamentos && (
+        <>
+          <FinancialDashboard />
 
-      {transactions.length > 0 && (
-        <div className="flex flex-wrap justify-end gap-6 rounded border border-default bg-surface px-4 py-2 text-sm">
-          <span className="text-muted">
-            Total do período:{" "}
-            <span className="font-medium text-primary">{formatBrl(footer.total)}</span>
-          </span>
-          <span className="text-muted">
-            Saldo:{" "}
-            <span className={`font-medium ${footer.balance < 0 ? "text-danger" : "text-primary"}`}>
-              {formatBrl(footer.balance)}
-            </span>
-          </span>
-          <span className="text-muted">
-            Previsto: <span className="font-medium text-primary">{formatBrl(footer.expected)}</span>
-          </span>
-        </div>
+          <FilterBar fields={FILTER_FIELDS} />
+
+          <DataTable
+            columns={columns}
+            data={transactions}
+            getRowId={(row) => row.id}
+            isLoading={isLoading}
+            error={error instanceof ApiError ? error.message : null}
+            emptyMessage="Nenhum lançamento cadastrado ainda."
+            rowActions={
+              canWrite
+                ? (row) => (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="text-sm text-accent underline"
+                        onClick={() => openEditModal(row)}
+                      >
+                        Editar
+                      </button>
+                      {row.payment_date ? (
+                        <button
+                          type="button"
+                          className="text-sm text-accent underline"
+                          onClick={() => unpay.mutate(row.id)}
+                        >
+                          Estornar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-sm text-accent underline"
+                          onClick={() => setPayingTransaction(row)}
+                        >
+                          Baixar
+                        </button>
+                      )}
+                      {!row.payment_date && (
+                        <button
+                          type="button"
+                          className="text-sm text-danger underline"
+                          onClick={() => setPendingDelete(row)}
+                        >
+                          Excluir
+                        </button>
+                      )}
+                      {row.series_id && (
+                        <button
+                          type="button"
+                          className="text-sm text-danger underline"
+                          onClick={() => setDeletingSeriesOf(row)}
+                        >
+                          Excluir série
+                        </button>
+                      )}
+                    </div>
+                  )
+                : undefined
+            }
+          />
+
+          {transactions.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-6 rounded border border-default bg-surface px-4 py-2 text-sm">
+              <span className="text-muted">
+                Total do período:{" "}
+                <span className="font-medium text-primary">{formatBrl(footer.total)}</span>
+              </span>
+              <span className="text-muted">
+                Saldo:{" "}
+                <span
+                  className={`font-medium ${footer.balance < 0 ? "text-danger" : "text-primary"}`}
+                >
+                  {formatBrl(footer.balance)}
+                </span>
+              </span>
+              <span className="text-muted">
+                Previsto:{" "}
+                <span className="font-medium text-primary">{formatBrl(footer.expected)}</span>
+              </span>
+            </div>
+          )}
+        </>
       )}
 
       <FormModal

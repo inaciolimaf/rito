@@ -48,6 +48,17 @@ class Settings(BaseSettings):
     # Spec 049: agenda diária do job de saúde das integrações (5 campos, diária).
     integration_health_cron: str = "0 6 * * *"
 
+    # Spec 061: e-mail de cobrança — SMTP puro, sem vendor específico. Sem SMTP_HOST,
+    # o canal levanta ChannelNotConfiguredError e a tentativa vira SKIPPED (regra 9).
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str = "nao-responda@rito.app"
+    smtp_use_tls: bool = True
+    # Spec 061, regra 10: agenda diária da régua de cobrança (5 campos, diária).
+    dunning_sync_cron: str = "0 8 * * *"
+
     # Spec 041: fixtures da camada HTTP — replay em app_env=test; HTTP_RECORD=1 grava.
     http_fixtures_dir: str = "tests/fixtures/http"
     http_record: bool = False

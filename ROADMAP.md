@@ -270,7 +270,7 @@ Saldo com variação, receita/despesa prevista vs realizada, atrasados; 4 regime
 
 ## Fase 6 — Financeiro II, Documentos e Modelos (061–070)
 
-### ⬜ 061 — Financeiro: inadimplência
+### ✅ 061 — Financeiro: inadimplência
 Identificação de atrasados, régua de cobrança, notificações por e-mail/SMS/WhatsApp (adapters mockáveis).
 **Aceite:** atrasado detectado no vencimento+1; régua dispara nos marcos. **t:** 5 s. **Deps:** 059
 

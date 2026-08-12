@@ -6,10 +6,13 @@ export interface BarChartDatum {
 export interface BarChartProps {
   data: BarChartDatum[];
   title?: string;
+  /** Formata o rótulo numérico ao lado de cada barra (ex.: `formatBrl` para valores em
+   * dinheiro) — por padrão mostra a contagem crua, o uso mais comum até a spec 061. */
+  formatValue?: (value: number) => string;
 }
 
 /** Gráfico de barras horizontais em SVG puro (sem lib de gráficos — spec 019, seção 6). */
-export function BarChart({ data, title }: BarChartProps): JSX.Element {
+export function BarChart({ data, title, formatValue = String }: BarChartProps): JSX.Element {
   const max = Math.max(1, ...data.map((item) => item.value));
 
   return (
@@ -28,7 +31,9 @@ export function BarChart({ data, title }: BarChartProps): JSX.Element {
                   style={{ width: `${(item.value / max) * 100}%` }}
                 />
               </span>
-              <span className="w-8 shrink-0 text-right text-primary">{item.value}</span>
+              <span className="w-20 shrink-0 text-right text-primary">
+                {formatValue(item.value)}
+              </span>
             </li>
           ))}
         </ul>

@@ -1,7 +1,7 @@
 # 061 — Financeiro: inadimplência
 
 **Fase:** 6 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 059 · **Status:** ⬜ pendente
+**Depende de:** 059 · **Status:** ✅ concluída
 
 ---
 
@@ -105,8 +105,47 @@ E-mail sempre mockado.
 
 ## 9. Descobertas
 
-*(preencher)*
+- Nenhuma integração de e-mail existia no código antes desta spec. Criada
+  `app/integrations/messaging/` com `MessagingChannel` (Protocol, DIP) e três
+  implementações: `SmtpEmailChannel` (stdlib `smtplib`, síncrono envolto em
+  `asyncio.to_thread`, mesmo padrão de `S3FileStorage.upload`), `SmsChannel` e
+  `WhatsAppChannel` (regra 9: sempre `ChannelNotConfiguredError`, sem provider real —
+  fora de escopo por definição da spec). `SMTP_HOST/PORT/USER/PASSWORD/FROM` já
+  existiam em `.env`/`.env.example` desde a spec 002 (nunca usados até agora) —
+  `Settings` foi alinhada a esses nomes em vez de inventar novos.
+- `rule_id NULL` faz dupla função: marca a tentativa como manual (`is_manual` computado
+  na resposta) e nunca colide com a `UNIQUE(transaction_id, rule_id)` — Postgres trata
+  `NULL` como distinto, então réguas automáticas e envios manuais nunca disputam a
+  mesma constraint (regra 4 × regra 8, desenho documentado no docstring da migration).
+- `run_daily_rules` retorna a contagem de **tentativas processadas** (SENT + FAILED),
+  não só sucessos — `SKIPPED`/`FAILED` também contam como "processado", já que a régua
+  não pode ficar tentando de novo no dia seguinte (regra 4 é por régua, não por
+  status). Isso pegou um teste errado (`test_falha_em_um_nao_afeta_os_outros` esperava
+  `sent == 1`, o correto é `2`) — corrigido no próprio teste, não é bug de produção.
+- `components/domain/BarChart.tsx` ganhou `formatValue?: (value: number) => string`
+  (default `String`, comportamento anterior preservado) para `AgingChart` poder
+  formatar em R$ sem duplicar a barra SVG — mantém a regra dos 3 usos em vez de criar
+  um segundo componente de barra só pra dinheiro.
+- Smoke test manual em navegador (tenant descartável, fora do tenant e2e para não
+  poluir jornadas existentes): criado lançamento vencido, régua e envio manual real
+  contra `smtplib` sem servidor SMTP disponível — o backend registrou corretamente
+  `FAILED` com `[Errno 111] Connection refused`, e o histórico mostrou o erro sem
+  quebrar a tela. Confirma regra 10 (falha de provider vira `DunningAttempt`, não
+  exceção) também pela borda real de rede, não só pelo dublê de teste.
 
 ## 10. Definição de pronto
 
 Checklist padrão · Nenhuma cobrança duplicada · Commit `feat(061): financeiro — inadimplência`
+
+- [x] Migration `061_dunning.py` (RLS nas duas tabelas, `UNIQUE`s conforme §4)
+- [x] `MessagingChannel` (email real, SMS/WhatsApp sempre skip) atrás de interface
+- [x] Endpoints do contrato §5 com RBAC financeiro correto
+- [x] `OverduePanel`, `AgingChart`, `DunningRulesForm`, `DunningHistoryDrawer`,
+      `TemplateEditor` — reaproveitando `DataTable`/`StatCard`/`FilterBar`/`FormModal`
+- [x] Worker diário (`app/workers/dunning.py`) registrado no beat, isolando falha por
+      tenant e por lançamento
+- [x] 18 testes backend (13 integração + 5 unidade) + 2 frontend — todos os 11 casos
+      do plano de testes cobertos
+- [x] `make test`: 880 backend, 159 frontend, 10 e2e — wall-clock 134s (orçamento 300s)
+- [x] `make lint`: ruff + mypy + eslint + tsc limpos
+- [x] Smoke manual em navegador confirmando o fluxo ponta a ponta

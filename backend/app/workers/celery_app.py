@@ -79,6 +79,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.financial_recurrence.sweep_financial_recurrences",
         "schedule": crontab(day_of_month=1, hour=3, minute=30),
     },
+    # Spec 061, regra 10: régua de cobrança diária (DUNNING_SYNC_CRON).
+    "dunning-sweep": {
+        "task": "app.workers.dunning.sweep_dunning_rules",
+        "schedule": _daily_crontab(_settings.dunning_sync_cron),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -92,4 +97,5 @@ celery_app.conf.imports = (
     "app.workers.stagnation",
     "app.workers.financial_recurrence",
     "app.workers.financial_dashboard",
+    "app.workers.dunning",
 )

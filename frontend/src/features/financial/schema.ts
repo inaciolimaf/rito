@@ -136,3 +136,46 @@ export const DEFAULT_TRANSACTION_FORM_VALUES: TransactionFormValues = {
   is_internal: false,
   internal_note: "",
 };
+
+const DUNNING_CHANNELS = ["EMAIL", "SMS", "WHATSAPP"] as const;
+
+/** Espelha regra 3 (offset relativo ao vencimento, -365..365) e regra 4 (unicidade por
+ * offset+canal, garantida no upsert do backend — aqui só o formato do valor). */
+export const dunningRuleFormSchema = z.object({
+  days_offset: z
+    .string()
+    .min(1, "Dias é obrigatório.")
+    .refine((value) => {
+      const n = Number(value);
+      return Number.isInteger(n) && n >= -365 && n <= 365;
+    }, "Dias precisa estar entre -365 e 365."),
+  channel: z.enum(DUNNING_CHANNELS),
+  template: z.string().min(1, "Modelo é obrigatório."),
+  is_active: z.boolean(),
+});
+
+export type DunningRuleFormValues = z.infer<typeof dunningRuleFormSchema>;
+
+export const DEFAULT_DUNNING_RULE_FORM_VALUES: DunningRuleFormValues = {
+  days_offset: "5",
+  channel: "EMAIL",
+  template:
+    "Olá {{customer_name}}, identificamos um valor de {{amount}} com vencimento em " +
+    "{{due_date}} ainda em aberto. Por favor, entre em contato para regularizar.",
+  is_active: true,
+};
+
+/** Regra 8: envio manual, sempre permitido, mesmo que a régua já tenha rodado. */
+export const sendDunningFormSchema = z.object({
+  channel: z.enum(DUNNING_CHANNELS),
+  template: z.string().min(1, "Modelo é obrigatório."),
+});
+
+export type SendDunningFormValues = z.infer<typeof sendDunningFormSchema>;
+
+export const DEFAULT_SEND_DUNNING_FORM_VALUES: SendDunningFormValues = {
+  channel: "EMAIL",
+  template:
+    "Olá {{customer_name}}, identificamos um valor de {{amount}} com vencimento em " +
+    "{{due_date}} ainda em aberto. Por favor, entre em contato para regularizar.",
+};

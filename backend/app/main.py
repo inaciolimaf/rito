@@ -27,6 +27,7 @@ from app.domain.courts.router import court_systems_router, courts_router
 from app.domain.crm.router import router as crm_router
 from app.domain.customer_origins.router import router as customer_origins_router
 from app.domain.customers.router import customers_router, marital_statuses_router
+from app.domain.dunning.router import router as dunning_router
 from app.domain.financial.router import router as financial_router
 from app.domain.inbox.router import router as inbox_router
 from app.domain.integration_alerts.router import router as integration_alerts_router
@@ -45,6 +46,7 @@ from app.domain.task_types.router import router as task_types_router
 from app.domain.taskscore.router import goals_router, taskscore_router
 from app.domain.users.router import invitations_router, occupations_router, users_router
 from app.domain.workflows.router import router as workflows_router
+from app.integrations.messaging.registry import create_messaging_channels
 from app.integrations.storage.s3 import create_file_storage
 
 
@@ -58,6 +60,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.session_factory = create_session_factory(engine)
     app.state.redis = create_redis_client()
     app.state.file_storage = create_file_storage()
+    app.state.messaging_channels = create_messaging_channels()
 
     yield
 
@@ -104,6 +107,7 @@ def create_app() -> FastAPI:
     app.include_router(crm_router, prefix="/api/v1")
     app.include_router(task_types_router, prefix="/api/v1")
     app.include_router(financial_router, prefix="/api/v1")
+    app.include_router(dunning_router, prefix="/api/v1")
     # inbox ANTES de posts: /posts/bulk/* perderia para /posts/{post_id}/* no match
     # por ordem de registro ("bulk" não parseia como uuid → 422).
     app.include_router(inbox_router, prefix="/api/v1")

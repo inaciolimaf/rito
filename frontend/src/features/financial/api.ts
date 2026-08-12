@@ -414,3 +414,98 @@ export async function uploadTransactionAttachment(
 export async function listTransactionAttachments(transactionId: string): Promise<AttachmentData[]> {
   return apiRequest<AttachmentData[]>(`/api/v1/transactions/${transactionId}/attachments`);
 }
+
+export type Regime = "payment" | "due" | "competence" | "cash_flow";
+
+export interface TransactionStats {
+  balance: number;
+  balance_previous: number;
+  income_expected: number;
+  income_realized: number;
+  expense_expected: number;
+  expense_realized: number;
+  overdue: number;
+}
+
+export interface GetTransactionStatsParams {
+  month?: string;
+  regime?: Regime;
+  account_id?: string;
+}
+
+export async function getTransactionStats(
+  params: GetTransactionStatsParams,
+): Promise<TransactionStats> {
+  const query = new URLSearchParams();
+  if (params.month) query.set("month", params.month);
+  if (params.regime) query.set("regime", params.regime);
+  if (params.account_id) query.set("account_id", params.account_id);
+  const queryString = query.toString();
+  return apiRequest<TransactionStats>(
+    `/api/v1/transactions/stats${queryString ? `?${queryString}` : ""}`,
+  );
+}
+
+export interface ChartPoint {
+  period_start: string;
+  income: number;
+  expense: number;
+}
+
+export interface GetTransactionChartParams {
+  month?: string;
+  group_by?: "day" | "week";
+  account_id?: string;
+}
+
+export async function getTransactionChart(
+  params: GetTransactionChartParams,
+): Promise<ChartPoint[]> {
+  const query = new URLSearchParams();
+  if (params.month) query.set("month", params.month);
+  if (params.group_by) query.set("group_by", params.group_by);
+  if (params.account_id) query.set("account_id", params.account_id);
+  const queryString = query.toString();
+  const body = await apiRequest<{ items: ChartPoint[] }>(
+    `/api/v1/transactions/chart${queryString ? `?${queryString}` : ""}`,
+  );
+  return body.items;
+}
+
+export interface CashFlowPoint {
+  day: string;
+  income: number;
+  expense: number;
+  balance: number;
+}
+
+export interface GetCashFlowParams {
+  from: string;
+  to: string;
+  account_id?: string;
+}
+
+export async function getTransactionCashFlow(params: GetCashFlowParams): Promise<CashFlowPoint[]> {
+  const query = new URLSearchParams({ from: params.from, to: params.to });
+  if (params.account_id) query.set("account_id", params.account_id);
+  const body = await apiRequest<{ items: CashFlowPoint[] }>(
+    `/api/v1/transactions/cash-flow?${query.toString()}`,
+  );
+  return body.items;
+}
+
+export interface AccountBalanceItem {
+  account_id: string;
+  name: string;
+  kind: AccountKind;
+  balance: number;
+  is_invoice: boolean;
+}
+
+export async function listBankAccountBalances(accountId?: string): Promise<AccountBalanceItem[]> {
+  const query = accountId ? `?account_id=${accountId}` : "";
+  const body = await apiRequest<{ items: AccountBalanceItem[] }>(
+    `/api/v1/bank-accounts/balances${query}`,
+  );
+  return body.items;
+}

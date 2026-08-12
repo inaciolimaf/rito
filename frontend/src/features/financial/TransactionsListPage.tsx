@@ -25,6 +25,7 @@ import {
 } from "@/features/financial/api";
 import { listCustomers } from "@/features/customers/api";
 import { listLawsuits } from "@/features/lawsuits/api";
+import { FinancialDashboard } from "@/features/financial/FinancialDashboard";
 import { InstallmentBadge } from "@/features/financial/InstallmentBadge";
 import { InternalBadge } from "@/features/financial/InternalBadge";
 import { PayTransactionDialog } from "@/features/financial/PayTransactionDialog";
@@ -246,12 +247,25 @@ export function TransactionsListPage(): JSX.Element {
     { id: "amount", header: "Valor", cell: (row) => formatBrl(row.amount) },
   ];
 
+  const footer = transactions.reduce(
+    (acc, row) => {
+      acc.total += row.amount;
+      if (row.kind === "RECEITA") acc.balance += row.amount;
+      if (row.kind === "DESPESA") acc.balance -= row.amount;
+      if (!row.payment_date) acc.expected += row.amount;
+      return acc;
+    },
+    { total: 0, balance: 0, expected: 0 },
+  );
+
   return (
     <div className="space-y-4 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-primary">Financeiro — Lançamentos</h1>
         {canWrite && <Button onClick={openCreateModal}>Novo lançamento</Button>}
       </div>
+
+      <FinancialDashboard />
 
       <FilterBar fields={FILTER_FIELDS} />
 
@@ -313,6 +327,24 @@ export function TransactionsListPage(): JSX.Element {
             : undefined
         }
       />
+
+      {transactions.length > 0 && (
+        <div className="flex flex-wrap justify-end gap-6 rounded border border-default bg-surface px-4 py-2 text-sm">
+          <span className="text-muted">
+            Total do período:{" "}
+            <span className="font-medium text-primary">{formatBrl(footer.total)}</span>
+          </span>
+          <span className="text-muted">
+            Saldo:{" "}
+            <span className={`font-medium ${footer.balance < 0 ? "text-danger" : "text-primary"}`}>
+              {formatBrl(footer.balance)}
+            </span>
+          </span>
+          <span className="text-muted">
+            Previsto: <span className="font-medium text-primary">{formatBrl(footer.expected)}</span>
+          </span>
+        </div>
+      )}
 
       <FormModal
         open={modalOpen}

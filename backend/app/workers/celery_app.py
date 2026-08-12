@@ -67,6 +67,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.stagnation.sweep_all_tenants",
         "schedule": crontab(hour=3, minute=0),
     },
+    # Spec 059, regra 11: refresh da view materializada de saldo diário a cada 10 min
+    # (baixa/estorno também agenda um refresh imediato — ver workers/financial_dashboard.py).
+    "financial-balances-refresh": {
+        "task": "app.workers.financial_dashboard.refresh_account_balances",
+        "schedule": crontab(minute="*/10"),
+    },
     # Spec 057, regra 4: recorrência financeira nunca gera tudo de uma vez — varredura
     # mensal (dia 1, 3h30) mantém `generated_until` sempre 3 meses à frente.
     "financial-recurrence-sweep": {
@@ -85,4 +91,5 @@ celery_app.conf.imports = (
     "app.workers.integration_health",
     "app.workers.stagnation",
     "app.workers.financial_recurrence",
+    "app.workers.financial_dashboard",
 )

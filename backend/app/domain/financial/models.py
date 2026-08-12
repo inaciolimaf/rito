@@ -1,13 +1,18 @@
 import uuid
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 
 from sqlalchemy import (
     CheckConstraint,
+    Column,
+    Date,
     ForeignKey,
+    MetaData,
     Numeric,
     SmallInteger,
+    Table,
     UniqueConstraint,
     func,
     text,
@@ -256,3 +261,26 @@ class TransactionSeries(TenantMixin, Base):
     generated_until: Mapped[date | None] = mapped_column(default=None)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+# View barreira sobre a materialized view account_daily_balances (migration 059) — o
+# filtro de tenant está na definição da view, mesmo padrão de `user_monthly_scores`
+# (taskscore/models.py). Tabela Core somente-leitura: nunca entra em create_all/migration.
+account_daily_balances = Table(
+    "account_daily_balances_visible",
+    MetaData(),
+    Column("tenant_id", PGUUID(as_uuid=True)),
+    Column("account_id", PGUUID(as_uuid=True)),
+    Column("day", Date),
+    Column("balance_delta", Numeric(14, 2)),
+)
+
+
+@dataclass
+class AccountDailyBalance:
+    """Linha tipada da view barreira — o saldo real da conta é `initial_amount +
+    balance_delta` (calculado no repositório, não na view — ver migration 059)."""
+
+    account_id: uuid.UUID
+    day: date
+    balance_delta: Decimal

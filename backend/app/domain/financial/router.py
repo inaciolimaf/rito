@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import date
 from typing import Literal
@@ -17,6 +18,14 @@ from app.domain.attachments.service import (
     TransactionAttachmentLimitError,
 )
 from app.domain.auth.deps import get_session_for_current_user
+from app.domain.financial.dashboard import (
+    ChartGroupBy,
+    Regime,
+    get_account_balances,
+    get_cash_flow_series,
+    get_chart_series,
+    get_dashboard_stats,
+)
 from app.domain.financial.exceptions import (
     BankAccountNameAlreadyExistsError,
     CostCenterNameAlreadyExistsError,
@@ -47,11 +56,16 @@ from app.domain.financial.models import (
 )
 from app.domain.financial.repository import TransactionRow
 from app.domain.financial.schemas import (
+    AccountBalanceItem,
     AccountBalanceResponse,
+    BankAccountBalancesResponse,
     BankAccountCreateRequest,
     BankAccountListResponse,
     BankAccountResponse,
     BankAccountUpdateRequest,
+    CashFlowPointResponse,
+    CashFlowResponse,
+    ChartPointResponse,
     CostCenterCreateRequest,
     CostCenterListResponse,
     CostCenterResponse,
@@ -66,11 +80,13 @@ from app.domain.financial.schemas import (
     PayTransactionRequest,
     SeriesPreviewItem,
     SeriesPreviewResponse,
+    TransactionChartResponse,
     TransactionCreateRequest,
     TransactionListResponse,
     TransactionResponse,
     TransactionSeriesResponse,
     TransactionSeriesUpdateRequest,
+    TransactionStatsResponse,
     TransactionUpdateRequest,
     TransferCostCentersRequest,
     TransferFinancialCategoriesRequest,
@@ -86,8 +102,19 @@ from app.domain.financial.service import (
 )
 from app.domain.users.models import User
 from app.integrations.storage.base import FileStorage
+from app.workers.financial_dashboard import schedule_account_balances_refresh
 
 router = APIRouter(tags=["financial"])
+
+_MONTH_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+
+
+def _parse_month(month: str | None) -> date:
+    if month is None:
+        return date.today().replace(day=1)
+    if not _MONTH_PATTERN.fullmatch(month):
+        raise HTTPException(status_code=422, detail="Mês inválido — use YYYY-MM.")
+    return date.fromisoformat(f"{month}-01")
 
 
 def _category_to_response(
@@ -370,6 +397,29 @@ async def list_financial_institutions(
     )
 
 
+@router.get("/bank-accounts/balances")
+async def list_bank_account_balances(
+    account_id: uuid.UUID | None = Query(default=None),
+    current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> BankAccountBalancesResponse:
+    """Spec 059, regra 6/7: saldo real (view materializada) por conta; cartão de
+    crédito devolve a fatura do ciclo em vez de saldo (`is_invoice=True`)."""
+    rows = await get_account_balances(session, account_id=account_id)
+    return BankAccountBalancesResponse(
+        items=[
+            AccountBalanceItem(
+                account_id=row.account.id,
+                name=row.account.name,
+                kind=row.account.kind,
+                balance=row.balance,
+                is_invoice=row.is_invoice,
+            )
+            for row in rows
+        ]
+    )
+
+
 @router.get("/bank-accounts")
 async def list_bank_accounts(
     kind: AccountKind | None = Query(default=None),
@@ -525,6 +575,73 @@ async def list_transactions(
     )
 
 
+@router.get("/transactions/stats")
+async def get_transaction_stats(
+    month: str | None = Query(default=None),
+    regime: Regime = Query(default="due"),
+    account_id: uuid.UUID | None = Query(default=None),
+    _current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TransactionStatsResponse:
+    reference = _parse_month(month)
+    stats = await get_dashboard_stats(
+        session, regime=regime, month=reference, account_id=account_id
+    )
+    return TransactionStatsResponse(
+        balance=stats.balance,
+        balance_previous=stats.balance_previous,
+        income_expected=stats.income_expected,
+        income_realized=stats.income_realized,
+        expense_expected=stats.expense_expected,
+        expense_realized=stats.expense_realized,
+        overdue=stats.overdue,
+    )
+
+
+@router.get("/transactions/chart")
+async def get_transaction_chart(
+    month: str | None = Query(default=None),
+    group_by: ChartGroupBy = Query(default="day"),
+    account_id: uuid.UUID | None = Query(default=None),
+    _current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TransactionChartResponse:
+    """ADVBOX: gráfico "Receitas x Despesas por vencimento"."""
+    reference = _parse_month(month)
+    points = await get_chart_series(
+        session, month=reference, group_by=group_by, account_id=account_id
+    )
+    return TransactionChartResponse(
+        items=[
+            ChartPointResponse(
+                period_start=point.period_start, income=point.income, expense=point.expense
+            )
+            for point in points
+        ]
+    )
+
+
+@router.get("/transactions/cash-flow")
+async def get_transaction_cash_flow(
+    from_: date = Query(alias="from"),
+    to: date = Query(),
+    account_id: uuid.UUID | None = Query(default=None),
+    _current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> CashFlowResponse:
+    if to < from_:
+        raise HTTPException(status_code=422, detail="'to' precisa ser igual ou posterior a 'from'.")
+    points = await get_cash_flow_series(session, start=from_, end=to, account_id=account_id)
+    return CashFlowResponse(
+        items=[
+            CashFlowPointResponse(
+                day=point.day, income=point.income, expense=point.expense, balance=point.balance
+            )
+            for point in points
+        ]
+    )
+
+
 @router.post("/transactions", status_code=201)
 async def create_transaction(
     payload: TransactionCreateRequest,
@@ -593,6 +710,7 @@ async def pay_transaction(
     if payload.payment_date > date.today():
         raise HTTPException(status_code=422, detail="Data de pagamento não pode ser no futuro.")
     await service.pay(detail.transaction, payload.payment_date)
+    schedule_account_balances_refresh()
     updated = await service.get(transaction_id)
     assert updated is not None
     return _transaction_to_response(updated)
@@ -607,6 +725,7 @@ async def unpay_transaction(
     service = TransactionService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(transaction_id), "Lançamento não encontrado.")
     await service.unpay(detail.transaction)
+    schedule_account_balances_refresh()
     updated = await service.get(transaction_id)
     assert updated is not None
     return _transaction_to_response(updated)

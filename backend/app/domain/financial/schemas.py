@@ -301,3 +301,46 @@ class SeriesPreviewItem(BaseModel):
 
 class SeriesPreviewResponse(BaseModel):
     items: list[SeriesPreviewItem]
+
+
+class TransactionStatsResponse(BaseModel):
+    balance: JsonDecimal
+    balance_previous: JsonDecimal
+    income_expected: JsonDecimal
+    income_realized: JsonDecimal
+    expense_expected: JsonDecimal
+    expense_realized: JsonDecimal
+    overdue: JsonDecimal
+
+
+class ChartPointResponse(BaseModel):
+    period_start: date
+    income: JsonDecimal
+    expense: JsonDecimal
+
+
+class TransactionChartResponse(BaseModel):
+    items: list[ChartPointResponse]
+
+
+class CashFlowPointResponse(BaseModel):
+    day: date
+    income: JsonDecimal
+    expense: JsonDecimal
+    balance: JsonDecimal
+
+
+class CashFlowResponse(BaseModel):
+    items: list[CashFlowPointResponse]
+
+
+class AccountBalanceItem(BaseModel):
+    account_id: uuid.UUID
+    name: str
+    kind: AccountKind
+    balance: JsonDecimal
+    is_invoice: bool
+
+
+class BankAccountBalancesResponse(BaseModel):
+    items: list[AccountBalanceItem]

@@ -11,6 +11,10 @@ export interface StatCardProps {
    * variação já vem pronta da API (ex.: "novo" quando o período anterior era zero,
    * spec 028 regra 2, que o cálculo local não sabe expressar). */
   variation?: { label: string; trend: "up" | "down" | "flat" } | null;
+  /** Valor em vermelho (spec 059 regra 10: negativo em vermelho) — quem chama decide,
+   * já que `value` pode vir pré-formatado (ex.: `formatBrl`) e o componente não sabe
+   * o sinal de uma string. */
+  negative?: boolean;
 }
 
 function computeTrend(
@@ -44,6 +48,7 @@ export function StatCard({
   isLoading = false,
   href,
   variation,
+  negative = false,
 }: StatCardProps): JSX.Element {
   if (isLoading) {
     return (
@@ -62,7 +67,9 @@ export function StatCard({
   const content = (
     <div className="flex flex-col gap-1 rounded border border-default bg-surface p-4">
       <span className="text-sm text-muted">{label}</span>
-      <span className="text-2xl font-semibold text-primary">{value}</span>
+      <span className={`text-2xl font-semibold ${negative ? "text-danger" : "text-primary"}`}>
+        {value}
+      </span>
       {variationLabel && TrendIcon && (
         <span
           className={

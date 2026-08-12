@@ -1,4 +1,5 @@
 export { BarChart } from "@/components/domain/BarChart";
+export { CashFlowChart } from "@/components/domain/CashFlowChart";
 export { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 export { DataTable } from "@/components/domain/DataTable";
 export { DonutChart } from "@/components/domain/DonutChart";

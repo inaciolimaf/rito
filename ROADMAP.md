@@ -259,7 +259,7 @@ Recorrente com ciclo; parcelado até 100x com geração das parcelas; edição d
 Flag "apenas registro interno" (não afeta saldo); anexos por lançamento.
 **Aceite:** registro interno não entra no saldo. **t:** 3 s. **Deps:** 056
 
-### ⬜ 059 — Financeiro: dashboard e fluxo de caixa
+### ✅ 059 — Financeiro: dashboard e fluxo de caixa
 Saldo com variação, receita/despesa prevista vs realizada, atrasados; 4 regimes de visualização (pagamento, vencimento, competência, **fluxo de caixa**); saldo por conta.
 **Aceite:** cada regime muda a agregação corretamente. **t:** 6 s. **Deps:** 058
 

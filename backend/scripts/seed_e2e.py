@@ -12,7 +12,7 @@ from app.core.db import create_engine, create_session_factory
 from app.core.models import Tenant
 from app.core.rls import set_tenant_context
 from app.core.security import hash_password
-from app.domain.users.models import User, UserRole
+from app.domain.users.models import FinancialAccess, User, UserRole
 
 E2E_TENANT_ID = uuid.UUID("00000000-0000-0000-0000-0000000000e2")
 E2E_USER_ID = uuid.UUID("00000000-0000-0000-0000-0000000000e3")
@@ -43,12 +43,16 @@ async def main() -> None:
                     # GESTOR (o papel mais permissivo, spec 019): a jornada de contatos
                     # cobre arquivar, que exige ADMINISTRADOR ou GESTOR.
                     role=UserRole.GESTOR,
+                    # FULL (spec 059): a jornada financeira cria/paga lançamento — sem
+                    # isso o item "Financeiro" nem aparece na sidebar (financial.read).
+                    financial_access=FinancialAccess.FULL,
                 )
             )
         else:
             existing_user.password_hash = hash_password(E2E_PASSWORD)
             existing_user.is_active = True
             existing_user.role = UserRole.GESTOR
+            existing_user.financial_access = FinancialAccess.FULL
 
         # migration 016 só semeia origens padrão para tenants que já existem no momento em
         # que ela roda — em CI o tenant e2e nasce DEPOIS da migration (globalSetup do

@@ -24,6 +24,7 @@ from sqlalchemy import ColumnElement, Date, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import card_cycle_range, next_month_start
+from app.core.materialized_view import MATERIALIZED_VIEWS
 from app.domain.financial.models import (
     AccountKind,
     BankAccount,
@@ -35,6 +36,10 @@ from app.domain.financial.models import (
 Regime = Literal["payment", "due", "competence", "cash_flow"]
 ChartGroupBy = Literal["day", "week"]
 
+_BALANCE_VIEW = next(
+    spec for spec in MATERIALIZED_VIEWS if spec.view_name == "account_daily_balances"
+)
+
 
 @dataclass
 class DashboardStats:
@@ -45,6 +50,9 @@ class DashboardStats:
     expense_expected: Decimal
     expense_realized: Decimal
     overdue: Decimal
+    # Regra 11 + refatoração 060 (Alvo 2: "métrica de defasagem exposta na UI") — o
+    # texto vem do registro central de views, não de uma string solta no frontend.
+    balance_staleness_hint: str = _BALANCE_VIEW.staleness_hint()
 
 
 @dataclass

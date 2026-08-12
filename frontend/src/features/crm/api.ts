@@ -58,9 +58,10 @@ export interface CrmStatsByStep {
 export interface CrmStats {
   total_lawsuits: number;
   received_this_month: number;
-  total_value: number;
+  // null quando financial_access=NONE (refatoração 060, Alvo 3).
+  total_value: number | null;
   stagnant_count: number;
-  stagnant_value: number;
+  stagnant_value: number | null;
   by_step: CrmStatsByStep[];
 }
 

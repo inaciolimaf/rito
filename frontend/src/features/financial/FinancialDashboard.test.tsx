@@ -14,6 +14,7 @@ const getTransactionStats = vi.fn().mockResolvedValue({
   expense_expected: 80,
   expense_realized: 80,
   overdue: 30,
+  balance_staleness_hint: "Pode levar até 10 min para refletir mudanças recentes.",
 });
 const getTransactionChart = vi.fn().mockResolvedValue([]);
 const listBankAccountBalances = vi.fn().mockResolvedValue([]);
@@ -92,6 +93,7 @@ describe("FinancialDashboard", () => {
       expense_expected: 0,
       expense_realized: 0,
       overdue: 0,
+      balance_staleness_hint: "Pode levar até 10 min para refletir mudanças recentes.",
     });
     renderDashboard();
 

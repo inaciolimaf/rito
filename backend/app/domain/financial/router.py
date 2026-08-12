@@ -1,6 +1,6 @@
-import re
 import uuid
 from datetime import date
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_file_storage
 from app.core.exceptions import InvalidTransferError
-from app.core.http import get_or_404, parse_active_status
+from app.core.http import get_or_404, parse_active_status, parse_month_query
 from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
 from app.domain.attachments.rules import AttachmentTooLargeError, AttachmentTypeBlockedError
 from app.domain.attachments.service import (
@@ -87,6 +87,7 @@ from app.domain.financial.schemas import (
     TransactionSeriesResponse,
     TransactionSeriesUpdateRequest,
     TransactionStatsResponse,
+    TransactionTotalsResponse,
     TransactionUpdateRequest,
     TransferCostCentersRequest,
     TransferFinancialCategoriesRequest,
@@ -105,16 +106,6 @@ from app.integrations.storage.base import FileStorage
 from app.workers.financial_dashboard import schedule_account_balances_refresh
 
 router = APIRouter(tags=["financial"])
-
-_MONTH_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
-
-
-def _parse_month(month: str | None) -> date:
-    if month is None:
-        return date.today().replace(day=1)
-    if not _MONTH_PATTERN.fullmatch(month):
-        raise HTTPException(status_code=422, detail="Mês inválido — use YYYY-MM.")
-    return date.fromisoformat(f"{month}-01")
 
 
 def _category_to_response(
@@ -189,6 +180,23 @@ def _transaction_to_response(row: TransactionRow) -> TransactionResponse:
         is_internal=transaction.is_internal,
         internal_note=transaction.internal_note,
     )
+
+
+def _totals_of(items: list[TransactionResponse]) -> TransactionTotalsResponse:
+    """Totais de um conjunto já pequeno e em memória (série tem no máx. 100 parcelas,
+    spec 057) — não uma listagem paginada, então soma em Python é aceitável aqui
+    (a auditoria numérica de 060 é sobre a UI nunca calcular, não sobre o backend)."""
+    total = sum((item.amount for item in items), Decimal(0))
+    balance = sum(
+        (
+            item.amount if item.kind == TransactionKind.RECEITA else -item.amount
+            for item in items
+            if item.kind != TransactionKind.TRANSFERENCIA
+        ),
+        Decimal(0),
+    )
+    expected = sum((item.amount for item in items if item.payment_date is None), Decimal(0))
+    return TransactionTotalsResponse(total=total, balance=balance, expected=expected)
 
 
 @router.get("/dre-groups")
@@ -560,6 +568,7 @@ async def list_transactions(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TransactionListResponse:
     service = TransactionService(session=session, tenant_id=current_user.tenant_id)
+    internal_filter = None if internal == "all" else internal
     rows = await service.list_transactions(
         kind=kind,
         customer_id=customer_id,
@@ -568,10 +577,24 @@ async def list_transactions(
         due_from=due_from,
         due_to=due_to,
         q=q,
-        internal=None if internal == "all" else internal,
+        internal=internal_filter,
+    )
+    totals = await service.totals(
+        kind=kind,
+        customer_id=customer_id,
+        lawsuit_id=lawsuit_id,
+        status=status_,
+        due_from=due_from,
+        due_to=due_to,
+        q=q,
+        internal=internal_filter,
     )
     return TransactionListResponse(
-        items=[_transaction_to_response(row) for row in rows], total=len(rows)
+        items=[_transaction_to_response(row) for row in rows],
+        total=len(rows),
+        totals=TransactionTotalsResponse(
+            total=totals.total, balance=totals.balance, expected=totals.expected
+        ),
     )
 
 
@@ -583,7 +606,7 @@ async def get_transaction_stats(
     _current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TransactionStatsResponse:
-    reference = _parse_month(month)
+    reference = parse_month_query(month)
     stats = await get_dashboard_stats(
         session, regime=regime, month=reference, account_id=account_id
     )
@@ -595,6 +618,7 @@ async def get_transaction_stats(
         expense_expected=stats.expense_expected,
         expense_realized=stats.expense_realized,
         overdue=stats.overdue,
+        balance_staleness_hint=stats.balance_staleness_hint,
     )
 
 
@@ -607,7 +631,7 @@ async def get_transaction_chart(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TransactionChartResponse:
     """ADVBOX: gráfico "Receitas x Despesas por vencimento"."""
-    reference = _parse_month(month)
+    reference = parse_month_query(month)
     points = await get_chart_series(
         session, month=reference, group_by=group_by, account_id=account_id
     )
@@ -808,7 +832,7 @@ async def update_transaction_series(
     detail_repo = TransactionService(session=session, tenant_id=current_user.tenant_id)
     rows = [await detail_repo.get(transaction.id) for transaction in updated]
     items = [_transaction_to_response(row) for row in rows if row is not None]
-    return TransactionListResponse(items=items, total=len(items))
+    return TransactionListResponse(items=items, total=len(items), totals=_totals_of(items))
 
 
 @router.delete("/transaction-series/{series_id}", status_code=204)

@@ -250,6 +250,100 @@
   configuração de pool. Item re-atribuído à 098 com recomendação mais específica
   (dividir a suíte em grupos paralelos por domínio), não mais "reduzir custo de boot".
 
+## Financeiro — exatidão numérica e agregação (spec 060)
+
+- **Auditoria numérica (Alvo 1): zero `float` em caminho de dinheiro, confirmado por
+  leitura, não por grep automatizado no CI (fora de escopo desta spec).** Todo campo
+  monetário é `NUMERIC(14,2)` no banco e `Decimal` no Python, do model ao service. Os
+  únicos `float` encontrados no domínio financeiro/CRM são: (1) `delta_pct`/`pct` em
+  `lawsuits/stats.py` — percentuais de variação de CONTAGEM (processos, fechamentos),
+  não dinheiro; (2) `JsonDecimal` (`app/core/schemas.py`) — converte `Decimal → float`
+  só na fronteira de serialização JSON (JSON não tem tipo Decimal nativo), depois que
+  todo o cálculo já aconteceu em `Decimal`. Nenhum dos dois é "float no caminho de
+  dinheiro" — são os dois pontos onde a saída deixa de ser dinheiro (é razão ou é wire
+  format) e vira número de exibição.
+- **Arredondamento: `ROUND_HALF_UP` só onde já existia (`_split_amount`, spec 057) —
+  em todo o resto o valor nunca é arredondado, só somado/subtraído.** `Decimal` com 2
+  casas fixas não acumula erro de ponto flutuante em soma/subtração; arredondamento só
+  entra quando um total é DIVIDIDO (parcelamento), e ali o resto sempre vai pra última
+  parcela (regra 2, spec 057) — testado agora para todo N de 2 a 100, não só os poucos
+  N cobertos nos testes originais da 057 (`test_installment_split.py`).
+- **Rodapé da listagem de lançamentos (spec 059, regra 9) somava no CLIENTE — achado
+  e corrigido.** `TransactionsListPage.tsx` reduzia `transactions.map(amount)` em
+  JavaScript para montar "total/saldo/previsto", violando a regra desta própria
+  auditoria ("a UI só formata"). Virou `GET /transactions` devolvendo `totals` já
+  somado no banco, com o MESMO filtro da página (`TransactionRepository.
+  totals_filtered`, reaproveitando `_filter_conditions` de `list_filtered` — nenhuma
+  duplicação de WHERE entre os dois). O front só chama `formatBrl(data.totals.x)`.
+- **Exceção mantida conscientemente: `InstallmentFields.tsx` (spec 057) calcula o
+  preview de parcelas em JS antes de salvar.** Diferente do rodapé, este cálculo NUNCA
+  é a fonte da verdade — é só uma prévia; o valor que de fato persiste vem sempre do
+  `_split_amount` do backend na criação, e a paridade entre os dois já tem teste
+  próprio (`lib/installments.ts` espelhando `_split_amount`, spec 057). Não é a mesma
+  classe de violação do rodapé (que exibia o resultado do cálculo como se fosse dado
+  real, sem contraparte no backend).
+- **Saldo da view materializada = soma direta, verificado por SQL cru e não pelo
+  mesmo código de produção auditado.** `test_saldo_da_view_bate_com_soma_direta_no_
+  mesmo_dataset` cruza `account_daily_balances_visible` contra um `SUM(CASE...)`
+  escrito à mão no teste — um bug nos dois lugares (view e query de produção) não
+  passaria batido se o teste reusasse a mesma lógica Python.
+- **`MaterializedAggregate` (Alvo 2) — extraído `app/core/materialized_view.py`.**
+  `user_monthly_scores` (039) e `account_daily_balances` (059) tinham o mesmo REFRESH
+  CONCURRENTLY/AUTOCOMMIT/superusuário copiado ponto a ponto. Virou uma função
+  compartilhada (`refresh_materialized_view_concurrently`) + um registro central
+  (`MATERIALIZED_VIEWS`, com `refresh_interval_minutes` por view) que as 4 views de BI
+  (074–077) reusam quando chegarem. O wrapper de cada worker (`refresh_user_monthly_
+  scores`, `refresh_account_daily_balances`) ficou só como nome/assinatura estável
+  pros testes existentes, delegando pro helper. A "métrica de defasagem exposta na
+  UI" também sai do registro (`MaterializedViewSpec.staleness_hint()`), não de uma
+  string solta no componente — `TransactionStatsResponse.balance_staleness_hint`.
+- **Permissão financeira (Alvo 3) — 2 vazamentos reais achados e corrigidos.** (1)
+  `GET /lawsuits/{id}/financial-summary` só exigia `require_role(COLABORADOR)`, sem
+  gate de `financial_access` — qualquer colaborador via `received`/`to_receive`/
+  `expenses` de qualquer processo. Ganhou `require_financial(READ_ONLY)` (403 para
+  `NONE`, mesma dupla-`Depends` já usada em `financial-categories`). (2) `GET /crm/
+  board` e `GET /crm/stats` mostravam `case_value`/`total_value`/`stagnant_value` sem
+  checar `financial_access` — corrigido nulando esses 3 campos (não bloqueando o
+  endpoint inteiro, que continua servindo pra quem só precisa navegar processos)
+  quando `financial_access=NONE`, mesmo padrão já usado para `users.salary` (spec
+  012). `test_permission_coverage.py` (mesmo espírito da spec 005) só prova que toda
+  rota declara ALGUMA permissão — não que o NÍVEL é o certo; `test_financial_
+  permission_sweep.py` é a peça nova que varre as rotas financeiras de verdade.
+- **`KanbanBoard` (spec 051) tinha 2 strings de domínio ("Nenhum processo", "Nenhuma
+  fase configurada") coladas no componente genérico — achado e corrigido.** Viraram
+  props (`emptyColumnMessage`/`emptyBoardTitle`/`emptyBoardDescription`) com default
+  neutro; `CrmPage.tsx` passa os textos de processo explicitamente. O teste do
+  componente genérico (`KanbanBoard.test.tsx`) precisou passar a prop — o próprio
+  título do teste já dizia "sem conhecer domínio", e o componente agora cumpre.
+- **Banco: `ix_tx_open`/`ix_tx_effective` confirmados em uso com 100k lançamentos**
+  (seed isolado, mesmo padrão da medição de 20k da spec 040 — não uma suíte
+  permanente). `EXPLAIN ANALYZE` real: atrasados (filtro `due_date`+`payment_date
+  IS NULL`) usa `ix_tx_open`, 18ms; gráfico por vencimento (filtro `NOT is_internal`+
+  intervalo de datas) usa `ix_tx_effective`, 8ms. O agregado de previsto/realizado por
+  regime (`period_totals`) faz *Seq Scan* a 100k linhas — correto pelo plano (o filtro
+  cobre ~metade da tabela nesse teste sintético, seq scan é mais barato que bitmap ali
+  de verdade), e ainda assim 25ms — bem dentro do teto de 300ms do DoD desta spec.
+  Nenhuma mudança de índice foi necessária.
+- **`lawsuit_stage_history` sem política de retenção — investigado, NÃO implementada
+  de propósito.** Ao contrário de `external_requests` (spec 041, 30 dias — log de API
+  descartável), o histórico de fase é dado de negócio (tempo em cada etapa, auditoria
+  de processo) que um usuário pode querer consultar anos depois; decidir um prazo de
+  expurgo é decisão de produto, não engenharia, e apagar errado é irreversível. Sem
+  sinal de que o volume hoje é um problema prático (linha pequena, 1 insert por troca
+  de etapa). Deixado registrado aqui para uma spec futura decidir o prazo com dono de
+  produto, em vez de uma refatoração adivinhar.
+- **Causa raiz real de um flake que 3 specs anteriores (051/052/058) já tinham hit e
+  atribuído a "banco sujo de execução ad-hoc" sem resolver.** `test_datajud_401_
+  permanente_para_o_lote_sem_duplicar_alerta` (`test_resilience_chaos.py`, spec 050)
+  usa `session.begin()` (precisa ler de volta numa sessão separada), diferente do
+  padrão "só `flush`, nunca commit" documentado e seguido pelos outros testes do mesmo
+  domínio — e por isso commitava de verdade um `IntegrationAlert` de SISTEMA
+  (`tenant_id` nulo, visível a QUALQUER tenant pela política de RLS da migration 046)
+  sem nunca limpar. Isso quebrava `test_sync_observability.py` deterministicamente
+  toda vez que a suíte inteira rodava — reproduzível mesmo com o banco recém-limpo,
+  não só em runs sujos. Corrigido com um `DELETE` explícito no teste culpado ao final
+  (higiene de teste, zero mudança na regra de produto verificada).
+
 ## Ambiente de execução do agente (não é decisão de produto)
 
 - Este sandbox resolve Postgres/Redis via o hostname `dind` (Docker-in-Docker remoto), não

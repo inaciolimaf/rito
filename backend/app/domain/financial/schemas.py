@@ -260,10 +260,17 @@ class TransactionResponse(BaseModel):
     internal_note: str | None
 
 
+class TransactionTotalsResponse(BaseModel):
+    total: JsonDecimal
+    balance: JsonDecimal
+    expected: JsonDecimal
+
+
 class TransactionListResponse(BaseModel):
     items: list[TransactionResponse]
     next_cursor: None = None
     total: int
+    totals: TransactionTotalsResponse
 
 
 class PayTransactionRequest(BaseModel):
@@ -311,6 +318,7 @@ class TransactionStatsResponse(BaseModel):
     expense_expected: JsonDecimal
     expense_realized: JsonDecimal
     overdue: JsonDecimal
+    balance_staleness_hint: str
 
 
 class ChartPointResponse(BaseModel):

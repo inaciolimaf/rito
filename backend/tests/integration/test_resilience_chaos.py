@@ -21,7 +21,7 @@ from typing import cast
 
 import httpx
 from redis.asyncio import Redis
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.locks import RedisSyncLock
@@ -185,6 +185,18 @@ async def test_datajud_401_permanente_para_o_lote_sem_duplicar_alerta(
         assert alerts[0].severity == "critical"
     second = await get_lawsuit(setup.sessions, setup.gestor.tenant_id, second_id)
     assert second.datajud_last_sync_at is None  # nunca chegou a ser tentado
+
+    # Limpeza: este teste (diferente dos demais que tocam IntegrationAlert nesta
+    # suíte) usa `session.begin()` de propósito — precisa READ BACK numa sessão
+    # separada (regra acima) — então o alerta de SISTEMA (tenant_id nulo, visível a
+    # QUALQUER tenant pela política da migration 046) É COMMITADO de verdade, ao
+    # contrário do padrão "só flush" usado em test_datajud_service.py/test_sync_
+    # observability.py. Sem apagar aqui, o alerta vaza pro resto da suíte que rodar
+    # depois no mesmo `rito_test` — achado real ao fechar a spec 060 (não é dívida
+    # do produto, é higiene de teste; ver docs/DECISOES.md).
+    async with setup.sessions() as session, session.begin():
+        await set_tenant_context(session, setup.gestor.tenant_id)
+        await session.execute(delete(IntegrationAlert).where(IntegrationAlert.tenant_id.is_(None)))
 
 
 # ---- Alvo 1: DataJud ganha histórico de execução (sync_runs unificado) --------------

@@ -1,13 +1,7 @@
 """Refresh da view materializada user_monthly_scores (spec 039, regra 9).
 
-Duas particularidades da materialized view num setup com RLS:
-
-- REFRESH exige ser dono da view E enxergar todas as linhas; a role de aplicação
-  (rito_app) está sob FORCE RLS e sem `app.tenant_id` veria zero linhas — o refresh
-  esvaziaria a view. Por isso o worker conecta com a MIGRATIONS_DATABASE_URL
-  (superusuário), como faz a fixture admin_engine dos testes.
-- REFRESH ... CONCURRENTLY não roda dentro de transação, então a conexão vai em
-  AUTOCOMMIT.
+A mecânica de REFRESH (AUTOCOMMIT, superusuário) é compartilhada com todo worker de
+matview — ver `app/core/materialized_view.py` (refatoração 060, Alvo 2).
 
 O agendamento imediato (concluir/reabrir tarefa) é feito pelo posts router via
 `schedule_scores_refresh` — com countdown curto para o commit da request acontecer
@@ -19,32 +13,17 @@ antes do refresh; se o broker estiver fora, a conclusão NUNCA falha por causa d
 import asyncio
 import logging
 
-from sqlalchemy import text
-
 from app.core.config import get_settings
-from app.core.db import create_engine_from_url
+from app.core.materialized_view import refresh_materialized_view_concurrently
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 
 
 async def refresh_user_monthly_scores(url: str | None = None) -> None:
-    """REFRESH CONCURRENTLY como superusuário. Recebe a URL para os testes chamarem
-    direto com a MIGRATIONS_DATABASE_URL de teste, sem passar pela fila."""
-    resolved = url or get_settings().migrations_database_url
-    if resolved is None:
-        raise RuntimeError("MIGRATIONS_DATABASE_URL não configurada para o refresh.")
-    engine = create_engine_from_url(resolved)
-    try:
-        conn = await engine.connect()
-        try:
-            # AUTOCOMMIT: REFRESH ... CONCURRENTLY não roda dentro de transação.
-            await conn.execution_options(isolation_level="AUTOCOMMIT")
-            await conn.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY user_monthly_scores"))
-        finally:
-            await conn.close()
-    finally:
-        await engine.dispose()
+    """Wrapper fino — nome/assinatura preservados porque os testes de 039 chamam
+    esta função direto, sem passar pela fila."""
+    await refresh_materialized_view_concurrently("user_monthly_scores", url)
 
 
 @celery_app.task(name="app.workers.scores.refresh_scores")  # type: ignore[untyped-decorator]

@@ -6,9 +6,15 @@ tenant."""
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import date, timedelta
+from decimal import Decimal
 
+import pytest
 from httpx import AsyncClient
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.rls import set_tenant_context
 from app.domain.users.models import FinancialAccess, UserRole
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import (
@@ -565,3 +571,66 @@ async def test_vinculo_com_processo_alimenta_painel_financeiro(
     assert body["to_receive"] == 300.00
     assert body["expenses"] == 200.00
     assert body["net_result"] == 800.00
+
+
+async def test_os_4_check_da_migration_barram_escrita_direta_no_banco(
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Auditoria numérica (refatoração 060): as regras 2/3/6/7 (spec 056) são checadas
+    nos dois lugares — Pydantic (422, sem round-trip) *e* os 4 CHECK da migration
+    (defesa contra escrita direta no banco, mesma dupla camada da spec 055). Este
+    teste só prova a segunda camada — a primeira já está coberta pelos testes de 422
+    acima, que nunca chegam a exercitar o CHECK (Pydantic barra antes)."""
+    gestor, headers = await _make_gestor_full(make_user)
+    receita_id, _d, cost_center_id, account_a, account_b = await _fixtures(client, headers)
+    type_id, _group_id = await _create_lawsuit_type(client, headers)
+    stage_id = await _create_stage(client, headers)
+    lawsuit = await _create_lawsuit(
+        client, headers, user_id=str(gestor.user_id), lawsuit_type_id=type_id, stage_id=stage_id
+    )
+
+    base = (
+        "INSERT INTO transactions "
+        "(tenant_id, kind, user_id, debit_account_id, credit_account_id, category_id, "
+        "cost_center_id, customer_id, lawsuit_id, amount, due_date, payment_date, competence) "
+        "VALUES (:tenant_id, :kind, :user_id, :debit_account_id, :credit_account_id, "
+        ":category_id, :cost_center_id, :customer_id, :lawsuit_id, :amount, :due_date, "
+        ":payment_date, :competence)"
+    )
+    valid_params: dict[str, object] = {
+        "tenant_id": gestor.tenant_id,
+        "kind": "RECEITA",
+        "user_id": gestor.user_id,
+        "debit_account_id": uuid.UUID(account_a),
+        "credit_account_id": None,
+        "category_id": uuid.UUID(receita_id),
+        "cost_center_id": uuid.UUID(cost_center_id),
+        "customer_id": None,
+        "lawsuit_id": None,
+        "amount": Decimal("10.00"),
+        "due_date": date(2026, 8, 20),
+        "payment_date": None,
+        "competence": date(2026, 8, 1),
+    }
+    violations: dict[str, dict[str, object]] = {
+        "ck_tx_amount_positive": {"amount": Decimal("-10.00")},
+        "ck_tx_transfer_accounts": {
+            "kind": "TRANSFERENCIA",
+            "category_id": None,
+            "cost_center_id": None,
+            "credit_account_id": uuid.UUID(account_a),  # igual à origem
+        },
+        "ck_tx_lawsuit_needs_customer": {
+            "lawsuit_id": uuid.UUID(str(lawsuit["id"])),
+            "customer_id": None,
+        },
+        "ck_tx_payment_not_future": {"payment_date": date.today() + timedelta(days=1)},
+    }
+    for constraint_name, override in violations.items():
+        params = {**valid_params, **override}
+        with pytest.raises(IntegrityError, match=constraint_name):
+            async with app_session_factory() as session, session.begin():
+                await set_tenant_context(session, gestor.tenant_id)
+                await session.execute(text(base), params)

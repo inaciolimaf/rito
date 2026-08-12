@@ -3,7 +3,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_redis
-from app.core.permissions import UserRole, require_role
+from app.core.permissions import FinancialAccess, UserRole, require_role
 from app.core.rate_limit import check_and_increment
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.crm.schemas import (
@@ -33,7 +33,7 @@ _RECALCULATE_STAGNATION_LIMIT = 1
 _RECALCULATE_STAGNATION_WINDOW_SECONDS = 3600
 
 
-def _card_to_response(card: BoardCardRow) -> BoardCardResponse:
+def _card_to_response(card: BoardCardRow, *, can_see_value: bool) -> BoardCardResponse:
     lawsuit = card.lawsuit
     return BoardCardResponse(
         id=lawsuit.id,
@@ -42,7 +42,8 @@ def _card_to_response(card: BoardCardRow) -> BoardCardResponse:
         lawsuit_type_name=card.lawsuit_type_name,
         stage_id=lawsuit.stage_id,
         stage_name=card.stage_name,
-        case_value=lawsuit.case_value,
+        # Refatoração 060, Alvo 3: financial_access=NONE não vê valor no card do CRM.
+        case_value=lawsuit.case_value if can_see_value else None,
         responsible_id=lawsuit.user_id,
         responsible_name=card.responsible_name,
         stage_entered_at=lawsuit.stage_entered_at,
@@ -62,6 +63,7 @@ async def get_board(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> BoardResponse:
     """Spec 051, regra 1: as 9 fases, sempre todas, mesmo vazias."""
+    can_see_value = current_user.financial_access != FinancialAccess.NONE
     steps = await StepRepository(session).list_all()
     service = BoardService(session=session, tenant_id=current_user.tenant_id)
     board = await service.get_board(
@@ -72,7 +74,10 @@ async def get_board(
             step_id=step.id,
             step_name=step.name,
             total=board.counts_by_step.get(step.id, 0),
-            items=[_card_to_response(card) for card in board.cards_by_step.get(step.id, [])],
+            items=[
+                _card_to_response(card, can_see_value=can_see_value)
+                for card in board.cards_by_step.get(step.id, [])
+            ],
         )
         for step in steps
     ]
@@ -91,12 +96,13 @@ async def get_board_column(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> BoardColumnPageResponse:
     """Spec 051, regra 7: paginação por scroll de UMA coluna."""
+    can_see_value = current_user.financial_access != FinancialAccess.NONE
     service = BoardService(session=session, tenant_id=current_user.tenant_id)
     page = await service.get_board_column(
         filters=filters_from_query(filters), step_id=step_id, cursor=cursor, limit=limit
     )
     return BoardColumnPageResponse(
-        items=[_card_to_response(card) for card in page.items],
+        items=[_card_to_response(card, can_see_value=can_see_value) for card in page.items],
         next_cursor=page.next_cursor,
         total=page.total,
     )
@@ -109,6 +115,7 @@ async def get_stats(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> CrmStatsResponse:
     """§5: cards de topo do CRM — mesmos filtros do board (regra 8, spec 051)."""
+    can_see_value = current_user.financial_access != FinancialAccess.NONE
     steps = await StepRepository(session).list_all()
     service = BoardService(session=session, tenant_id=current_user.tenant_id)
     stats = await service.get_stats(filters=filters_from_query(filters))
@@ -116,9 +123,10 @@ async def get_stats(
     return CrmStatsResponse(
         total_lawsuits=stats.total_lawsuits,
         received_this_month=stats.received_this_month,
-        total_value=stats.total_value,
+        # Refatoração 060, Alvo 3: financial_access=NONE não vê valor no CRM.
+        total_value=stats.total_value if can_see_value else None,
         stagnant_count=stats.stagnant_count,
-        stagnant_value=stats.stagnant_value,
+        stagnant_value=stats.stagnant_value if can_see_value else None,
         by_step=[
             CrmStatsByStepResponse(
                 step_id=step.id,

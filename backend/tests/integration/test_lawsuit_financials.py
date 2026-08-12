@@ -3,7 +3,7 @@ from collections.abc import Awaitable, Callable
 
 from httpx import AsyncClient
 
-from app.domain.users.models import UserRole
+from app.domain.users.models import FinancialAccess, UserRole
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import (
     _auth_header,
@@ -16,8 +16,9 @@ from tests.integration.test_lawsuits import (
 async def _setup(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> tuple[SeededUser, dict[str, str], str, str]:
-    """Gestor + tipo + etapa prontos para criar processo."""
-    gestor = await make_user(role=UserRole.GESTOR)
+    """Gestor + tipo + etapa prontos para criar processo. financial_access=FULL
+    (refatoração 060, Alvo 3): /financial-summary agora exige acesso financeiro."""
+    gestor = await make_user(role=UserRole.GESTOR, financial_access=FinancialAccess.FULL)
     headers = _auth_header(gestor)
     type_id, _group_id = await _create_lawsuit_type(client, headers)
     stage_id = await _create_stage(client, headers)
@@ -212,7 +213,7 @@ async def test_financial_summary_sem_lancamentos_fica_zerado(
 async def test_financial_summary_processo_inexistente_retorna_404(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
-    gestor = await make_user(role=UserRole.GESTOR)
+    gestor = await make_user(role=UserRole.GESTOR, financial_access=FinancialAccess.FULL)
     response = await client.get(
         f"/api/v1/lawsuits/{uuid.uuid4()}/financial-summary", headers=_auth_header(gestor)
     )

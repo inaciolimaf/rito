@@ -27,6 +27,7 @@ describe("KanbanBoard", () => {
         getItemId={(item) => item.id}
         onMove={vi.fn()}
         renderCard={(item) => <span>{item.title}</span>}
+        emptyColumnMessage="Nenhum processo"
       />,
     );
 

@@ -263,6 +263,9 @@ export function CrmPage(): JSX.Element {
         onLoadMore={(columnId) => void handleLoadMore(columnId)}
         hasMoreByColumn={hasMoreByColumn}
         loadingColumnId={loadingColumnId}
+        emptyColumnMessage="Nenhum processo"
+        emptyBoardTitle="Nenhuma fase configurada"
+        emptyBoardDescription="Configure as fases do funil."
         renderCard={(item) => (
           <div>
             <label className="mb-1 flex items-center gap-1 text-xs text-muted">

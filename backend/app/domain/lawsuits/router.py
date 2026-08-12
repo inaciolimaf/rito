@@ -1,6 +1,4 @@
-import re
 import uuid
-from datetime import date
 from typing import Literal, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -9,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.deps import get_redis
-from app.core.http import get_or_404
+from app.core.http import get_or_404, parse_month_query
 from app.core.locks import RedisSyncLock
-from app.core.permissions import UserRole, require_role
+from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.datajud.exceptions import LawsuitSyncInProgressError
 from app.domain.datajud.movement_sync_service import MovementSyncService, sync_lock_key
@@ -111,8 +109,6 @@ from app.integrations.http.types import HostPolicy
 router = APIRouter(prefix="/lawsuits", tags=["lawsuits"])
 
 _DATAJUD_HOST = "api-publica.datajud.cnj.jus.br"
-
-_MONTH_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 _NOT_FOUND_DETAIL = "Processo não encontrado."
 _PARTY_NOT_FOUND_DETAIL = "Parte não encontrada."
@@ -305,11 +301,7 @@ async def get_lawsuits_stats(
 ) -> LawsuitStatsResponse:
     # Registrada ANTES de "/{lawsuit_id}" — depois dele, "stats" casaria como UUID e
     # daria 422 de path, nunca 200.
-    if month is not None and not _MONTH_PATTERN.fullmatch(month):
-        raise HTTPException(status_code=422, detail="Mês inválido — use YYYY-MM.")
-    reference = (
-        date.fromisoformat(f"{month}-01") if month is not None else date.today().replace(day=1)
-    )
+    reference = parse_month_query(month)
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     stats = await service.get_stats(month=reference, cache=redis)
     return LawsuitStatsResponse(
@@ -659,6 +651,7 @@ async def delete_lawsuit(
 async def get_financial_summary(
     lawsuit_id: uuid.UUID,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    _financial: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> FinancialSummaryResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)

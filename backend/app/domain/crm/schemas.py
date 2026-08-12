@@ -54,9 +54,11 @@ class CrmStatsByStepResponse(BaseModel):
 class CrmStatsResponse(BaseModel):
     total_lawsuits: int
     received_this_month: int
-    total_value: JsonDecimal
+    # None quando financial_access=NONE (refatoração 060, Alvo 3: "não vê valor nem em
+    # endpoint de outro módulo") — mesmo padrão de `users.salary` (spec 012).
+    total_value: JsonDecimal | None
     stagnant_count: int
-    stagnant_value: JsonDecimal
+    stagnant_value: JsonDecimal | None
     by_step: list[CrmStatsByStepResponse]
 
 

@@ -247,16 +247,9 @@ export function TransactionsListPage(): JSX.Element {
     { id: "amount", header: "Valor", cell: (row) => formatBrl(row.amount) },
   ];
 
-  const footer = transactions.reduce(
-    (acc, row) => {
-      acc.total += row.amount;
-      if (row.kind === "RECEITA") acc.balance += row.amount;
-      if (row.kind === "DESPESA") acc.balance -= row.amount;
-      if (!row.payment_date) acc.expected += row.amount;
-      return acc;
-    },
-    { total: 0, balance: 0, expected: 0 },
-  );
+  // Regra 9 (spec 059) — somado no banco (regime da spec 060: nenhum cálculo de
+  // dinheiro no frontend, a UI só formata `footer`, nunca reduz `transactions`).
+  const footer = data?.totals ?? { total: 0, balance: 0, expected: 0 };
 
   return (
     <div className="space-y-4 p-6">

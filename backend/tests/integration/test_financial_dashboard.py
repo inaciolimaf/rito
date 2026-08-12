@@ -8,7 +8,7 @@ from datetime import date
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import event
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
@@ -501,3 +501,60 @@ async def test_fluxo_de_caixa_projeta_saldo_dia_a_dia(
         headers=headers,
     )
     assert invalid_range.status_code == 422
+
+
+async def test_saldo_da_view_bate_com_soma_direta_no_mesmo_dataset(
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Auditoria numérica (refatoração 060, Alvo 1): o saldo que a view materializada
+    devolve tem que bater, ao centavo, com uma SOMA DIRETA em `transactions` — feita
+    aqui por SQL cru, sem passar pelo mesmo código de produção que está sendo
+    auditado (senão um bug no cálculo apareceria idêntico dos dois lados)."""
+    gestor, headers = await _make_gestor_full(make_user)
+    receita_id, despesa_id, cost_center_id, account_a, _b = await _fixtures(client, headers)
+
+    # Valores "feios" de propósito — dízimas e centavos que forçam arredondamento.
+    amounts = [
+        ("RECEITA", "1234.57"),
+        ("DESPESA", "333.33"),
+        ("RECEITA", "0.01"),
+        ("DESPESA", "999.99"),
+    ]
+    for kind, amount in amounts:
+        payload = (
+            _receita_payload(
+                category_id=receita_id,
+                cost_center_id=cost_center_id,
+                account_id=account_a,
+                amount=amount,
+            )
+            if kind == "RECEITA"
+            else _despesa_payload(
+                category_id=despesa_id,
+                cost_center_id=cost_center_id,
+                account_id=account_a,
+                amount=amount,
+            )
+        )
+        created = await client.post("/api/v1/transactions", json=payload, headers=headers)
+        assert created.status_code == 201, created.text
+        await _pay(client, headers, created.json()["id"], "2026-08-11")
+    await _refresh()
+
+    balances = await client.get("/api/v1/bank-accounts/balances", headers=headers)
+    row = next(item for item in balances.json()["items"] if item["account_id"] == account_a)
+
+    async with app_session_factory() as session:
+        await set_tenant_context(session, gestor.tenant_id)
+        direct_sum = await session.scalar(
+            text(
+                "SELECT COALESCE(SUM(CASE WHEN kind = 'RECEITA' THEN amount ELSE -amount END), 0) "
+                "FROM transactions WHERE debit_account_id = CAST(:account_id AS uuid) "
+                "AND payment_date IS NOT NULL AND NOT is_internal"
+            ),
+            {"account_id": account_a},
+        )
+
+    assert row["balance"] == float(direct_sum)

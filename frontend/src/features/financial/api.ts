@@ -282,15 +282,27 @@ export interface ListTransactionsParams {
   internal?: "true" | "false" | "all";
 }
 
+export interface TransactionTotals {
+  total: number;
+  balance: number;
+  expected: number;
+}
+
+/** Rodapé (spec 059 regra 9) somado no banco, nunca no cliente — auditoria numérica
+ * da spec 060 ("nenhum cálculo de dinheiro no frontend, a UI só formata"). */
+export interface TransactionListResponseData extends ListResponse<TransactionData> {
+  totals: TransactionTotals;
+}
+
 export async function listTransactions(
   params: ListTransactionsParams,
-): Promise<ListResponse<TransactionData>> {
+): Promise<TransactionListResponseData> {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== "") query.set(key, String(value));
   }
   const queryString = query.toString();
-  return apiRequest<ListResponse<TransactionData>>(
+  return apiRequest<TransactionListResponseData>(
     `/api/v1/transactions${queryString ? `?${queryString}` : ""}`,
   );
 }
@@ -386,8 +398,8 @@ export async function updateTransactionSeries(
   seriesId: string,
   scope: SeriesScope,
   values: TransactionSeriesUpdatePayload,
-): Promise<ListResponse<TransactionData>> {
-  return apiRequest<ListResponse<TransactionData>>(
+): Promise<TransactionListResponseData> {
+  return apiRequest<TransactionListResponseData>(
     `/api/v1/transaction-series/${seriesId}?scope=${scope}`,
     { method: "PUT", body: values },
   );
@@ -425,6 +437,7 @@ export interface TransactionStats {
   expense_expected: number;
   expense_realized: number;
   overdue: number;
+  balance_staleness_hint: string;
 }
 
 export interface GetTransactionStatsParams {

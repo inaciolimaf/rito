@@ -17,6 +17,11 @@ export interface KanbanBoardProps<T> {
   onLoadMore?: (columnId: string) => void;
   hasMoreByColumn?: Record<string, boolean>;
   loadingColumnId?: string | null;
+  /** Regra do refactor 060 (SOLID): o componente não sabe o que é um "processo" —
+   * quem chama decide os textos de estado vazio. */
+  emptyColumnMessage?: string;
+  emptyBoardTitle?: string;
+  emptyBoardDescription?: string;
 }
 
 /** `KanbanBoard<T>` genérico (spec 051 §6) — não conhece processo; recebe colunas,
@@ -35,6 +40,9 @@ export function KanbanBoard<T>({
   onLoadMore,
   hasMoreByColumn,
   loadingColumnId,
+  emptyColumnMessage = "Nenhum item",
+  emptyBoardTitle = "Nenhuma coluna configurada",
+  emptyBoardDescription = "Configure as colunas do board.",
 }: KanbanBoardProps<T>): JSX.Element {
   const dragRef = React.useRef<{ itemId: string; fromColumnId: string } | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = React.useState<string | null>(null);
@@ -77,7 +85,7 @@ export function KanbanBoard<T>({
             </div>
             <div className="flex flex-col gap-2 p-2">
               {items.length === 0 ? (
-                <p className="px-1 py-4 text-center text-xs text-muted">Nenhum processo</p>
+                <p className="px-1 py-4 text-center text-xs text-muted">{emptyColumnMessage}</p>
               ) : (
                 items.map((item) => {
                   const itemId = getItemId(item);
@@ -115,7 +123,7 @@ export function KanbanBoard<T>({
         );
       })}
       {columns.length === 0 && (
-        <EmptyState title="Nenhuma fase configurada" description="Configure as fases do funil." />
+        <EmptyState title={emptyBoardTitle} description={emptyBoardDescription} />
       )}
     </div>
   );

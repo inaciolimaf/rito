@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.rls import set_tenant_context
-from app.domain.users.models import UserRole
+from app.domain.users.models import FinancialAccess, UserRole
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuit_timeline import _seed_tribunal
 from tests.integration.test_lawsuits import (
@@ -84,7 +84,10 @@ async def _make_factory(
     make_user: Callable[..., Awaitable[SeededUser]],
     app_session_factory: async_sessionmaker[AsyncSession],
 ) -> LawsuitFactory:
-    gestor = await make_user(role=UserRole.GESTOR)
+    # financial_access=FULL (refatoração 060, Alvo 3): CRM/board/stats agora escondem
+    # case_value/total_value/stagnant_value sem acesso financeiro, e esta factory é
+    # reusada por testes que verificam esses valores.
+    gestor = await make_user(role=UserRole.GESTOR, financial_access=FinancialAccess.FULL)
     headers = _auth_header(gestor)
     type_id, _group_id = await _create_lawsuit_type(client, headers)
     stage_id = await _create_stage(client, headers)

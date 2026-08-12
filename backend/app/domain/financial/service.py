@@ -49,6 +49,7 @@ from app.domain.financial.repository import (
     TransactionRepository,
     TransactionRow,
     TransactionSeriesRepository,
+    TransactionTotals,
 )
 from app.domain.financial.schemas import (
     BankAccountCreateRequest,
@@ -357,6 +358,31 @@ class TransactionService:
                 q=q,
                 internal=internal,
             )
+        )
+
+    async def totals(
+        self,
+        *,
+        kind: TransactionKind | None,
+        customer_id: uuid.UUID | None,
+        lawsuit_id: uuid.UUID | None,
+        status: str | None,
+        due_from: date | None,
+        due_to: date | None,
+        q: str | None,
+        internal: str | None = None,
+    ) -> TransactionTotals:
+        """Rodapé da listagem (spec 059 §7 regra 9) — mesmo filtro de `list_transactions`,
+        somado no banco (auditoria numérica, spec 060: zero cálculo de dinheiro no front)."""
+        return await self.transactions.totals_filtered(
+            kind=kind,
+            customer_id=customer_id,
+            lawsuit_id=lawsuit_id,
+            status=status,
+            due_from=due_from,
+            due_to=due_to,
+            q=q,
+            internal=internal,
         )
 
     async def get(self, transaction_id: uuid.UUID) -> TransactionRow | None:

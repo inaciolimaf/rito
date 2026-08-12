@@ -263,7 +263,7 @@ Flag "apenas registro interno" (não afeta saldo); anexos por lançamento.
 Saldo com variação, receita/despesa prevista vs realizada, atrasados; 4 regimes de visualização (pagamento, vencimento, competência, **fluxo de caixa**); saldo por conta.
 **Aceite:** cada regime muda a agregação corretamente. **t:** 6 s. **Deps:** 058
 
-### ⬜ 060 — 🔧 REFATORAÇÃO — CRM e Financeiro I
+### ✅ 060 — 🔧 REFATORAÇÃO — CRM e Financeiro I
 **t:** −
 
 ---

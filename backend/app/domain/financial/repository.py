@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Row, Select, func, select
+from sqlalchemy import ColumnElement, Row, Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -158,6 +158,13 @@ class LawsuitFinancialTotals:
     expenses: Decimal
 
 
+@dataclass
+class TransactionTotals:
+    total: Decimal
+    balance: Decimal
+    expected: Decimal
+
+
 class TransactionRepository(BaseRepository[Transaction]):
     model = Transaction
 
@@ -201,6 +208,45 @@ class TransactionRepository(BaseRepository[Transaction]):
         row = (await self.session.execute(stmt)).first()
         return self._row_to_transaction_row(row) if row is not None else None
 
+    @staticmethod
+    def _filter_conditions(
+        *,
+        kind: TransactionKind | None,
+        customer_id: uuid.UUID | None,
+        lawsuit_id: uuid.UUID | None,
+        status: str | None,
+        due_from: date | None,
+        due_to: date | None,
+        q: str | None,
+        internal: str | None,
+    ) -> list[ColumnElement[bool]]:
+        """Refatoração 060 (duplicação): condições compartilhadas por `list_filtered` e
+        `totals_filtered` — o rodapé da listagem soma no banco com o MESMO filtro da
+        página, nunca reduzindo `amount` no cliente (regra do audit numérico)."""
+        conditions: list[ColumnElement[bool]] = []
+        if kind is not None:
+            conditions.append(Transaction.kind == kind)
+        if customer_id is not None:
+            conditions.append(Transaction.customer_id == customer_id)
+        if lawsuit_id is not None:
+            conditions.append(Transaction.lawsuit_id == lawsuit_id)
+        if status == "paid":
+            conditions.append(Transaction.payment_date.is_not(None))
+        elif status == "open":
+            conditions.append(Transaction.payment_date.is_(None))
+        if due_from is not None:
+            conditions.append(Transaction.due_date >= due_from)
+        if due_to is not None:
+            conditions.append(Transaction.due_date <= due_to)
+        if q:
+            conditions.append(Transaction.description.ilike(f"%{q}%"))
+        # Regra 9 (spec 058): filtro padrão é "all" — só filtra quando pedido de propósito.
+        if internal == "true":
+            conditions.append(Transaction.is_internal.is_(True))
+        elif internal == "false":
+            conditions.append(Transaction.is_internal.is_(False))
+        return conditions
+
     async def list_filtered(
         self,
         *,
@@ -213,30 +259,61 @@ class TransactionRepository(BaseRepository[Transaction]):
         q: str | None = None,
         internal: str | None = None,
     ) -> Sequence[TransactionRow]:
-        stmt = self._select_with_names().order_by(Transaction.due_date.desc(), Transaction.id)
-        if kind is not None:
-            stmt = stmt.where(Transaction.kind == kind)
-        if customer_id is not None:
-            stmt = stmt.where(Transaction.customer_id == customer_id)
-        if lawsuit_id is not None:
-            stmt = stmt.where(Transaction.lawsuit_id == lawsuit_id)
-        if status == "paid":
-            stmt = stmt.where(Transaction.payment_date.is_not(None))
-        elif status == "open":
-            stmt = stmt.where(Transaction.payment_date.is_(None))
-        if due_from is not None:
-            stmt = stmt.where(Transaction.due_date >= due_from)
-        if due_to is not None:
-            stmt = stmt.where(Transaction.due_date <= due_to)
-        if q:
-            stmt = stmt.where(Transaction.description.ilike(f"%{q}%"))
-        # Regra 9 (spec 058): filtro padrão é "all" — só filtra quando pedido de propósito.
-        if internal == "true":
-            stmt = stmt.where(Transaction.is_internal.is_(True))
-        elif internal == "false":
-            stmt = stmt.where(Transaction.is_internal.is_(False))
+        conditions = self._filter_conditions(
+            kind=kind,
+            customer_id=customer_id,
+            lawsuit_id=lawsuit_id,
+            status=status,
+            due_from=due_from,
+            due_to=due_to,
+            q=q,
+            internal=internal,
+        )
+        stmt = (
+            self._select_with_names()
+            .where(*conditions)
+            .order_by(Transaction.due_date.desc(), Transaction.id)
+        )
         rows = (await self.session.execute(stmt)).all()
         return [self._row_to_transaction_row(row) for row in rows]
+
+    async def totals_filtered(
+        self,
+        *,
+        kind: TransactionKind | None = None,
+        customer_id: uuid.UUID | None = None,
+        lawsuit_id: uuid.UUID | None = None,
+        status: str | None = None,
+        due_from: date | None = None,
+        due_to: date | None = None,
+        q: str | None = None,
+        internal: str | None = None,
+    ) -> TransactionTotals:
+        """Rodapé da listagem (spec 059 regra 9) — somado no banco com o MESMO filtro
+        da página (não a página visível), nunca no frontend (auditoria numérica, 060)."""
+        conditions = self._filter_conditions(
+            kind=kind,
+            customer_id=customer_id,
+            lawsuit_id=lawsuit_id,
+            status=status,
+            due_from=due_from,
+            due_to=due_to,
+            q=q,
+            internal=internal,
+        )
+        is_receita = Transaction.kind == TransactionKind.RECEITA
+        is_despesa = Transaction.kind == TransactionKind.DESPESA
+        is_open = Transaction.payment_date.is_(None)
+        stmt = select(
+            func.coalesce(func.sum(Transaction.amount), 0),
+            func.coalesce(func.sum(Transaction.amount).filter(is_receita), 0)
+            - func.coalesce(func.sum(Transaction.amount).filter(is_despesa), 0),
+            func.coalesce(func.sum(Transaction.amount).filter(is_open), 0),
+        ).where(*conditions)
+        total, balance, expected = (await self.session.execute(stmt)).one()
+        return TransactionTotals(
+            total=Decimal(total), balance=Decimal(balance), expected=Decimal(expected)
+        )
 
     async def lawsuit_financial_totals(self, lawsuit_id: uuid.UUID) -> LawsuitFinancialTotals:
         """Regra 11 (spec 056): alimenta o painel financeiro do processo (spec 024).

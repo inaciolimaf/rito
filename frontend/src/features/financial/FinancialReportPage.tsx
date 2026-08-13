@@ -142,8 +142,16 @@ export function FinancialReportPage(): JSX.Element {
       <FilterBar fields={filterFields} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <StatCard label="Receita" value={formatBrl(data?.total_receita ?? 0)} isLoading={isLoading} />
-        <StatCard label="Despesa" value={formatBrl(data?.total_despesa ?? 0)} isLoading={isLoading} />
+        <StatCard
+          label="Receita"
+          value={formatBrl(data?.total_receita ?? 0)}
+          isLoading={isLoading}
+        />
+        <StatCard
+          label="Despesa"
+          value={formatBrl(data?.total_despesa ?? 0)}
+          isLoading={isLoading}
+        />
         <StatCard
           label="Resultado"
           value={formatBrl(data?.resultado ?? 0)}

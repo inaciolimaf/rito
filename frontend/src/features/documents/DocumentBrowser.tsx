@@ -48,7 +48,7 @@ function formatDate(value: string): string {
 export function DocumentBrowser({ scopeType, scopeId }: DocumentBrowserProps): JSX.Element {
   const queryClient = useQueryClient();
   const [folderStack, setFolderStack] = React.useState<DocumentFolderData[]>([]);
-  const currentFolderId = folderStack.length > 0 ? folderStack[folderStack.length - 1].id : null;
+  const currentFolderId = folderStack.at(-1)?.id ?? null;
   const [sort, setSort] = React.useState<DocumentSortField>("name");
   const [order, setOrder] = React.useState<DocumentSortOrder>("asc");
   const [search, setSearch] = React.useState("");
@@ -66,7 +66,13 @@ export function DocumentBrowser({ scopeType, scopeId }: DocumentBrowserProps): J
   const listQuery = useQuery({
     queryKey: ["documents", scopeType, scopeId, currentFolderId, sort, order],
     queryFn: () =>
-      listDocuments({ scope_type: scopeType, scope_id: scopeId, folder_id: currentFolderId, sort, order }),
+      listDocuments({
+        scope_type: scopeType,
+        scope_id: scopeId,
+        folder_id: currentFolderId,
+        sort,
+        order,
+      }),
     enabled: search.trim() === "",
   });
 
@@ -92,7 +98,9 @@ export function DocumentBrowser({ scopeType, scopeId }: DocumentBrowserProps): J
     onSuccess: (results) => {
       const failed = results.filter((item) => item.status === "error");
       setUploadError(
-        failed.length > 0 ? failed.map((item) => `${item.filename}: ${item.error}`).join(" · ") : null,
+        failed.length > 0
+          ? failed.map((item) => `${item.filename}: ${item.error}`).join(" · ")
+          : null,
       );
       invalidate();
     },
@@ -214,7 +222,11 @@ export function DocumentBrowser({ scopeType, scopeId }: DocumentBrowserProps): J
 
       {!isSearching && folderStack.length > 0 && (
         <div className="flex flex-wrap items-center gap-1 text-sm text-muted">
-          <button type="button" className="text-accent underline" onClick={() => setFolderStack([])}>
+          <button
+            type="button"
+            className="text-accent underline"
+            onClick={() => setFolderStack([])}
+          >
             Raiz
           </button>
           {folderStack.map((folder, index) => (
@@ -322,7 +334,9 @@ export function DocumentBrowser({ scopeType, scopeId }: DocumentBrowserProps): J
         title="Excluir documento"
         description={`Tem certeza que deseja excluir "${pendingDeleteDocument?.filename}"? Essa ação não pode ser desfeita.`}
         destructive
-        onConfirm={() => pendingDeleteDocument && removeDocument.mutate(pendingDeleteDocument.id)}
+        onConfirm={() => {
+          if (pendingDeleteDocument) removeDocument.mutate(pendingDeleteDocument.id);
+        }}
       />
       <ConfirmDialog
         open={pendingDeleteFolder !== null}
@@ -330,7 +344,9 @@ export function DocumentBrowser({ scopeType, scopeId }: DocumentBrowserProps): J
         title="Excluir pasta"
         description={`Tem certeza que deseja excluir "${pendingDeleteFolder?.name}"? Subpastas e arquivos dentro dela também serão excluídos.`}
         destructive
-        onConfirm={() => pendingDeleteFolder && removeFolder.mutate(pendingDeleteFolder.id)}
+        onConfirm={() => {
+          if (pendingDeleteFolder) removeFolder.mutate(pendingDeleteFolder.id);
+        }}
       />
     </div>
   );

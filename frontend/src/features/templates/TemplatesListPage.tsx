@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import * as React from "react";
+import { useNavigate } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
@@ -17,7 +17,6 @@ import {
   duplicateTemplate,
   listTemplates,
   restoreTemplate,
-  updateTemplate,
   type TemplateData,
   type TemplateType,
   type TemplateView,
@@ -57,10 +56,12 @@ function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("pt-BR");
 }
 
-/** Biblioteca de modelos (spec 064) — o editor rico (spec 065) e as variáveis (spec
- * 066) chegam depois; aqui é só cadastro, tipo, busca e lixeira reversível. */
+/** Biblioteca de modelos (spec 064) — aqui só cadastro rápido (nome + tipo), busca,
+ * filtro por tipo e lixeira. O conteúdo (spec 065) e as variáveis (spec 066) se
+ * editam em `/library/:id`, pra onde "Novo modelo" e "Editar" levam. */
 export function TemplatesListPage(): JSX.Element {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { values } = useFilters(FILTER_FIELDS);
   const view = typeof values.view === "string" ? (values.view as TemplateView) : "all";
   const q = typeof values.q === "string" ? values.q : undefined;
@@ -72,20 +73,24 @@ export function TemplatesListPage(): JSX.Element {
   });
 
   const {
-    editing: editingTemplate,
     modalOpen,
     setModalOpen,
     formError,
     pendingDelete,
     setPendingDelete,
     openCreateModal,
-    openEditModal,
     handleSubmit,
     handleConfirmDelete,
   } = useCrudResource<TemplateData, TemplateFormValues>({
     queryKey: ["templates"],
-    create: createTemplate,
-    update: (template, formValues) => updateTemplate(template.id, formValues),
+    create: async (formValues) => {
+      const created = await createTemplate({ ...formValues, content: "" });
+      navigate(`/library/${created.id}`);
+      return created;
+    },
+    update: async () => {
+      throw new Error("Edição acontece em /library/:id, não neste modal.");
+    },
     remove: (template) => deleteTemplate(template.id),
   });
 
@@ -136,7 +141,7 @@ export function TemplatesListPage(): JSX.Element {
                 <button
                   type="button"
                   className="text-sm text-accent underline"
-                  onClick={() => openEditModal(row)}
+                  onClick={() => navigate(`/library/${row.id}`)}
                 >
                   Editar
                 </button>
@@ -163,9 +168,9 @@ export function TemplatesListPage(): JSX.Element {
       <FormModal
         open={modalOpen}
         onOpenChange={setModalOpen}
-        title={editingTemplate ? "Editar modelo" : "Novo modelo"}
+        title="Novo modelo"
         schema={templateFormSchema}
-        defaultValues={editingTemplate ? { ...editingTemplate } : DEFAULT_TEMPLATE_FORM_VALUES}
+        defaultValues={DEFAULT_TEMPLATE_FORM_VALUES}
         serverError={formError}
         onSubmit={handleSubmit}
       >
@@ -191,15 +196,6 @@ export function TemplatesListPage(): JSX.Element {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="template-content">Conteúdo</Label>
-              <textarea
-                id="template-content"
-                rows={6}
-                className="w-full rounded border border-default bg-surface px-3 py-2 text-sm text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                {...form.register("content")}
-              />
             </div>
           </>
         )}

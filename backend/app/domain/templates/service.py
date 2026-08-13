@@ -5,8 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.templates.exceptions import TemplateNotFoundError
-from app.domain.templates.models import Template, TemplateType
+from app.domain.templates.models import Template
 from app.domain.templates.repository import TemplateRepository
+from app.domain.templates.schemas import TemplateCreateRequest, TemplateUpdateRequest
 
 
 class TemplateService:
@@ -39,31 +40,33 @@ class TemplateService:
             raise TemplateNotFoundError
         return template
 
-    async def create(
-        self, user_id: uuid.UUID, *, name: str, type_: TemplateType, content: str
-    ) -> Template:
+    async def create(self, user_id: uuid.UUID, data: TemplateCreateRequest) -> Template:
         return await self.templates.create(
             Template(
                 tenant_id=self.tenant_id,
-                name=name,
-                type=type_,
-                content=content,
+                name=data.name,
+                type=data.type,
+                content=data.content,
+                header_content=data.header_content,
+                footer_content=data.footer_content,
+                watermark_text=data.watermark_text,
                 created_by=user_id,
             )
         )
 
-    async def update(
-        self, template_id: uuid.UUID, *, name: str, type_: TemplateType, content: str
-    ) -> Template:
+    async def update(self, template_id: uuid.UUID, data: TemplateUpdateRequest) -> Template:
         template = await self.get(template_id)
-        template.name = name
-        template.type = type_
-        template.content = content
+        template.name = data.name
+        template.type = data.type
+        template.content = data.content
+        template.header_content = data.header_content
+        template.footer_content = data.footer_content
+        template.watermark_text = data.watermark_text
         template.updated_at = datetime.now(UTC)
         return template
 
     async def move_to_trash(self, template_id: uuid.UUID) -> None:
-        """Regra 3: lixeira reversível — nunca apaga a linha."""
+        """Regra 3 (spec 064): lixeira reversível — nunca apaga a linha."""
         template = await self.get(template_id)
         template.deleted_at = datetime.now(UTC)
 
@@ -74,7 +77,9 @@ class TemplateService:
         return template
 
     async def duplicate(self, template_id: uuid.UUID, user_id: uuid.UUID) -> Template:
-        """Regra 6: cópia sempre ativa (nunca herda `deleted_at` do original)."""
+        """Regra 6 (spec 064): cópia sempre ativa (nunca herda `deleted_at` do
+        original) — leva cabeçalho/rodapé/marca d'água junto (regra 065 §1: fazem
+        parte do documento, não só o corpo)."""
         original = await self.get(template_id)
         return await self.templates.create(
             Template(
@@ -82,6 +87,9 @@ class TemplateService:
                 name=f"{original.name} (cópia)",
                 type=original.type,
                 content=original.content,
+                header_content=original.header_content,
+                footer_content=original.footer_content,
+                watermark_text=original.watermark_text,
                 created_by=user_id,
             )
         )

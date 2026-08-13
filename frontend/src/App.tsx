@@ -27,6 +27,7 @@ import { PublicationListPage } from "@/features/publications/PublicationListPage
 import { CalendarPage } from "@/features/schedule/CalendarPage";
 import { StagesListPage } from "@/features/stages/StagesListPage";
 import { TaskTypesListPage } from "@/features/task-types/TaskTypesListPage";
+import { TemplateEditorPage } from "@/features/templates/TemplateEditorPage";
 import { TemplatesListPage } from "@/features/templates/TemplatesListPage";
 import { GoalsSettingsPage } from "@/features/taskscore/GoalsSettingsPage";
 import { UserDetailPage } from "@/features/users/UserDetailPage";
@@ -84,6 +85,7 @@ export function App(): JSX.Element {
                     <Route path="/crm" element={<CrmPage />} />
                     <Route path="/transactions" element={<TransactionsListPage />} />
                     <Route path="/library" element={<TemplatesListPage />} />
+                    <Route path="/library/:id" element={<TemplateEditorPage />} />
                     {ROUTABLE_NAV_ITEMS.filter(
                       (item) =>
                         item.path !== "/home" &&

@@ -88,7 +88,11 @@ export function LawsuitDetailPage(): JSX.Element {
         )}
       </div>
 
-      <div role="tablist" aria-label="Seções do processo" className="flex gap-1 border-b border-default">
+      <div
+        role="tablist"
+        aria-label="Seções do processo"
+        className="flex gap-1 border-b border-default"
+      >
         {TABS.map((item) => (
           <button
             key={item.value}

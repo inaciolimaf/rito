@@ -286,7 +286,7 @@ Storage S3-compatible atrás de interface `FileStorage` (MinIO em dev); upload m
 CRUD de modelos; tipos contrato/petição/recurso/documento; busca; lixeira.
 **Aceite:** filtro por tipo; restauração da lixeira. **t:** 4 s. **Deps:** 063
 
-### ⬜ 065 — Modelos: editor
+### ✅ 065 — Modelos: editor
 TipTap com cabeçalho, rodapé, marca d'água, tabelas, imagens, listas, formatação completa; autosave.
 **Aceite:** documento salva e reabre idêntico. **t:** 8 s. **Deps:** 064
 

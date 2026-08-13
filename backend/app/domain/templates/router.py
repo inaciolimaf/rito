@@ -28,6 +28,9 @@ def _to_response(template: Template) -> TemplateResponse:
         name=template.name,
         type=template.type,
         content=template.content,
+        header_content=template.header_content,
+        footer_content=template.footer_content,
+        watermark_text=template.watermark_text,
         created_by=template.created_by,
         deleted_at=template.deleted_at,
         created_at=template.created_at,
@@ -63,9 +66,7 @@ async def create_template(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TemplateResponse:
     service = TemplateService(session=session, tenant_id=current_user.tenant_id)
-    template = await service.create(
-        current_user.id, name=payload.name, type_=payload.type, content=payload.content
-    )
+    template = await service.create(current_user.id, payload)
     return _to_response(template)
 
 
@@ -92,9 +93,7 @@ async def update_template(
 ) -> TemplateResponse:
     service = TemplateService(session=session, tenant_id=current_user.tenant_id)
     try:
-        template = await service.update(
-            template_id, name=payload.name, type_=payload.type, content=payload.content
-        )
+        template = await service.update(template_id, payload)
     except TemplateNotFoundError as exc:
         raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL) from exc
     return _to_response(template)

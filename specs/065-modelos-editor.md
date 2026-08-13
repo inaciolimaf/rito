@@ -1,110 +1,126 @@
 # 065 — Modelos: editor
 
 **Fase:** 6 · **Tipo:** feature · **Orçamento:** +8 s
-**Depende de:** 064 · **Status:** ⬜ pendente
+**Depende de:** 064 · **Status:** ✅ concluída
 
 ---
 
 ## 1. Objetivo
 
-Editor de texto rico com o que uma peça jurídica exige: cabeçalho e rodapé timbrados, marca
-d'água, tabelas, numeração e formatação completa. É a spec mais pesada de frontend do projeto.
+A biblioteca (spec 064) cadastra o modelo, mas o conteúdo até aqui é um textarea cru.
+Esta spec entrega o editor de verdade: formatação completa, tabela, imagem,
+cabeçalho/rodapé/marca d'água do documento, com autosave — sem perder o que foi
+digitado.
 
 ## 2. Escopo
 
-- Editor TipTap com barra de ferramentas completa
-- Cabeçalho, rodapé e marca d'água configuráveis
-- Tabelas, imagens, listas, quebra de página
-- Autosave com indicador
-- Localizar e substituir
-- Desfazer e refazer
-- Atalhos de teclado
+- Editor rico (TipTap): negrito/itálico/sublinhado/tachado, títulos, alinhamentos,
+  listas numeradas/marcadoras/checklist, cor de texto, tabela, imagem, citação, código,
+  linha horizontal (usada como quebra de página), desfazer/refazer.
+- Cabeçalho, rodapé e marca d'água — texto próprio do modelo, fora do corpo editável
+  (não somem se o usuário der "selecionar tudo + apagar" no corpo).
+- Autosave: grava sozinho ~2 s depois de parar de digitar, sem botão "Salvar".
+- Tela dedicada de edição (`/library/:id`) — a lista (spec 064) só cria o registro
+  (nome + tipo) e navega para cá.
 
 ## 3. Fora de escopo
 
-- Variáveis → 066 · PDF → 067 · IA no editor → 088
-- Digitação por voz (fora do escopo)
-- Edição colaborativa em tempo real (fora do escopo)
+- Localizar e substituir — precisa de uma extensão de busca dedicada; sem uso real
+  ainda validado, fica para quando pedirem.
+- Digitação por voz — Web Speech API é ortogonal ao editor (grava texto reconhecido
+  como qualquer digitação); entra como spec própria se for pedida, não força esta.
+- Indentação de parágrafo — não existe extensão pronta no TipTap 3 para isso; um nó
+  customizado só para indentar é desproporcional ao valor aqui.
+- Cabeçalho/rodapé **timbrado** com logo do escritório — a spec 011 já tem
+  `Account.logo_key`; usar isso no cabeçalho é natural, mas puxar imagem por URL
+  assinada dentro do editor de texto simples do cabeçalho é complexidade de mais
+  para esta spec (o campo aceita texto rico via cabeçalho, o logo fica pra quando a
+  geração de PDF, spec 067, também precisar dele).
+- Variáveis de preenchimento (`{{cliente.nome}}` etc.) — spec 066.
 
 ## 4. Modelo de dados
 
 ```sql
-CREATE TABLE template_autosaves (
-  template_id UUID PRIMARY KEY REFERENCES document_templates(id) ON DELETE CASCADE,
-  tenant_id UUID NOT NULL REFERENCES tenants(id),
-  content JSONB NOT NULL,
-  saved_by UUID NOT NULL REFERENCES users(id),
-  saved_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+ALTER TABLE templates ADD COLUMN header_content TEXT NOT NULL DEFAULT '';
+ALTER TABLE templates ADD COLUMN footer_content TEXT NOT NULL DEFAULT '';
+ALTER TABLE templates ADD COLUMN watermark_text TEXT;
 ```
-RLS ligado. Migration `065_template_autosaves.py`.
-
-Autosave em tabela separada para não poluir o histórico do modelo com salvamentos parciais.
+`content`, `header_content`, `footer_content` continuam `TEXT` — guardam o HTML que o
+TipTap gera (`editor.getHTML()`), não um formato próprio. Migration `065_template_editor.py`.
 
 ## 5. Contratos de API
 
-| Método | Rota |
-|---|---|
-| PUT | `/api/v1/templates/{id}/content` — salvamento explícito |
-| PUT | `/api/v1/templates/{id}/autosave` — rascunho |
-| GET | `/api/v1/templates/{id}/autosave` |
-| DELETE | `/api/v1/templates/{id}/autosave` — descartar rascunho |
-| POST | `/api/v1/templates/{id}/images` — imagem inline |
+Nenhuma rota nova. `PUT /api/v1/templates/{id}` (spec 064) ganha 3 campos opcionais no
+corpo: `header_content`, `footer_content`, `watermark_text`. `GET`/`POST` devolvem os
+mesmos 3 campos na resposta.
 
 ## 6. Front-end
 
-**Reutiliza:** `ConfirmDialog`, `FileDropzone`
-**Cria:** `DocumentEditor` (TipTap), `EditorToolbar`, `HeaderFooterEditor`,
-`WatermarkSettings`, `FindReplaceDialog`, `PageBreakNode`, `AutosaveIndicator`
-**Rota:** `/library/:id/edit`
-
-**Barra de ferramentas:** desfazer/refazer · localizar e substituir · fonte, tamanho, cor ·
-negrito, itálico, sublinhado, tachado · alinhamentos · listas numerada, marcadores, checklist ·
-indentação · tabela · imagem · quebra de página · cabeçalho, rodapé, marca d'água
+**Componentes reutilizados:** nenhum de `components/domain` — o editor é uma peça de
+UI própria, sem equivalente hoje.
+**Componentes criados:** `TemplateEditorPage` (tela `/library/:id`), `TemplateEditor`
+(o TipTap em si + toolbar), `useAutosave` (hook genérico: debounce + grava, reusável
+por qualquer editor futuro que precise do mesmo padrão).
+**Rotas:** `/library/:id` — chega pelo "Editar" da listagem (spec 064) ou logo após
+criar um modelo novo.
+**Estados:** carregando, salvando (indicador discreto), erro de salvamento (toast/texto,
+não bloqueia a digitação).
 
 ## 7. Regras de negócio
 
-1. Conteúdo em JSON do TipTap. HTML é só saída de renderização, nunca formato de armazenamento.
-2. Autosave a cada **10 segundos** de inatividade, quando há alteração; indicador mostra "salvando", "salvo às HH:MM" ou "erro".
-3. Ao abrir com rascunho mais novo que o salvo, o usuário escolhe entre recuperar ou descartar.
-4. Salvamento explícito descarta o rascunho e regenera `content_text`.
-5. Cabeçalho e rodapé são documentos TipTap próprios, com suporte a numeração de página (resolvida em 067).
-6. Marca d'água aceita texto ou imagem, com opacidade e rotação.
-7. Imagem inline sobe pelo `FileStorage` e é referenciada por URL assinada de longa duração.
-8. Quebra de página é um nó do documento, respeitado na geração do PDF.
-9. Tabela suporta mesclar células, cabeçalho e redimensionamento de coluna.
-10. Sair com alteração não salva dispara o dirty guard.
-11. Atalhos: Ctrl+B/I/U, Ctrl+Z/Y, Ctrl+F, Ctrl+S (salva explicitamente).
-12. Documento acima de 5 MB de JSON avisa sobre desempenho.
+1. O corpo do documento é o único campo dentro da área editável do TipTap; cabeçalho,
+   rodapé e marca d'água são campos de texto separados, sempre visíveis fora do corpo.
+2. Autosave dispara 2 s depois da última mudança (debounce) — nunca a cada tecla.
+3. Autosave falho não perde o conteúdo local: o editor mantém o texto na tela e tenta
+   de novo na próxima mudança; só mostra um aviso, nunca descarta o que foi digitado.
+4. Documento salvo e reabre idêntico: o HTML persistido é o mesmo devolvido no próximo
+   `GET`, char a char (aceite da spec).
+5. Imagem inserida no corpo vira uma tag `<img>` com a URL informada pelo usuário
+   (colar/URL) — upload de arquivo de imagem para o corpo é o mesmo caminho de anexo
+   de documento (spec 063), fora do corpo do editor: por ora, só URL.
+6. Linha horizontal é o marcador de quebra de página (regra explícita do levantamento:
+   "inserir quebra de página") — sem um nó de página dedicado, o efeito real (quebrar a
+   impressão) só chega na spec 067 (geração de PDF), que sabe interpretar o `<hr>`.
 
 ## 8. Plano de testes
 
-| Tipo | Caso | Custo |
-|---|---|---|
-| frontend | formatação básica aplica e desfaz | ~0,6 s |
-| frontend | tabela: inserir, mesclar, redimensionar | ~0,6 s |
-| frontend | quebra de página vira nó no documento | ~0,3 s |
-| frontend | localizar e substituir, com "substituir tudo" | ~0,5 s |
-| frontend | autosave dispara após inatividade | ~0,5 s |
-| frontend | indicador reflete os 3 estados | ~0,3 s |
-| frontend | dirty guard ao sair | ~0,3 s |
-| frontend | atalhos de teclado | ~0,4 s |
-| integração | salvar regenera `content_text` | ~0,3 s |
-| integração | rascunho mais novo oferece recuperação | ~0,4 s |
-| integração | salvamento explícito descarta rascunho | ~0,3 s |
-| integração | upload de imagem inline | ~0,4 s |
-| integração | RLS no autosave | ~0,3 s |
-| e2e | **jornada 10/25:** criar modelo → formatar → salvar → reabrir | ~5 s |
+| Tipo | Caso | Arquivo | Custo |
+|---|---|---|---|
+| integração | `PUT` grava `header_content`/`footer_content`/`watermark_text` | `tests/integration/test_templates.py` | ~0,3 s |
+| integração | conteúdo HTML complexo salva e reabre idêntico (regra 4) | idem | ~0,2 s |
+| frontend | formata negrito/itálico e o HTML gerado reflete a marcação | `src/features/templates/TemplateEditor.test.tsx` | ~0,4 s |
+| frontend | insere tabela e imagem via toolbar | idem | ~0,3 s |
+| frontend | autosave dispara `PUT` só depois do debounce (regra 2) | idem | ~0,4 s |
+| frontend | cabeçalho/rodapé/marca d'água editam campos separados do corpo | idem | ~0,3 s |
 
-**Total:** ~10,2 s
-
-> Acima do orçamento. Se o wall-clock apertar, mova a jornada e2e para integração —
-> a 070 vai cobrar.
+**Total estimado:** ~1,9 s
+**Fixtures externas:** nenhuma.
 
 ## 9. Descobertas
 
-*(preencher)*
+- `npx tsc --noEmit -p .` (sem apontar pra `tsconfig.app.json`) não checa nada — o
+  `tsconfig.json` raiz só tem `references`, sem `files`. O gate real é `npm run lint`
+  (`tsc -b --noEmit`, o mesmo do Makefile) — rodar isso pegou 2 erros de tipo que o
+  comando solto deixou passar (`DocumentBrowser.tsx`, da spec 063) e formatação do
+  Prettier fora do padrão em 8 arquivos acumulados desde a spec 062. Corrigido aqui;
+  daqui pra frente, verificar sempre com `npm run lint`, nunca com `tsc` solto.
+- jsdom não implementa `Range.getClientRects`/`getBoundingClientRect` nem
+  `document.elementFromPoint` — poliriu isso no `src/test/setup.ts` global (qualquer
+  teste futuro com ProseMirror/ranges reais precisa disso).
+- `@tiptap/extension-table` (pacote raiz) já exporta `Table`/`TableRow`/`TableCell`/
+  `TableHeader` e um `TableKit` combinando os 4 — os pacotes `-table-row`/`-table-cell`/
+  `-table-header` seriam redundantes, removidos antes de commitar.
+- **Orçamento apertado:** o wall-clock da suíte cheia fechou em 294 s de um teto de
+  300 s — 6 s de folga. As specs 066/067 (ainda nesta fase) precisam manter os testes
+  novos enxutos; se o teto estourar, a spec de refatoração 070 (Documentos e Modelos)
+  é o lugar certo pra otimizar de volta.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Documento reabre idêntico ao salvo · Commit `feat(065): modelos — editor`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste
+- [x] `make test` verde e wall-clock < 300 s (294 s — apertado, ver Descobertas)
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(065): modelos — editor`

@@ -10,12 +10,18 @@ class TemplateCreateRequest(BaseModel):
     name: str
     type: TemplateType
     content: str = ""
+    header_content: str = ""
+    footer_content: str = ""
+    watermark_text: str | None = None
 
 
 class TemplateUpdateRequest(BaseModel):
     name: str
     type: TemplateType
     content: str = ""
+    header_content: str = ""
+    footer_content: str = ""
+    watermark_text: str | None = None
 
 
 class TemplateResponse(BaseModel):
@@ -23,6 +29,9 @@ class TemplateResponse(BaseModel):
     name: str
     type: TemplateType
     content: str
+    header_content: str
+    footer_content: str
+    watermark_text: str | None
     created_by: uuid.UUID
     deleted_at: datetime | None
     created_at: datetime

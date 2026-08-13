@@ -27,15 +27,22 @@ const documentRoot = {
   created_at: "2026-08-02T10:00:00Z",
 };
 
-const listDocuments = vi.fn().mockImplementation(({ folder_id }: { folder_id: string | null }) =>
-  Promise.resolve(
-    folder_id === null
-      ? { folders: [folderRoot], documents: [documentRoot] }
-      : { folders: [], documents: [] },
-  ),
-);
+const listDocuments = vi
+  .fn()
+  .mockImplementation(({ folder_id }: { folder_id: string | null }) =>
+    Promise.resolve(
+      folder_id === null
+        ? { folders: [folderRoot], documents: [documentRoot] }
+        : { folders: [], documents: [] },
+    ),
+  );
 const uploadDocuments = vi.fn().mockResolvedValue([
-  { filename: "grande.txt", status: "error", document: null, error: "Quota de armazenamento do plano excedida." },
+  {
+    filename: "grande.txt",
+    status: "error",
+    document: null,
+    error: "Quota de armazenamento do plano excedida.",
+  },
 ]);
 const searchDocuments = vi.fn().mockResolvedValue([]);
 
@@ -69,9 +76,7 @@ describe("DocumentBrowser", () => {
     await user.click(screen.getByText("📁 Contratos"));
 
     await waitFor(() => {
-      expect(listDocuments).toHaveBeenLastCalledWith(
-        expect.objectContaining({ folder_id: "f1" }),
-      );
+      expect(listDocuments).toHaveBeenLastCalledWith(expect.objectContaining({ folder_id: "f1" }));
     });
     await screen.findByText("Raiz");
   });

@@ -9,6 +9,9 @@ export interface TemplateData {
   name: string;
   type: TemplateType;
   content: string;
+  header_content: string;
+  footer_content: string;
+  watermark_text: string | null;
   created_by: string;
   deleted_at: string | null;
   created_at: string;
@@ -40,6 +43,13 @@ export interface TemplateFormPayload {
   name: string;
   type: TemplateType;
   content: string;
+  header_content?: string;
+  footer_content?: string;
+  watermark_text?: string | null;
+}
+
+export async function getTemplate(id: string): Promise<TemplateData> {
+  return apiRequest<TemplateData>(`/api/v1/templates/${id}`);
 }
 
 export async function createTemplate(values: TemplateFormPayload): Promise<TemplateData> {

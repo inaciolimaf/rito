@@ -1,11 +1,14 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_document_mailer, get_file_storage
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
+from app.domain.documents.models import Document
 from app.domain.templates.exceptions import TemplateNotFoundError
+from app.domain.templates.generate import DocumentSaveFailedError, TemplateGenerationService
 from app.domain.templates.models import Template
 from app.domain.templates.resolve import (
     CustomerScopeNotFoundError,
@@ -13,8 +16,12 @@ from app.domain.templates.resolve import (
     TemplateResolverService,
 )
 from app.domain.templates.schemas import (
+    GeneratePdfRequest,
     ResolvedTemplateResponse,
     ResolveTemplateRequest,
+    SavedDocumentResponse,
+    SaveToCloudRequest,
+    SendEmailRequest,
     TemplateCreateRequest,
     TemplateListResponse,
     TemplateResponse,
@@ -24,11 +31,23 @@ from app.domain.templates.schemas import (
 from app.domain.templates.service import TemplateService
 from app.domain.templates.variables import VARIABLE_CATALOG
 from app.domain.users.models import User
+from app.integrations.messaging.base import ChannelNotConfiguredError
+from app.integrations.messaging.document_email import DocumentMailer
+from app.integrations.storage.base import FileStorage
 
 router = APIRouter(tags=["templates"])
 
 _DEFAULT_PAGE_SIZE = 20
 _NOT_FOUND_DETAIL = "Modelo não encontrado."
+
+
+def _saved_document_response(document: Document) -> SavedDocumentResponse:
+    return SavedDocumentResponse(
+        id=document.id,
+        filename=document.filename,
+        content_type=document.content_type,
+        size_bytes=document.size_bytes,
+    )
 
 
 def _to_response(template: Template) -> TemplateResponse:
@@ -186,3 +205,98 @@ async def duplicate_template(
     except TemplateNotFoundError as exc:
         raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL) from exc
     return _to_response(template)
+
+
+def _generation_service(
+    session: AsyncSession, storage: FileStorage, mailer: DocumentMailer, current_user: User
+) -> TemplateGenerationService:
+    return TemplateGenerationService(
+        session, current_user.tenant_id, storage=storage, mailer=mailer
+    )
+
+
+@router.post("/templates/{template_id}/generate-pdf")
+async def generate_template_pdf(
+    template_id: uuid.UUID,
+    payload: GeneratePdfRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+    mailer: DocumentMailer = Depends(get_document_mailer),
+) -> Response:
+    service = _generation_service(session, storage, mailer, current_user)
+    try:
+        filename, pdf_bytes = await service.generate_pdf(
+            template_id,
+            customer_id=payload.customer_id,
+            lawsuit_id=payload.lawsuit_id,
+            current_user=current_user,
+        )
+    except TemplateNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL) from exc
+    except CustomerScopeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Contato não encontrado.") from exc
+    except LawsuitScopeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Processo não encontrado.") from exc
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/templates/{template_id}/save-to-cloud", status_code=201)
+async def save_template_to_cloud(
+    template_id: uuid.UUID,
+    payload: SaveToCloudRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+    mailer: DocumentMailer = Depends(get_document_mailer),
+) -> SavedDocumentResponse:
+    service = _generation_service(session, storage, mailer, current_user)
+    try:
+        document = await service.save_to_cloud(
+            template_id,
+            customer_id=payload.customer_id,
+            lawsuit_id=payload.lawsuit_id,
+            current_user=current_user,
+        )
+    except TemplateNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL) from exc
+    except CustomerScopeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Contato não encontrado.") from exc
+    except LawsuitScopeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Processo não encontrado.") from exc
+    except DocumentSaveFailedError as exc:
+        raise HTTPException(status_code=422, detail=exc.reason) from exc
+    return _saved_document_response(document)
+
+
+@router.post("/templates/{template_id}/send-email", status_code=204)
+async def send_template_email(
+    template_id: uuid.UUID,
+    payload: SendEmailRequest,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+    mailer: DocumentMailer = Depends(get_document_mailer),
+) -> None:
+    service = _generation_service(session, storage, mailer, current_user)
+    try:
+        await service.send_email(
+            template_id,
+            customer_id=payload.customer_id,
+            lawsuit_id=payload.lawsuit_id,
+            to=payload.to,
+            subject=payload.subject,
+            current_user=current_user,
+        )
+    except TemplateNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL) from exc
+    except CustomerScopeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Contato não encontrado.") from exc
+    except LawsuitScopeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Processo não encontrado.") from exc
+    except ChannelNotConfiguredError as exc:
+        raise HTTPException(status_code=422, detail="E-mail não configurado.") from exc

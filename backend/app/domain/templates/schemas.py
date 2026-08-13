@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from app.domain.templates.models import TemplateType
 
@@ -60,3 +60,27 @@ class VariableCatalogItem(BaseModel):
     namespace: str
     key: str
     label: str
+
+
+class GeneratePdfRequest(BaseModel):
+    customer_id: uuid.UUID | None = None
+    lawsuit_id: uuid.UUID | None = None
+
+
+class SaveToCloudRequest(BaseModel):
+    customer_id: uuid.UUID | None = None
+    lawsuit_id: uuid.UUID  # regra 2: sempre obrigatório — é a nuvem do processo
+
+
+class SendEmailRequest(BaseModel):
+    customer_id: uuid.UUID | None = None
+    lawsuit_id: uuid.UUID | None = None
+    to: EmailStr
+    subject: str | None = None
+
+
+class SavedDocumentResponse(BaseModel):
+    id: uuid.UUID
+    filename: str
+    content_type: str
+    size_bytes: int

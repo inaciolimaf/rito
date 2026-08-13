@@ -1,5 +1,5 @@
 import type { ListResponse } from "@/components/domain/types";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, apiRequestBlob } from "@/lib/api";
 
 export type TemplateType = "CONTRATO" | "PETICAO" | "RECURSO" | "DOCUMENTO";
 export type TemplateView = "all" | "trash" | TemplateType;
@@ -107,4 +107,60 @@ export async function resolveTemplate(
     method: "POST",
     body: params,
   });
+}
+
+/** Regra 1 (spec 067): as 3 ações (baixar/enviar/salvar) partem do mesmo PDF —
+ * `generateTemplatePdf` dispara o download no browser, mesmo padrão de
+ * `exportCustomers`/`exportFinancialReport`. */
+export async function generateTemplatePdf(
+  id: string,
+  params: ResolveTemplateParams,
+  filename: string,
+): Promise<void> {
+  const blob = await apiRequestBlob(`/api/v1/templates/${id}/generate-pdf`, {
+    method: "POST",
+    body: params,
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export interface SaveToCloudParams {
+  customer_id?: string | null;
+  lawsuit_id: string;
+}
+
+export interface SavedDocumentData {
+  id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+}
+
+export async function saveTemplateToCloud(
+  id: string,
+  params: SaveToCloudParams,
+): Promise<SavedDocumentData> {
+  return apiRequest<SavedDocumentData>(`/api/v1/templates/${id}/save-to-cloud`, {
+    method: "POST",
+    body: params,
+  });
+}
+
+export interface SendTemplateEmailParams {
+  customer_id?: string | null;
+  lawsuit_id?: string | null;
+  to: string;
+  subject?: string;
+}
+
+export async function sendTemplateEmail(
+  id: string,
+  params: SendTemplateEmailParams,
+): Promise<void> {
+  await apiRequest<void>(`/api/v1/templates/${id}/send-email`, { method: "POST", body: params });
 }

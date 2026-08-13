@@ -23,6 +23,7 @@ dependencies = [
     "openpyxl>=3.1.5",
     "fpdf2>=2.8.7",
     "num2words>=0.5.14",
+    "xhtml2pdf>=0.2.17",
 ]
 
 [dependency-groups]
@@ -70,6 +71,11 @@ ignore_missing_imports = true
 # ali mesmo, então o "Any" não vaza pro resto do módulo.
 [[tool.mypy.overrides]]
 module = ["num2words", "num2words.*"]
+ignore_missing_imports = true
+
+# xhtml2pdf (spec 067, geração de PDF) idem — sem stubs; isolado em `pdf.py`.
+[[tool.mypy.overrides]]
+module = ["xhtml2pdf", "xhtml2pdf.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -294,7 +294,7 @@ TipTap com cabeçalho, rodapé, marca d'água, tabelas, imagens, listas, formata
 Variáveis de cliente, processo, escritório e usuário; **valores por extenso** (datas e dinheiro); resolução com dados reais; variável ausente sinalizada.
 **Aceite:** todas as variáveis do levantamento resolvem; extenso correto. **t:** 5 s. **Deps:** 065
 
-### ⬜ 067 — Modelos: geração e envio
+### ✅ 067 — Modelos: geração e envio
 Render para PDF; download; envio por e-mail; salvar na nuvem do processo.
 **Aceite:** PDF gerado com cabeçalho/rodapé. **t:** 6 s. **Deps:** 066
 

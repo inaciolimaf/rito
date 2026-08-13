@@ -3,8 +3,10 @@ import * as React from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { useAutosave } from "@/components/domain/useAutosave";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GenerateDocumentDialog } from "@/features/templates/GenerateDocumentDialog";
 import {
   getTemplate,
   updateTemplate,
@@ -32,6 +34,7 @@ const STATUS_LABELS = {
 export function TemplateEditorPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const [generateOpen, setGenerateOpen] = React.useState(false);
 
   const { data: template, isLoading } = useQuery({
     queryKey: ["templates", id],
@@ -78,10 +81,22 @@ export function TemplateEditorPage(): JSX.Element {
           </Link>
           <h1 className="text-lg font-semibold text-primary">{draft.name || "Modelo sem nome"}</h1>
         </div>
-        <p className="text-sm text-muted" role="status">
-          {STATUS_LABELS[status]}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted" role="status">
+            {STATUS_LABELS[status]}
+          </p>
+          <Button onClick={() => setGenerateOpen(true)}>Gerar documento</Button>
+        </div>
       </div>
+
+      {id && (
+        <GenerateDocumentDialog
+          open={generateOpen}
+          onOpenChange={setGenerateOpen}
+          templateId={id}
+          templateName={draft.name}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="space-y-1">

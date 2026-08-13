@@ -48,7 +48,7 @@ from app.domain.taskscore.router import goals_router, taskscore_router
 from app.domain.templates.router import router as templates_router
 from app.domain.users.router import invitations_router, occupations_router, users_router
 from app.domain.workflows.router import router as workflows_router
-from app.integrations.messaging.registry import create_messaging_channels
+from app.integrations.messaging.registry import create_document_mailer, create_messaging_channels
 from app.integrations.storage.s3 import create_file_storage
 
 
@@ -63,6 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.redis = create_redis_client()
     app.state.file_storage = create_file_storage()
     app.state.messaging_channels = create_messaging_channels()
+    app.state.document_mailer = create_document_mailer()
 
     yield
 

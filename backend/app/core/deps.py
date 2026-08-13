@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rls import set_tenant_context
 from app.integrations.messaging.base import MessagingChannel
+from app.integrations.messaging.document_email import DocumentMailer
 from app.integrations.storage.base import FileStorage
 
 
@@ -51,3 +52,7 @@ async def get_file_storage(request: Request) -> FileStorage:
 
 async def get_messaging_channels(request: Request) -> Mapping[str, MessagingChannel]:
     return cast(Mapping[str, MessagingChannel], request.app.state.messaging_channels)
+
+
+async def get_document_mailer(request: Request) -> DocumentMailer:
+    return cast(DocumentMailer, request.app.state.document_mailer)

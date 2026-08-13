@@ -2,6 +2,7 @@ from collections.abc import Mapping
 
 from app.core.config import get_settings
 from app.integrations.messaging.base import MessagingChannel
+from app.integrations.messaging.document_email import SmtpDocumentMailer
 from app.integrations.messaging.email import SmtpEmailChannel
 from app.integrations.messaging.sms import SmsChannel
 from app.integrations.messaging.whatsapp import WhatsAppChannel
@@ -25,3 +26,17 @@ def create_messaging_channels() -> Mapping[str, MessagingChannel]:
         "SMS": SmsChannel(),
         "WHATSAPP": WhatsAppChannel(),
     }
+
+
+def create_document_mailer() -> SmtpDocumentMailer:
+    """Spec 067 — mesmas credenciais `SMTP_*` de `create_messaging_channels`, canal
+    próprio porque anexa arquivo (ver `DocumentMailer`, ISP)."""
+    settings = get_settings()
+    return SmtpDocumentMailer(
+        host=settings.smtp_host,
+        port=settings.smtp_port,
+        username=settings.smtp_user,
+        password=settings.smtp_password,
+        from_email=settings.smtp_from,
+        use_tls=settings.smtp_use_tls,
+    )

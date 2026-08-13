@@ -42,3 +42,21 @@ class TemplateListResponse(BaseModel):
     items: list[TemplateResponse]
     next_cursor: str | None
     total: int
+
+
+class ResolveTemplateRequest(BaseModel):
+    customer_id: uuid.UUID | None = None
+    lawsuit_id: uuid.UUID | None = None
+
+
+class ResolvedTemplateResponse(BaseModel):
+    content: str
+    header_content: str
+    footer_content: str
+    missing: list[str]
+
+
+class VariableCatalogItem(BaseModel):
+    namespace: str
+    key: str
+    label: str

@@ -290,7 +290,7 @@ CRUD de modelos; tipos contrato/petição/recurso/documento; busca; lixeira.
 TipTap com cabeçalho, rodapé, marca d'água, tabelas, imagens, listas, formatação completa; autosave.
 **Aceite:** documento salva e reabre idêntico. **t:** 8 s. **Deps:** 064
 
-### ⬜ 066 — Modelos: engine de variáveis
+### ✅ 066 — Modelos: engine de variáveis
 Variáveis de cliente, processo, escritório e usuário; **valores por extenso** (datas e dinheiro); resolução com dados reais; variável ausente sinalizada.
 **Aceite:** todas as variáveis do levantamento resolvem; extenso correto. **t:** 5 s. **Deps:** 065
 

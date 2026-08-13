@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 
+import { VariablePicker } from "@/features/templates/VariablePicker";
 import { cn } from "@/lib/utils";
 
 const TEXT_COLORS = ["#111827", "#dc2626", "#2563eb", "#16a34a", "#ca8a04"];
@@ -205,6 +206,8 @@ function Toolbar({ editor }: { editor: Editor }): JSX.Element {
       <ToolbarButton label="Refazer" onClick={() => editor.chain().focus().redo().run()}>
         <Redo className="h-4 w-4" />
       </ToolbarButton>
+
+      <VariablePicker onInsert={(token) => editor.chain().focus().insertContent(token).run()} />
     </div>
   );
 }

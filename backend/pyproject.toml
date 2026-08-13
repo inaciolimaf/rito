@@ -22,6 +22,7 @@ dependencies = [
     "pillow>=11.0",
     "openpyxl>=3.1.5",
     "fpdf2>=2.8.7",
+    "num2words>=0.5.14",
 ]
 
 [dependency-groups]
@@ -62,6 +63,13 @@ exclude = ["alembic/"]
 # regra mora nos services), então o módulo fica como Any.
 [[tool.mypy.overrides]]
 module = ["celery", "celery.*"]
+ignore_missing_imports = true
+
+# num2words (spec 066, valores por extenso) também não tem stubs nem py.typed — a
+# chamada fica isolada em `variables.py`, o retorno é convertido pra `str` explícito
+# ali mesmo, então o "Any" não vaza pro resto do módulo.
+[[tool.mypy.overrides]]
+module = ["num2words", "num2words.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

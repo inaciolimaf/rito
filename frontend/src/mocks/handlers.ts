@@ -138,4 +138,17 @@ export const handlers = [
     }
     return new HttpResponse(null, { status: 204 });
   }),
+
+  // Handler base (spec 066): o `VariablePicker` do editor de modelos (spec 065)
+  // busca isso sempre que monta — testes que não mockam `@/features/templates/api`
+  // inteiro (ex.: TemplateEditorPage.test.tsx, que só sobrescreve get/updateTemplate)
+  // caem aqui em vez de estourar "unhandled request".
+  http.get(`${BASE_URL}/api/v1/template-variables`, () =>
+    HttpResponse.json([
+      { namespace: "cliente", key: "nome_completo", label: "Nome completo" },
+      { namespace: "processo", key: "numero_cnj", label: "Número CNJ" },
+      { namespace: "escritorio", key: "razao_social", label: "Razão social" },
+      { namespace: "usuario", key: "nome", label: "Nome" },
+    ]),
+  ),
 ];

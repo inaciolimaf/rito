@@ -74,3 +74,37 @@ export async function restoreTemplate(id: string): Promise<TemplateData> {
 export async function duplicateTemplate(id: string): Promise<TemplateData> {
   return apiRequest<TemplateData>(`/api/v1/templates/${id}/duplicate`, { method: "POST" });
 }
+
+export interface VariableCatalogItem {
+  namespace: string;
+  key: string;
+  label: string;
+}
+
+export async function listTemplateVariables(): Promise<VariableCatalogItem[]> {
+  return apiRequest<VariableCatalogItem[]>("/api/v1/template-variables");
+}
+
+export interface ResolveTemplateParams {
+  customer_id?: string | null;
+  lawsuit_id?: string | null;
+}
+
+export interface ResolvedTemplateData {
+  content: string;
+  header_content: string;
+  footer_content: string;
+  missing: string[];
+}
+
+/** Regra 7 (spec 066): nunca toca o modelo salvo — a resolução é sempre uma cópia,
+ * consumida pela geração de documento (spec 067). */
+export async function resolveTemplate(
+  id: string,
+  params: ResolveTemplateParams,
+): Promise<ResolvedTemplateData> {
+  return apiRequest<ResolvedTemplateData>(`/api/v1/templates/${id}/resolve`, {
+    method: "POST",
+    body: params,
+  });
+}

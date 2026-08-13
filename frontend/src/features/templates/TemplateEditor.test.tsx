@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -5,7 +6,12 @@ import { describe, expect, it, vi } from "vitest";
 import { TemplateEditor } from "@/features/templates/TemplateEditor";
 
 function Wrapper({ onChange }: { onChange: (html: string) => void }): JSX.Element {
-  return <TemplateEditor content="<p>Olá</p>" onChange={onChange} />;
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TemplateEditor content="<p>Olá</p>" onChange={onChange} />
+    </QueryClientProvider>
+  );
 }
 
 describe("TemplateEditor", () => {

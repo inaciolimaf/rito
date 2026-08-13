@@ -1,10 +1,12 @@
 import uuid
+from collections.abc import Mapping
 from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_messaging_channels
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
@@ -33,6 +35,7 @@ from app.domain.publications.schemas import (
 from app.domain.publications.service import PublicationDetail, PublicationService
 from app.domain.users.models import User
 from app.integrations.djen.parser import DjenParseError, parse_communication
+from app.integrations.messaging.base import MessagingChannel
 
 router = APIRouter(prefix="/publications", tags=["publications"])
 
@@ -121,6 +124,7 @@ async def import_publication(
     payload: PublicationImportRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    channels: Mapping[str, MessagingChannel] = Depends(get_messaging_channels),
 ) -> PublicationResponse:
     """Registro manual de uma comunicação do DJEN a partir do item bruto.
 
@@ -139,7 +143,9 @@ async def import_publication(
         raise HTTPException(
             status_code=409, detail="Já existe uma publicação com esse hash."
         ) from exc
-    routing = PublicationRoutingService(session=session, tenant_id=current_user.tenant_id)
+    routing = PublicationRoutingService(
+        session=session, tenant_id=current_user.tenant_id, channels=channels
+    )
     routed = await routing.route(publication)
     return _publication_to_response(routed)
 
@@ -290,11 +296,14 @@ async def link_publication(
     payload: LinkPublicationRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    channels: Mapping[str, MessagingChannel] = Depends(get_messaging_channels),
 ) -> PublicationResponse:
     """Vínculo manual (spec 045, regra 7): dispara o roteamento e cria a tarefa."""
     service = PublicationService(session=session, tenant_id=current_user.tenant_id)
     publication = await get_or_404(lambda: service.get_by_id(publication_id), _NOT_FOUND_DETAIL)
-    routing = PublicationRoutingService(session=session, tenant_id=current_user.tenant_id)
+    routing = PublicationRoutingService(
+        session=session, tenant_id=current_user.tenant_id, channels=channels
+    )
     try:
         linked = await routing.link(publication, payload.lawsuit_id)
     except LawsuitNotFoundError as exc:
@@ -307,10 +316,13 @@ async def reprocess_publication(
     publication_id: uuid.UUID,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    channels: Mapping[str, MessagingChannel] = Depends(get_messaging_channels),
 ) -> PublicationResponse:
     """Regra 1: reprocessar não duplica a tarefa já criada."""
     service = PublicationService(session=session, tenant_id=current_user.tenant_id)
     publication = await get_or_404(lambda: service.get_by_id(publication_id), _NOT_FOUND_DETAIL)
-    routing = PublicationRoutingService(session=session, tenant_id=current_user.tenant_id)
+    routing = PublicationRoutingService(
+        session=session, tenant_id=current_user.tenant_id, channels=channels
+    )
     reprocessed = await routing.reprocess(publication)
     return _publication_to_response(reprocessed)

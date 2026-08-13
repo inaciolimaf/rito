@@ -472,3 +472,26 @@ async def test_processo_arquivado_ainda_casa(setup: RoutingSetup) -> None:
 
     assert routed.matched_by == "process_number"
     assert routed.lawsuit_id == lawsuit_id
+
+
+async def test_roteamento_dispara_intimacao_quando_configurado(setup: RoutingSetup) -> None:
+    rule_response = await setup.client.put(
+        "/api/v1/notification-rules/INTIMACAO",
+        json={"responsible_user_id": str(setup.gestor.user_id), "channels": []},
+        headers=setup.headers,
+    )
+    assert rule_response.status_code == 200, rule_response.text
+
+    number = _cnj(16)
+    await setup.create_lawsuit(user_id=setup.gestor.user_id, process_number=number)
+    publication_id = await make_publication(
+        setup.sessions, setup.gestor.tenant_id, process_number=number
+    )
+
+    routed = await route(setup.sessions, setup.gestor.tenant_id, publication_id)
+    assert routed.post_id is not None
+
+    notifications = await setup.client.get("/api/v1/notifications", headers=setup.headers)
+    assert notifications.status_code == 200
+    kinds = {item["kind"] for item in notifications.json()["items"]}
+    assert "INTIMACAO" in kinds

@@ -31,6 +31,7 @@ from app.integrations.djen.source import DjenPublicationSource
 from app.integrations.http.audit import DbAuditSink, SafeAuditSink
 from app.integrations.http.client import create_http_client
 from app.integrations.http.types import HostPolicy
+from app.integrations.messaging.registry import create_messaging_channels
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,7 @@ async def run_due_syncs(term_id: uuid.UUID | None = None) -> dict[str, int]:
         for term in selected:
             by_tenant.setdefault(term.tenant_id, []).append(term)
 
+        channels = create_messaging_channels()
         ok = failed = 0
         for tenant_id, terms in by_tenant.items():
             async with session_factory() as session:
@@ -92,6 +94,7 @@ async def run_due_syncs(term_id: uuid.UUID | None = None) -> dict[str, int]:
                     lock=lock,
                     lock_ttl_seconds=settings.djen_sync_lock_ttl_seconds,
                     cron=settings.djen_sync_cron,
+                    channels=channels,
                 )
                 for run in await service.sync_terms(terms):
                     if run.error is None:

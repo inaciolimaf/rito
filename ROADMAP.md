@@ -302,7 +302,7 @@ Render para PDF; download; envio por e-mail; salvar na nuvem do processo.
 Modelos do sistema visíveis a todos os tenants; copiar para o escritório.
 **Aceite:** cópia vira modelo editável do tenant. **t:** 3 s. **Deps:** 064
 
-### ⬜ 069 — Notificações
+### ✅ 069 — Notificações
 Config por evento (novo cliente, novo processo, parceiros, intimações) com responsável ou "não notificar"; canais e-mail/SMS/WhatsApp; preferências por usuário.
 **Aceite:** evento roteia para o configurado. **t:** 4 s. **Deps:** 035
 

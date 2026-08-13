@@ -468,3 +468,27 @@ async def test_process_number_guardado_so_com_digitos(
     )
 
     assert created["process_number"] == "00012343420268260100"
+
+
+async def test_criar_processo_dispara_novo_processo_quando_configurado(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    rule_response = await client.put(
+        "/api/v1/notification-rules/NOVO_PROCESSO",
+        json={"responsible_user_id": str(gestor.user_id), "channels": []},
+        headers=headers,
+    )
+    assert rule_response.status_code == 200, rule_response.text
+
+    type_id, _group_id = await _create_lawsuit_type(client, headers)
+    stage_id = await _create_stage(client, headers)
+    await _create_lawsuit(
+        client, headers, user_id=str(gestor.user_id), lawsuit_type_id=type_id, stage_id=stage_id
+    )
+
+    notifications = await client.get("/api/v1/notifications", headers=headers)
+    assert notifications.status_code == 200
+    kinds = {item["kind"] for item in notifications.json()["items"]}
+    assert "NOVO_PROCESSO" in kinds

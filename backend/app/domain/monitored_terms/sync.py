@@ -19,7 +19,7 @@ vale só até o fim da transação, e sem o contexto o RLS esconderia as linhas
 
 import logging
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Protocol
@@ -41,6 +41,7 @@ from app.domain.publications.routing import PublicationRoutingService
 from app.domain.publications.service import PublicationService
 from app.domain.users.repository import UserRepository
 from app.integrations.djen.parser import ParsedCommunication
+from app.integrations.messaging.base import MessagingChannel
 
 logger = logging.getLogger("rito.djen_sync")
 
@@ -102,6 +103,7 @@ class TermSyncService:
         lock: SyncLock | None = None,
         lock_ttl_seconds: int = 3600,
         cron: str = "17 3 * * *",
+        channels: Mapping[str, MessagingChannel] | None = None,
     ) -> None:
         self.session = session
         self.tenant_id = tenant_id
@@ -113,7 +115,9 @@ class TermSyncService:
         self.runs = TermSyncRunRepository(session)
         self.publications = PublicationRepository(session)
         self.publication_service = PublicationService(session=session, tenant_id=tenant_id)
-        self.routing = PublicationRoutingService(session=session, tenant_id=tenant_id)
+        self.routing = PublicationRoutingService(
+            session=session, tenant_id=tenant_id, channels=channels
+        )
         self.alerts = IntegrationAlertRepository(session)
         self.users = UserRepository(session)
 

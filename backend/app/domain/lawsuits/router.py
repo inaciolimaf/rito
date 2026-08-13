@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Mapping
 from typing import Literal, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -6,7 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.deps import get_redis
+from app.core.deps import get_messaging_channels, get_redis
 from app.core.http import get_or_404, parse_month_query
 from app.core.locks import RedisSyncLock
 from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
@@ -94,6 +95,8 @@ from app.domain.lawsuits.schemas import (
 from app.domain.lawsuits.service import LawsuitDetail, LawsuitService
 from app.domain.lawsuits.stats import invalidate_stats_cache
 from app.domain.lawsuits.workflow_service import LawsuitWorkflowService
+from app.domain.notifications.dispatch import NotificationDispatcher
+from app.domain.notifications.models import NotificationEvent
 from app.domain.stages.repository import StageRepository
 from app.domain.users.models import User
 from app.domain.workflows.repository import WorkflowRepository
@@ -105,6 +108,7 @@ from app.integrations.datajud.client import (
 )
 from app.integrations.http.client import create_http_client
 from app.integrations.http.types import HostPolicy
+from app.integrations.messaging.base import MessagingChannel
 
 router = APIRouter(prefix="/lawsuits", tags=["lawsuits"])
 
@@ -342,6 +346,7 @@ async def create_lawsuit(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     redis: Redis = Depends(get_redis),
+    channels: Mapping[str, MessagingChannel] = Depends(get_messaging_channels),
 ) -> LawsuitResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     try:
@@ -365,6 +370,15 @@ async def create_lawsuit(
     # Regra 7 (spec 028): criar processo invalida o cache do dashboard.
     await invalidate_stats_cache(
         redis, current_user.tenant_id, created.lawsuit.closure_date, created.lawsuit.archived_date
+    )
+    dispatcher = NotificationDispatcher(
+        session=session, tenant_id=current_user.tenant_id, channels=channels
+    )
+    await dispatcher.dispatch(
+        NotificationEvent.NOVO_PROCESSO,
+        title="Novo processo cadastrado",
+        body=created.lawsuit.process_number or "Sem número de processo informado",
+        link=f"/lawsuits/{created.lawsuit.id}",
     )
     return _to_response(created)
 

@@ -4,8 +4,18 @@ from datetime import UTC, datetime
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.notifications.models import Notification
-from app.domain.notifications.repository import NotificationRepository
+from app.domain.notifications.models import (
+    Notification,
+    NotificationChannelName,
+    NotificationEvent,
+    NotificationRule,
+    UserNotificationPreference,
+)
+from app.domain.notifications.repository import (
+    NotificationRepository,
+    NotificationRuleRepository,
+    UserNotificationPreferenceRepository,
+)
 
 
 class NotificationResponse(BaseModel):
@@ -82,3 +92,112 @@ class NotificationService:
 
     async def mark_all_read(self, user_id: uuid.UUID) -> int:
         return await self.notifications.mark_all_read(user_id, datetime.now(UTC))
+
+
+class NotificationRuleResponse(BaseModel):
+    event: NotificationEvent
+    responsible_user_id: uuid.UUID | None
+    channels: list[NotificationChannelName]
+
+
+class NotificationRuleUpdateRequest(BaseModel):
+    responsible_user_id: uuid.UUID | None = None
+    channels: list[NotificationChannelName] = []
+
+
+class NotificationRuleService:
+    """Config por evento (spec 069) — sempre devolve as 3 linhas do catálogo
+    (regra 1: evento sem regra salva ainda aparece, com responsável nulo/canais
+    vazios, pra UI não ter que saber quais eventos existem)."""
+
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        self.tenant_id = tenant_id
+        self.rules = NotificationRuleRepository(session)
+
+    async def list_all(self) -> list[NotificationRuleResponse]:
+        existing = {rule.event: rule for rule in await self.rules.list_all()}
+        return [
+            NotificationRuleResponse(
+                event=event,
+                responsible_user_id=(
+                    existing[event].responsible_user_id if event in existing else None
+                ),
+                channels=(
+                    [NotificationChannelName(c) for c in existing[event].channels]
+                    if event in existing
+                    else []
+                ),
+            )
+            for event in NotificationEvent
+        ]
+
+    async def upsert(
+        self, event: NotificationEvent, data: NotificationRuleUpdateRequest
+    ) -> NotificationRuleResponse:
+        rule = await self.rules.get_by_event(event)
+        channel_values = [channel.value for channel in data.channels]
+        if rule is None:
+            rule = await self.rules.create(
+                NotificationRule(
+                    tenant_id=self.tenant_id,
+                    event=event,
+                    responsible_user_id=data.responsible_user_id,
+                    channels=channel_values,
+                )
+            )
+        else:
+            rule.responsible_user_id = data.responsible_user_id
+            rule.channels = channel_values
+            rule.updated_at = datetime.now(UTC)
+        return NotificationRuleResponse(
+            event=rule.event,
+            responsible_user_id=rule.responsible_user_id,
+            channels=[NotificationChannelName(c) for c in rule.channels],
+        )
+
+
+class NotificationPreferenceResponse(BaseModel):
+    channel: NotificationChannelName
+    enabled: bool
+
+
+class NotificationPreferenceUpdateRequest(BaseModel):
+    enabled: bool
+
+
+class UserNotificationPreferenceService:
+    """Liga/desliga canal por usuário (spec 069, regra 7) — sempre devolve os 3
+    canais, habilitados por padrão quando não há registro."""
+
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        self.tenant_id = tenant_id
+        self.preferences = UserNotificationPreferenceRepository(session)
+
+    async def list_for_user(self, user_id: uuid.UUID) -> list[NotificationPreferenceResponse]:
+        existing = {pref.channel: pref for pref in await self.preferences.list_for_user(user_id)}
+        return [
+            NotificationPreferenceResponse(
+                channel=channel,
+                enabled=existing[channel].enabled if channel in existing else True,
+            )
+            for channel in NotificationChannelName
+        ]
+
+    async def upsert(
+        self,
+        user_id: uuid.UUID,
+        channel: NotificationChannelName,
+        data: NotificationPreferenceUpdateRequest,
+    ) -> NotificationPreferenceResponse:
+        preference = await self.preferences.get(user_id, channel)
+        if preference is None:
+            preference = await self.preferences.create(
+                UserNotificationPreference(
+                    tenant_id=self.tenant_id, user_id=user_id, channel=channel, enabled=data.enabled
+                )
+            )
+        else:
+            preference.enabled = data.enabled
+        return NotificationPreferenceResponse(
+            channel=preference.channel, enabled=preference.enabled
+        )

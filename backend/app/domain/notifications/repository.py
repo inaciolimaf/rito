@@ -5,7 +5,13 @@ from datetime import datetime
 from sqlalchemy import func, literal, select, tuple_, update
 
 from app.core.repository import BaseRepository
-from app.domain.notifications.models import Notification
+from app.domain.notifications.models import (
+    Notification,
+    NotificationChannelName,
+    NotificationEvent,
+    NotificationRule,
+    UserNotificationPreference,
+)
 
 
 class NotificationRepository(BaseRepository[Notification]):
@@ -80,3 +86,36 @@ class NotificationRepository(BaseRepository[Notification]):
             .execution_options(synchronize_session=False)
         )
         return int(result.rowcount)  # type: ignore[attr-defined]
+
+
+class NotificationRuleRepository(BaseRepository[NotificationRule]):
+    model = NotificationRule
+
+    async def get_by_event(self, event: NotificationEvent) -> NotificationRule | None:
+        stmt = select(NotificationRule).where(NotificationRule.event == event)
+        result: NotificationRule | None = await self.session.scalar(stmt)
+        return result
+
+    async def list_all(self) -> Sequence[NotificationRule]:
+        stmt = select(NotificationRule).order_by(NotificationRule.event)
+        return (await self.session.scalars(stmt)).all()
+
+
+class UserNotificationPreferenceRepository(BaseRepository[UserNotificationPreference]):
+    model = UserNotificationPreference
+
+    async def get(
+        self, user_id: uuid.UUID, channel: NotificationChannelName
+    ) -> UserNotificationPreference | None:
+        stmt = select(UserNotificationPreference).where(
+            UserNotificationPreference.user_id == user_id,
+            UserNotificationPreference.channel == channel,
+        )
+        result: UserNotificationPreference | None = await self.session.scalar(stmt)
+        return result
+
+    async def list_for_user(self, user_id: uuid.UUID) -> Sequence[UserNotificationPreference]:
+        stmt = select(UserNotificationPreference).where(
+            UserNotificationPreference.user_id == user_id
+        )
+        return (await self.session.scalars(stmt)).all()

@@ -791,3 +791,29 @@ async def test_marital_statuses_lista_as_6_opcoes(
         "UNIÃO ESTÁVEL",
         "VIÚVO(A)",
     }
+
+
+async def test_criar_contato_dispara_novo_cliente_quando_configurado(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    rule_response = await client.put(
+        "/api/v1/notification-rules/NOVO_CLIENTE",
+        json={"responsible_user_id": str(gestor.user_id), "channels": []},
+        headers=headers,
+    )
+    assert rule_response.status_code == 200, rule_response.text
+
+    origin_id = await _create_origin(client, headers, "Indicação")
+    create_response = await client.post(
+        "/api/v1/customers",
+        json={"type": "PF", "name": "Contato Notificado", "origin_id": origin_id},
+        headers=headers,
+    )
+    assert create_response.status_code == 201, create_response.text
+
+    notifications = await client.get("/api/v1/notifications", headers=headers)
+    assert notifications.status_code == 200
+    kinds = {item["kind"] for item in notifications.json()["items"]}
+    assert "NOVO_CLIENTE" in kinds

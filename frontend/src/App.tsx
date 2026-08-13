@@ -12,6 +12,7 @@ import { ActionGroupsListPage } from "@/features/action-groups/ActionGroupsListP
 import { LoginPage } from "@/features/auth/LoginPage";
 import { MonitoredTermsListPage } from "@/features/monitored-terms/MonitoredTermsListPage";
 import { CustomerOriginsListPage } from "@/features/customer-origins/CustomerOriginsListPage";
+import { NotificationSettingsPage } from "@/features/notifications/NotificationSettingsPage";
 import { CustomerListPage } from "@/features/customers/CustomerListPage";
 import { KitchenSinkPage } from "@/features/kitchen-sink/KitchenSinkPage";
 import { LawsuitTypesListPage } from "@/features/lawsuit-types/LawsuitTypesListPage";
@@ -76,6 +77,7 @@ export function App(): JSX.Element {
                     <Route path="/settings/monitored-terms" element={<MonitoredTermsListPage />} />
                     <Route path="/settings/integrations" element={<IntegrationsSettingsPage />} />
                     <Route path="/settings/financial" element={<FinancialSettingsPage />} />
+                    <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
                     <Route path="/customers" element={<CustomerListPage />} />
                     <Route path="/lawsuits" element={<LawsuitsPage />} />
                     <Route path="/lawsuits/:id" element={<LawsuitDetailPage />} />

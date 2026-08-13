@@ -11,6 +11,7 @@ pelo tribunal (regra 8).
 """
 
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,8 @@ from app.domain.lawsuits.models import Lawsuit
 from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.monitored_terms.models import TermKind
 from app.domain.monitored_terms.repository import MonitoredTermRepository
+from app.domain.notifications.dispatch import NotificationDispatcher
+from app.domain.notifications.models import NotificationEvent
 from app.domain.posts.models import Post
 from app.domain.posts.repository import PostRepository
 from app.domain.publications.exceptions import LawsuitNotFoundError, NoResponsibleAvailableError
@@ -30,6 +33,7 @@ from app.domain.publications.models import Publication
 from app.domain.publications.repository import PublicationLawyerRepository, PublicationRepository
 from app.domain.task_types.repository import TaskTypeRepository
 from app.domain.users.repository import UserRepository
+from app.integrations.messaging.base import MessagingChannel
 
 _BODY_MAX_LENGTH = 5_000  # regra 5: comentário truncado, com link para o inteiro teor.
 _CANCELLATION_COMMENT = (
@@ -39,7 +43,12 @@ _CANCELLATION_COMMENT = (
 
 
 class PublicationRoutingService:
-    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        tenant_id: uuid.UUID,
+        channels: Mapping[str, MessagingChannel] | None = None,
+    ) -> None:
         self.session = session
         self.tenant_id = tenant_id
         self.publications = PublicationRepository(session)
@@ -52,6 +61,7 @@ class PublicationRoutingService:
         self.users = UserRepository(session)
         self.task_types = TaskTypeRepository(session)
         self.posts = PostRepository(session)
+        self.dispatcher = NotificationDispatcher(session, tenant_id, channels)
 
     async def route(self, publication: Publication) -> Publication:
         """Casamento automático — chamado ao registrar uma publicação nova (044)."""
@@ -122,6 +132,12 @@ class PublicationRoutingService:
         publication.routed_to = user_id
         publication.routed_by = routed_by
         await self.session.flush()
+        await self.dispatcher.dispatch(
+            NotificationEvent.INTIMACAO,
+            title="Nova intimação roteada",
+            body=publication.body[:_BODY_MAX_LENGTH],
+            link=f"/lawsuits/{lawsuit.id}",
+        )
         return publication
 
     async def _match(self, publication: Publication) -> tuple[Lawsuit | None, str | None]:

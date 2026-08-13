@@ -1,11 +1,12 @@
 import uuid
+from collections.abc import Mapping
 from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_file_storage
+from app.core.deps import get_file_storage, get_messaging_channels
 from app.core.http import get_or_404
 from app.core.image_processing import InvalidImageError
 from app.core.permissions import UserRole, require_role
@@ -28,7 +29,10 @@ from app.domain.customers.schemas import (
     MaritalStatusResponse,
 )
 from app.domain.customers.service import CustomerService
+from app.domain.notifications.dispatch import NotificationDispatcher
+from app.domain.notifications.models import NotificationEvent
 from app.domain.users.models import User
+from app.integrations.messaging.base import MessagingChannel
 from app.integrations.storage.base import FileStorage
 
 _DEFAULT_PAGE_SIZE = 20
@@ -88,6 +92,7 @@ async def create_customer(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     storage: FileStorage = Depends(get_file_storage),
+    channels: Mapping[str, MessagingChannel] = Depends(get_messaging_channels),
 ) -> CustomerResponse:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id)
     try:
@@ -96,6 +101,15 @@ async def create_customer(
         raise HTTPException(
             status_code=409, detail="Já existe um contato com esse CPF/CNPJ."
         ) from exc
+    dispatcher = NotificationDispatcher(
+        session=session, tenant_id=current_user.tenant_id, channels=channels
+    )
+    await dispatcher.dispatch(
+        NotificationEvent.NOVO_CLIENTE,
+        title="Novo contato cadastrado",
+        body=customer.name,
+        link="/customers",
+    )
     return _customer_to_response(customer, storage)
 
 

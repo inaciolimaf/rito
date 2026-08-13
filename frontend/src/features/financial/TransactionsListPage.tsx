@@ -27,6 +27,7 @@ import {
 import { listCustomers } from "@/features/customers/api";
 import { listLawsuits } from "@/features/lawsuits/api";
 import { FinancialDashboard } from "@/features/financial/FinancialDashboard";
+import { FinancialReportPage } from "@/features/financial/FinancialReportPage";
 import { InstallmentBadge } from "@/features/financial/InstallmentBadge";
 import { InternalBadge } from "@/features/financial/InternalBadge";
 import { OverduePanel } from "@/features/financial/OverduePanel";
@@ -43,11 +44,12 @@ import { ApiError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 
-type Tab = "lancamentos" | "overdue";
+type Tab = "lancamentos" | "overdue" | "reports";
 
 const TABS: { value: Tab; label: string }[] = [
   { value: "lancamentos", label: "Lançamentos" },
   { value: "overdue", label: "Inadimplência" },
+  { value: "reports", label: "Relatórios" },
 ];
 
 const KIND_LABELS: Record<TransactionKind, string> = {
@@ -144,7 +146,8 @@ export function TransactionsListPage(): JSX.Element {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const tab: Tab = requestedTab === "overdue" ? "overdue" : "lancamentos";
+  const tab: Tab =
+    requestedTab === "overdue" || requestedTab === "reports" ? requestedTab : "lancamentos";
   const isLancamentos = tab === "lancamentos";
 
   const { values } = useFilters(FILTER_FIELDS);
@@ -301,6 +304,8 @@ export function TransactionsListPage(): JSX.Element {
       </div>
 
       {tab === "overdue" && <OverduePanel />}
+
+      {tab === "reports" && <FinancialReportPage />}
 
       {isLancamentos && (
         <>

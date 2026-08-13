@@ -274,7 +274,7 @@ Saldo com variação, receita/despesa prevista vs realizada, atrasados; 4 regime
 Identificação de atrasados, régua de cobrança, notificações por e-mail/SMS/WhatsApp (adapters mockáveis).
 **Aceite:** atrasado detectado no vencimento+1; régua dispara nos marcos. **t:** 5 s. **Deps:** 059
 
-### ⬜ 062 — Financeiro: relatórios DRE e DFC
+### ✅ 062 — Financeiro: relatórios DRE e DFC
 Agrupamento por grupo DRE; DRE e DFC por período; export.
 **Aceite:** DRE fecha com o razão em seed determinístico. **t:** 5 s. **Deps:** 061
 

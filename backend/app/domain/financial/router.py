@@ -3,11 +3,12 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_file_storage
 from app.core.exceptions import InvalidTransferError
+from app.core.export import ExportColumn, TableExport
 from app.core.http import get_or_404, parse_active_status, parse_month_query
 from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
 from app.domain.attachments.rules import AttachmentTooLargeError, AttachmentTypeBlockedError
@@ -54,6 +55,7 @@ from app.domain.financial.models import (
     TransactionKind,
     TransactionSeries,
 )
+from app.domain.financial.reports import ReportGroupRow, ReportRegime, get_financial_report
 from app.domain.financial.repository import TransactionRow
 from app.domain.financial.schemas import (
     AccountBalanceItem,
@@ -77,7 +79,10 @@ from app.domain.financial.schemas import (
     FinancialCategoryUpdateRequest,
     FinancialInstitutionListResponse,
     FinancialInstitutionResponse,
+    FinancialReportExportRequest,
+    FinancialReportResponse,
     PayTransactionRequest,
+    ReportGroupRowResponse,
     SeriesPreviewItem,
     SeriesPreviewResponse,
     TransactionChartResponse,
@@ -920,3 +925,96 @@ async def list_transaction_attachments(
         )
         for item in items
     ]
+
+
+_REPORT_EXPORT_COLUMNS: list[ExportColumn[ReportGroupRow]] = [
+    ExportColumn(header="Grupo DRE", value=lambda row: row.dre_group_name),
+    ExportColumn(header="Receita", value=lambda row: str(row.receita)),
+    ExportColumn(header="Despesa", value=lambda row: str(row.despesa)),
+    ExportColumn(header="Total", value=lambda row: str(row.total)),
+]
+
+
+async def _load_report(
+    session: AsyncSession,
+    *,
+    regime: ReportRegime,
+    from_: date,
+    to: date,
+    account_id: uuid.UUID | None,
+) -> FinancialReportResponse:
+    if to < from_:
+        raise HTTPException(status_code=422, detail="'to' precisa ser igual ou posterior a 'from'.")
+    report = await get_financial_report(
+        session, regime=regime, start=from_, end=to, account_id=account_id
+    )
+    return FinancialReportResponse(
+        period_start=report.period_start,
+        period_end=report.period_end,
+        rows=[
+            ReportGroupRowResponse(
+                dre_group_id=row.dre_group_id,
+                dre_group_name=row.dre_group_name,
+                nature=row.nature,
+                receita=row.receita,
+                despesa=row.despesa,
+                total=row.total,
+            )
+            for row in report.rows
+        ],
+        total_receita=report.total_receita,
+        total_despesa=report.total_despesa,
+        resultado=report.resultado,
+    )
+
+
+@router.get("/financial-reports/dre")
+async def get_dre_report(
+    from_: date = Query(alias="from"),
+    to: date = Query(),
+    account_id: uuid.UUID | None = Query(default=None),
+    _current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> FinancialReportResponse:
+    return await _load_report(session, regime="dre", from_=from_, to=to, account_id=account_id)
+
+
+@router.get("/financial-reports/dfc")
+async def get_dfc_report(
+    from_: date = Query(alias="from"),
+    to: date = Query(),
+    account_id: uuid.UUID | None = Query(default=None),
+    _current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> FinancialReportResponse:
+    return await _load_report(session, regime="dfc", from_=from_, to=to, account_id=account_id)
+
+
+@router.post("/financial-reports/export")
+async def export_financial_report(
+    payload: FinancialReportExportRequest,
+    _current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> Response:
+    if payload.to < payload.from_:
+        raise HTTPException(status_code=422, detail="'to' precisa ser igual ou posterior a 'from'.")
+    report = await get_financial_report(
+        session,
+        regime=payload.report,
+        start=payload.from_,
+        end=payload.to,
+        account_id=payload.account_id,
+    )
+    export = TableExport(sheet_title=payload.report.upper(), columns=_REPORT_EXPORT_COLUMNS)
+    content = export.xlsx(report.rows) if payload.format == "xlsx" else export.pdf(report.rows)
+    media_type = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if payload.format == "xlsx"
+        else "application/pdf"
+    )
+    filename = f"{payload.report}.{payload.format}"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

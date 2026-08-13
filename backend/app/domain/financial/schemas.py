@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -352,3 +353,31 @@ class AccountBalanceItem(BaseModel):
 
 class BankAccountBalancesResponse(BaseModel):
     items: list[AccountBalanceItem]
+
+
+class ReportGroupRowResponse(BaseModel):
+    dre_group_id: int
+    dre_group_name: str
+    nature: EntryType
+    receita: JsonDecimal
+    despesa: JsonDecimal
+    total: JsonDecimal
+
+
+class FinancialReportResponse(BaseModel):
+    period_start: date
+    period_end: date
+    rows: list[ReportGroupRowResponse]
+    total_receita: JsonDecimal
+    total_despesa: JsonDecimal
+    resultado: JsonDecimal
+
+
+class FinancialReportExportRequest(BaseModel):
+    report: Literal["dre", "dfc"]
+    from_: date = Field(alias="from")
+    to: date
+    account_id: uuid.UUID | None = None
+    format: Literal["xlsx", "pdf"]
+
+    model_config = {"populate_by_name": True}

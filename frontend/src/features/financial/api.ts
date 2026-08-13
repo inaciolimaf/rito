@@ -1,6 +1,6 @@
 import type { ListResponse } from "@/components/domain/types";
 import type { AttachmentData } from "@/features/attachments/api";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, apiRequestBlob } from "@/lib/api";
 
 export type EntryType = "RECEITA" | "DESPESA";
 
@@ -521,4 +521,59 @@ export async function listBankAccountBalances(accountId?: string): Promise<Accou
     `/api/v1/bank-accounts/balances${query}`,
   );
   return body.items;
+}
+
+export type FinancialReportKind = "dre" | "dfc";
+
+export interface FinancialReportGroupRow {
+  dre_group_id: number;
+  dre_group_name: string;
+  nature: EntryType;
+  receita: number;
+  despesa: number;
+  total: number;
+}
+
+export interface FinancialReportData {
+  period_start: string;
+  period_end: string;
+  rows: FinancialReportGroupRow[];
+  total_receita: number;
+  total_despesa: number;
+  resultado: number;
+}
+
+export interface GetFinancialReportParams {
+  from: string;
+  to: string;
+  account_id?: string;
+}
+
+/** DRE (spec 062, regra 1) e DFC (regra 2) — mesmo formato de resposta, só muda a
+ * rota (o backend já decide o regime de data por trás, o front não escolhe). */
+export async function getFinancialReport(
+  kind: FinancialReportKind,
+  params: GetFinancialReportParams,
+): Promise<FinancialReportData> {
+  const query = new URLSearchParams({ from: params.from, to: params.to });
+  if (params.account_id) query.set("account_id", params.account_id);
+  return apiRequest<FinancialReportData>(`/api/v1/financial-reports/${kind}?${query.toString()}`);
+}
+
+/** Regra 8: exporta os mesmos filtros da tela — o browser decide onde salvar. */
+export async function exportFinancialReport(
+  report: FinancialReportKind,
+  format: "xlsx" | "pdf",
+  params: GetFinancialReportParams,
+): Promise<void> {
+  const blob = await apiRequestBlob("/api/v1/financial-reports/export", {
+    method: "POST",
+    body: { report, format, from: params.from, to: params.to, account_id: params.account_id },
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${report}.${format}`;
+  link.click();
+  URL.revokeObjectURL(url);
 }

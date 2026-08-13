@@ -282,7 +282,7 @@ Agrupamento por grupo DRE; DRE e DFC por período; export.
 Storage S3-compatible atrás de interface `FileStorage` (MinIO em dev); upload múltiplo, pastas, URL assinada temporária, quota por plano.
 **Aceite:** URL expira; quota excedida bloqueia upload. **t:** 6 s. **Deps:** 002
 
-### ⬜ 064 — Modelos: biblioteca
+### ✅ 064 — Modelos: biblioteca
 CRUD de modelos; tipos contrato/petição/recurso/documento; busca; lixeira.
 **Aceite:** filtro por tipo; restauração da lixeira. **t:** 4 s. **Deps:** 063
 

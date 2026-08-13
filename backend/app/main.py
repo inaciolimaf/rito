@@ -45,6 +45,7 @@ from app.domain.squads.router import router as squads_router
 from app.domain.stages.router import stages_router, steps_router
 from app.domain.task_types.router import router as task_types_router
 from app.domain.taskscore.router import goals_router, taskscore_router
+from app.domain.templates.router import router as templates_router
 from app.domain.users.router import invitations_router, occupations_router, users_router
 from app.domain.workflows.router import router as workflows_router
 from app.integrations.messaging.registry import create_messaging_channels
@@ -110,6 +111,7 @@ def create_app() -> FastAPI:
     app.include_router(financial_router, prefix="/api/v1")
     app.include_router(dunning_router, prefix="/api/v1")
     app.include_router(documents_router, prefix="/api/v1")
+    app.include_router(templates_router, prefix="/api/v1")
     # inbox ANTES de posts: /posts/bulk/* perderia para /posts/{post_id}/* no match
     # por ordem de registro ("bulk" não parseia como uuid → 422).
     app.include_router(inbox_router, prefix="/api/v1")

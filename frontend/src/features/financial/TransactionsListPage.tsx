@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
+import { TabBar } from "@/components/domain/TabBar";
 import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
 import { useCrudResource } from "@/components/domain/useCrudResource";
 import { useFilters } from "@/components/domain/useFilters";
@@ -41,7 +42,6 @@ import {
 } from "@/features/financial/schema";
 import { formatBrl } from "@/lib/money";
 import { ApiError } from "@/lib/errors";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 
 type Tab = "lancamentos" | "overdue" | "reports";
@@ -279,29 +279,12 @@ export function TransactionsListPage(): JSX.Element {
         {isLancamentos && canWrite && <Button onClick={openCreateModal}>Novo lançamento</Button>}
       </div>
 
-      <div
-        role="tablist"
-        aria-label="Seções do Financeiro"
-        className="flex gap-1 border-b border-default"
-      >
-        {TABS.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.value}
-            className={cn(
-              "rounded-t px-3 py-2 text-sm font-medium",
-              tab === item.value
-                ? "border-b-2 border-accent text-primary"
-                : "text-muted hover:text-primary",
-            )}
-            onClick={() => setSearchParams(item.value === "lancamentos" ? {} : { tab: item.value })}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        items={TABS}
+        active={tab}
+        ariaLabel="Seções do Financeiro"
+        onSelect={(value) => setSearchParams(value === "lancamentos" ? {} : { tab: value })}
+      />
 
       {tab === "overdue" && <OverduePanel />}
 

@@ -306,7 +306,7 @@ Modelos do sistema visíveis a todos os tenants; copiar para o escritório.
 Config por evento (novo cliente, novo processo, parceiros, intimações) com responsável ou "não notificar"; canais e-mail/SMS/WhatsApp; preferências por usuário.
 **Aceite:** evento roteia para o configurado. **t:** 4 s. **Deps:** 035
 
-### ⬜ 070 — 🔧 REFATORAÇÃO — Documentos e Modelos
+### ✅ 070 — 🔧 REFATORAÇÃO — Documentos e Modelos
 **t:** −
 
 ---

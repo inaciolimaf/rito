@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { TabBar } from "@/components/domain/TabBar";
 import { Button } from "@/components/ui/button";
 import {
   DEFAULT_SECTION_ORDER,
@@ -14,7 +15,6 @@ import { BulkActionBar } from "@/features/inbox/BulkActionBar";
 import { InboxSection } from "@/features/inbox/InboxSection";
 import { InboxSettingsForm } from "@/features/inbox/InboxSettingsForm";
 import { TaskscorePanel } from "@/features/taskscore/TaskscorePanel";
-import { cn } from "@/lib/utils";
 
 type HomeTab = "list" | "analytics";
 
@@ -83,29 +83,12 @@ export function InboxPage(): JSX.Element {
         )}
       </div>
 
-      <div
-        role="tablist"
-        aria-label="Seções do Meu Painel"
-        className="flex gap-1 border-b border-default"
-      >
-        {HOME_TABS.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.value}
-            className={cn(
-              "rounded-t px-3 py-2 text-sm font-medium",
-              tab === item.value
-                ? "border-b-2 border-accent text-primary"
-                : "text-muted hover:text-primary",
-            )}
-            onClick={() => setSearchParams(item.value === "list" ? {} : { tab: item.value })}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        items={HOME_TABS}
+        active={tab}
+        ariaLabel="Seções do Meu Painel"
+        onSelect={(value) => setSearchParams(value === "list" ? {} : { tab: value })}
+      />
 
       {tab === "analytics" ? (
         <TaskscorePanel />

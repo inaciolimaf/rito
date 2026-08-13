@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
+import { TabBar } from "@/components/domain/TabBar";
 import { Button } from "@/components/ui/button";
 import { DocumentBrowser } from "@/features/documents/DocumentBrowser";
 import {
@@ -16,7 +17,6 @@ import { LawsuitTimeline } from "@/features/lawsuits/LawsuitTimeline";
 import { TimelineFilters } from "@/features/lawsuits/TimelineFilters";
 import { useTimelineKinds } from "@/features/lawsuits/useTimelineKinds";
 import { formatCnj } from "@/lib/cnj";
-import { cn } from "@/lib/utils";
 
 type Tab = "timeline" | "documents";
 
@@ -88,29 +88,12 @@ export function LawsuitDetailPage(): JSX.Element {
         )}
       </div>
 
-      <div
-        role="tablist"
-        aria-label="Seções do processo"
-        className="flex gap-1 border-b border-default"
-      >
-        {TABS.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.value}
-            className={cn(
-              "rounded-t px-3 py-2 text-sm font-medium",
-              tab === item.value
-                ? "border-b-2 border-accent text-primary"
-                : "text-muted hover:text-primary",
-            )}
-            onClick={() => setSearchParams(item.value === "timeline" ? {} : { tab: item.value })}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        items={TABS}
+        active={tab}
+        ariaLabel="Seções do processo"
+        onSelect={(value) => setSearchParams(value === "timeline" ? {} : { tab: value })}
+      />
 
       {tab === "documents" && id && <DocumentBrowser scopeType="LAWSUIT" scopeId={id} />}
 

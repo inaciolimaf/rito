@@ -5,9 +5,8 @@ from collections.abc import Awaitable, Callable
 
 from httpx import AsyncClient
 
-from app.core.tokens import create_access_token
 from app.domain.users.models import UserRole
-from tests.integration.conftest import SeededUser
+from tests.integration.conftest import SeededUser, auth_header
 
 _RICH_HTML = (
     "<h1>Título</h1><p><strong>Negrito</strong> e <em>itálico</em> e "
@@ -17,16 +16,11 @@ _RICH_HTML = (
 )
 
 
-def _auth_header(seeded: SeededUser) -> dict[str, str]:
-    token = create_access_token(user_id=seeded.user_id, tenant_id=seeded.tenant_id)
-    return {"Authorization": f"Bearer {token}"}
-
-
 async def test_put_grava_cabecalho_rodape_e_marca_dagua(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
 
     created = await client.post(
         "/api/v1/templates",
@@ -65,7 +59,7 @@ async def test_conteudo_html_complexo_salva_e_reabre_identico(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
 
     created = await client.post(
         "/api/v1/templates",
@@ -84,7 +78,7 @@ async def test_duplicar_leva_cabecalho_rodape_e_marca_dagua(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
 
     created = await client.post(
         "/api/v1/templates",

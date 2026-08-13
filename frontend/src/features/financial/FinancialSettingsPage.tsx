@@ -1,10 +1,10 @@
 import { useSearchParams } from "react-router-dom";
 
+import { TabBar } from "@/components/domain/TabBar";
 import { BankAccountsListPage } from "@/features/financial/BankAccountsListPage";
 import { CostCentersListPage } from "@/features/financial/CostCentersListPage";
 import { DreGroupsListPage } from "@/features/financial/DreGroupsListPage";
 import { FinancialCategoriesListPage } from "@/features/financial/FinancialCategoriesListPage";
-import { cn } from "@/lib/utils";
 
 type Tab = "categories" | "accounts" | "cost-centers" | "dre-groups";
 
@@ -26,29 +26,13 @@ export function FinancialSettingsPage(): JSX.Element {
 
   return (
     <div>
-      <div
-        role="tablist"
-        aria-label="Seções do Financeiro"
-        className="flex gap-1 border-b border-default px-6 pt-4"
-      >
-        {TABS.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.value}
-            className={cn(
-              "rounded-t px-3 py-2 text-sm font-medium",
-              tab === item.value
-                ? "border-b-2 border-accent text-primary"
-                : "text-muted hover:text-primary",
-            )}
-            onClick={() => setSearchParams(item.value === "categories" ? {} : { tab: item.value })}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        items={TABS}
+        active={tab}
+        ariaLabel="Seções do Financeiro"
+        className="px-6 pt-4"
+        onSelect={(value) => setSearchParams(value === "categories" ? {} : { tab: value })}
+      />
 
       {tab === "categories" && <FinancialCategoriesListPage />}
       {tab === "accounts" && <BankAccountsListPage />}

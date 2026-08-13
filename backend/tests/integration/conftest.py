@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.core.models import Tenant
 from app.core.rls import enable_rls_statements, set_tenant_context
 from app.core.security import hash_password
+from app.core.tokens import create_access_token
 from app.domain.users.models import FinancialAccess, User, UserRole
 
 # admin_engine / app_session_factory viraram fixtures compartilhadas em tests/conftest.py
@@ -57,6 +58,14 @@ class SeededUser:
     password: str
     role: UserRole
     financial_access: FinancialAccess
+
+
+def auth_header(seeded: SeededUser) -> dict[str, str]:
+    """Refatoração 070 (regra dos 3 uses): 26 arquivos de teste redefiniam a mesma
+    função `_auth_header` local — migrados aqui os de 062-067; os anteriores ficam
+    como estão (fora do escopo desta spec, que audita as 9 anteriores)."""
+    token = create_access_token(user_id=seeded.user_id, tenant_id=seeded.tenant_id)
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture

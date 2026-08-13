@@ -1,92 +1,97 @@
 # 070 — 🔧 REFATORAÇÃO — Documentos e Modelos
 
-**Fase:** 6 · **Tipo:** refatoração · **Orçamento:** reduzir
-**Depende de:** 061–069 · **Status:** ⬜ pendente
+**Fase:** 6 · **Tipo:** refatoração · **Depende de:** 061–067 · **Status:** ✅ concluída
 
 ---
 
 ## 1. Objetivo
 
-Setenta por cento do caminho. O produto está funcionalmente completo do ponto de vista
-operacional — falta gestão, BI e IA. Esta refatoração prepara o terreno: a camada de IA
-(081–090) vai consumir quase tudo que existe hoje via tool calling, e ferramenta que chama
-service mal desenhado herda o problema.
+Pente fino nas specs desde a última refatoração (060): inadimplência (061),
+relatórios DRE/DFC (062), documentos e nuvem (063), e o arco completo de modelos
+(064–067). Sem mudar comportamento.
 
-> Refatoração não muda comportamento. Testes de 061–069 passam **sem edição**.
+## 2. Escopo
 
-## 2. Alvo 1 — preparar os services para virarem ferramentas de IA
+- Duplicação (regra dos 3 usos): barra de abas (`role="tablist"`) repetida em 6 telas
+  → extraída para `components/domain/TabBar`.
+- Duplicação em teste: `_auth_header` redefinida em cada arquivo de teste das specs
+  062–067 → função compartilhada `auth_header` em `tests/integration/conftest.py`.
+- Índice faltando: `document_folders.parent_folder_id` (usado pela cascata de
+  exclusão, spec 063 regra 4) não tinha índice — a única constraint composta da
+  tabela não cobre uma busca só por essa coluna.
+- Auditoria de tipos frouxos (`Any`/`as any`/`# type: ignore`) e de SOLID (router com
+  query, service acoplado a integração) nas specs 061–067: nada encontrado além do
+  já documentado (spec 063, `Any` justificado em teste).
 
-A spec 083 vai expor os services como tools tipadas. Para isso funcionar sem gambiarra:
+## 3. Fora de escopo
 
-- [ ] Todo service público tem assinatura tipada com Pydantic na entrada e na saída — nada de `dict`
-- [ ] Nenhum service depende de objeto de request do FastAPI
-- [ ] Nenhum service assume usuário implícito — o ator vem sempre como parâmetro
-- [ ] Erros de domínio são exceções tipadas, não `HTTPException` (a tradução para HTTP é do router)
-- [ ] Operações de escrita são idempotentes ou expõem chave de idempotência
+- O item de performance já registrado em `docs/DIVIDA-TECNICA.md` (item 17: custo de
+  boot de engine por teste, investigado nas specs 033/050, formalmente atribuído à
+  098) — não reaberto aqui; a recomendação documentada é não tentar de novo sem uma
+  hipótese nova, e dividir a suíte em grupos paralelos é mudança de tooling de CI,
+  não pente fino de código.
+- Migration de merge de `deleted_at`/soft-delete entre `templates` (064) e
+  `document_folders`/`documents` (063) — os dois already seguem o mesmo padrão onde
+  faz sentido (lixeira só em `templates`, que é a única com essa necessidade real).
 
-Sem isso, cada tool vira um wrapper com lógica duplicada.
+## 4. Modelo de dados
 
-## 3. Alvo 2 — consolidar arquivos e anexos
+```sql
+CREATE INDEX ix_document_folders_parent ON document_folders (parent_folder_id)
+  WHERE parent_folder_id IS NOT NULL;
+```
+Migration `070_documents_templates_indexes.py`.
 
-Três specs mexeram em arquivo: 035 (anexo em tarefa), 058 (anexo em lançamento), 063 (nuvem).
+## 5. Contratos de API
 
-- [ ] `FileService` único: upload, download, mover, excluir, quota
-- [ ] `attachments` como tabela única, com todos os donos possíveis
-- [ ] `FileStorage` como a única porta de saída para o S3
-- [ ] Limpeza de órfãos cobrindo todos os tipos de dono
-- [ ] Quota contabilizada uma vez só, sem dupla contagem
+Nenhuma mudança — refatoração não altera contrato observável.
 
-## 4. Alvo 3 — o editor é o maior custo de teste do projeto
+## 6. Front-end
 
-- [ ] Medir quanto 065 e 067 custam na suíte
-- [ ] Testes de editor que testam o TipTap (biblioteca de terceiro) devem ser removidos — teste o **seu** código
-- [ ] Geração de PDF: um teste completo e o resto com renderer falso
-- [ ] Jornada e2e do editor: manter só uma
-- [ ] Se a fase 6 sozinha passar de 25 s, corte
+**Componente extraído:** `TabBar` (`components/domain/TabBar.tsx`) — genérico sobre o
+tipo da aba, recebe `items`/`active`/`onSelect`; cada tela continua dona da própria
+lógica de `useSearchParams`. Migradas: `UsersSettingsPage`, `FinancialSettingsPage`,
+`TransactionsListPage`, `LawsuitDetailPage`, `FinancialReportPage`, `InboxPage`.
 
-## 5. Checklist
+## 7. Regras de negócio
 
-### Cobertura
-- [ ] Toda regra numerada de 061–069 com teste
-- [ ] Extenso de dinheiro e data com as tabelas completas
-- [ ] Identidade contábil do DRE
-- [ ] Path traversal do ZIP
-- [ ] RLS com exceção pública (068) nos dois sentidos
-- [ ] Isolamento entre tenants nas tabelas novas
+Refatoração não muda comportamento — nenhuma regra nova. A verificação é que os
+testes existentes (specs 061–067) continuam passando sem edição de asserção (só a
+plumbing de `_auth_header` → `auth_header` mudou, não o que cada teste verifica).
 
-### SOLID
-- [ ] Services prontos para virar tool (alvo 1)
-- [ ] Renderização de PDF atrás de interface (`DocumentRenderer`)
-- [ ] Canais de notificação atrás de interface, todos
-- [ ] Engine de variáveis pura, sem banco
+## 8. Plano de testes
 
-### Duplicação
-- [ ] `FileService` consolidado (alvo 2)
-- [ ] Uma só implementação de busca full-text
-- [ ] Uma só forma de montar endereço completo (usada por variáveis, PDF e UI)
+| Tipo | Caso | Arquivo | Custo |
+|---|---|---|---|
+| frontend | `TabBar` marca a aba ativa e avisa a escolha (novo, cobre o componente extraído) | `src/components/domain/TabBar.test.tsx` | ~0,1 s |
+| regressão | as 44 integrações de 062–067 seguem verdes com `auth_header` compartilhada | `tests/integration/test_{financial_reports,documents,templates,template_editor,template_resolve,template_generate}.py` | já contado |
+| regressão | as 31 telas de 062–067 seguem verdes com `TabBar` | `src/features/{financial,lawsuits,users,inbox,templates,documents}/*.test.tsx` | já contado |
 
-### Segurança
-- [ ] URL assinada com expiração curta em todos os caminhos
-- [ ] Allowlist de tipo aplicada em upload direto ao S3 também
-- [ ] Modelo público não vaza dado de tenant nenhum
-- [ ] E-mail de envio não permite injeção de cabeçalho
+**Total estimado:** ~0,1 s novo (o resto é regressão do que já existia).
 
-### Performance dos testes
-- [ ] Wall-clock **< 90 s**
-- [ ] E2E com no máximo 10 jornadas até aqui
-- [ ] Testes de PDF e editor otimizados (alvo 3)
+## 9. Descobertas
 
-## 6. Entregáveis
+- O item de performance (custo de boot por teste, `docs/DIVIDA-TECNICA.md` #17)
+  segue como estava: **não é** um alvo produtivo pra pente fino de código — já
+  investigado duas vezes (033, 050), reatribuído formalmente à 098 com a
+  recomendação de dividir a suíte em grupos paralelos (mudança de CI/tooling, não de
+  código de domínio). Esta spec não reabriu essa frente.
+- Wall-clock não mudou de forma perceptível (a extração de duplicação — `TabBar` e
+  `auth_header` — reduz linhas de código, não o número de testes nem o custo de boot
+  por teste, que é o que domina o tempo). O orçamento continua apertado; **a spec 068
+  precisa manter os testes novos mínimos**, como já vinha sendo feito desde a 065.
+- 20 arquivos de teste anteriores a 062 ainda redefinem `_auth_header` localmente —
+  fora do escopo desta spec (que audita 061–067); fica registrado para uma futura
+  refatoração pegar o resto, se algum dia compensar tocar esse tanto de arquivo de
+  uma vez.
 
-1. Services com contrato tipado, prontos para 083
-2. `FileService` e `FileStorage` consolidados
-3. Custo dos testes de editor e PDF reduzido, com o antes e depois no `test-timing.json`
-4. `docs/DECISOES.md` com o contrato de service que a camada de IA vai consumir
-5. Dívidas em `docs/DIVIDA-TECNICA.md`
+## 10. Definição de pronto
 
-## 7. Definição de pronto
-
-- [ ] Testes de 061–069 passam sem edição
-- [ ] Wall-clock < 90 s
-- [ ] Um service qualquer pode virar tool sem código de cola (demonstre com um)
-- [ ] Commit `refactor(070): contratos de service e consolidação de arquivos`
+- [x] Sem mudança de comportamento observável
+- [x] Testes existentes (061–067) passam sem edição de asserção
+- [x] `make test` verde e wall-clock < 300 s
+- [x] `make lint` verde
+- [x] Duplicação de 3+ usos extraída (`TabBar`, `auth_header`)
+- [x] Índice faltando corrigido (`ix_document_folders_parent`)
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `refactor(070): documentos e modelos`

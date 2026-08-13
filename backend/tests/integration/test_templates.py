@@ -6,14 +6,8 @@ from collections.abc import Awaitable, Callable
 
 from httpx import AsyncClient
 
-from app.core.tokens import create_access_token
 from app.domain.users.models import UserRole
-from tests.integration.conftest import SeededUser
-
-
-def _auth_header(seeded: SeededUser) -> dict[str, str]:
-    token = create_access_token(user_id=seeded.user_id, tenant_id=seeded.tenant_id)
-    return {"Authorization": f"Bearer {token}"}
+from tests.integration.conftest import SeededUser, auth_header
 
 
 async def _create_template(
@@ -37,7 +31,7 @@ async def test_crud_completo(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
 
     created = await _create_template(client, headers, name="Contrato de honorários")
     template_id = created["id"]
@@ -63,7 +57,7 @@ async def test_tipo_invalido_retorna_422(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     response = await client.post(
         "/api/v1/templates",
         json={"name": "X", "type": "INVALIDO", "content": ""},
@@ -76,7 +70,7 @@ async def test_excluir_move_para_lixeira_e_some_da_listagem_normal(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     created = await _create_template(client, headers, name="Vai pra lixeira")
     template_id = created["id"]
 
@@ -92,7 +86,7 @@ async def test_lixeira_lista_so_os_excluidos(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     kept = await _create_template(client, headers, name="Fica")
     trashed = await _create_template(client, headers, name="Some")
     await client.delete(f"/api/v1/templates/{trashed['id']}", headers=headers)
@@ -107,7 +101,7 @@ async def test_restaurar_devolve_a_listagem_normal(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     created = await _create_template(client, headers, name="Volta")
     template_id = created["id"]
     await client.delete(f"/api/v1/templates/{template_id}", headers=headers)
@@ -130,7 +124,7 @@ async def test_duplicar_copia_nome_tipo_conteudo_com_sufixo(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     original = await _create_template(client, headers, name="Petição inicial", type_="PETICAO")
 
     duplicate_response = await client.post(
@@ -148,7 +142,7 @@ async def test_duplicar_modelo_da_lixeira_gera_copia_ativa(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     original = await _create_template(client, headers, name="Descartado")
     await client.delete(f"/api/v1/templates/{original['id']}", headers=headers)
 
@@ -163,7 +157,7 @@ async def test_busca_por_nome_e_case_insensitive(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     await _create_template(client, headers, name="Procuração Especial")
     await _create_template(client, headers, name="Outro modelo")
 
@@ -176,7 +170,7 @@ async def test_filtro_por_tipo_combina_com_busca(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.COLABORADOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     await _create_template(client, headers, name="Recurso especial", type_="RECURSO")
     await _create_template(client, headers, name="Recurso comum", type_="DOCUMENTO")
 
@@ -191,12 +185,12 @@ async def test_tenant_a_nao_ve_restaura_ou_duplica_modelo_de_tenant_b(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user_a = await make_user(role=UserRole.COLABORADOR)
-    headers_a = _auth_header(user_a)
+    headers_a = auth_header(user_a)
     created = await _create_template(client, headers_a, name="Só do tenant A")
     template_id = created["id"]
 
     user_b = await make_user(role=UserRole.COLABORADOR)
-    headers_b = _auth_header(user_b)
+    headers_b = auth_header(user_b)
 
     assert (
         await client.get(f"/api/v1/templates/{template_id}", headers=headers_b)

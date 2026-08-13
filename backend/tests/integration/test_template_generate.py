@@ -11,7 +11,6 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.rls import set_tenant_context
-from app.core.tokens import create_access_token
 from app.domain.account.models import AccountPlan
 from app.domain.documents import quota
 from app.domain.templates.generate import TemplateGenerationService
@@ -19,15 +18,10 @@ from app.domain.templates.models import Template, TemplateType
 from app.domain.users.models import User, UserRole
 from app.integrations.messaging.base import ChannelNotConfiguredError
 from app.integrations.storage.s3 import create_file_storage
-from tests.integration.conftest import SeededUser
+from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_lawsuits import _create_lawsuit, _create_lawsuit_type, _create_stage
 
 SessionFactory = async_sessionmaker[AsyncSession]
-
-
-def _auth_header(seeded: SeededUser) -> dict[str, str]:
-    token = create_access_token(user_id=seeded.user_id, tenant_id=seeded.tenant_id)
-    return {"Authorization": f"Bearer {token}"}
 
 
 async def _create_template(client: AsyncClient, headers: dict[str, str], **extra: object) -> str:
@@ -47,7 +41,7 @@ async def test_generate_pdf_devolve_pdf_nao_vazio(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     template_id = await _create_template(client, headers)
 
     response = await client.post(
@@ -62,7 +56,7 @@ async def test_save_to_cloud_sem_lawsuit_id_retorna_422(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     template_id = await _create_template(client, headers)
 
     response = await client.post(
@@ -75,7 +69,7 @@ async def test_save_to_cloud_com_lawsuit_id_cria_documento_na_nuvem_do_processo(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     template_id = await _create_template(client, headers, name="Petição salva")
 
     lawsuit_type_id, _group_id = await _create_lawsuit_type(client, headers)
@@ -116,7 +110,7 @@ async def test_save_to_cloud_respeita_quota(
     monkeypatch.setitem(quota.PLAN_QUOTA_GB, AccountPlan.ESSENCIAL, 0)
 
     user = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     template_id = await _create_template(client, headers)
 
     lawsuit_type_id, _group_id = await _create_lawsuit_type(client, headers)

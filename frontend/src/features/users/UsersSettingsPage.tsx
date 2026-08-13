@@ -1,8 +1,8 @@
 import { useSearchParams } from "react-router-dom";
 
+import { TabBar } from "@/components/domain/TabBar";
 import { SquadsListPage } from "@/features/squads/SquadsListPage";
 import { UsersListPage } from "@/features/users/UsersListPage";
-import { cn } from "@/lib/utils";
 
 type Tab = "collaborators" | "squads";
 
@@ -19,31 +19,13 @@ export function UsersSettingsPage(): JSX.Element {
 
   return (
     <div>
-      <div
-        role="tablist"
-        aria-label="Seções de Usuários"
-        className="flex gap-1 border-b border-default px-6 pt-4"
-      >
-        {TABS.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.value}
-            className={cn(
-              "rounded-t px-3 py-2 text-sm font-medium",
-              tab === item.value
-                ? "border-b-2 border-accent text-primary"
-                : "text-muted hover:text-primary",
-            )}
-            onClick={() =>
-              setSearchParams(item.value === "collaborators" ? {} : { tab: item.value })
-            }
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        items={TABS}
+        active={tab}
+        ariaLabel="Seções de Usuários"
+        className="px-6 pt-4"
+        onSelect={(value) => setSearchParams(value === "collaborators" ? {} : { tab: value })}
+      />
 
       {tab === "collaborators" ? <UsersListPage /> : <SquadsListPage />}
     </div>

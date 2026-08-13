@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { DataTable } from "@/components/domain/DataTable";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { StatCard } from "@/components/domain/StatCard";
+import { TabBar } from "@/components/domain/TabBar";
 import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
 import { useFilters } from "@/components/domain/useFilters";
 import {
@@ -15,7 +16,6 @@ import {
 } from "@/features/financial/api";
 import { ApiError } from "@/lib/errors";
 import { formatBrl } from "@/lib/money";
-import { cn } from "@/lib/utils";
 
 type ReportTab = "dre" | "dfc";
 
@@ -114,30 +114,17 @@ export function FinancialReportPage(): JSX.Element {
         </div>
       </div>
 
-      <div role="tablist" aria-label="Relatório" className="flex gap-1 border-b border-default">
-        {REPORT_TABS.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            aria-selected={reportTab === item.value}
-            className={cn(
-              "rounded-t px-3 py-2 text-sm font-medium",
-              reportTab === item.value
-                ? "border-b-2 border-accent text-primary"
-                : "text-muted hover:text-primary",
-            )}
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              if (item.value === "dre") next.delete("report");
-              else next.set("report", item.value);
-              setSearchParams(next, { replace: true });
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <TabBar
+        items={REPORT_TABS}
+        active={reportTab}
+        ariaLabel="Relatório"
+        onSelect={(value) => {
+          const next = new URLSearchParams(searchParams);
+          if (value === "dre") next.delete("report");
+          else next.set("report", value);
+          setSearchParams(next, { replace: true });
+        }}
+      />
 
       <FilterBar fields={filterFields} />
 

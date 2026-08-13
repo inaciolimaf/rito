@@ -9,22 +9,16 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-from app.core.tokens import create_access_token
 from app.domain.account.models import AccountPlan
 from app.domain.documents import quota
 from app.domain.users.models import UserRole
-from tests.integration.conftest import SeededUser
+from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_lawsuits import (
     _create_customer,
     _create_lawsuit,
     _create_lawsuit_type,
     _create_stage,
 )
-
-
-def _auth_header(seeded: SeededUser) -> dict[str, str]:
-    token = create_access_token(user_id=seeded.user_id, tenant_id=seeded.tenant_id)
-    return {"Authorization": f"Bearer {token}"}
 
 
 async def _customer_scope(client: AsyncClient, headers: dict[str, str]) -> tuple[str, str]:
@@ -66,7 +60,7 @@ async def test_upload_cria_documento_na_raiz_e_dentro_de_pasta(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     scope_type, scope_id = await _customer_scope(client, headers)
 
     root_results = await _upload(
@@ -108,7 +102,7 @@ async def test_upload_multiplo_arquivo_invalido_nao_impede_os_outros(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     scope_type, scope_id = await _customer_scope(client, headers)
 
     results = await _upload(
@@ -131,7 +125,7 @@ async def test_pasta_duplicada_no_mesmo_nivel_retorna_409(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     scope_type, scope_id = await _customer_scope(client, headers)
 
     payload = {"scope_type": scope_type, "scope_id": scope_id, "name": "Contratos"}
@@ -145,7 +139,7 @@ async def test_excluir_pasta_remove_subpasta_e_documento_em_cascata(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     scope_type, scope_id = await _customer_scope(client, headers)
 
     parent = await client.post(
@@ -200,7 +194,7 @@ async def test_quota_bloqueia_upload_acima_do_limite_do_plano(
     monkeypatch.setitem(quota.PLAN_QUOTA_GB, AccountPlan.ESSENCIAL, 0)
 
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     scope_type, scope_id = await _customer_scope(client, headers)
 
     results = await _upload(
@@ -218,7 +212,7 @@ async def test_quota_soma_todos_os_escopos_do_tenant(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     scope_type, scope_id = await _customer_scope(client, headers)
 
     before = (await client.get("/api/v1/account/storage", headers=headers)).json()
@@ -233,7 +227,7 @@ async def test_download_gera_url_assinada(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     scope_type, scope_id = await _customer_scope(client, headers)
 
     results = await _upload(
@@ -250,7 +244,7 @@ async def test_busca_cobre_todas_as_pastas_do_escopo(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     scope_type, scope_id = await _customer_scope(client, headers)
 
     folder = await client.post(
@@ -281,7 +275,7 @@ async def test_ordenacao_por_nome_data_tamanho_tipo(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     scope_type, scope_id = await _customer_scope(client, headers)
 
     await _upload(
@@ -323,7 +317,7 @@ async def test_escopo_de_processo_funciona_e_escopo_de_outro_tenant_retorna_404(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
     lawsuit_type_id, _group_id = await _create_lawsuit_type(client, headers)
     stage_id = await _create_stage(client, headers)
     lawsuit = await _create_lawsuit(
@@ -341,7 +335,7 @@ async def test_escopo_de_processo_funciona_e_escopo_de_outro_tenant_retorna_404(
     assert results[0]["status"] == "uploaded"
 
     other_tenant = await make_user(role=UserRole.GESTOR)
-    other_headers = _auth_header(other_tenant)
+    other_headers = auth_header(other_tenant)
     forbidden = await client.get(
         "/api/v1/documents",
         params={"scope_type": "LAWSUIT", "scope_id": lawsuit_id},
@@ -354,12 +348,12 @@ async def test_tenant_a_nao_ve_documento_de_tenant_b(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor_a = await make_user(role=UserRole.GESTOR)
-    headers_a = _auth_header(gestor_a)
+    headers_a = auth_header(gestor_a)
     scope_type, scope_id = await _customer_scope(client, headers_a)
     await _upload(client, headers_a, scope_type=scope_type, scope_id=scope_id, files=[_txt()])
 
     gestor_b = await make_user(role=UserRole.GESTOR)
-    headers_b = _auth_header(gestor_b)
+    headers_b = auth_header(gestor_b)
     cross_tenant = await client.get(
         "/api/v1/documents",
         params={"scope_type": scope_type, "scope_id": scope_id},
@@ -372,7 +366,7 @@ async def test_troca_de_plano_por_gestor_reflete_na_quota(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(gestor)
+    headers = auth_header(gestor)
 
     account_payload = {
         "name": "Escritório Teste",

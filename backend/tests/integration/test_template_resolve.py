@@ -5,20 +5,14 @@ from collections.abc import Awaitable, Callable
 
 from httpx import AsyncClient
 
-from app.core.tokens import create_access_token
 from app.domain.users.models import UserRole
-from tests.integration.conftest import SeededUser
+from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_lawsuits import (
     _create_customer,
     _create_lawsuit,
     _create_lawsuit_type,
     _create_stage,
 )
-
-
-def _auth_header(seeded: SeededUser) -> dict[str, str]:
-    token = create_access_token(user_id=seeded.user_id, tenant_id=seeded.tenant_id)
-    return {"Authorization": f"Bearer {token}"}
 
 
 async def _create_account(client: AsyncClient, headers: dict[str, str]) -> None:
@@ -57,7 +51,7 @@ async def test_catalogo_de_variaveis_lista_os_4_namespaces(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
 
     response = await client.get("/api/v1/template-variables", headers=headers)
     assert response.status_code == 200, response.text
@@ -69,7 +63,7 @@ async def test_resolucao_real_um_campo_de_cada_namespace(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     await _create_account(client, headers)
 
     customer_id = await _create_customer(client, headers, "Maria da Silva")
@@ -110,7 +104,7 @@ async def test_sem_customer_id_variavel_de_cliente_fica_ausente_resto_resolve(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user = await make_user(role=UserRole.GESTOR)
-    headers = _auth_header(user)
+    headers = auth_header(user)
     await _create_account(client, headers)
 
     template_id = await _create_template(
@@ -131,11 +125,11 @@ async def test_customer_id_de_outro_tenant_retorna_404(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
     user_a = await make_user(role=UserRole.GESTOR)
-    headers_a = _auth_header(user_a)
+    headers_a = auth_header(user_a)
     customer_id = await _create_customer(client, headers_a, "Cliente do tenant A")
 
     user_b = await make_user(role=UserRole.GESTOR)
-    headers_b = _auth_header(user_b)
+    headers_b = auth_header(user_b)
     template_id = await _create_template(client, headers_b, "<p>{{cliente.nome_completo}}</p>")
 
     response = await client.post(

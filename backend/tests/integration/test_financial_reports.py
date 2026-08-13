@@ -6,9 +6,8 @@ from collections.abc import Awaitable, Callable
 
 from httpx import AsyncClient
 
-from app.core.tokens import create_access_token
 from app.domain.users.models import FinancialAccess, UserRole
-from tests.integration.conftest import SeededUser
+from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_transactions import (
     _create_account,
     _create_category,
@@ -17,11 +16,6 @@ from tests.integration.test_transactions import (
     _make_gestor_full,
     _receita_payload,
 )
-
-
-def _auth_header(seeded: SeededUser) -> dict[str, str]:
-    token = create_access_token(user_id=seeded.user_id, tenant_id=seeded.tenant_id)
-    return {"Authorization": f"Bearer {token}"}
 
 
 async def _pay(
@@ -322,7 +316,7 @@ async def test_visualizador_le_relatorio_mas_colaborador_sem_acesso_nao(
     response = await client.get(
         "/api/v1/financial-reports/dre",
         params={"from": "2026-08-01", "to": "2026-08-31"},
-        headers=_auth_header(viewer),
+        headers=auth_header(viewer),
     )
     assert response.status_code == 200
 
@@ -330,7 +324,7 @@ async def test_visualizador_le_relatorio_mas_colaborador_sem_acesso_nao(
     response = await client.get(
         "/api/v1/financial-reports/dre",
         params={"from": "2026-08-01", "to": "2026-08-31"},
-        headers=_auth_header(blocked),
+        headers=auth_header(blocked),
     )
     assert response.status_code == 403
 

@@ -27,6 +27,7 @@ from app.domain.courts.router import court_systems_router, courts_router
 from app.domain.crm.router import router as crm_router
 from app.domain.customer_origins.router import router as customer_origins_router
 from app.domain.customers.router import customers_router, marital_statuses_router
+from app.domain.documents.router import router as documents_router
 from app.domain.dunning.router import router as dunning_router
 from app.domain.financial.router import router as financial_router
 from app.domain.inbox.router import router as inbox_router
@@ -108,6 +109,7 @@ def create_app() -> FastAPI:
     app.include_router(task_types_router, prefix="/api/v1")
     app.include_router(financial_router, prefix="/api/v1")
     app.include_router(dunning_router, prefix="/api/v1")
+    app.include_router(documents_router, prefix="/api/v1")
     # inbox ANTES de posts: /posts/bulk/* perderia para /posts/{post_id}/* no match
     # por ordem de registro ("bulk" não parseia como uuid → 422).
     app.include_router(inbox_router, prefix="/api/v1")

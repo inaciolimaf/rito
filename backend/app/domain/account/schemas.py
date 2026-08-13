@@ -5,7 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr, field_validator
 
 from app.core.br_documents import is_valid_cpf_or_cnpj, strip_document_mask
-from app.domain.account.models import DEFAULT_TIMEZONE
+from app.domain.account.models import DEFAULT_TIMEZONE, AccountPlan
 
 # As 8 timezones do levantamento ADVBOX (spec 011, seção 4) — Brasil + Portugal.
 ALLOWED_TIMEZONES = frozenset(
@@ -94,5 +94,16 @@ class AccountResponse(BaseModel):
     site: str | None
     timezone: str
     logo_url: str | None
+    plan: AccountPlan
     created_at: datetime
     updated_at: datetime
+
+
+class AccountPlanUpdateRequest(BaseModel):
+    plan: AccountPlan
+
+
+class AccountStorageResponse(BaseModel):
+    used_bytes: int
+    quota_bytes: int
+    plan: AccountPlan

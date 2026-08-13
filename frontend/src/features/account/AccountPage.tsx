@@ -3,6 +3,7 @@ import * as React from "react";
 
 import { EmptyState } from "@/components/domain/EmptyState";
 import { AccountForm } from "@/features/account/AccountForm";
+import { AccountStorageSection } from "@/features/account/AccountStorageSection";
 import { LogoUploader } from "@/features/account/LogoUploader";
 import {
   getAccount,
@@ -72,6 +73,8 @@ export function AccountPage(): JSX.Element {
           Informações do escritório usadas nos documentos e modelos.
         </p>
       </div>
+
+      {account && <AccountStorageSection disabled={!isGestor} />}
 
       {account && (
         <LogoUploader

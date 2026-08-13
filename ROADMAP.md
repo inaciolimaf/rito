@@ -278,7 +278,7 @@ Identificação de atrasados, régua de cobrança, notificações por e-mail/SMS
 Agrupamento por grupo DRE; DRE e DFC por período; export.
 **Aceite:** DRE fecha com o razão em seed determinístico. **t:** 5 s. **Deps:** 061
 
-### ⬜ 063 — Documentos e nuvem
+### ✅ 063 — Documentos e nuvem
 Storage S3-compatible atrás de interface `FileStorage` (MinIO em dev); upload múltiplo, pastas, URL assinada temporária, quota por plano.
 **Aceite:** URL expira; quota excedida bloqueia upload. **t:** 6 s. **Deps:** 002
 

@@ -1,3 +1,4 @@
+import type { AccountPlan } from "@/features/documents/api";
 import { apiRequest } from "@/lib/api";
 import { ApiError } from "@/lib/errors";
 
@@ -19,6 +20,7 @@ export interface AccountData {
   site: string | null;
   timezone: string;
   logo_url: string | null;
+  plan: AccountPlan;
   created_at: string;
   updated_at: string;
 }
@@ -62,4 +64,8 @@ export async function uploadAccountLogo(file: File): Promise<AccountData> {
   const formData = new FormData();
   formData.append("file", file);
   return apiRequest<AccountData>("/api/v1/account/logo", { method: "POST", body: formData });
+}
+
+export async function updateAccountPlan(plan: AccountPlan): Promise<AccountData> {
+  return apiRequest<AccountData>("/api/v1/account/plan", { method: "PUT", body: { plan } });
 }

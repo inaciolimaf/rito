@@ -7,6 +7,7 @@ from app.core.permissions import UserRole, require_role
 from app.domain.account.exceptions import AccountNotFoundError, ResponsibleUserNotFoundError
 from app.domain.account.models import Account
 from app.domain.account.schemas import (
+    AccountPlanUpdateRequest,
     AccountResponse,
     AccountUpdateRequest,
     PublicationsSettingsResponse,
@@ -39,6 +40,7 @@ def _to_response(account: Account, storage: FileStorage) -> AccountResponse:
         site=account.site,
         timezone=account.timezone,
         logo_url=storage.public_url(account.logo_key) if account.logo_key else None,
+        plan=account.plan,
         created_at=account.created_at,
         updated_at=account.updated_at,
     )
@@ -83,6 +85,21 @@ async def upload_account_logo(
         account = await service.upload_logo(content, content_type)
     except InvalidImageError as exc:
         raise HTTPException(status_code=422, detail=exc.message) from exc
+    except AccountNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Conta ainda não configurada.") from exc
+    return _to_response(account, storage)
+
+
+@router.put("/plan")
+async def update_account_plan(
+    payload: AccountPlanUpdateRequest,
+    current_user: User = Depends(require_role(UserRole.GESTOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> AccountResponse:
+    service = AccountService(session=session, storage=storage, tenant_id=current_user.tenant_id)
+    try:
+        account = await service.update_plan(payload.plan)
     except AccountNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Conta ainda não configurada.") from exc
     return _to_response(account, storage)

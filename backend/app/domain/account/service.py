@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.image_processing import extension_for, process_image
 from app.domain.account.exceptions import AccountNotFoundError, ResponsibleUserNotFoundError
-from app.domain.account.models import Account
+from app.domain.account.models import Account, AccountPlan
 from app.domain.account.repository import AccountRepository
 from app.domain.account.schemas import AccountUpdateRequest
 from app.domain.users.models import User
@@ -56,5 +56,15 @@ class AccountService:
         if user_id is not None and await self.session.get(User, user_id) is None:
             raise ResponsibleUserNotFoundError
         account.default_publications_user_id = user_id
+        account.updated_at = datetime.now(UTC)
+        return account
+
+    async def update_plan(self, plan: AccountPlan) -> Account:
+        """Regra 12 (spec 063): troca de plano não mexe em documento já enviado, só
+        no teto de novos uploads — por isso não há nada além de gravar o valor."""
+        account = await self.accounts.get_current()
+        if account is None:
+            raise AccountNotFoundError
+        account.plan = plan
         account.updated_at = datetime.now(UTC)
         return account

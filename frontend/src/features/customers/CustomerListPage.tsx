@@ -28,6 +28,7 @@ import { BirthdayBadge } from "@/features/customers/BirthdayBadge";
 import { CustomerForm } from "@/features/customers/CustomerForm";
 import { CustomerStatsPanel } from "@/features/customers/CustomerStatsPanel";
 import { PhotoUploader } from "@/features/customers/PhotoUploader";
+import { CustomerDocumentsDialog } from "@/features/documents/CustomerDocumentsDialog";
 import {
   customerFormSchema,
   DEFAULT_CUSTOMER_FORM_VALUES,
@@ -205,6 +206,7 @@ export function CustomerListPage(): JSX.Element {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [formError, setFormError] = React.useState<ApiError | null>(null);
   const [pendingArchive, setPendingArchive] = React.useState<CustomerListItem | null>(null);
+  const [documentsFor, setDocumentsFor] = React.useState<CustomerListItem | null>(null);
 
   async function searchOrigins(query: string): Promise<EntityOption[]> {
     const page = await listCustomerOrigins({ q: query });
@@ -348,6 +350,13 @@ export function CustomerListPage(): JSX.Element {
               >
                 Editar
               </button>
+              <button
+                type="button"
+                className="text-sm text-accent underline"
+                onClick={() => setDocumentsFor(row)}
+              >
+                Nuvem
+              </button>
               {!row.is_archived && canArchive && (
                 <button
                   type="button"
@@ -399,6 +408,15 @@ export function CustomerListPage(): JSX.Element {
         confirmLabel="Arquivar"
         destructive
         onConfirm={handleConfirmArchive}
+      />
+
+      <CustomerDocumentsDialog
+        open={documentsFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setDocumentsFor(null);
+        }}
+        customerId={documentsFor?.id ?? null}
+        customerName={documentsFor?.name}
       />
     </ListPageLayout>
   );

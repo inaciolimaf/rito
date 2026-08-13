@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.repository import decode_cursor, encode_cursor
-from app.domain.templates.exceptions import TemplateNotFoundError
-from app.domain.templates.models import Template
-from app.domain.templates.repository import TemplateRepository
+from app.domain.templates.exceptions import PublicTemplateNotFoundError, TemplateNotFoundError
+from app.domain.templates.models import PublicTemplate, Template, TemplateType
+from app.domain.templates.repository import PublicTemplateRepository, TemplateRepository
 from app.domain.templates.schemas import TemplateCreateRequest, TemplateUpdateRequest
 
 
@@ -85,6 +85,39 @@ class TemplateService:
             Template(
                 tenant_id=self.tenant_id,
                 name=f"{original.name} (cópia)",
+                type=original.type,
+                content=original.content,
+                header_content=original.header_content,
+                footer_content=original.footer_content,
+                watermark_text=original.watermark_text,
+                created_by=user_id,
+            )
+        )
+
+
+class PublicTemplateService:
+    """Biblioteca pública (spec 068) — leitura do catálogo global e "copiar" pro
+    tenant atual."""
+
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        self.tenant_id = tenant_id
+        self.public_templates = PublicTemplateRepository(session)
+        self.templates = TemplateRepository(session)
+
+    async def list_templates(self, *, type_: TemplateType | None) -> list[PublicTemplate]:
+        return list(await self.public_templates.list_filtered(type_=type_))
+
+    async def copy(self, public_template_id: uuid.UUID, user_id: uuid.UUID) -> Template:
+        """Regra 2/4: cria um `Template` comum do tenant, editável dali em diante,
+        com o mesmo nome do original (sem sufixo — é a primeira cópia, não uma
+        duplicata de algo que o tenant já tem, spec 064 regra 6)."""
+        original = await self.public_templates.get_by_id(public_template_id)
+        if original is None:
+            raise PublicTemplateNotFoundError
+        return await self.templates.create(
+            Template(
+                tenant_id=self.tenant_id,
+                name=original.name,
                 type=original.type,
                 content=original.content,
                 header_content=original.header_content,

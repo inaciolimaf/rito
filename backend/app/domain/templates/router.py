@@ -7,9 +7,12 @@ from app.core.deps import get_document_mailer, get_file_storage
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.documents.models import Document
-from app.domain.templates.exceptions import TemplateNotFoundError
+from app.domain.templates.exceptions import (
+    PublicTemplateNotFoundError,
+    TemplateNotFoundError,
+)
 from app.domain.templates.generate import DocumentSaveFailedError, TemplateGenerationService
-from app.domain.templates.models import Template
+from app.domain.templates.models import PublicTemplate, Template, TemplateType
 from app.domain.templates.resolve import (
     CustomerScopeNotFoundError,
     LawsuitScopeNotFoundError,
@@ -17,6 +20,7 @@ from app.domain.templates.resolve import (
 )
 from app.domain.templates.schemas import (
     GeneratePdfRequest,
+    PublicTemplateResponse,
     ResolvedTemplateResponse,
     ResolveTemplateRequest,
     SavedDocumentResponse,
@@ -28,7 +32,7 @@ from app.domain.templates.schemas import (
     TemplateUpdateRequest,
     VariableCatalogItem,
 )
-from app.domain.templates.service import TemplateService
+from app.domain.templates.service import PublicTemplateService, TemplateService
 from app.domain.templates.variables import VARIABLE_CATALOG
 from app.domain.users.models import User
 from app.integrations.messaging.base import ChannelNotConfiguredError
@@ -47,6 +51,19 @@ def _saved_document_response(document: Document) -> SavedDocumentResponse:
         filename=document.filename,
         content_type=document.content_type,
         size_bytes=document.size_bytes,
+    )
+
+
+def _public_to_response(template: PublicTemplate) -> PublicTemplateResponse:
+    return PublicTemplateResponse(
+        id=template.id,
+        name=template.name,
+        type=template.type,
+        content=template.content,
+        header_content=template.header_content,
+        footer_content=template.footer_content,
+        watermark_text=template.watermark_text,
+        created_at=template.created_at,
     )
 
 
@@ -300,3 +317,28 @@ async def send_template_email(
         raise HTTPException(status_code=404, detail="Processo não encontrado.") from exc
     except ChannelNotConfiguredError as exc:
         raise HTTPException(status_code=422, detail="E-mail não configurado.") from exc
+
+
+@router.get("/public-templates")
+async def list_public_templates(
+    type: TemplateType | None = Query(default=None),  # noqa: A002 (nome do contrato de API)
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> list[PublicTemplateResponse]:
+    service = PublicTemplateService(session=session, tenant_id=current_user.tenant_id)
+    items = await service.list_templates(type_=type)
+    return [_public_to_response(item) for item in items]
+
+
+@router.post("/public-templates/{public_template_id}/copy", status_code=201)
+async def copy_public_template(
+    public_template_id: uuid.UUID,
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TemplateResponse:
+    service = PublicTemplateService(session=session, tenant_id=current_user.tenant_id)
+    try:
+        template = await service.copy(public_template_id, current_user.id)
+    except PublicTemplateNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Modelo público não encontrado.") from exc
+    return _to_response(template)

@@ -298,7 +298,7 @@ Variáveis de cliente, processo, escritório e usuário; **valores por extenso**
 Render para PDF; download; envio por e-mail; salvar na nuvem do processo.
 **Aceite:** PDF gerado com cabeçalho/rodapé. **t:** 6 s. **Deps:** 066
 
-### ⬜ 068 — Biblioteca pública de modelos
+### ✅ 068 — Biblioteca pública de modelos
 Modelos do sistema visíveis a todos os tenants; copiar para o escritório.
 **Aceite:** cópia vira modelo editável do tenant. **t:** 3 s. **Deps:** 064
 

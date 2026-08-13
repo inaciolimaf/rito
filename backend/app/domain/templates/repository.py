@@ -6,7 +6,7 @@ from sqlalchemy import ColumnElement, func, select
 
 from app.core.listing import paginate_keyset
 from app.core.repository import BaseRepository
-from app.domain.templates.models import Template, TemplateType
+from app.domain.templates.models import PublicTemplate, Template, TemplateType
 
 
 class TemplateRepository(BaseRepository[Template]):
@@ -50,3 +50,17 @@ class TemplateRepository(BaseRepository[Template]):
         )
         items = (await self.session.scalars(stmt)).all()
         return items, total
+
+
+class PublicTemplateRepository(BaseRepository[PublicTemplate]):
+    """Catálogo global (spec 068) — pequeno o bastante (seedado, não cresce por
+    tenant) pra não precisar de keyset, mesmo padrão de `DreGroupService.list_groups`
+    (spec 054)."""
+
+    model = PublicTemplate
+
+    async def list_filtered(self, *, type_: TemplateType | None) -> Sequence[PublicTemplate]:
+        stmt = select(PublicTemplate).order_by(PublicTemplate.name)
+        if type_ is not None:
+            stmt = stmt.where(PublicTemplate.type == type_)
+        return (await self.session.scalars(stmt)).all()

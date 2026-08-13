@@ -84,3 +84,14 @@ class SavedDocumentResponse(BaseModel):
     filename: str
     content_type: str
     size_bytes: int
+
+
+class PublicTemplateResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    type: TemplateType
+    content: str
+    header_content: str
+    footer_content: str
+    watermark_text: str | None
+    created_at: datetime

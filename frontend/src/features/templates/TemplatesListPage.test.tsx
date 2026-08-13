@@ -45,6 +45,19 @@ const listTemplates = vi.fn().mockImplementation(({ view }: { view?: string }) =
 );
 const restoreTemplate = vi.fn().mockResolvedValue({});
 const deleteTemplate = vi.fn().mockResolvedValue(undefined);
+const listPublicTemplates = vi.fn().mockResolvedValue([
+  {
+    id: "p1",
+    name: "Contrato de honorários",
+    type: "CONTRATO",
+    content: "",
+    header_content: "",
+    footer_content: "",
+    watermark_text: null,
+    created_at: "2026-08-01T00:00:00Z",
+  },
+]);
+const copyPublicTemplate = vi.fn().mockResolvedValue({ id: "t3" });
 
 vi.mock("@/features/templates/api", async () => {
   const actual = await vi.importActual<typeof import("@/features/templates/api")>(
@@ -55,6 +68,8 @@ vi.mock("@/features/templates/api", async () => {
     listTemplates: (...args: unknown[]) => listTemplates(...(args as [never])),
     restoreTemplate: (...args: unknown[]) => restoreTemplate(...(args as [never])),
     deleteTemplate: (...args: unknown[]) => deleteTemplate(...(args as [never])),
+    listPublicTemplates: (...args: unknown[]) => listPublicTemplates(...(args as [never])),
+    copyPublicTemplate: (...args: unknown[]) => copyPublicTemplate(...(args as [never])),
   };
 });
 
@@ -95,6 +110,21 @@ describe("TemplatesListPage", () => {
 
     await waitFor(() => {
       expect(deleteTemplate).toHaveBeenCalledWith("t1");
+    });
+  });
+
+  it("troca para a Biblioteca Pública e copia um modelo (spec 068)", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("Contrato padrão");
+    await user.click(screen.getByRole("tab", { name: "Biblioteca Pública" }));
+
+    await screen.findByText("Contrato de honorários");
+    await user.click(screen.getByText("Copiar para meus modelos"));
+
+    await waitFor(() => {
+      expect(copyPublicTemplate).toHaveBeenCalledWith("p1");
     });
   });
 });

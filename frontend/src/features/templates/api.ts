@@ -164,3 +164,25 @@ export async function sendTemplateEmail(
 ): Promise<void> {
   await apiRequest<void>(`/api/v1/templates/${id}/send-email`, { method: "POST", body: params });
 }
+
+export interface PublicTemplateData {
+  id: string;
+  name: string;
+  type: TemplateType;
+  content: string;
+  header_content: string;
+  footer_content: string;
+  watermark_text: string | null;
+  created_at: string;
+}
+
+export async function listPublicTemplates(type?: TemplateType): Promise<PublicTemplateData[]> {
+  const query = type ? `?type=${type}` : "";
+  return apiRequest<PublicTemplateData[]>(`/api/v1/public-templates${query}`);
+}
+
+/** Regra 2/4 (spec 068): a cópia vira um `Template` comum do tenant, sem sufixo no
+ * nome — editável dali em diante como qualquer modelo da biblioteca do escritório. */
+export async function copyPublicTemplate(id: string): Promise<TemplateData> {
+  return apiRequest<TemplateData>(`/api/v1/public-templates/${id}/copy`, { method: "POST" });
+}

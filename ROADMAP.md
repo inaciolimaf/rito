@@ -313,7 +313,7 @@ Config por evento (novo cliente, novo processo, parceiros, intimações) com res
 
 ## Fase 7 — Gestão, BI e Parceiros (071–080)
 
-### ⬜ 071 — Relatórios: Agilidade e Produtividade
+### ✅ 071 — Relatórios: Agilidade e Produtividade
 Gráfico concluídas em dia / em atraso / pendentes; tarefas com mais atraso; colaboradores com mais atraso; agilidade geral; produtividade semanal.
 **Aceite:** números batem com seed. **t:** 5 s. **Deps:** 039
 

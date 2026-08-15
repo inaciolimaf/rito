@@ -25,6 +25,7 @@ import { InboxPage } from "@/features/inbox/InboxPage";
 import { IntegrationsSettingsPage } from "@/features/integrations/IntegrationsSettingsPage";
 import { PostDetailPage } from "@/features/posts/PostDetailPage";
 import { PublicationListPage } from "@/features/publications/PublicationListPage";
+import { ReportsPage } from "@/features/reports/ReportsPage";
 import { CalendarPage } from "@/features/schedule/CalendarPage";
 import { StagesListPage } from "@/features/stages/StagesListPage";
 import { TaskTypesListPage } from "@/features/task-types/TaskTypesListPage";
@@ -88,6 +89,7 @@ export function App(): JSX.Element {
                     <Route path="/transactions" element={<TransactionsListPage />} />
                     <Route path="/library" element={<TemplatesListPage />} />
                     <Route path="/library/:id" element={<TemplateEditorPage />} />
+                    <Route path="/reports" element={<ReportsPage />} />
                     {ROUTABLE_NAV_ITEMS.filter(
                       (item) =>
                         item.path !== "/home" &&
@@ -98,7 +100,8 @@ export function App(): JSX.Element {
                         item.path !== "/publications" &&
                         item.path !== "/crm" &&
                         item.path !== "/transactions" &&
-                        item.path !== "/library",
+                        item.path !== "/library" &&
+                        item.path !== "/reports",
                     ).map((item) => (
                       <Route
                         key={item.path}

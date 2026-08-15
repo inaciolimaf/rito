@@ -1,7 +1,7 @@
 # 071 — Relatórios: Agilidade e Produtividade
 
 **Fase:** 7 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 039 · **Status:** ⬜ pendente
+**Depende de:** 039 · **Status:** ✅ concluída
 
 ---
 
@@ -90,7 +90,31 @@ Migration `071_agility_view.py`. Usa o `MaterializedAggregate` de 060.
 
 ## 9. Descobertas
 
-*(preencher)*
+- A matview `agility_daily` guarda **somas** por `(tenant, usuário, dia de conclusão)`,
+  não médias — o service soma sobre o intervalo pedido e só ali divide. Média de médias
+  diárias distorceria o resultado em dias com volumes desiguais.
+- "Pendente" (regra 3) foi ancorado no prazo fatal: conta `post_users` sem conclusão
+  cujo `posts.deadline_date` cai dentro de `[from, to]`. Tarefa sem prazo fatal não tem
+  como entrar num relatório filtrado por período (ela não tem data para comparar).
+- "Colaboradores/tarefas com mais atraso" (`/reports/most-delayed`) não tem filtro de
+  período no contrato — agregam o histórico inteiro. Tarefas privadas somam nos
+  agregados de Agilidade (regra 7) mas ficam de fora da lista de detalhe (spec 033
+  regra 8: privada é invisível a terceiros, mesmo para GESTOR).
+- Regra 8 (Colaborador só vê os próprios números) foi implementada como o idioma já
+  usado em `taskscore/router.py::chart()`: sem `user_id`, o escopo é o próprio usuário;
+  pedir o `user_id` de outra pessoa sem ser ADMINISTRADOR+ é 403. `/most-delayed`
+  foge dessa regra por contrato explícito (coluna "Autorização: ADMINISTRADOR").
+- O orçamento de "painel ≤ 4 statements" do plano de testes não tem infraestrutura de
+  contagem de query no repositório ainda — essa infra é objeto da spec 098
+  (Performance). Item adiado, não implementado aqui.
+- `test_reports_agility.py` (9 casos) mede ~3,4 s a mais no backend isolado (188,6 s
+  com vs. 185,2 s sem, `pytest -n 2`) — dentro do orçamento de +5 s da spec. O
+  wall-clock de `make test` (as 3 suítes concorrentes) mediu 304–313 s nesta sessão,
+  acima dos 300 s, mas por contenção de CPU do host compartilhado (load average
+  7–12 em 4 núcleos, processos de outras sessões do agente) — o backend isolado roda
+  em ~189 s tanto com quanto sem esta spec; concorrente com frontend/e2e ele sobe para
+  ~300 s. Não é regressão desta spec. Vale revisar o orçamento acumulado (nota da
+  refatoração 080) se o CI mostrar o mesmo padrão num runner dedicado.
 
 ## 10. Definição de pronto
 

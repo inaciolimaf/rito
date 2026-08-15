@@ -48,6 +48,11 @@ MATERIALIZED_VIEWS: list[MaterializedViewSpec] = [
         refresh_interval_minutes=10,
         description="Financeiro (spec 059) — saldo diário cumulativo por conta.",
     ),
+    MaterializedViewSpec(
+        view_name="agility_daily",
+        refresh_interval_minutes=15,
+        description="Relatórios (spec 071) — agilidade diária por usuário.",
+    ),
 ]
 
 

@@ -84,6 +84,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.dunning.sweep_dunning_rules",
         "schedule": _daily_crontab(_settings.dunning_sync_cron),
     },
+    # Spec 071, regra 10: refresh da view materializada de agilidade a cada 15 min.
+    "agility-refresh": {
+        "task": "app.workers.agility.refresh_agility",
+        "schedule": crontab(minute="*/15"),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -98,4 +103,5 @@ celery_app.conf.imports = (
     "app.workers.financial_recurrence",
     "app.workers.financial_dashboard",
     "app.workers.dunning",
+    "app.workers.agility",
 )

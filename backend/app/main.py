@@ -39,6 +39,7 @@ from app.domain.monitored_terms.router import router as monitored_terms_router
 from app.domain.notifications.router import router as notifications_router
 from app.domain.posts.router import router as posts_router
 from app.domain.publications.router import router as publications_router
+from app.domain.reports.router import router as reports_router
 from app.domain.schedule.router import ical_router
 from app.domain.schedule.router import router as schedule_router
 from app.domain.squads.router import router as squads_router
@@ -130,6 +131,7 @@ def create_app() -> FastAPI:
     app.include_router(monitored_terms_router, prefix="/api/v1")
     app.include_router(integration_alerts_router, prefix="/api/v1")
     app.include_router(integrations_router, prefix="/api/v1")
+    app.include_router(reports_router, prefix="/api/v1")
 
     return app
 

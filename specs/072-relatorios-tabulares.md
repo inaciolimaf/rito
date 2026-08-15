@@ -1,7 +1,7 @@
 # 072 — Relatórios tabulares
 
 **Fase:** 7 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 071 · **Status:** ⬜ pendente
+**Depende de:** 071 · **Status:** ✅ concluída
 
 ---
 
@@ -96,7 +96,33 @@ Colunas por relatório:
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Colisão de rota com 071**: o contrato original (`GET /api/v1/reports/{report_key}`)
+  colide com `/reports/productivity` da spec 071 (já em produção, forma de resposta
+  agregada incompatível com a listagem tabular). Resolvido montando os 9 relatórios
+  tabulares sob `/api/v1/reports/tabular/{report_key}` — os 071 ficam intocados.
+- **`sort`/`order` não são livres**: cada relatório tem exatamente uma coluna de
+  ordenação natural (a mesma usada no keyset), fixada no repositório. Os parâmetros
+  `?sort=&order=` do contrato genérico de listagem não foram implementados como
+  escolha do cliente — cada relatório já É a "metadata" da própria query (regra 1).
+  Se um caso de uso pedir reordenação livre, é uma extensão futura, não desta spec.
+- **`access_logs` fica desligado por padrão**: `accounts.track_access_logs` e a tabela
+  `access_logs` só existem a partir da spec 073 (que roda logo em seguida neste mesmo
+  ciclo). Até lá, o relatório sempre retorna `disabled_reason` fixo — o que já é a
+  regra 5 ("desligado → estado vazio explicando"), só que o motivo é estrutural (a
+  feature ainda não existe) e não uma escolha do escritório. A spec 073 substitui esse
+  retorno fixo pela leitura real do toggle, sem mexer no shape do dispatcher.
+- **"Partes" é uma string, não uma lista estruturada**: `ATIVO x PASSIVO`
+  (`string_agg` por polo) — suficiente para a coluna do relatório; nada além disso
+  precisa da estrutura rica que a timeline do processo (026) já expõe.
+- Rodapé de pontos (regra 4) soma sobre **todo o conjunto filtrado**, não a página
+  visível — mesma regra do export (regra 10), calculado com uma subquery separada
+  sobre o mesmo `stmt` sem paginação.
+- Achado de implementação (não específico desta spec): uma execução do backend em
+  paralelo com outras suítes neste sandbox reverteu momentaneamente `rito_test` para
+  a revisão anterior (`071_agility_view`) entre dois comandos — provável concorrência
+  de outra sessão no mesmo host compartilhado. Sem relação com o código desta spec;
+  resolvido reaplicando `alembic upgrade head` antes da suíte completa passar limpa
+  (971 testes, incluindo `test_db_isolation`).
 
 ## 10. Definição de pronto
 

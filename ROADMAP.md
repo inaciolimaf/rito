@@ -317,7 +317,7 @@ Config por evento (novo cliente, novo processo, parceiros, intimações) com res
 Gráfico concluídas em dia / em atraso / pendentes; tarefas com mais atraso; colaboradores com mais atraso; agilidade geral; produtividade semanal.
 **Aceite:** números batem com seed. **t:** 5 s. **Deps:** 039
 
-### ⬜ 072 — Relatórios tabulares
+### ✅ 072 — Relatórios tabulares
 7 relatórios (produtividade, tarefas atrasadas, registros de acesso, novos clientes, novos processos, ganhos, perdidos) com filtros e export.
 **Aceite:** cada relatório com teste de agregação. **t:** 6 s. **Deps:** 071
 

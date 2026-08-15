@@ -1,4 +1,4 @@
-import { apiRequest } from "@/lib/api";
+import { apiRequest, apiRequestBlob } from "@/lib/api";
 
 /** Camada de API da spec 071 — relatórios de Agilidade e Produtividade. */
 
@@ -82,4 +82,159 @@ export async function getProductivityReport(params: {
 export async function getProductivityWeeklyReport(userId?: string): Promise<WeeklyChartResponse> {
   const suffix = userId ? `?user_id=${encodeURIComponent(userId)}` : "";
   return apiRequest<WeeklyChartResponse>(`/api/v1/reports/productivity/weekly${suffix}`);
+}
+
+/** Camada de API da spec 072 — os 9 relatórios tabulares, servidos por uma única rota
+ * genérica dirigida por `report_key` (regra 1). */
+
+export type ReportKey =
+  | "productivity"
+  | "delayed_tasks"
+  | "access_logs"
+  | "new_customers"
+  | "new_lawsuits"
+  | "won_lawsuits"
+  | "lost_lawsuits"
+  | "hearings"
+  | "contrary_parties";
+
+export interface ProductivityTableRow {
+  post_id: string;
+  responsible_name: string;
+  customer_name: string | null;
+  task_type_name: string;
+  points: number;
+  scheduled_date: string | null;
+  completed_at: string | null;
+}
+
+export interface DelayedTaskTableRow {
+  post_id: string;
+  responsible_name: string;
+  customer_name: string | null;
+  task_type_name: string;
+  points: number;
+  scheduled_date: string | null;
+  delay_days: number;
+}
+
+export interface AccessLogTableRow {
+  user_id: string;
+  user_name: string;
+  day: string;
+  ip_address: string | null;
+  first_login: string;
+  last_login: string;
+}
+
+export interface NewCustomerTableRow {
+  customer_id: string;
+  name: string;
+  contact: string | null;
+  city_state: string | null;
+  origin_name: string | null;
+  created_at: string;
+}
+
+export interface NewLawsuitTableRow {
+  lawsuit_id: string;
+  parties: string;
+  lawsuit_type_name: string;
+  process_number: string | null;
+  responsible_name: string;
+  created_at: string;
+}
+
+export interface LawsuitOutcomeTableRow {
+  lawsuit_id: string;
+  parties: string;
+  lawsuit_type_name: string;
+  process_number: string | null;
+  fees_value: string | null;
+  closure_date: string;
+  total_days: number;
+}
+
+export interface HearingTableRow {
+  post_id: string;
+  scheduled_date: string;
+  scheduled_time: string | null;
+  task_type_name: string;
+  process_number: string | null;
+  parties: string;
+  location: string | null;
+  responsible_name: string | null;
+}
+
+export interface ContraryPartyTableRow {
+  customer_id: string;
+  name: string;
+  identification: string | null;
+  city: string | null;
+  lawsuit_count: number;
+}
+
+export type ReportTableRow =
+  | ProductivityTableRow
+  | DelayedTaskTableRow
+  | AccessLogTableRow
+  | NewCustomerTableRow
+  | NewLawsuitTableRow
+  | LawsuitOutcomeTableRow
+  | HearingTableRow
+  | ContraryPartyTableRow;
+
+export interface ReportListResponse<T> {
+  items: T[];
+  next_cursor: string | null;
+  total: number;
+  points_total: number | null;
+  disabled_reason: string | null;
+}
+
+export interface TabularReportParams {
+  from?: string;
+  to?: string;
+  user_id?: string;
+  action_group_id?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+function buildTabularQuery(params: TabularReportParams): string {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.user_id) query.set("user_id", params.user_id);
+  if (params.action_group_id) query.set("action_group_id", params.action_group_id);
+  if (params.cursor) query.set("cursor", params.cursor);
+  if (params.limit) query.set("limit", String(params.limit));
+  return query.toString();
+}
+
+export async function getTabularReport<T = ReportTableRow>(
+  reportKey: ReportKey,
+  params: TabularReportParams,
+): Promise<ReportListResponse<T>> {
+  const query = buildTabularQuery(params);
+  const suffix = query ? `?${query}` : "";
+  return apiRequest<ReportListResponse<T>>(`/api/v1/reports/tabular/${reportKey}${suffix}`);
+}
+
+export async function exportTabularReport(
+  reportKey: ReportKey,
+  format: "xlsx" | "pdf",
+  params: TabularReportParams,
+): Promise<void> {
+  const query = buildTabularQuery(params);
+  const blob = await apiRequestBlob(
+    `/api/v1/reports/tabular/${reportKey}/export?format=${format}${query ? `&${query}` : ""}`,
+    { method: "POST" },
+  );
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${reportKey}.${format}`;
+  link.click();
+  URL.revokeObjectURL(url);
 }

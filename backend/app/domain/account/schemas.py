@@ -95,6 +95,7 @@ class AccountResponse(BaseModel):
     timezone: str
     logo_url: str | None
     plan: AccountPlan
+    track_access_logs: bool
     created_at: datetime
     updated_at: datetime
 
@@ -107,3 +108,11 @@ class AccountStorageResponse(BaseModel):
     used_bytes: int
     quota_bytes: int
     plan: AccountPlan
+
+
+class AccessTrackingResponse(BaseModel):
+    track_access_logs: bool
+
+
+class AccessTrackingUpdateRequest(BaseModel):
+    enabled: bool

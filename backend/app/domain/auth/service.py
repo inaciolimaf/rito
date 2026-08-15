@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.core.rate_limit import check_and_increment
 from app.core.security import hash_password, validate_password_policy, verify_password
 from app.core.tokens import create_access_token, generate_refresh_token, hash_token
+from app.domain.account.repository import AccountRepository
 from app.domain.auth.exceptions import (
     InvalidCredentialsError,
     InvalidRefreshTokenError,
@@ -19,6 +20,7 @@ from app.domain.auth.exceptions import (
 )
 from app.domain.auth.models import PasswordResetToken, RefreshToken
 from app.domain.auth.repository import PasswordResetTokenRepository, RefreshTokenRepository
+from app.domain.reports.models import AccessLog
 from app.domain.users.repository import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -37,8 +39,11 @@ class AuthService:
         self.users = UserRepository(session)
         self.refresh_tokens = RefreshTokenRepository(session)
         self.password_resets = PasswordResetTokenRepository(session)
+        self.accounts = AccountRepository(session)
 
-    async def login(self, email: str, password: str, client_ip: str) -> tuple[str, str, int]:
+    async def login(
+        self, email: str, password: str, client_ip: str, user_agent: str | None = None
+    ) -> tuple[str, str, int]:
         allowed = await check_and_increment(
             self.redis,
             f"login_attempts:{email}:{client_ip}",
@@ -58,6 +63,19 @@ class AuthService:
             raise InvalidCredentialsError
 
         user.last_login_at = datetime.now(UTC)
+
+        # Spec 073, regra 1/3: só grava se o rastreamento estiver ligado; refresh
+        # nunca passa por aqui — só um login bem-sucedido registra.
+        account = await self.accounts.get_current()
+        if account is not None and account.track_access_logs:
+            self.session.add(
+                AccessLog(
+                    tenant_id=self.tenant_id,
+                    user_id=user.id,
+                    ip_address=client_ip if client_ip != "unknown" else None,
+                    user_agent=user_agent,
+                )
+            )
 
         return await self._issue_tokens(user_id=user.id, family_id=uuid.uuid4())
 

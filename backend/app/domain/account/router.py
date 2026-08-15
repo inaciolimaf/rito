@@ -7,6 +7,8 @@ from app.core.permissions import UserRole, require_role
 from app.domain.account.exceptions import AccountNotFoundError, ResponsibleUserNotFoundError
 from app.domain.account.models import Account
 from app.domain.account.schemas import (
+    AccessTrackingResponse,
+    AccessTrackingUpdateRequest,
     AccountPlanUpdateRequest,
     AccountResponse,
     AccountUpdateRequest,
@@ -41,6 +43,7 @@ def _to_response(account: Account, storage: FileStorage) -> AccountResponse:
         timezone=account.timezone,
         logo_url=storage.public_url(account.logo_key) if account.logo_key else None,
         plan=account.plan,
+        track_access_logs=account.track_access_logs,
         created_at=account.created_at,
         updated_at=account.updated_at,
     )
@@ -137,3 +140,20 @@ async def update_publications_settings(
     return PublicationsSettingsResponse(
         default_publications_user_id=account.default_publications_user_id
     )
+
+
+@router.put("/access-tracking")
+async def update_access_tracking(
+    payload: AccessTrackingUpdateRequest,
+    current_user: User = Depends(require_role(UserRole.GESTOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> AccessTrackingResponse:
+    """Spec 073 §5: liga/desliga o rastreamento. Regra 2 (aviso de transparência
+    LGPD) é responsabilidade da UI — este endpoint só persiste a escolha."""
+    service = AccountService(session=session, storage=storage, tenant_id=current_user.tenant_id)
+    try:
+        account = await service.update_access_tracking(payload.enabled)
+    except AccountNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Conta ainda não configurada.") from exc
+    return AccessTrackingResponse(track_access_logs=account.track_access_logs)

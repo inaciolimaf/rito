@@ -5,21 +5,31 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.export import ExportColumn, TableExport
 from app.core.http import parse_month_query
 from app.core.permissions import UserRole, require_role
+from app.core.repository import encode_cursor
+from app.domain.account.repository import AccountRepository
 from app.domain.auth.deps import get_session_for_current_user
+from app.domain.reports.access_service import AccessLogService
+from app.domain.reports.models import TimesheetDay
 from app.domain.reports.schemas import (
     REPORT_KEYS,
+    AccessLogItemResponse,
+    AccessLogListResponse,
     AgilityResponse,
     MostDelayedResponse,
     ProductivityResponse,
     ReportKey,
     ReportListResponse,
+    TimesheetDayResponse,
+    TimesheetResponse,
     WeeklyChartResponse,
 )
 from app.domain.reports.service import ReportsService
 from app.domain.reports.tabular_service import ReportFilters, TabularReportService
 from app.domain.users.models import User
+from app.domain.users.repository import UserRepository
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -163,3 +173,120 @@ async def export_tabular_report(
     service = TabularReportService(session=session, tenant_id=current_user.tenant_id)
     content = await service.export(report_key, filters, format_=format_)
     return Response(content=content, media_type=_MIME_TYPES[format_])
+
+
+# ---- registro de acesso e livro de ponto (spec 073) -----------------------------
+
+_DEFAULT_ACCESS_LOG_LIMIT = 20
+
+_TIMESHEET_EXPORT_COLUMNS: list[ExportColumn[TimesheetDayResponse]] = [
+    ExportColumn("Dia", lambda d: d.day.isoformat()),
+    ExportColumn("Primeiro acesso", lambda d: d.first_access.isoformat() if d.first_access else ""),
+    ExportColumn("Último acesso", lambda d: d.last_access.isoformat() if d.last_access else ""),
+    ExportColumn(
+        "Desvio (min)",
+        lambda d: str(d.deviation_minutes) if d.deviation_minutes is not None else "",
+    ),
+    ExportColumn("Fim de semana", lambda d: "sim" if d.is_weekend else ""),
+    ExportColumn("Feriado", lambda d: "sim" if d.is_holiday else ""),
+]
+
+
+@router.get("/access-logs")
+async def get_access_logs_report(
+    from_: date | None = Query(default=None, alias="from"),
+    to: date | None = Query(default=None),
+    user_id: uuid.UUID | None = Query(default=None),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=_DEFAULT_ACCESS_LOG_LIMIT, ge=1, le=100),
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> AccessLogListResponse:
+    service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
+    items, total = await service.list_access_logs(
+        user_id=user_id, from_=from_, to=to, cursor=cursor, limit=limit
+    )
+    next_cursor = None
+    if len(items) == limit:
+        last = items[-1]
+        next_cursor = encode_cursor(last.occurred_at.isoformat(), last.log_id)
+    return AccessLogListResponse(
+        items=[
+            AccessLogItemResponse(
+                log_id=item.log_id,
+                user_name=item.user_name,
+                ip_address=str(item.ip_address) if item.ip_address else None,
+                occurred_at=item.occurred_at,
+            )
+            for item in items
+        ],
+        next_cursor=next_cursor,
+        total=total,
+    )
+
+
+async def _resolve_timesheet_target(
+    session: AsyncSession, current_user: User, requested_user_id: uuid.UUID | None
+) -> User:
+    """Regra 10: o próprio usuário vê o próprio ponto; ver de outro exige ADMINISTRADOR."""
+    is_admin = current_user.role in (UserRole.ADMINISTRADOR, UserRole.GESTOR)
+    target_id = requested_user_id or current_user.id
+    if target_id != current_user.id and not is_admin:
+        raise HTTPException(status_code=403, detail="Você só pode ver o próprio ponto.")
+    target = await UserRepository(session).get_by_id(target_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+    return target
+
+
+def _to_timesheet_day_response(day: TimesheetDay) -> TimesheetDayResponse:
+    return TimesheetDayResponse(
+        day=day.day,
+        first_access=day.first_access,
+        last_access=day.last_access,
+        access_count=day.access_count,
+        deviation_minutes=day.deviation_minutes,
+        is_weekend=day.is_weekend,
+        is_holiday=day.is_holiday,
+    )
+
+
+@router.get("/timesheet")
+async def get_timesheet_report(
+    month: str | None = Query(default=None),
+    user_id: uuid.UUID | None = Query(default=None),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> TimesheetResponse:
+    target = await _resolve_timesheet_target(session, current_user, user_id)
+    account = await AccountRepository(session).get_current()
+    if account is None:
+        raise HTTPException(status_code=404, detail="Conta ainda não configurada.")
+    month_start = parse_month_query(month)
+    service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
+    days = await service.timesheet(user=target, account=account, month_start=month_start)
+    return TimesheetResponse(
+        user_id=target.id,
+        month=month_start,
+        days=[_to_timesheet_day_response(day) for day in days],
+    )
+
+
+@router.post("/timesheet/export")
+async def export_timesheet_report(
+    month: str | None = Query(default=None),
+    user_id: uuid.UUID | None = Query(default=None),
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> Response:
+    target = await _resolve_timesheet_target(session, current_user, user_id)
+    account = await AccountRepository(session).get_current()
+    if account is None:
+        raise HTTPException(status_code=404, detail="Conta ainda não configurada.")
+    month_start = parse_month_query(month)
+    service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
+    days = await service.timesheet(user=target, account=account, month_start=month_start)
+    rows = [_to_timesheet_day_response(day) for day in days]
+    export = TableExport(sheet_title="timesheet", columns=_TIMESHEET_EXPORT_COLUMNS)
+    content = export.xlsx(rows)
+    return Response(content=content, media_type=_MIME_TYPES["xlsx"])

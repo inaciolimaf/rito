@@ -89,6 +89,16 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.agility.refresh_agility",
         "schedule": crontab(minute="*/15"),
     },
+    # Spec 073: refresh do livro de ponto a cada 15 min (mesmo intervalo de 071).
+    "timesheet-refresh": {
+        "task": "app.workers.timesheet.refresh_timesheet",
+        "schedule": crontab(minute="*/15"),
+    },
+    # Spec 073, regra 9: expurgo mensal de access_logs além da retenção de 12 meses.
+    "access-logs-purge": {
+        "task": "app.workers.timesheet.purge_access_logs",
+        "schedule": crontab(day_of_month=1, hour=4, minute=0),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -104,4 +114,5 @@ celery_app.conf.imports = (
     "app.workers.financial_dashboard",
     "app.workers.dunning",
     "app.workers.agility",
+    "app.workers.timesheet",
 )

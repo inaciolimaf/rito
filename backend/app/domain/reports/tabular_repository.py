@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import ColumnElement, Date, Row, Select, func, literal, select
+from sqlalchemy import ColumnElement, Date, Row, Select, func, literal, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
@@ -18,6 +18,7 @@ from app.domain.customer_origins.models import CustomerOrigin
 from app.domain.customers.models import Customer
 from app.domain.lawsuits.models import Lawsuit, LawsuitOutcome, LawsuitParty, PartyPole
 from app.domain.posts.models import Post, PostUser
+from app.domain.reports.models import timesheet_daily
 from app.domain.task_types.catalog import SYSTEM_TASK_NAMES
 from app.domain.task_types.models import TaskType
 from app.domain.users.models import User
@@ -383,3 +384,36 @@ class TabularReportRepository:
             limit=limit,
             descending=False,
         )
+
+    # ---- registro de acesso (spec 073, reaproveitado por 072 regra 5) -----------
+
+    async def access_logs_from_timesheet(
+        self, *, cursor: tuple[Any, uuid.UUID] | None, limit: int
+    ) -> tuple[Sequence[Row[Any]], int]:
+        """`timesheet_daily_visible` é o mesmo agregado por dia do livro de ponto (073)
+        — aqui só troca a projeção de colunas. `user_id` não é ORM (é `Table.c`), então
+        o keyset é montado à mão em vez de `paginate_keyset` (que exige
+        `InstrumentedAttribute` no id_column)."""
+        base = (
+            select(
+                timesheet_daily.c.user_id,
+                User.name,
+                timesheet_daily.c.day,
+                timesheet_daily.c.last_ip,
+                timesheet_daily.c.first_access,
+                timesheet_daily.c.last_access,
+            )
+            .select_from(timesheet_daily)
+            .join(User, User.id == timesheet_daily.c.user_id)
+        )
+        total = await self.session.scalar(select(func.count()).select_from(base.subquery()))
+
+        stmt = base.order_by(timesheet_daily.c.day.desc(), timesheet_daily.c.user_id.desc()).limit(
+            limit
+        )
+        if cursor is not None:
+            cursor_day, cursor_user_id = cursor
+            pair = tuple_(timesheet_daily.c.day, timesheet_daily.c.user_id)
+            stmt = stmt.where(pair < tuple_(literal(cursor_day), literal(cursor_user_id)))
+        rows = (await self.session.execute(stmt)).all()
+        return rows, int(total or 0)

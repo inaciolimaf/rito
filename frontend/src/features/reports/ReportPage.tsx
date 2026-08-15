@@ -8,19 +8,31 @@ import { FilterBar } from "@/components/domain/FilterBar";
 import { useFilters } from "@/components/domain/useFilters";
 import { exportTabularReport, getTabularReport, type ReportKey } from "@/features/reports/api";
 import { ReportSelect } from "@/features/reports/ReportSelect";
-import { filterFieldsFor, REPORT_DEFINITIONS } from "@/features/reports/reportDefinitions";
+import {
+  REPORT_OPTIONS,
+  filterFieldsFor,
+  REPORT_DEFINITIONS,
+} from "@/features/reports/reportDefinitions";
 import { ReportTotalsRow } from "@/features/reports/ReportTotalsRow";
+import { TimesheetReport } from "@/features/reports/TimesheetReport";
 import { ApiError } from "@/lib/errors";
 
 const DEFAULT_REPORT: ReportKey = "productivity";
 
-/** Página genérica dos 9 relatórios tabulares (spec 072 regra 1) — uma tela dirigida
- * por metadados (`reportDefinitions.tsx`), não 9 telas escritas à mão. */
+// Spec 073 §6: "Livro de ponto" entra no mesmo seletor, mas não é um dos 9 report_key
+// tabulares da 072 — tem tela própria (grade de dias, não DataTable genérica).
+const PAGE_OPTIONS = [...REPORT_OPTIONS, { value: "timesheet", label: "Livro de ponto" }];
+
+/** Página genérica dos 9 relatórios tabulares (spec 072 regra 1) + livro de ponto
+ * (spec 073) — dirigida por metadados (`reportDefinitions.tsx`), não telas à mão. */
 export function ReportPage(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedKey = searchParams.get("report") as ReportKey | null;
+  const requestedKey = searchParams.get("report");
+  const isTimesheet = requestedKey === "timesheet";
   const reportKey: ReportKey =
-    requestedKey && requestedKey in REPORT_DEFINITIONS ? requestedKey : DEFAULT_REPORT;
+    requestedKey && requestedKey in REPORT_DEFINITIONS
+      ? (requestedKey as ReportKey)
+      : DEFAULT_REPORT;
   const definition = REPORT_DEFINITIONS[reportKey];
 
   const filterFields = React.useMemo(() => filterFieldsFor(definition), [definition]);
@@ -38,6 +50,7 @@ export function ReportPage(): JSX.Element {
   const { data, isLoading, error } = useQuery({
     queryKey: ["tabular-report", reportKey, { from, to, cursor: currentCursor }],
     queryFn: () => getTabularReport(reportKey, { from, to, cursor: currentCursor }),
+    enabled: !isTimesheet,
   });
 
   const [exporting, setExporting] = React.useState(false);
@@ -51,17 +64,26 @@ export function ReportPage(): JSX.Element {
     }
   }
 
-  function handleReportChange(next: ReportKey): void {
+  function handleReportChange(next: string): void {
     const params = new URLSearchParams(searchParams);
     if (next === DEFAULT_REPORT) params.delete("report");
     else params.set("report", next);
     setSearchParams(params, { replace: true });
   }
 
+  if (isTimesheet) {
+    return (
+      <div className="space-y-4">
+        <ReportSelect value="timesheet" options={PAGE_OPTIONS} onChange={handleReportChange} />
+        <TimesheetReport />
+      </div>
+    );
+  }
+
   if (data?.disabled_reason) {
     return (
       <div className="space-y-4">
-        <ReportSelect value={reportKey} onChange={handleReportChange} />
+        <ReportSelect value={reportKey} options={PAGE_OPTIONS} onChange={handleReportChange} />
         <EmptyState title={definition.label} description={data.disabled_reason} />
       </div>
     );
@@ -70,7 +92,7 @@ export function ReportPage(): JSX.Element {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <ReportSelect value={reportKey} onChange={handleReportChange} />
+        <ReportSelect value={reportKey} options={PAGE_OPTIONS} onChange={handleReportChange} />
         <div className="flex gap-2">
           <button
             type="button"

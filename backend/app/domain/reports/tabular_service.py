@@ -13,8 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.export import ExportColumn, TableExport
 from app.core.repository import decode_cursor, encode_cursor
+from app.domain.account.repository import AccountRepository
 from app.domain.lawsuits.models import LawsuitOutcome
 from app.domain.reports.schemas import (
+    AccessLogRow,
     ContraryPartyRow,
     DelayedTaskRowItem,
     HearingRow,
@@ -30,9 +32,8 @@ from app.domain.reports.tabular_repository import TabularReportRepository
 
 _EXPORT_ROW_CAP = 50_000
 
-# Regra 5: motivo fixo enquanto o rastreamento de acesso (spec 073) não existe —
-# accounts.track_access_logs e a tabela access_logs chegam só naquela spec. Até lá
-# o relatório está sempre "desligado", o que é honesto com o estado real do sistema.
+# Regra 5: relatório desligado enquanto `accounts.track_access_logs` for False —
+# desligado é o padrão (spec 073, regra 1).
 _ACCESS_LOGS_DISABLED_REASON = "Rastreamento de acesso desligado."
 
 
@@ -74,6 +75,7 @@ def _decode_str_cursor(cursor: str | None) -> tuple[str, uuid.UUID] | None:
 class TabularReportService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.repo = TabularReportRepository(session)
+        self.accounts = AccountRepository(session)
         self.tenant_id = tenant_id
 
     async def fetch(
@@ -132,10 +134,32 @@ class TabularReportService:
             )
 
         if report_key == "access_logs":
-            # Regra 5: desligado é o padrão até a spec 073 existir de fato.
-            return ReportListResponse(
-                items=[], next_cursor=None, total=0, disabled_reason=_ACCESS_LOGS_DISABLED_REASON
+            account = await self.accounts.get_current()
+            if account is None or not account.track_access_logs:
+                # Regra 5: desligado é o padrão (spec 073, regra 1) — estado vazio
+                # explicativo, não lista vazia crua.
+                return ReportListResponse(
+                    items=[],
+                    next_cursor=None,
+                    total=0,
+                    disabled_reason=_ACCESS_LOGS_DISABLED_REASON,
+                )
+            rows, total = await self.repo.access_logs_from_timesheet(
+                cursor=_decode_date_cursor(cursor), limit=limit
             )
+            items = [
+                AccessLogRow(
+                    user_id=r[0],
+                    user_name=r[1],
+                    day=r[2],
+                    ip_address=str(r[3]) if r[3] else None,
+                    first_login=r[4],
+                    last_login=r[5],
+                )
+                for r in rows
+            ]
+            next_cursor = _next_cursor(rows, items, limit, lambda r: r.day)
+            return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
 
         if report_key == "new_customers":
             rows, total = await self.repo.new_customers(

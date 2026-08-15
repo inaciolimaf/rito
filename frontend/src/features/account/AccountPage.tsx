@@ -2,11 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 
 import { EmptyState } from "@/components/domain/EmptyState";
+import { AccessTrackingToggle } from "@/features/account/AccessTrackingToggle";
 import { AccountForm } from "@/features/account/AccountForm";
 import { AccountStorageSection } from "@/features/account/AccountStorageSection";
 import { LogoUploader } from "@/features/account/LogoUploader";
 import {
   getAccount,
+  updateAccessTracking,
   updateAccount,
   uploadAccountLogo,
   type AccountData,
@@ -43,6 +45,15 @@ export function AccountPage(): JSX.Element {
     mutationFn: uploadAccountLogo,
     onSuccess: (data: AccountData) => {
       queryClient.setQueryData(ACCOUNT_QUERY_KEY, data);
+    },
+  });
+
+  const accessTrackingMutation = useMutation({
+    mutationFn: updateAccessTracking,
+    onSuccess: (data) => {
+      queryClient.setQueryData(ACCOUNT_QUERY_KEY, (current: AccountData | null | undefined) =>
+        current ? { ...current, track_access_logs: data.track_access_logs } : current,
+      );
     },
   });
 
@@ -94,6 +105,14 @@ export function AccountPage(): JSX.Element {
           await updateMutation.mutateAsync(values);
         }}
       />
+
+      {account && (
+        <AccessTrackingToggle
+          enabled={account.track_access_logs}
+          disabled={!isGestor}
+          onChange={(enabled) => accessTrackingMutation.mutate(enabled)}
+        />
+      )}
     </div>
   );
 }

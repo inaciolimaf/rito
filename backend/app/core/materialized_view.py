@@ -53,6 +53,11 @@ MATERIALIZED_VIEWS: list[MaterializedViewSpec] = [
         refresh_interval_minutes=15,
         description="Relatórios (spec 071) — agilidade diária por usuário.",
     ),
+    MaterializedViewSpec(
+        view_name="timesheet_daily",
+        refresh_interval_minutes=15,
+        description="Livro de ponto (spec 073) — primeiro/último acesso por dia.",
+    ),
 ]
 
 

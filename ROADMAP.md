@@ -321,7 +321,7 @@ Gráfico concluídas em dia / em atraso / pendentes; tarefas com mais atraso; co
 7 relatórios (produtividade, tarefas atrasadas, registros de acesso, novos clientes, novos processos, ganhos, perdidos) com filtros e export.
 **Aceite:** cada relatório com teste de agregação. **t:** 6 s. **Deps:** 071
 
-### ⬜ 073 — Registro de acessos e livro de ponto
+### ✅ 073 — Registro de acessos e livro de ponto
 Log de acesso (data, IP, primeiro/último login) com toggle; livro de ponto a partir da jornada.
 **Aceite:** acesso registrado só com toggle ligado. **t:** 4 s. **Deps:** 012
 

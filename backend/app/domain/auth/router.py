@@ -38,10 +38,11 @@ async def login(
     redis: Redis = Depends(get_redis),
 ) -> TokenResponse:
     client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent")
     service = AuthService(session=session, redis=redis, tenant_id=tenant_id)
     try:
         access_token, refresh_token, expires_in = await service.login(
-            payload.email, payload.password, client_ip
+            payload.email, payload.password, client_ip, user_agent
         )
     except RateLimitExceededError as exc:
         raise HTTPException(

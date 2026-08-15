@@ -21,6 +21,7 @@ export interface AccountData {
   timezone: string;
   logo_url: string | null;
   plan: AccountPlan;
+  track_access_logs: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -68,4 +69,16 @@ export async function uploadAccountLogo(file: File): Promise<AccountData> {
 
 export async function updateAccountPlan(plan: AccountPlan): Promise<AccountData> {
   return apiRequest<AccountData>("/api/v1/account/plan", { method: "PUT", body: { plan } });
+}
+
+export interface AccessTrackingData {
+  track_access_logs: boolean;
+}
+
+/** Spec 073 §5 — liga/desliga o rastreamento de acesso (GESTOR). */
+export async function updateAccessTracking(enabled: boolean): Promise<AccessTrackingData> {
+  return apiRequest<AccessTrackingData>("/api/v1/account/access-tracking", {
+    method: "PUT",
+    body: { enabled },
+  });
 }

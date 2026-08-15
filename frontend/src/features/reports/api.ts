@@ -221,6 +221,51 @@ export async function getTabularReport<T = ReportTableRow>(
   return apiRequest<ReportListResponse<T>>(`/api/v1/reports/tabular/${reportKey}${suffix}`);
 }
 
+/** Camada de API da spec 073 — livro de ponto. */
+
+export interface TimesheetDayData {
+  day: string;
+  first_access: string | null;
+  last_access: string | null;
+  access_count: number;
+  deviation_minutes: number | null;
+  is_weekend: boolean;
+  is_holiday: boolean;
+}
+
+export interface TimesheetData {
+  user_id: string;
+  month: string;
+  days: TimesheetDayData[];
+}
+
+export async function getTimesheet(params: {
+  month?: string;
+  userId?: string;
+}): Promise<TimesheetData> {
+  const query = new URLSearchParams();
+  if (params.month) query.set("month", params.month);
+  if (params.userId) query.set("user_id", params.userId);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  return apiRequest<TimesheetData>(`/api/v1/reports/timesheet${suffix}`);
+}
+
+export async function exportTimesheet(params: { month?: string; userId?: string }): Promise<void> {
+  const query = new URLSearchParams();
+  if (params.month) query.set("month", params.month);
+  if (params.userId) query.set("user_id", params.userId);
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const blob = await apiRequestBlob(`/api/v1/reports/timesheet/export${suffix}`, {
+    method: "POST",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "timesheet.xlsx";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function exportTabularReport(
   reportKey: ReportKey,
   format: "xlsx" | "pdf",

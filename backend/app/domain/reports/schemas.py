@@ -179,3 +179,35 @@ class ReportListResponse(BaseModel):
     # Regra 5: motivo do estado vazio quando o relatório está desligado (access_logs
     # sem o rastreamento ligado, spec 073). None = relatório disponível normalmente.
     disabled_reason: str | None = None
+
+
+# ---- registro de acesso e livro de ponto (spec 073) --------------------------------
+
+
+class AccessLogItemResponse(BaseModel):
+    log_id: uuid.UUID
+    user_name: str
+    ip_address: str | None
+    occurred_at: datetime
+
+
+class AccessLogListResponse(BaseModel):
+    items: list[AccessLogItemResponse]
+    next_cursor: str | None
+    total: int
+
+
+class TimesheetDayResponse(BaseModel):
+    day: date
+    first_access: datetime | None
+    last_access: datetime | None
+    access_count: int
+    deviation_minutes: int | None
+    is_weekend: bool
+    is_holiday: bool
+
+
+class TimesheetResponse(BaseModel):
+    user_id: uuid.UUID
+    month: date
+    days: list[TimesheetDayResponse]

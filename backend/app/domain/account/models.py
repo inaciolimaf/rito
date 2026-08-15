@@ -54,5 +54,7 @@ class Account(TenantMixin, Base):
     default_publications_user_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
     )
+    # Spec 073, regra 1: desligado é o padrão — LGPD, o escritório decide rastrear.
+    track_access_logs: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

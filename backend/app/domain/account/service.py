@@ -59,6 +59,15 @@ class AccountService:
         account.updated_at = datetime.now(UTC)
         return account
 
+    async def update_access_tracking(self, enabled: bool) -> Account:
+        """Spec 073, regra 11: desligar não apaga o histórico — só para de coletar."""
+        account = await self.accounts.get_current()
+        if account is None:
+            raise AccountNotFoundError
+        account.track_access_logs = enabled
+        account.updated_at = datetime.now(UTC)
+        return account
+
     async def update_plan(self, plan: AccountPlan) -> Account:
         """Regra 12 (spec 063): troca de plano não mexe em documento já enviado, só
         no teto de novos uploads — por isso não há nada além de gravar o valor."""

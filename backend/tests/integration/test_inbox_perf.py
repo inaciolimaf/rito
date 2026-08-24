@@ -26,6 +26,14 @@ from app.domain.inbox.sections import DEFAULT_SECTION_ORDER, InboxSection
 
 _PENDING = 10_000
 _COMPLETED = 10_000
+# As pendentes são distribuídas entre 100 usuários (100 cada). Com as 10k pendentes
+# num único usuário o índice parcial ix_post_users_pending cobre 50% da tabela e o
+# planner escolhe Seq Scan de propósito — o teste de plano só passava com stats velhas
+# de antes do TRUNCATE da suíte (achado na spec 075, banco limpo quebrava isolado).
+# Com ~1% de seletividade por usuário o plano via índice é determinístico em qualquer
+# estado do banco de teste.
+_PENDING_USERS = 100
+_PENDING_PER_USER = _PENDING // _PENDING_USERS
 # 5× o medido na execução isolada (≈15 ms counts, ≈5 ms página) — margem para a
 # contenção do -n auto, não um alvo de performance.
 _COUNTS_BUDGET_MS = 200
@@ -102,8 +110,9 @@ async def perf_seed() -> AsyncGenerator[PerfSeed]:
             text("INSERT INTO task_types (id, tenant_id, name, reward) VALUES (:i, :t, 'Perf', 5)"),
             {"i": task_type_id, "t": tenant_id},
         )
-        # 10k pendentes + 10k concluídas — as concluídas saem da caixa (regra 5) e
-        # deixam o índice parcial ix_post_users_pending seletivo de verdade.
+        # 10k pendentes + 10k concluídas — as concluídas saem da caixa (regra 5).
+        # As pendentes são distribuídas entre os 100 usuários do seed (ver
+        # _PENDING_USERS acima) para o índice parcial ser seletivo por usuário.
         await conn.execute(
             text(
                 "INSERT INTO posts (id, tenant_id, lawsuit_id, task_type_id, created_by,"
@@ -115,10 +124,25 @@ async def perf_seed() -> AsyncGenerator[PerfSeed]:
         )
         await conn.execute(
             text(
-                "INSERT INTO post_users (id, tenant_id, post_id, user_id) "
-                "SELECT uuid_generate_v4(), :t, id, :u FROM posts WHERE tenant_id = :t"
+                "INSERT INTO users (id, tenant_id, email, name, role, is_active) "
+                "SELECT uuid_generate_v4(), :t, uuid_generate_v4()::text || '@perf.local',"
+                " 'Perf Extra', 'COLABORADOR', true FROM generate_series(1, :n - 1)"
             ),
-            {"t": tenant_id, "u": user_id},
+            {"t": tenant_id, "n": _PENDING_USERS},
+        )
+        await conn.execute(
+            text(
+                "WITH perf_users AS ("
+                "  SELECT id, row_number() OVER (ORDER BY id) - 1 AS rn"
+                "  FROM users WHERE tenant_id = :t"
+                ") "
+                "INSERT INTO post_users (id, tenant_id, post_id, user_id) "
+                "SELECT uuid_generate_v4(), :t, p.id, pu.id "
+                "FROM (SELECT id, row_number() OVER (ORDER BY id) - 1 AS rn"
+                "      FROM posts WHERE tenant_id = :t) p "
+                "JOIN perf_users pu ON pu.rn = p.rn % :users"
+            ),
+            {"t": tenant_id, "users": _PENDING_USERS},
         )
         await conn.execute(
             text(
@@ -135,7 +159,7 @@ async def perf_seed() -> AsyncGenerator[PerfSeed]:
                 " points_earned) "
                 "SELECT uuid_generate_v4(), :t, id, :u, now(), 5 FROM posts"
                 " WHERE tenant_id = :t AND id NOT IN (SELECT post_id FROM post_users"
-                "   WHERE tenant_id = :t AND user_id = :u AND completed_at IS NULL)"
+                "   WHERE tenant_id = :t)"
             ),
             {"t": tenant_id, "u": user_id},
         )
@@ -172,10 +196,10 @@ async def test_counts_das_6_secoes_em_uma_query_rapida(
         elapsed_ms = (time.perf_counter() - started) * 1000
 
     assert elapsed_ms < _COUNTS_BUDGET_MS, f"counts levou {elapsed_ms:.0f} ms"
-    # As 10k pendentes caem em "unread" (sem prazo, tipo comum, não lidas); as 10k
-    # concluídas não aparecem (regra 5).
-    assert counts[InboxSection.UNREAD.value] == _PENDING
-    assert sum(counts.values()) == _PENDING
+    # As pendentes do usuário (100, ver _PENDING_USERS) caem em "unread" (sem prazo,
+    # tipo comum, não lidas); as concluídas não aparecem (regra 5).
+    assert counts[InboxSection.UNREAD.value] == _PENDING_PER_USER
+    assert sum(counts.values()) == _PENDING_PER_USER
 
 
 async def test_pagina_de_secao_rapida_e_indice_parcial_em_uso(

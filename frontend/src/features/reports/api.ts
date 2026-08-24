@@ -283,3 +283,282 @@ export async function exportTabularReport(
   link.click();
   URL.revokeObjectURL(url);
 }
+
+/** Camada de API da spec 074 — BI: Estoque e Prospecção (funil comercial). */
+
+export interface ClosedMonthCardData {
+  value: number;
+  delta_pct: number | null;
+  previous: number;
+}
+
+export interface ClosedTrendPointData {
+  month: string;
+  closed: number;
+}
+
+export interface BiPipelineData {
+  opportunities_month: number;
+  active: number;
+  archived: number;
+  idle_120: number;
+  closed_month: ClosedMonthCardData;
+  in_service: number;
+  closed_trend: ClosedTrendPointData[];
+  staleness_hint: string;
+  crm_warning: string;
+}
+
+export interface ConversionGroupData {
+  action_group_id: string;
+  action_group_name: string;
+  opportunities: number;
+  closed: number;
+  /** Regra 11: null = "—" na UI, nunca 0% quando não há oportunidades. */
+  conversion_rate: number | null;
+}
+
+export interface BiConversionData {
+  period: string;
+  groups: ConversionGroupData[];
+  staleness_hint: string;
+}
+
+export interface PortfolioStepItemData {
+  step_id: number;
+  step_name: string;
+  active: number;
+}
+
+export interface PortfolioPeriodItemData {
+  month: string;
+  active: number;
+}
+
+export type PortfolioGroupBy = "step" | "period";
+
+export type BiPortfolioData =
+  | { group_by: "step"; items: PortfolioStepItemData[] }
+  | { group_by: "period"; items: PortfolioPeriodItemData[] };
+
+export interface BiPipelineParams {
+  from?: string;
+  to?: string;
+  actionGroupId?: string;
+}
+
+function buildBiQuery(params: BiPipelineParams): string {
+  const query = new URLSearchParams();
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.actionGroupId) query.set("action_group_id", params.actionGroupId);
+  const text = query.toString();
+  return text ? `?${text}` : "";
+}
+
+export async function getBiPipeline(params: BiPipelineParams): Promise<BiPipelineData> {
+  return apiRequest<BiPipelineData>(`/api/v1/bi/pipeline${buildBiQuery(params)}`);
+}
+
+export async function getBiConversion(period?: string): Promise<BiConversionData> {
+  const suffix = period ? `?period=${encodeURIComponent(period)}` : "";
+  return apiRequest<BiConversionData>(`/api/v1/bi/pipeline/conversion${suffix}`);
+}
+
+export async function getBiPortfolio(
+  groupBy: PortfolioGroupBy,
+  params: BiPipelineParams = {},
+): Promise<BiPortfolioData> {
+  const query = new URLSearchParams();
+  query.set("group_by", groupBy);
+  if (params.actionGroupId) query.set("action_group_id", params.actionGroupId);
+  return apiRequest<BiPortfolioData>(`/api/v1/bi/pipeline/portfolio?${query.toString()}`);
+}
+
+/** Camada de API da spec 075 — BI: Safra e Qualidade. */
+
+export interface VintageYearData {
+  vintage_year: number;
+  total: number;
+  won: number;
+  lost: number;
+  settled: number;
+  in_progress: number;
+  transited: number;
+  archived: number;
+  /** Regra 7: média só entre arquivados — null quando a safra não tem nenhum. */
+  avg_cycle_days: number | null;
+  /** Regra 11: null = "—" na UI, nunca 0% quando não há concluídos. */
+  success_rate: number | null;
+  /** Regra 5: menos de 10 concluídos na safra. */
+  small_sample: boolean;
+  /** Regra 9: variação vs safra anterior; null na primeira safra. */
+  rate_change_pp: number | null;
+  highlighted: boolean;
+}
+
+export interface BiVintageData {
+  years: VintageYearData[];
+  staleness_hint: string;
+}
+
+export interface SuccessRateGroupData {
+  action_group_id: string;
+  action_group_name: string;
+  won: number;
+  lost: number;
+  settled: number;
+  concluded: number;
+  /** Regra 11: null = "—" na UI, nunca 0% quando não há concluídos. */
+  success_rate: number | null;
+  small_sample: boolean;
+}
+
+export interface BiSuccessRateData {
+  period: string;
+  groups: SuccessRateGroupData[];
+  /** Regra 2: o critério da taxa, explicado no tooltip da UI. */
+  rate_note: string;
+}
+
+export interface SuccessTrendPointData {
+  month: string;
+  won: number;
+  lost: number;
+  settled: number;
+  concluded: number;
+  /** Mês sem concluído → null ("—"), nunca 0%. */
+  success_rate: number | null;
+}
+
+export interface BiSuccessTrendData {
+  months: number;
+  points: SuccessTrendPointData[];
+  rate_note: string;
+}
+
+export interface BiVintageParams {
+  fromYear?: number;
+  toYear?: number;
+  actionGroupId?: string;
+}
+
+export async function getBiVintage(params: BiVintageParams = {}): Promise<BiVintageData> {
+  const query = new URLSearchParams();
+  if (params.fromYear) query.set("from_year", String(params.fromYear));
+  if (params.toYear) query.set("to_year", String(params.toYear));
+  if (params.actionGroupId) query.set("action_group_id", params.actionGroupId);
+  const text = query.toString();
+  return apiRequest<BiVintageData>(`/api/v1/bi/vintage${text ? `?${text}` : ""}`);
+}
+
+export async function getBiSuccessRate(
+  params: {
+    period?: string;
+    actionGroupId?: string;
+  } = {},
+): Promise<BiSuccessRateData> {
+  const query = new URLSearchParams();
+  if (params.period) query.set("period", params.period);
+  if (params.actionGroupId) query.set("action_group_id", params.actionGroupId);
+  const text = query.toString();
+  return apiRequest<BiSuccessRateData>(`/api/v1/bi/success-rate${text ? `?${text}` : ""}`);
+}
+
+export async function getBiSuccessTrend(
+  params: {
+    actionGroupId?: string;
+    months?: number;
+  } = {},
+): Promise<BiSuccessTrendData> {
+  const query = new URLSearchParams();
+  if (params.actionGroupId) query.set("action_group_id", params.actionGroupId);
+  if (params.months) query.set("months", String(params.months));
+  const text = query.toString();
+  return apiRequest<BiSuccessTrendData>(`/api/v1/bi/success-rate/trend${text ? `?${text}` : ""}`);
+}
+
+/** Camada de API da spec 076 — BI: Tempo e Honorários. */
+
+export interface CycleAveragesData {
+  /** Regra 2: null = "não sei" (data faltando), nunca zero — zero é "no mesmo dia". */
+  prospecting_days: number | null;
+  production_days: number | null;
+  execution_days: number | null;
+  full_cycle_days: number | null;
+}
+
+export interface BiTimeFeesData {
+  lawsuits: number;
+  /** Regra 3: soma de fees_value ÷ processos no filtro; null = recorte vazio ("—"). */
+  avg_fees: number | null;
+  /** Regra 4: média de (honorários ÷ meses de duração); null quando nenhum processo
+   * do recorte tem rotação completa maior que zero. */
+  avg_monthly_fees: number | null;
+  cycles: CycleAveragesData;
+  staleness_hint: string;
+}
+
+export interface TimeFeesGroupData {
+  action_group_id: string;
+  action_group_name: string;
+  lawsuits: number;
+  cycles: CycleAveragesData;
+}
+
+export interface BiTimeFeesByGroupData {
+  groups: TimeFeesGroupData[];
+  staleness_hint: string;
+}
+
+export interface TimeFeesTypeData {
+  lawsuit_type_id: string;
+  lawsuit_type_name: string;
+  lawsuits: number;
+  /** Regra 8: média de (fees_value ÷ meses) dos processos do tipo; null → "—". */
+  monthly_profitability: number | null;
+  /** Regra 9: menos de 5 processos no recorte. */
+  small_sample: boolean;
+}
+
+export interface BiTimeFeesByTypeData {
+  types: TimeFeesTypeData[];
+  staleness_hint: string;
+}
+
+export interface BiLostTimeData {
+  /** Regra 5: processos sem receita paga com rotação completa maior que zero. */
+  zero_revenue_lawsuits: number;
+  lost_months: number;
+  staleness_hint: string;
+}
+
+export interface BiTimeFeesParams {
+  outcome?: string;
+  from?: string;
+  to?: string;
+  actionGroupId?: string;
+}
+
+export async function getBiTimeFees(params: BiTimeFeesParams = {}): Promise<BiTimeFeesData> {
+  const query = new URLSearchParams();
+  if (params.outcome) query.set("outcome", params.outcome);
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.actionGroupId) query.set("action_group_id", params.actionGroupId);
+  const text = query.toString();
+  return apiRequest<BiTimeFeesData>(`/api/v1/bi/time-fees${text ? `?${text}` : ""}`);
+}
+
+export async function getBiTimeFeesByGroup(): Promise<BiTimeFeesByGroupData> {
+  return apiRequest<BiTimeFeesByGroupData>("/api/v1/bi/time-fees/by-group");
+}
+
+export async function getBiTimeFeesByType(lawsuitTypeId?: string): Promise<BiTimeFeesByTypeData> {
+  const suffix = lawsuitTypeId ? `?lawsuit_type_id=${encodeURIComponent(lawsuitTypeId)}` : "";
+  return apiRequest<BiTimeFeesByTypeData>(`/api/v1/bi/time-fees/by-type${suffix}`);
+}
+
+export async function getBiLostTime(): Promise<BiLostTimeData> {
+  return apiRequest<BiLostTimeData>("/api/v1/bi/time-fees/lost-time");
+}

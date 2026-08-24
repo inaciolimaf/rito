@@ -58,6 +58,21 @@ MATERIALIZED_VIEWS: list[MaterializedViewSpec] = [
         refresh_interval_minutes=15,
         description="Livro de ponto (spec 073) — primeiro/último acesso por dia.",
     ),
+    MaterializedViewSpec(
+        view_name="bi_pipeline_monthly",
+        refresh_interval_minutes=480,
+        description="BI (spec 074) — funil mensal por grupo de ação (coorte de criação).",
+    ),
+    MaterializedViewSpec(
+        view_name="bi_vintage",
+        refresh_interval_minutes=480,
+        description="BI (spec 075) — safra anual por grupo de ação (ano de closure_date).",
+    ),
+    MaterializedViewSpec(
+        view_name="bi_lawsuit_cycles",
+        refresh_interval_minutes=480,
+        description="BI (spec 076) — ciclos e receita por processo fechado.",
+    ),
 ]
 
 

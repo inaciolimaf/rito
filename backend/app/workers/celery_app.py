@@ -99,6 +99,23 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.timesheet.purge_access_logs",
         "schedule": crontab(day_of_month=1, hour=4, minute=0),
     },
+    # Spec 074, regra 8: refresh da view do funil de BI a cada 8 horas, como no ADVBOX.
+    "bi-pipeline-refresh": {
+        "task": "app.workers.bi_pipeline.refresh_bi_pipeline",
+        "schedule": crontab(minute=21, hour="*/8"),
+    },
+    # Spec 075, §4: refresh da view de safra a cada 8 horas (minuto deslocado do
+    # refresh da 074 para os dois REFRESH CONCURRENTLY não concorrerem).
+    "bi-vintage-refresh": {
+        "task": "app.workers.bi_vintage.refresh_bi_vintage_view",
+        "schedule": crontab(minute=51, hour="*/8"),
+    },
+    # Spec 076, §4: refresh da view de ciclos a cada 8 horas (minuto deslocado dos
+    # refreshes da 074/075 pelo mesmo motivo).
+    "bi-cycles-refresh": {
+        "task": "app.workers.bi_cycles.refresh_bi_cycles_view",
+        "schedule": crontab(minute=36, hour="*/8"),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -115,4 +132,7 @@ celery_app.conf.imports = (
     "app.workers.dunning",
     "app.workers.agility",
     "app.workers.timesheet",
+    "app.workers.bi_pipeline",
+    "app.workers.bi_vintage",
+    "app.workers.bi_cycles",
 )

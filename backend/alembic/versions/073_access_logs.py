@@ -42,12 +42,20 @@ GROUP BY 1, 2, 3
 
 
 def upgrade() -> None:
-    op.add_column(
-        "accounts",
-        sa.Column(
-            "track_access_logs", sa.Boolean(), nullable=False, server_default=sa.text("false")
-        ),
-    )
+    # Guarda de idempotência (correção pós-commit, documentada na spec 074 §9): a
+    # migration 012 já cria `accounts.track_access_logs`, então em banco FRESCO a
+    # cadeia quebrava aqui com DuplicateColumnError — o ambiente anterior tinha drift
+    # completado à mão e o conflito nunca aparecia no `make test`. O guarda preserva o
+    # schema final exatamente como antes; só torna a migration executável do zero.
+    bind = op.get_bind()
+    existing_columns = {column["name"] for column in sa.inspect(bind).get_columns("accounts")}
+    if "track_access_logs" not in existing_columns:
+        op.add_column(
+            "accounts",
+            sa.Column(
+                "track_access_logs", sa.Boolean(), nullable=False, server_default=sa.text("false")
+            ),
+        )
 
     op.create_table(
         "access_logs",
@@ -96,4 +104,7 @@ def downgrade() -> None:
     op.execute("DROP VIEW timesheet_daily_visible")
     op.execute("DROP MATERIALIZED VIEW timesheet_daily")
     op.drop_table("access_logs")
-    op.drop_column("accounts", "track_access_logs")
+    bind = op.get_bind()
+    existing_columns = {column["name"] for column in sa.inspect(bind).get_columns("accounts")}
+    if "track_access_logs" in existing_columns:
+        op.drop_column("accounts", "track_access_logs")

@@ -325,16 +325,16 @@ Gráfico concluídas em dia / em atraso / pendentes; tarefas com mais atraso; co
 Log de acesso (data, IP, primeiro/último login) com toggle; livro de ponto a partir da jornada.
 **Aceite:** acesso registrado só com toggle ligado. **t:** 4 s. **Deps:** 012
 
-### ⬜ 074 — BI: Estoque e Prospecção
+### ✅ 074 — BI: Estoque e Prospecção
 Oportunidades do mês, ativos, arquivados, parados +120 dias, fechamentos com evolução de 6 meses, funil e taxa de conversão por grupo.
 **Aceite:** indicadores conferem com seed. **t:** 5 s. **Deps:** 072
 
-### ⬜ 075 — BI: Safra e Qualidade
-Taxa de sucesso por grupo de ação; safra por ano de fechamento; ciclo de vida; comparação histórica; considera só concluídos.
+### ✅ 075 — BI: Safra e Qualidade
+Taxa de sucesso por grupo de ação (só concluídos; acordo no denominador, fora do numerador, com tooltip); safra por ano de fechamento (matview `bi_vintage` + view barreira, refresh 8 h); tabela ano × estágio com os 8 campos; comparação entre safras com destaque >10 p.p.; série de 24 meses; amostra <10 sinalizada; divisão por zero → "—"; em `/reports?tab=vintage`.
 **Aceite:** processos em tramitação excluídos do cálculo. **t:** 5 s. **Deps:** 074
 
-### ⬜ 076 — BI: Tempo e Honorários
-Média por processo, média mensal, **tempo perdido**; ciclos prospecção/produção/execução/rotação; tempo médio por fase e grupo.
+### ✅ 076 — BI: Tempo e Honorários
+Média de honorários por processo e média mensal (honorários ÷ meses de duração), **tempo perdido** (meses dos processos sem receita paga); matview `bi_lawsuit_cycles` por processo fechado + view barreira, refresh 8 h; os 4 ciclos (prospecção/produção/execução/rotação, nulo ≠ zero) por grupo com as 4 cores; rentabilidade mensal por tipo com aviso de amostra <5; dupla permissão (ADMINISTRADOR/GESTOR + financial_access ≥ READ_ONLY); em `/reports?tab=time-fees`.
 **Aceite:** ciclos calculados a partir da timeline. **t:** 5 s. **Deps:** 075
 
 ### ⬜ 077 — BI: Custos

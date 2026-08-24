@@ -12,31 +12,36 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 021 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
+🚧 **Spec 076 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
 RBAC) + frontend com login real, design system de domínio e o app shell navegável
-(sidebar de 15 itens, busca global, breadcrumbs) + pipeline de testes com gate de 120s
-executável (rede real bloqueada, contador de jornadas e2e, CI no GitHub Actions) + pente
-fino de refatoração (99% de cobertura, índices de FK, `mypy --strict` e `tsc` verdes) +
-cadastro do Escritório (CRUD, CPF/CNPJ validado, autofill de CEP via ViaCEP, upload de
-logotipo com redimensionamento, storage S3/MinIO atrás de interface) + gestão de usuários
-(convite por e-mail, 67 cargos, OAB, jornada de trabalho, RBAC fino de "próprio usuário ou
-administrador", listagem paginada por keyset com filtros) + times/squads (CRUD, membros
-reconciliados no PUT, abas Colaboradores/Times na mesma tela de Usuários) + grupos e tipos
-de ação (taxonomia que classifica processos por área do direito, 6 grupos/10 tipos padrão,
-responsável por intimações opcional por grupo, transferência em lote antes de excluir) +
-fases e etapas (9 fases fixas do funil processual, 59 etapas configuráveis com estagnação
-condicional e reordenação por drag-and-drop dentro da fase) + origem de pessoas (8 origens
-padrão, CRUD, transferência em lote) + contatos (PF/PJ no mesmo modelo, bloco de
-representante legal, upload de foto, estados civis) + validação e endereço (CPF/CNPJ com
-dígito verificador real, telefone e CEP validados, 27 estados e 5.571 municípios reais do
-IBGE, autofill de endereço via ViaCEP) + listagem e dashboard de contatos (`DataTable` com
-filtros combináveis, dashboard com Top Origens/Faixa etária/Top Profissões, aniversariantes,
-export xlsx/pdf respeitando filtros) + pente-fino de Cadastros (`get_or_404`/
-`parse_active_status`/`validated_transfer` no backend e `useCrudResource` no frontend
-extraídos das 5 taxonomias simples, cobertura de frontend instalada) + tribunais e sistemas
-processuais (catálogo global com 182 tribunais e 13 sistemas, busca por sigla ou nome sem
-acento, filtro por segmento/UF, aliases DataJud reais) — próxima é a 022 (Processos: modelo
-e CRUD).
+(sidebar de 15 itens, busca global, breadcrumbs) + pipeline de testes com gate de 300 s
+executável (rede real bloqueada, contador de jornadas e2e, CI no GitHub Actions) +
+cadastros base (escritório, usuários, times, grupos/tipos de ação, fases/etapas,
+origens, contatos PF/PJ com validação real de CPF/CNPJ/CEP e 5.571 municípios IBGE) +
+processos (CRUD completo com partes, honorários e ciclo de vida, número CNJ validado,
+timeline unificada, 12 visões rápidas, dashboard com metas, pastas) + tarefas e
+Taskscore (catálogo de 152 tarefas, recorrência, comentários/menções/anexos, caixa de
+entrada, agenda com feed iCal, workflows com dias úteis e feriados, metas e ranking) +
+integração CNJ (DJEN e DataJud com cliente HTTP resiliente, dedupe por hash, intimação
+virando tarefa, observabilidade da sincronização) + CRM (board Kanban, estagnação,
+workflow ao mover) + financeiro (plano de contas, contas/cartões, lançamentos com
+recorrência e parcelamento, inadimplência com régua de cobrança, DRE/DFC, fluxo de
+caixa em 4 regimes) + documentos e modelos (storage S3 atrás de interface, editor
+TipTap, engine de variáveis com extenso, geração de PDF, biblioteca pública) +
+notificações por evento + relatórios (agilidade e produtividade com matview, 9
+relatórios tabulares, registro de acessos e livro de ponto) + três abas de BI:
+**Estoque e Prospecção** (matview `bi_pipeline_monthly` com refresh a cada 8 h via
+Celery beat, 6 indicadores de funil, conversão por grupo de ação, série de 6 meses de
+fechamentos e resumo da carteira em tempo real, em `/reports?tab=pipeline`), **Safra
+e Qualidade** (matview `bi_vintage` com refresh a cada 8 h, taxa de sucesso por grupo
+— só concluídos, acordo fora do numerador —, tabela ano × estágio com ciclo médio,
+comparação entre safras com destaque de variação >10 p.p. e série de 24 meses, em
+`/reports?tab=vintage`) e **Tempo e Honorários** (matview `bi_lawsuit_cycles` por
+processo fechado com refresh a cada 8 h, os 4 ciclos — prospecção, produção, execução
+e rotação completa, nulo ≠ zero —, média de honorários por processo e média mensal,
+tempo perdido dos processos sem receita paga e rentabilidade mensal por tipo com aviso
+de amostra <5, sob dupla permissão de perfil e acesso financeiro, em
+`/reports?tab=time-fees`) — próxima é a 077 (BI: Custos).
 
 Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
 

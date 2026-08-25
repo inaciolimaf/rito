@@ -5,6 +5,7 @@ from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import ForeignKey, Numeric, SmallInteger, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -190,8 +191,21 @@ class AiAction(TenantMixin, Base):
     arguments: Mapped[dict[str, Any]] = mapped_column(JSONB(), default=dict)
     preview: Mapped[dict[str, Any]] = mapped_column(JSONB(), default=dict)
     before_state: Mapped[dict[str, Any] | None] = mapped_column(JSONB(), default=None)
+    # PGENUM com os rótulos literais (e não `SAEnum(AiActionStatus)`): o SQLAlchemy
+    # persistiria o NOME do membro ("PENDING"), e os rótulos no banco são minúsculos.
     status: Mapped[str] = mapped_column(
-        default=AiActionStatus.PENDING.value, server_default=text("'pending'")
+        PGENUM(
+            "pending",
+            "approved",
+            "rejected",
+            "executed",
+            "failed",
+            "expired",
+            name="ai_action_status",
+            create_type=False,
+        ),
+        default=AiActionStatus.PENDING.value,
+        server_default=text("'pending'"),
     )
     affected_type: Mapped[str | None] = mapped_column(default=None)
     affected_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), default=None)
@@ -203,9 +217,7 @@ class AiAction(TenantMixin, Base):
     decided_at: Mapped[datetime | None] = mapped_column(default=None)
     executed_at: Mapped[datetime | None] = mapped_column(default=None)
     undone_at: Mapped[datetime | None] = mapped_column(default=None)
-    expires_at: Mapped[datetime] = mapped_column(
-        server_default=text("now() + interval '1 hour'")
-    )
+    expires_at: Mapped[datetime] = mapped_column(server_default=text("now() + interval '1 hour'"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
@@ -218,9 +230,7 @@ class AiAuditLog(TenantMixin, Base):
 
     __tablename__ = "ai_audit_log"
 
-    action_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("ai_actions.id")
-    )
+    action_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ai_actions.id"))
     user_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     tool_name: Mapped[str]
     affected_type: Mapped[str]

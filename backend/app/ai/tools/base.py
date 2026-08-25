@@ -159,9 +159,13 @@ def all_tools() -> list[ToolDef]:
     return [_REGISTRY[name] for name in sorted(_REGISTRY)]
 
 
-def tool_specs(user: User) -> list[ToolSpec]:
+def tool_specs(user: User, *, include_write: bool = True) -> list[ToolSpec]:
     """O catálogo que vai para o modelo já é filtrado pelo RBAC do usuário: oferecer uma
-    ferramenta que ele não pode usar só produz tentativa frustrada e token gasto."""
+    ferramenta que ele não pode usar só produz tentativa frustrada e token gasto.
+
+    As de escrita (084) entram com a mesma descrição que a UI vai mostrar — e todas
+    dizem "exige confirmação", porque é isso que acontece quando o modelo as chama.
+    """
     specs = []
     for definition in all_tools():
         try:
@@ -169,6 +173,17 @@ def tool_specs(user: User) -> list[ToolSpec]:
         except ToolError:
             continue
         specs.append(definition.to_spec())
+    if include_write:
+        from app.ai.tools.write import all_write_tools
+
+        specs.extend(
+            ToolSpec(
+                name=definition.name,
+                description=definition.description,
+                parameters=definition.json_schema(),
+            )
+            for definition in all_write_tools()
+        )
     return specs
 
 

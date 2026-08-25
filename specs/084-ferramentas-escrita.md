@@ -1,7 +1,7 @@
 # 084 — Ferramentas de escrita
 
 **Fase:** 8 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 083 · **Status:** ⬜ pendente
+**Depende de:** 083 · **Status:** ✅ concluída
 
 ---
 
@@ -142,6 +142,47 @@ Migration `084_ai_actions.py`.
 > Os três testes marcados são o coração da segurança da camada de IA. O primeiro prova que a
 > confirmação não é opcional; o penúltimo, que o histórico é imutável.
 
-## 10. Definição de pronto
+## 10. Descobertas
 
-Checklist padrão · Nenhum caminho de escrita sem aprovação · Auditoria imutável · Commit `feat(084): ferramentas de escrita`
+- **A regra 1 virou tipo, não disciplina.** `WriteToolDef` tem `preview` e `execute`
+  separados, e o `ToolRunner` — o único caminho pelo qual o modelo alcança uma
+  ferramenta — só sabe chamar `preview`. Executar é método do `AiActionService`, que
+  exige uma `AiAction` aprovada por um humano. Não existe caminho alternativo porque
+  não existe função que a ferramenta possa chamar para gravar.
+- **A imutabilidade do log tem duas travas** (regra 8): `REVOKE UPDATE, DELETE` para
+  `rito_app` e uma trigger `BEFORE UPDATE OR DELETE` que levanta exceção. A segunda
+  existe porque a primeira não vale para o superusuário — e o teste tenta pelos dois
+  caminhos, inclusive pelo `admin_engine` das migrations.
+- **Falha de execução usa SAVEPOINT.** Parte das validações do domínio só falha no
+  banco (FK, constraint); sem `begin_nested()`, a transação abortada levaria junto o
+  registro da própria falha — que é exatamente o que o usuário precisa ler para
+  entender por que a IA não conseguiu. Com o savepoint, a ação vira `failed` com o
+  motivo e o resto da transação sobrevive.
+- **`exclude_none` não serve para desfazer.** A primeira versão montava o payload de
+  atualização ignorando campos nulos, e o desfazer (regra 10) não conseguia devolver um
+  campo para NULL — ficava com o valor novo. Passou a usar `model_fields_set`: "não
+  informado" e "informado como vazio" são coisas diferentes, e a diferença só aparece
+  no desfazer.
+- **Desfazer criação não existe, e isso é consequência da regra 13.** Para atualização,
+  desfazer restaura o `before_state` pelo mesmo service. Para criação, não há como
+  desfazer sem apagar — e a IA não apaga. A resposta é 409 com o caminho certo:
+  arquivar pela tela, decisão explícita de uma pessoa, com o registro preservado.
+- **Ação sem permissão nasce rejeitada, não some** (regra 6). Poderia simplesmente não
+  criar a linha, mas a tentativa é informação: quem lê a conversa vê que o agente quis
+  lançar no financeiro e foi barrado — o que é diferente de o agente nunca ter tentado.
+- **`create_customer` exige `origin_id`** porque o cadastro de contato exige (spec
+  017). Foi a regra 5 aparecendo na prática: a primeira versão da ferramenta omitia o
+  campo e a execução falhava na validação do service, exatamente como falharia para uma
+  pessoa preenchendo o formulário. A correção foi na ferramenta, nunca no service.
+- **O `status` de `ai_actions` é PGENUM literal, não `SAEnum(AiActionStatus)`.** O
+  SQLAlchemy persiste o NOME do membro (`PENDING`), e os rótulos no banco são
+  minúsculos — a comparação `status = 'pending'` quebrava com "operator does not
+  exist". Fica registrado porque é a segunda vez que um enum do Postgres cobra atenção
+  nesta fase (a primeira foi o `partnership_status`, na 079).
+
+## 11. Definição de pronto
+
+- [x] Checklist padrão
+- [x] Nenhum caminho de escrita sem aprovação — garantido pelo tipo, não por convenção
+- [x] Auditoria imutável — trigger + REVOKE, testados pelos dois caminhos
+- [x] Commit `feat(084): ferramentas de escrita`

@@ -85,6 +85,7 @@ class BaseAgentGraph:
                 }
             deps.tool_runner.begin_step()
             messages = [*(state.get("messages") or [])]
+            interrupcao: dict[str, Any] | None = None
             for call in pedidas:
                 result = await deps.tool_runner.call(call["name"], call.get("arguments") or {})
                 messages.append(
@@ -95,6 +96,22 @@ class BaseAgentGraph:
                         "content": json.dumps(result, ensure_ascii=False, default=str),
                     }
                 )
+                # Spec 084, regra 1: a ferramenta de escrita não gravou nada — ela
+                # propôs. O grafo para aqui e espera a pessoa decidir.
+                if interrupcao is None and result.get("pending_action"):
+                    interrupcao = result["pending_action"]
+            if interrupcao is not None and interrupcao.get("status") == "pending":
+                return {
+                    "messages": messages,
+                    "scratch": {**(state.get("scratch") or {}), "tool_calls": []},
+                    PENDING_ACTION_KEY: {
+                        "kind": interrupcao["kind"],
+                        "title": interrupcao["title"],
+                        "preview": interrupcao["preview"],
+                        "description": None,
+                        "action_id": interrupcao["action_id"],
+                    },
+                }
             return {
                 "messages": messages,
                 "scratch": {**(state.get("scratch") or {}), "tool_calls": []},

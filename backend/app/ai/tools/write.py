@@ -40,7 +40,12 @@ class Proposal:
             "affected_type": self.affected_type,
             "affected_id": str(self.affected_id) if self.affected_id else None,
             "summary": self.summary,
-            "changes": self.changes,
+            # O preview vai para JSONB e para a UI: data e UUID viram texto aqui, uma
+            # vez, em vez de em cada ferramenta.
+            "changes": {
+                field: {key: _plain(value) for key, value in change.items()}
+                for field, change in self.changes.items()
+            },
         }
 
 
@@ -92,6 +97,22 @@ def all_write_tools() -> list[WriteToolDef]:
     return [_WRITE_REGISTRY[name] for name in sorted(_WRITE_REGISTRY)]
 
 
+def _informados(params: BaseModel, *, exclude: set[str]) -> dict[str, Any]:
+    """Só os campos que quem chamou informou de verdade — inclusive os informados como
+    nulo, que são o caminho do desfazer (spec 084, regra 10)."""
+    return {
+        field: getattr(params, field) for field in params.model_fields_set if field not in exclude
+    }
+
+
+def _plain(value: Any) -> Any:
+    if isinstance(value, uuid.UUID | date):
+        return str(value)
+    if isinstance(value, list):
+        return [_plain(item) for item in value]
+    return value
+
+
 def _diff(before: dict[str, Any], after: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Regra 2: só o que MUDA entra no preview — listar campo intocado esconde a
     mudança real no meio do ruído."""
@@ -114,13 +135,15 @@ def _created(fields: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 class CreateCustomerInput(BaseModel):
     name: str = Field(min_length=2)
+    # Origem é obrigatória no cadastro de contato (spec 017) — a IA não escapa disso
+    # (regra 5). Use `list_taxonomies` para descobrir o id.
+    origin_id: uuid.UUID = Field(description="Origem do contato; veja list_taxonomies.")
     type: str = Field(default="PF", description="PF | PJ")
     identification: str | None = Field(default=None, description="CPF ou CNPJ, só dígitos.")
     email: str | None = None
     cellphone: str | None = None
     city: str | None = None
     state: str | None = None
-    origin_id: uuid.UUID | None = None
 
 
 class UpdateCustomerInput(BaseModel):
@@ -193,10 +216,23 @@ async def _execute_update_customer(ctx: ToolContext, params: UpdateCustomerInput
     customer = await service.get(params.customer_id)
     if customer is None:
         raise ToolError("not_found", "Contato não encontrado neste escritório.")
+    # O contrato de atualização do domínio é o cadastro inteiro (PUT), então o payload
+    # parte do estado ATUAL e só sobrescreve o que a proposta mudou — mandar só os
+    # campos alterados apagaria o resto.
     payload = {
-        "name": params.name or customer.name,
         "type": customer.type.value,
-        **params.model_dump(exclude={"customer_id", "name"}, exclude_none=True),
+        "name": customer.name,
+        "origin_id": customer.origin_id,
+        "identification": customer.identification,
+        "email": customer.email,
+        "cellphone": customer.cellphone,
+        "city": customer.city,
+        "state": customer.state,
+        "notes": customer.notes,
+        # `model_fields_set` em vez de `exclude_none`: desfazer (regra 10) precisa
+        # conseguir devolver um campo para NULL, e "não informado" é diferente de
+        # "informado como vazio".
+        **_informados(params, exclude={"customer_id"}),
     }
     updated = await service.update(customer, CustomerUpdateRequest.model_validate(payload))
     return Executed(
@@ -312,13 +348,14 @@ async def _execute_update_lawsuit(ctx: ToolContext, params: UpdateLawsuitInput) 
             "user_id": lawsuit.user_id,
             "lawsuit_type_id": lawsuit.lawsuit_type_id,
             "stage_id": lawsuit.stage_id,
-            "folder": params.folder if params.folder is not None else lawsuit.folder,
-            "notes": params.notes if params.notes is not None else lawsuit.notes,
-            "county": params.county if params.county is not None else lawsuit.county,
+            "folder": lawsuit.folder,
+            "notes": lawsuit.notes,
+            "county": lawsuit.county,
             "process_number": lawsuit.process_number,
+            **_informados(params, exclude={"lawsuit_id"}),
         }
     )
-    detail = await service.update(lawsuit, payload)
+    detail = await service.update(lawsuit, payload, changed_by=ctx.user.id)
     return Executed(
         affected_id=detail.lawsuit.id,
         after_state={
@@ -473,9 +510,7 @@ class CreateTransactionInput(BaseModel):
     description: str | None = None
 
 
-async def _preview_create_transaction(
-    ctx: ToolContext, params: CreateTransactionInput
-) -> Proposal:
+async def _preview_create_transaction(ctx: ToolContext, params: CreateTransactionInput) -> Proposal:
     return Proposal(
         affected_type="transaction",
         summary=f"Lançar {params.kind.lower()} de R$ {params.amount}",
@@ -483,9 +518,7 @@ async def _preview_create_transaction(
     )
 
 
-async def _execute_create_transaction(
-    ctx: ToolContext, params: CreateTransactionInput
-) -> Executed:
+async def _execute_create_transaction(ctx: ToolContext, params: CreateTransactionInput) -> Executed:
     from app.domain.financial.schemas import TransactionCreateRequest
     from app.domain.financial.service import TransactionService
 
@@ -588,7 +621,8 @@ async def _execute_apply_workflow(ctx: ToolContext, params: ApplyWorkflowInput) 
         after_state={
             "id": str(lawsuit.id),
             "workflow": workflow.name,
-            "posts_created": len(outcome.created_post_ids),
+            "application_id": str(outcome.application.id),
+            "skipped": len(outcome.skipped),
         },
     )
 

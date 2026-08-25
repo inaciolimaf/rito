@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 176,
+  "last_measured_wall_clock_seconds": 230,
   "last_measured_at": "2026-08-26",
   "specs": {
     "001": {
@@ -278,6 +278,10 @@
     "083": {
       "wall_clock_seconds": 177,
       "notes": "1115 backend (1098 da 082 + 17 novos: 6 unitários do registry (16 ferramentas descobertas por decorator, schema derivado do Pydantic, descrição útil, handler sem modelo recusado, erro estruturado, teto no schema), 8 de integração (o parametrizado com as 16 ferramentas contra um intruso de outro tenant, financeiro com NONE, tarefa privada, teto de linhas, corte de 20 KB, registro em ai_tool_calls, erro estruturado, 11ª chamada barrada) e 3 meta (sem vector store no código, sem dependência de RAG, ferramenta sem query própria). Sem frontend nesta spec."
+    },
+    "084": {
+      "wall_clock_seconds": 230,
+      "notes": "1128 backend (1115 da 083 + 13 novos: ferramenta de escrita cria ação pendente sem gravar (o teste central), aprovar executa e audita, rejeitar não grava, nem colega nem GESTOR aprovam pelo dono, expiração em 1 h com relógio injetado, execução reprovada pelo service vira `failed`, sem permissão nasce rejeitada, preview com diff antes/depois, ai_audit_log recusando UPDATE e DELETE pelos dois caminhos (role da aplicação e superusuário), desfazer dentro e fora da janela, 6ª pendente barrada, e o meta de nenhuma ferramenta de exclusão) + 219 frontend (215 + 4 do AIActionPreview). Backend 230 s com `-n 2` (o host estava com o vitest rodando junto) e frontend 106 s."
     }
   }
 }

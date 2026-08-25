@@ -82,9 +82,7 @@ def upgrade() -> None:
         # O que será gravado, campo a campo — é o que a UI mostra antes de alguém clicar.
         sa.Column("preview", postgresql.JSONB(), nullable=False),
         sa.Column("before_state", postgresql.JSONB(), nullable=True),
-        sa.Column(
-            "status", ai_action_status, nullable=False, server_default=sa.text("'pending'")
-        ),
+        sa.Column("status", ai_action_status, nullable=False, server_default=sa.text("'pending'")),
         sa.Column("affected_type", sa.Text(), nullable=True),
         sa.Column("affected_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("rejection_reason", sa.Text(), nullable=True),

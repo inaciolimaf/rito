@@ -8,6 +8,7 @@ import {
 } from "@/features/ai/api";
 import { AiUsagePanel } from "@/features/ai/AiUsagePanel";
 import { FeatureConfigRow } from "@/features/ai/FeatureConfigRow";
+import { PendingActionsList } from "@/features/ai/PendingActionsList";
 
 /** Configurações > Inteligência artificial (spec 081 §7). Uma tela, três perguntas:
  * qual modelo cada feature usa, o que isso está custando, e o que é guardado. */
@@ -59,6 +60,14 @@ export function AiSettingsPage(): JSX.Element {
           ))}
         </div>
       )}
+
+      <section className="space-y-2" aria-label="Ações aguardando confirmação">
+        <h2 className="text-sm font-semibold text-primary">Aguardando sua confirmação</h2>
+        <p className="text-sm text-muted">
+          A IA nunca grava sozinha: o que ela propôs espera aqui até alguém decidir.
+        </p>
+        <PendingActionsList />
+      </section>
 
       <AiUsagePanel />
     </div>

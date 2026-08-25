@@ -368,7 +368,7 @@ Grafos de agente; checkpointer em Postgres; interrupção para **human-in-the-lo
 Tool registry tipado: consultar processos, clientes, tarefas, agenda, financeiro, métricas, intimações. **Sem RAG** — contexto por tool calling. Toda tool respeita RLS e RBAC do usuário.
 **Aceite:** tool não retorna dado de outro tenant nem além do RBAC. **t:** 6 s. **Deps:** 082
 
-### ⬜ 084 — Ferramentas de escrita
+### ✅ 084 — Ferramentas de escrita
 Criar cliente/processo/tarefa, mudar etapa, criar lançamento. Fluxo obrigatório: propor → `AIActionPreview` → confirmar → executar → `ai_audit_log`.
 **Aceite:** nenhuma escrita ocorre sem confirmação; auditoria registra antes/depois. **t:** 6 s. **Deps:** 083
 

@@ -93,6 +93,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.ai_threads.expire_waiting",
         "schedule": crontab(minute=25),
     },
+    # Spec 084, regra 4: a proposta de escrita expira em 1 h — a varredura é de 10 em
+    # 10 min porque a janela é curta.
+    "ai-actions-expire": {
+        "task": "app.workers.ai_threads.expire_actions",
+        "schedule": crontab(minute="*/10"),
+    },
     "ai-threads-purge": {
         "task": "app.workers.ai_threads.purge_old",
         "schedule": crontab(hour=4, minute=35),

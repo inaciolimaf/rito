@@ -68,6 +68,27 @@ async def purge_old_threads(*, now: datetime | None = None) -> int:
     return await _for_each_tenant(_purge)
 
 
+async def expire_pending_actions() -> int:
+    """Spec 084, regra 4: proposta de escrita esquecida vira `expired` em 1 h.
+
+    Fica no mesmo worker das threads porque é a mesma natureza: estado de IA parado
+    esperando um humano que não voltou.
+    """
+
+    async def _expire(session: object, tenant_id: uuid.UUID) -> int:
+        from app.domain.ai.actions import AiActionService
+
+        service = AiActionService(session=session, tenant_id=tenant_id)  # type: ignore[arg-type]
+        return await service.expire_pending()
+
+    return await _for_each_tenant(_expire)
+
+
+@celery_app.task(name="app.workers.ai_threads.expire_actions")  # type: ignore[untyped-decorator]
+def expire_actions_task() -> int:
+    return asyncio.run(expire_pending_actions())
+
+
 @celery_app.task(name="app.workers.ai_threads.expire_waiting")  # type: ignore[untyped-decorator]
 def expire_waiting_task() -> int:
     return asyncio.run(expire_waiting_threads())

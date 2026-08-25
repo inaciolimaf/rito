@@ -21,6 +21,7 @@ from app.ai.tools.base import (
     ToolError,
     get_tool,
 )
+from app.ai.tools.write import WriteToolDef, get_write_tool
 from app.domain.ai.models import AiToolCall
 
 logger = logging.getLogger("rito.ai.tools")
@@ -102,6 +103,9 @@ class ToolRunner:
                         "Responda com o que já tem ou peça mais detalhes ao usuário."
                     ),
                 )
+            write_definition = get_write_tool(name)
+            if write_definition is not None:
+                return await self._propose_write(write_definition, arguments, started)
             definition = get_tool(name)
             definition.check_permission(self.ctx.user)
             try:
@@ -133,6 +137,49 @@ class ToolRunner:
             name, arguments, summary=summary, row_count=row_count, started=started, error=None
         )
         return payload
+
+    async def _propose_write(
+        self, definition: WriteToolDef, arguments: dict[str, Any], started: float
+    ) -> dict[str, Any]:
+        """Spec 084, regra 1: ferramenta de escrita NUNCA grava — ela cria uma proposta
+        pendente e devolve ao modelo um `pending_action`, que faz o grafo interromper e
+        esperar a pessoa (spec 082, regra 2)."""
+        from app.domain.ai.actions import AiActionService, TooManyPendingError
+
+        self.calls_in_step += 1
+        service = AiActionService(self.ctx.session, self.ctx.tenant_id)
+        try:
+            action = await service.propose(ctx=self.ctx, definition=definition, arguments=arguments)
+        except TooManyPendingError as exc:
+            raise ToolError(
+                "too_many_pending",
+                (
+                    "Já há confirmações pendentes demais nesta conversa. "
+                    "Peça ao usuário para decidir as anteriores primeiro."
+                ),
+            ) from exc
+        await self._record(
+            definition.name,
+            arguments,
+            summary=f"proposta {action.status}",
+            row_count=None,
+            started=started,
+            error=action.rejection_reason,
+        )
+        return {
+            "pending_action": {
+                "action_id": str(action.id),
+                "kind": definition.name,
+                "status": action.status,
+                "title": action.preview.get("summary", definition.name),
+                "preview": action.preview,
+            },
+            "note": (
+                "Nada foi gravado. A ação está aguardando confirmação do usuário."
+                if action.status == "pending"
+                else f"A ação foi recusada automaticamente: {action.rejection_reason}"
+            ),
+        }
 
     async def _record(
         self,

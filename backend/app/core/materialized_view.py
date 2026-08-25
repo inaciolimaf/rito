@@ -73,6 +73,11 @@ MATERIALIZED_VIEWS: list[MaterializedViewSpec] = [
         refresh_interval_minutes=480,
         description="BI (spec 076) — ciclos e receita por processo fechado.",
     ),
+    MaterializedViewSpec(
+        view_name="bi_cost_allocation",
+        refresh_interval_minutes=480,
+        description="BI (spec 077) — custo fixo, marketing e custo por ponto por competência.",
+    ),
 ]
 
 

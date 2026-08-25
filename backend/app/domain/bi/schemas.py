@@ -204,3 +204,76 @@ class LostTimeResponse(BaseModel):
     zero_revenue_lawsuits: int
     lost_months: float
     staleness_hint: str
+
+
+# ---- Spec 077 — BI: Custos ----------------------------------------------------------
+
+
+class CostLawsuitItem(BaseModel):
+    """Uma linha da tabela de custo por processo (regras 4, 5 e 6): custo direto
+    (despesas com `lawsuit_id`), pontos concluídos, rateio (pontos × custo por ponto
+    do mês) e o custo alocado (direto + rateio). `points_cost` None = nenhum mês das
+    conclusões teve custo por ponto calculável ("—" na UI, regra 8); `in_progress`
+    marca processo sem arquivamento (regra 6: em andamento entra no cálculo)."""
+
+    lawsuit_id: uuid.UUID
+    folder: str | None
+    process_number: str | None
+    in_progress: bool
+    direct_cost: float
+    points: int
+    points_cost: float | None
+    allocated_cost: float
+
+
+class CostsResponse(BaseModel):
+    """Custo por processo no recorte (resultado + intervalo de anos, regra 7) —
+    tempo real sobre transactions/post_users; só o custo por ponto vem da view
+    (até 8 h de defasagem, sinalizada no hint)."""
+
+    items: list[CostLawsuitItem]
+    total_direct: float
+    total_allocated: float
+    staleness_hint: str
+    allocation_note: str
+
+
+class CacResponse(BaseModel):
+    """CAC do mês (regra 1): marketing (grupo DRE 8) ÷ clientes novos. `cac` None
+    quando não houve gasto de marketing (regra 9: nulo, não zero) ou quando não houve
+    cliente novo (divisão por zero, regra 8: nunca infinito)."""
+
+    period: date
+    marketing_cost: float
+    new_customers: int
+    cac: float | None
+    staleness_hint: str
+
+
+class CostPerPointResponse(BaseModel):
+    """Custo por ponto do mês (regra 2): custo fixo (grupos DRE 2, 3, 5 e 7) ÷
+    pontos do Taskscore concluídos. `cost_per_point` None quando o mês não teve
+    ponto (regra 8: "—", nunca infinito)."""
+
+    period: date
+    fixed_cost: float
+    points: int
+    cost_per_point: float | None
+    staleness_hint: str
+
+
+class CostStageItem(BaseModel):
+    """Uma etapa do gráfico custo/tempo (escopo §2 e regra 10): média de dias e média
+    do custo proporcional aos dias da etapa. Ambas None quando nenhum processo entrou
+    na etapa ("—" na UI)."""
+
+    stage: str
+    label: str
+    avg_days: float | None
+    avg_cost: float | None
+
+
+class CostsByStageResponse(BaseModel):
+    stages: list[CostStageItem]
+    staleness_hint: str
+    allocation_note: str

@@ -1,7 +1,7 @@
 # 077 — BI: Custos
 
 **Fase:** 7 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 076 · **Status:** ⬜ pendente
+**Depende de:** 076 · **Status:** ✅ concluída (2026-08-25)
 
 ---
 
@@ -100,7 +100,33 @@ Migration `077_bi_costs.py`. Refresh a cada 8 h.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Grupos DRE confirmados no seed da migration 054** (`_DRE_GROUPS`): 2 = Folha de
+  pagamento, 3 = Encargos sociais, 5 = Despesas fixas, 7 = Despesas bancárias (custo
+  fixo) e 8 = Marketing e comercial — batem com os ids da spec, nenhum ajuste.
+- **Colunas do Taskscore confirmadas**: `post_users.completed_at` e
+  `post_users.points_earned` (spec 032/033); o processo vem do join com
+  `posts.lawsuit_id`. `transactions.competence` é a data da competência (spec 056).
+- **`SUM(...) FILTER` rende NULL** quando o mês só tem despesa de um grupo (só
+  marketing sem fixo, ou vice-versa): a leitura (`monthly_allocation`) trata NULL como
+  zero. Sem isso, o endpoint `/costs/cac` quebrava com `TypeError` num mês sem custo
+  fixo.
+- **`date_trunc('month', ...)` no GROUP BY**: duas instâncias da expressão geram dois
+  bind params (`$4`/`$5`) e o PG não reconhece a igualdade ("must appear in the GROUP
+  BY clause"); a mesma variável de expressão vai no SELECT e no GROUP BY (padrão já
+  usado no `month_expr` da 074/076).
+- **Rota da aba**: o valor do `tab=` ficou `costs` (a spec manda
+  `/reports?tab=costs`); o placeholder da 076 usava `custos`, mas a aba nunca esteve
+  habilitada — nenhum link existia, então a troca não quebra nada.
+- **`MoneyField` não foi reutilizado**: é input de formulário e a aba é somente
+  leitura — os valores monetários usam `formatBrl` dentro de `StatCard`/cards, mesmo
+  idioma das abas 075/076. Os demais componentes declarados (`StatCard`, `BarChart`
+  como referência de idioma SVG, `DataTable`, `FilterBar`) foram reutilizados.
+- **Custo médio por etapa**: o rateio por etapa é proporcional aos dias da etapa
+  (custo total × dias da etapa ÷ rotação completa), com `NULLIF` contra divisão por
+  zero — aproximação assumida e explicada no tooltip (regra 11).
+- **Teste extra além dos 10 do plano**: isolamento de tenant da view barreira
+  (`test_tenant_a_nao_ve_custos_de_tenant_b`), exigido pelo CLAUDE.md §4 para toda
+  tabela/view nova.
 
 ## 10. Definição de pronto
 

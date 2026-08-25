@@ -116,6 +116,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.bi_cycles.refresh_bi_cycles_view",
         "schedule": crontab(minute=36, hour="*/8"),
     },
+    # Spec 077, §4: refresh da view de custos a cada 8 horas (minuto deslocado dos
+    # refreshes da 074/075/076 pelo mesmo motivo).
+    "bi-costs-refresh": {
+        "task": "app.workers.bi_costs.refresh_bi_costs_view",
+        "schedule": crontab(minute=6, hour="*/8"),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -135,4 +141,5 @@ celery_app.conf.imports = (
     "app.workers.bi_pipeline",
     "app.workers.bi_vintage",
     "app.workers.bi_cycles",
+    "app.workers.bi_costs",
 )

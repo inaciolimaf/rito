@@ -2,12 +2,12 @@ import { useSearchParams } from "react-router-dom";
 
 import { cn } from "@/lib/utils";
 
-export type BiTab = "pipeline" | "vintage" | "time-fees" | "custos";
+export type BiTab = "pipeline" | "vintage" | "time-fees" | "costs";
 
 interface BiTabItem {
   value: BiTab;
   label: string;
-  /** A aba 077 ainda não existe — fica visível, mas desabilitada. */
+  /** Abas de specs futuras ficam visíveis, mas desabilitadas. */
   enabled: boolean;
   upcomingSpec?: string;
 }
@@ -16,17 +16,16 @@ const BI_TAB_ITEMS: readonly BiTabItem[] = [
   { value: "pipeline", label: "Estoque e Prospecção", enabled: true },
   { value: "vintage", label: "Safra e Qualidade", enabled: true },
   { value: "time-fees", label: "Tempo e Honorários", enabled: true },
-  { value: "custos", label: "Custos", enabled: false, upcomingSpec: "077" },
+  { value: "costs", label: "Custos", enabled: true },
 ];
 
 /** Navegação entre as 4 abas de BI (spec 074 §6) por `tab=` na URL — mesma convenção
- * do `TabBar` de domínio, mas com abas futuras desabilitadas em vez de escondidas
- * (a aba anuncia o que vem na spec 077). */
+ * do `TabBar` de domínio, mas com abas futuras desabilitadas em vez de escondidas. */
 export function BiTabs(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("tab");
   const active: BiTab =
-    requested === "vintage" || requested === "time-fees" || requested === "custos"
+    requested === "vintage" || requested === "time-fees" || requested === "costs"
       ? requested
       : "pipeline";
 

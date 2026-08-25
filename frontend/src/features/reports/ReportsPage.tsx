@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { TabBar } from "@/components/domain/TabBar";
 import { AgilityPanel } from "@/features/reports/AgilityPanel";
 import { BiTabs } from "@/features/reports/BiTabs";
+import { CostsPanel } from "@/features/reports/CostsPanel";
 import { PipelinePanel } from "@/features/reports/PipelinePanel";
 import { ProductivityPanel } from "@/features/reports/ProductivityPanel";
 import { ReportPage } from "@/features/reports/ReportPage";
@@ -19,7 +20,7 @@ const PANEL_TABS: { value: PanelTab; label: string }[] = [
   { value: "bi", label: "BI" },
 ];
 
-const BI_TAB_VALUES = ["pipeline", "vintage", "time-fees", "custos"];
+const BI_TAB_VALUES = ["pipeline", "vintage", "time-fees", "costs"];
 
 /** Painel superior de Relatórios (spec 071 §6: Agilidade/Produtividade) + os 9
  * relatórios tabulares (spec 072 §6, aba "Relatórios", `?report=` seleciona qual) + a
@@ -67,8 +68,8 @@ export function ReportsPage(): JSX.Element {
             <VintagePanel />
           ) : requestedBiTab === "time-fees" ? (
             <TimeFeesPanel />
-          ) : requestedBiTab === "custos" ? (
-            <p className="text-sm text-muted">Esta aba de BI ainda não está disponível.</p>
+          ) : requestedBiTab === "costs" ? (
+            <CostsPanel />
           ) : (
             <PipelinePanel />
           )}

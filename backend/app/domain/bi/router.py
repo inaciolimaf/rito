@@ -8,7 +8,11 @@ from app.core.http import parse_month_query
 from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.bi.schemas import (
+    CacResponse,
     ConversionResponse,
+    CostPerPointResponse,
+    CostsByStageResponse,
+    CostsResponse,
     LostTimeResponse,
     PipelineResponse,
     PortfolioGroupBy,
@@ -20,7 +24,12 @@ from app.domain.bi.schemas import (
     TimeFeesResponse,
     VintageResponse,
 )
-from app.domain.bi.service import BiPipelineService, BiTimeFeesService, BiVintageService
+from app.domain.bi.service import (
+    BiCostsService,
+    BiPipelineService,
+    BiTimeFeesService,
+    BiVintageService,
+)
 from app.domain.lawsuits.models import LawsuitOutcome
 from app.domain.users.models import User
 
@@ -157,3 +166,53 @@ async def get_bi_time_fees_lost_time(
 ) -> LostTimeResponse:
     service = BiTimeFeesService(session=session, tenant_id=current_user.tenant_id)
     return await service.lost_time()
+
+
+# Spec 077 — Custos. Regra 12: dupla permissão — ADMINISTRADOR ou GESTOR (require_role
+# aceita GESTOR pela hierarquia, spec 005) E financial_access ≥ READ_ONLY, porque a aba
+# mostra dinheiro (mesmo molde das rotas da 076).
+@router.get("/costs")
+async def get_bi_costs(
+    outcome: LawsuitOutcome | None = Query(default=None),
+    from_year: int | None = Query(default=None),
+    to_year: int | None = Query(default=None),
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    _financial: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> CostsResponse:
+    service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
+    return await service.costs(outcome=outcome, from_year=from_year, to_year=to_year)
+
+
+@router.get("/costs/cac")
+async def get_bi_costs_cac(
+    period: str | None = Query(default=None),
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    _financial: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> CacResponse:
+    period_start = parse_month_query(period)
+    service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
+    return await service.cac(period=period_start)
+
+
+@router.get("/costs/per-point")
+async def get_bi_costs_per_point(
+    period: str | None = Query(default=None),
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    _financial: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> CostPerPointResponse:
+    period_start = parse_month_query(period)
+    service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
+    return await service.per_point(period=period_start)
+
+
+@router.get("/costs/by-stage")
+async def get_bi_costs_by_stage(
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    _financial: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> CostsByStageResponse:
+    service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
+    return await service.by_stage()

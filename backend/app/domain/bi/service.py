@@ -10,12 +10,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dates import month_end, previous_month_start, shift_month
 from app.core.materialized_view import MATERIALIZED_VIEWS
 from app.domain.bi.models import SuccessMonthRow
-from app.domain.bi.repository import BiPipelineRepository, BiTimeFeesRepository, BiVintageRepository
+from app.domain.bi.repository import (
+    BiCostsRepository,
+    BiPipelineRepository,
+    BiTimeFeesRepository,
+    BiVintageRepository,
+)
 from app.domain.bi.schemas import (
+    CacResponse,
     ClosedMonthCard,
     ClosedTrendPoint,
     ConversionGroupItem,
     ConversionResponse,
+    CostLawsuitItem,
+    CostPerPointResponse,
+    CostsByStageResponse,
+    CostsResponse,
+    CostStageItem,
     CycleAverages,
     LostTimeResponse,
     PipelineResponse,
@@ -261,7 +272,10 @@ class BiVintageService:
                 )
             )
             previous_rate = rate
-        return VintageResponse(years=years, staleness_hint=_BI_VINTAGE_VIEW.staleness_hint())
+        return VintageResponse(
+            years=years,
+            staleness_hint=_BI_VINTAGE_VIEW.staleness_hint(),
+        )
 
     async def success_rate(
         self, *, period: date, action_group_id: uuid.UUID | None
@@ -454,3 +468,128 @@ class BiTimeFeesService:
 def _round_days(value: float | None) -> float | None:
     """Médias de ciclo com 1 casa (mesmo idioma do avg_cycle_days da 075)."""
     return round(value, 1) if value is not None else None
+
+
+# ---- Spec 077 — BI: Custos ----------------------------------------------------------
+
+_BI_COSTS_VIEW = next(v for v in MATERIALIZED_VIEWS if v.view_name == "bi_cost_allocation")
+
+# Regra 11: o rateio é aproximação e a fórmula vai na resposta para a UI explicá-la no
+# tooltip (AllocationExplainer) — o texto mora aqui para os endpoints compartilharem a
+# mesma redação (mesmo padrão do RATE_NOTE da 075).
+ALLOCATION_NOTE = (
+    "Custo alocado = custo direto (despesas lançadas no processo) + pontos das tarefas "
+    "concluídas × custo por ponto do mês (custo fixo do mês ÷ pontos concluídos no mês). "
+    "É uma aproximação de rateio, não contabilidade."
+)
+
+_STAGE_LABELS: dict[str, str] = {
+    "prospecting": "Prospecção",
+    "production": "Produção",
+    "execution": "Execução",
+    "full_cycle": "Rotação completa",
+}
+
+
+class BiCostsService:
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        self.repo = BiCostsRepository(session)
+        self.tenant_id = tenant_id
+
+    async def costs(
+        self,
+        *,
+        outcome: LawsuitOutcome | None,
+        from_year: int | None,
+        to_year: int | None,
+    ) -> CostsResponse:
+        """Custo por processo (regras 4, 5, 6 e 7): direto + rateio dos pontos pelo
+        custo por ponto do mês de cada conclusão. Processo em andamento entra — custo
+        acontece antes do fechamento."""
+        rows = await self.repo.lawsuit_costs(outcome=outcome, from_year=from_year, to_year=to_year)
+        items: list[CostLawsuitItem] = []
+        total_direct = 0.0
+        total_allocated = 0.0
+        for row in rows:
+            direct = round(float(row.direct_cost), 2)
+            points_cost = round(float(row.points_cost), 2) if row.points_cost is not None else None
+            allocated = round(direct + (points_cost or 0.0), 2)
+            total_direct += direct
+            total_allocated += allocated
+            items.append(
+                CostLawsuitItem(
+                    lawsuit_id=row.lawsuit_id,
+                    folder=row.folder,
+                    process_number=row.process_number,
+                    # Regra 6: em andamento = sem arquivamento — custo corre antes do fim.
+                    in_progress=row.archived_date is None,
+                    direct_cost=direct,
+                    points=row.points,
+                    points_cost=points_cost,
+                    allocated_cost=allocated,
+                )
+            )
+        return CostsResponse(
+            items=items,
+            total_direct=round(total_direct, 2),
+            total_allocated=round(total_allocated, 2),
+            staleness_hint=_BI_COSTS_VIEW.staleness_hint(),
+            allocation_note=ALLOCATION_NOTE,
+        )
+
+    async def cac(self, *, period: date) -> CacResponse:
+        """Regra 1: CAC = marketing (grupo DRE 8) ÷ clientes novos do mês. Regra 9:
+        mês sem gasto de marketing → None, não zero; sem cliente novo → None, nunca
+        infinito (regra 8)."""
+        row = await self.repo.monthly_allocation(period=period)
+        marketing = float(row.marketing_cost) if row is not None else 0.0
+        new_customers = await self.repo.new_customers(
+            month_start=period, month_end=month_end(period.year, period.month)
+        )
+        cac = round(marketing / new_customers, 2) if marketing > 0 and new_customers > 0 else None
+        return CacResponse(
+            period=period,
+            marketing_cost=round(marketing, 2),
+            new_customers=new_customers,
+            cac=cac,
+            staleness_hint=_BI_COSTS_VIEW.staleness_hint(),
+        )
+
+    async def per_point(self, *, period: date) -> CostPerPointResponse:
+        """Regra 2: custo por ponto = custo fixo (grupos DRE 2, 3, 5 e 7) ÷ pontos
+        concluídos no mês. Regra 8: mês sem pontos → None ("—"), nunca infinito — a
+        própria view já entrega NULL pelo CASE."""
+        row = await self.repo.monthly_allocation(period=period)
+        fixed = float(row.fixed_cost) if row is not None else 0.0
+        points = row.points if row is not None else None
+        return CostPerPointResponse(
+            period=period,
+            fixed_cost=round(fixed, 2),
+            points=points or 0,
+            cost_per_point=(
+                round(float(row.cost_per_point), 2)
+                if row is not None and row.cost_per_point is not None
+                else None
+            ),
+            staleness_hint=_BI_COSTS_VIEW.staleness_hint(),
+        )
+
+    async def by_stage(self) -> CostsByStageResponse:
+        """Custo médio por etapa do ciclo (escopo §2, regra 10) — em andamento incluso
+        (regra 6): a etapa corrente conta os dias até hoje."""
+        aggregates = await self.repo.cost_by_stage()
+        return CostsByStageResponse(
+            stages=[
+                CostStageItem(
+                    stage=stage,
+                    label=_STAGE_LABELS[stage],
+                    avg_days=_round_days(aggregate.avg_days),
+                    avg_cost=(
+                        round(aggregate.avg_cost, 2) if aggregate.avg_cost is not None else None
+                    ),
+                )
+                for stage, aggregate in aggregates.items()
+            ],
+            staleness_hint=_BI_COSTS_VIEW.staleness_hint(),
+            allocation_note=ALLOCATION_NOTE,
+        )

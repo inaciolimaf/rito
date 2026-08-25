@@ -15,13 +15,17 @@ import uuid
 from collections.abc import Sequence
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
-from sqlalchemy import ColumnElement, Date, and_, func, or_, select
+from sqlalchemy import CTE, ColumnElement, Date, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.action_groups.models import ActionGroup, LawsuitType
 from app.domain.bi.models import (
     ConversionGroupRow,
+    CostAllocationRow,
+    CostLawsuitRow,
+    CostStageAggregateRow,
     CycleGroupRow,
     LostTimeRow,
     PortfolioPeriodRow,
@@ -32,11 +36,15 @@ from app.domain.bi.models import (
     SuccessMonthRow,
     TimeFeesAggregateRow,
     VintageYearRow,
+    bi_cost_allocation,
     bi_lawsuit_cycles,
     bi_pipeline_monthly,
     bi_vintage,
 )
+from app.domain.customers.models import Customer
+from app.domain.financial.models import Transaction, TransactionKind
 from app.domain.lawsuits.models import Lawsuit, LawsuitOutcome
+from app.domain.posts.models import Post, PostUser
 from app.domain.stages.models import Stage, Step
 
 # Fases fixas do seed da migration 015 (ids sequenciais na ordem de `position`) — mesma
@@ -551,3 +559,246 @@ class BiTimeFeesRepository:
             zero_revenue_lawsuits=int(row[0]),
             lost_months=float(row[1]),
         )
+
+
+# ---- Spec 077 — BI: Custos ----------------------------------------------------------
+
+
+class BiCostsRepository:
+    """Agregações do BI de Custos (spec 077).
+
+    - **view barreira `bi_cost_allocation`** (matview, até 8 h de defasagem): custo
+      fixo, marketing e custo por ponto por competência (regras 1 e 2);
+    - **tempo real** sobre transactions/post_users/lawsuits/customers: custo direto
+      por processo (regra 4), rateio (regra 5), clientes novos do CAC (regra 1) e o
+      custo médio por etapa — custo acontece antes do fechamento, então processos em
+      andamento entram (regra 6).
+
+    Nenhuma query filtra tenant no WHERE: transactions/post_users/lawsuits/customers
+    têm RLS e a view barreira embute o filtro na definição (migration 077) — por isso
+    o join do rateio casa só pela competência.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    # ---- view materializada (custo fixo/marketing/pontos por competência) ----------
+
+    async def monthly_allocation(self, *, period: date) -> CostAllocationRow | None:
+        """Uma competência da view — None quando o mês não teve nenhuma despesa."""
+        stmt = select(
+            bi_cost_allocation.c.fixed_cost,
+            bi_cost_allocation.c.marketing_cost,
+            bi_cost_allocation.c.points,
+            bi_cost_allocation.c.cost_per_point,
+        ).where(bi_cost_allocation.c.competence == period)
+        row = (await self.session.execute(stmt)).one_or_none()
+        if row is None:
+            return None
+        # SUM(...) FILTER rende NULL quando o mês não teve despesa daquele grupo (só
+        # marketing sem fixo, ou vice-versa) — na leitura, NULL vira zero.
+        return CostAllocationRow(
+            fixed_cost=Decimal(row.fixed_cost) if row.fixed_cost is not None else Decimal(0),
+            marketing_cost=(
+                Decimal(row.marketing_cost) if row.marketing_cost is not None else Decimal(0)
+            ),
+            points=int(row.points) if row.points is not None else None,
+            cost_per_point=Decimal(row.cost_per_point) if row.cost_per_point is not None else None,
+        )
+
+    # ---- tempo real ---------------------------------------------------------------
+
+    async def new_customers(self, *, month_start: date, month_end: date) -> int:
+        """Regra 1 (denominador do CAC): clientes criados no mês."""
+        stmt = select(func.count()).where(
+            Customer.created_at >= month_start,
+            Customer.created_at < month_end,
+        )
+        return int(await self.session.scalar(stmt) or 0)
+
+    def _direct_costs_cte(self) -> CTE:
+        """Regra 4: despesa não interna com `lawsuit_id` — transferência tem kind
+        próprio (spec 056) e interno é controle (spec 058): os dois ficam fora."""
+        return (
+            select(
+                Transaction.lawsuit_id.label("lawsuit_id"),
+                func.sum(Transaction.amount).label("direct_cost"),
+            )
+            .where(
+                Transaction.kind == TransactionKind.DESPESA,
+                Transaction.is_internal.is_(False),
+                Transaction.lawsuit_id.is_not(None),
+            )
+            .group_by(Transaction.lawsuit_id)
+            .cte("cost_direct")
+        )
+
+    def _allocated_costs_cte(self) -> CTE:
+        """Regra 5: pontos concluídos do processo por mês × custo por ponto DAQUELE
+        mês (da view). Mês sem custo por ponto calculável (regra 8) contribui NULL no
+        somatório do rateio — o SUM ignora e os outros meses continuam valendo."""
+        # Mesma expressão (mesmo objeto) no SELECT e no GROUP BY — duas instâncias
+        # geram dois bind params ($4/$5) e o PG não reconhece a igualdade ("must
+        # appear in the GROUP BY clause"); mesmo padrão do month_expr da 074/076.
+        month_expr = func.date_trunc("month", PostUser.completed_at).cast(Date)
+        monthly_points = (
+            select(
+                Post.lawsuit_id.label("lawsuit_id"),
+                month_expr.label("competence"),
+                func.sum(PostUser.points_earned).label("points"),
+            )
+            .select_from(PostUser)
+            .join(Post, Post.id == PostUser.post_id)
+            .where(PostUser.completed_at.is_not(None))
+            .group_by(Post.lawsuit_id, month_expr)
+            .cte("cost_points_monthly")
+        )
+        return (
+            select(
+                monthly_points.c.lawsuit_id,
+                func.sum(monthly_points.c.points).label("points"),
+                func.sum(monthly_points.c.points * bi_cost_allocation.c.cost_per_point).label(
+                    "points_cost"
+                ),
+            )
+            .select_from(monthly_points)
+            .outerjoin(
+                bi_cost_allocation,
+                bi_cost_allocation.c.competence == monthly_points.c.competence,
+            )
+            .group_by(monthly_points.c.lawsuit_id)
+            .cte("cost_allocated")
+        )
+
+    async def lawsuit_costs(
+        self,
+        *,
+        outcome: LawsuitOutcome | None,
+        from_year: int | None,
+        to_year: int | None,
+    ) -> Sequence[CostLawsuitRow]:
+        """Regras 4, 5, 6 e 7: custo por processo — em andamento incluso (sem filtro
+        de fechamento); o intervalo de anos usa `archived_date` e, sem arquivamento,
+        cai para o ano de `created_at`."""
+        direct = self._direct_costs_cte()
+        allocated = self._allocated_costs_cte()
+        year_expr = func.coalesce(
+            func.extract("year", Lawsuit.archived_date),
+            func.extract("year", Lawsuit.created_at),
+        )
+        conditions: list[ColumnElement[bool]] = []
+        if outcome is not None:
+            conditions.append(Lawsuit.outcome == outcome)
+        if from_year is not None:
+            conditions.append(year_expr >= from_year)
+        if to_year is not None:
+            conditions.append(year_expr <= to_year)
+        stmt = (
+            select(
+                Lawsuit.id,
+                Lawsuit.folder,
+                Lawsuit.process_number,
+                Lawsuit.created_at,
+                Lawsuit.closure_date,
+                Lawsuit.archived_date,
+                Lawsuit.outcome,
+                func.coalesce(direct.c.direct_cost, 0),
+                func.coalesce(allocated.c.points, 0),
+                allocated.c.points_cost,
+            )
+            .select_from(Lawsuit)
+            .outerjoin(direct, direct.c.lawsuit_id == Lawsuit.id)
+            .outerjoin(allocated, allocated.c.lawsuit_id == Lawsuit.id)
+            .where(*conditions)
+            .order_by(Lawsuit.created_at.desc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [
+            CostLawsuitRow(
+                lawsuit_id=lawsuit_id,
+                folder=folder,
+                process_number=process_number,
+                created_at=created_at,
+                closure_date=closure_date,
+                archived_date=archived_date,
+                outcome=outcome_value,
+                direct_cost=Decimal(direct_cost),
+                points=int(points),
+                points_cost=Decimal(points_cost) if points_cost is not None else None,
+            )
+            for (
+                lawsuit_id,
+                folder,
+                process_number,
+                created_at,
+                closure_date,
+                archived_date,
+                outcome_value,
+                direct_cost,
+                points,
+                points_cost,
+            ) in rows
+        ]
+
+    async def cost_by_stage(self) -> dict[str, CostStageAggregateRow]:
+        """Custo médio por etapa do ciclo (escopo §2, regras 6 e 10): cada processo
+        distribui o custo total (direto + rateio) pelas etapas na proporção dos dias
+        — rateio por tempo, aproximação assumida (regra 11). Etapa ainda não alcançada
+        é NULL e some da média pelo próprio AVG; rotação zero (criado hoje) também
+        vira NULL via NULLIF — nunca divisão por zero (regra 8)."""
+        direct = self._direct_costs_cte()
+        allocated = self._allocated_costs_cte()
+        today = func.current_date()
+        created_day = Lawsuit.created_at.cast(Date)
+        prospecting_days = func.coalesce(Lawsuit.closure_date, today) - created_day
+        production_days = case(
+            (
+                Lawsuit.closure_date.is_not(None),
+                func.coalesce(Lawsuit.transit_date, today) - Lawsuit.closure_date,
+            ),
+            else_=None,
+        )
+        execution_days = case(
+            (
+                Lawsuit.transit_date.is_not(None),
+                func.coalesce(Lawsuit.archived_date, today) - Lawsuit.transit_date,
+            ),
+            else_=None,
+        )
+        full_cycle_days = func.coalesce(Lawsuit.archived_date, today) - created_day
+        total_cost = func.coalesce(direct.c.direct_cost, 0) + func.coalesce(
+            allocated.c.points_cost, 0
+        )
+
+        def stage_cost(phase_days: ColumnElement[int | None]) -> ColumnElement[Any]:
+            return func.avg(total_cost * phase_days / func.nullif(full_cycle_days, 0))
+
+        stmt = (
+            select(
+                func.avg(prospecting_days),
+                stage_cost(prospecting_days),
+                func.avg(production_days),
+                stage_cost(production_days),
+                func.avg(execution_days),
+                stage_cost(execution_days),
+                func.avg(full_cycle_days),
+                stage_cost(full_cycle_days),
+            )
+            .select_from(Lawsuit)
+            .outerjoin(direct, direct.c.lawsuit_id == Lawsuit.id)
+            .outerjoin(allocated, allocated.c.lawsuit_id == Lawsuit.id)
+        )
+        row = (await self.session.execute(stmt)).one()
+
+        def build(days: Any, cost: Any) -> CostStageAggregateRow:
+            return CostStageAggregateRow(
+                avg_days=float(days) if days is not None else None,
+                avg_cost=float(cost) if cost is not None else None,
+            )
+
+        return {
+            "prospecting": build(row[0], row[1]),
+            "production": build(row[2], row[3]),
+            "execution": build(row[4], row[5]),
+            "full_cycle": build(row[6], row[7]),
+        }

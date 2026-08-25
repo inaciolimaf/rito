@@ -1,4 +1,4 @@
-"""BI — leituras das views barreira e tipos internos (specs 074 e 075).
+"""BI — leituras das views barreira e tipos internos (specs 074, 075, 076 e 077).
 
 A view materializada `bi_pipeline_monthly` (migration 074) agrega por (tenant, mês de
 CRIAÇÃO, grupo de ação) — uma coorte: responde "das oportunidades que entraram no mês,
@@ -14,7 +14,7 @@ tempo real no repository — mesmo raciocínio do §9.2 da 074.
 
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import Column, Date, Integer, MetaData, Numeric, Table
@@ -210,3 +210,64 @@ class LostTimeRow:
 
     zero_revenue_lawsuits: int
     lost_months: float
+
+
+# ---- Spec 077 — BI: Custos ----------------------------------------------------------
+
+
+# View barreira sobre a matview bi_cost_allocation (migration 077) — uma linha por
+# (tenant, competência) com custo fixo (grupos DRE 2/3/5/7), marketing (grupo 8),
+# pontos do Taskscore e o custo por ponto derivado (regra 2); o filtro de tenant está
+# na definição da view, então a aplicação consulta sem WHERE de tenant (CLAUDE.md §4).
+bi_cost_allocation = Table(
+    "bi_cost_allocation_visible",
+    MetaData(),
+    Column("tenant_id", PGUUID(as_uuid=True)),
+    Column("competence", Date),
+    Column("fixed_cost", Numeric),
+    Column("marketing_cost", Numeric),
+    Column("points", Numeric),
+    Column("cost_per_point", Numeric),
+)
+
+
+@dataclass
+class CostAllocationRow:
+    """Uma competência da view (regras 1 e 2) — `points` e `cost_per_point` são None
+    quando o mês não teve ponto concluído (regra 8: nulo é "—", nunca infinito)."""
+
+    fixed_cost: Decimal
+    marketing_cost: Decimal
+    points: int | None
+    cost_per_point: Decimal | None
+
+
+@dataclass
+class CostLawsuitRow:
+    """Custo de um processo (regras 4, 5 e 6 — em andamento incluso): `direct_cost`
+    são as despesas lançadas com `lawsuit_id`; `points_cost` é o rateio (pontos das
+    tarefas × custo por ponto do mês de cada conclusão) — None quando nenhum mês das
+    conclusões tem custo por ponto calculável; `points` é o total de pontos concluídos
+    no processo, independente do rateio ser calculável."""
+
+    lawsuit_id: uuid.UUID
+    folder: str | None
+    process_number: str | None
+    created_at: datetime
+    closure_date: date | None
+    archived_date: date | None
+    outcome: LawsuitOutcome | None
+    direct_cost: Decimal
+    points: int
+    points_cost: Decimal | None
+
+
+@dataclass
+class CostStageAggregateRow:
+    """Médias de uma etapa do ciclo (escopo §2: custo médio em produção, execução e
+    rotação completa; regra 10: as 4 etapas do gráfico). `avg_cost` é a média do custo
+    proporcional aos dias da etapa (rateio por tempo — aproximação, regra 11); None
+    quando nenhum processo entrou na etapa com rotação maior que zero."""
+
+    avg_days: float | None
+    avg_cost: float | None

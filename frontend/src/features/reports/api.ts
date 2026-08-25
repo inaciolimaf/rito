@@ -562,3 +562,89 @@ export async function getBiTimeFeesByType(lawsuitTypeId?: string): Promise<BiTim
 export async function getBiLostTime(): Promise<BiLostTimeData> {
   return apiRequest<BiLostTimeData>("/api/v1/bi/time-fees/lost-time");
 }
+
+/** Camada de API da spec 077 — BI: Custos. */
+
+export interface CostLawsuitItemData {
+  lawsuit_id: string;
+  folder: string | null;
+  process_number: string | null;
+  /** Regra 6: processo sem arquivamento — custo acontece antes do fechamento. */
+  in_progress: boolean;
+  direct_cost: number;
+  points: number;
+  /** Rateio (pontos × custo por ponto do mês); null = nenhum mês das conclusões teve
+   * custo por ponto calculável ("—" na UI, regra 8). */
+  points_cost: number | null;
+  allocated_cost: number;
+}
+
+export interface BiCostsData {
+  items: CostLawsuitItemData[];
+  total_direct: number;
+  total_allocated: number;
+  staleness_hint: string;
+  /** Regra 11: a fórmula do rateio, explicada no tooltip (AllocationExplainer). */
+  allocation_note: string;
+}
+
+export interface BiCacData {
+  period: string;
+  marketing_cost: number;
+  new_customers: number;
+  /** Regras 8 e 9: sem marketing ou sem cliente novo → null ("—"), nunca zero nem
+   * infinito. */
+  cac: number | null;
+  staleness_hint: string;
+}
+
+export interface BiCostPerPointData {
+  period: string;
+  fixed_cost: number;
+  points: number;
+  /** Regra 8: mês sem pontos → null ("—"), nunca infinito. */
+  cost_per_point: number | null;
+  staleness_hint: string;
+}
+
+export interface CostStageItemData {
+  stage: string;
+  label: string;
+  avg_days: number | null;
+  avg_cost: number | null;
+}
+
+export interface BiCostsByStageData {
+  stages: CostStageItemData[];
+  staleness_hint: string;
+  allocation_note: string;
+}
+
+export interface BiCostsParams {
+  outcome?: string;
+  fromYear?: number;
+  toYear?: number;
+}
+
+export async function getBiCosts(params: BiCostsParams = {}): Promise<BiCostsData> {
+  const query = new URLSearchParams();
+  if (params.outcome) query.set("outcome", params.outcome);
+  if (params.fromYear) query.set("from_year", String(params.fromYear));
+  if (params.toYear) query.set("to_year", String(params.toYear));
+  const text = query.toString();
+  return apiRequest<BiCostsData>(`/api/v1/bi/costs${text ? `?${text}` : ""}`);
+}
+
+export async function getBiCac(period?: string): Promise<BiCacData> {
+  const suffix = period ? `?period=${encodeURIComponent(period)}` : "";
+  return apiRequest<BiCacData>(`/api/v1/bi/costs/cac${suffix}`);
+}
+
+export async function getBiCostPerPoint(period?: string): Promise<BiCostPerPointData> {
+  const suffix = period ? `?period=${encodeURIComponent(period)}` : "";
+  return apiRequest<BiCostPerPointData>(`/api/v1/bi/costs/per-point${suffix}`);
+}
+
+export async function getBiCostsByStage(): Promise<BiCostsByStageData> {
+  return apiRequest<BiCostsByStageData>("/api/v1/bi/costs/by-stage");
+}

@@ -73,7 +73,10 @@ class GraphDeps:
     user_id: "uuid.UUID | None"
     llm: Any
     feature_key: str
+    # Catálogo oferecido ao modelo (já filtrado pelo RBAC do usuário, spec 083) e o
+    # runner que executa a chamada — nenhum nó fala com o banco por conta própria.
     tools: dict[str, Any] = field(default_factory=dict)
+    tool_runner: Any = None
     context: dict[str, Any] = field(default_factory=dict)
 
 

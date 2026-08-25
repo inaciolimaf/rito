@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.graphs.base import GraphDeps, GraphResult
 from app.ai.graphs.registry import UnknownGraphError
 from app.ai.runtime import GraphRuntime, StepEvent
+from app.ai.tools.base import ToolContext, tool_specs
+from app.ai.tools.runner import ToolRunner
 from app.core.permissions import UserRole, require_role
 from app.domain.ai.models import AiStep, AiThread
 from app.domain.ai.router import get_llm_provider
@@ -86,6 +88,14 @@ def _build_service(
     escolhe modelo nem conta token por conta própria."""
     service = AiThreadService(session=session, tenant_id=user.tenant_id)
     if thread is not None:
+        context = dict(thread.context or {})
+        tool_ctx = ToolContext(
+            session=session,
+            tenant_id=user.tenant_id,
+            user=user,
+            thread_id=thread.id,
+            screen_context=context,
+        )
         service.runtime = GraphRuntime(
             session,
             user.tenant_id,
@@ -94,7 +104,10 @@ def _build_service(
                 user_id=user.id,
                 llm=AiRunner(session, user.tenant_id, provider),
                 feature_key=thread.feature_key,
-                context=dict(thread.context or {}),
+                # Regra 1 da 083: o catálogo já sai filtrado pelo RBAC de quem perguntou.
+                tools={spec.name: spec for spec in tool_specs(user)},
+                tool_runner=ToolRunner(tool_ctx),
+                context=context,
             ),
         )
     return service

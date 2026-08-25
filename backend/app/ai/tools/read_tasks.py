@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.ai.tools.base import MAX_ROWS, ToolContext, tool, truncate_rows
 from app.domain.inbox.service import InboxService
-from app.domain.schedule.service import DateField, ScheduleService
+from app.domain.posts.service import PostService
 
 _DEFAULT_WINDOW_DAYS = 30
 
@@ -51,33 +51,39 @@ async def search_tasks(ctx: ToolContext, params: SearchTasksInput) -> dict[str, 
     today = date.today()
     start = params.date_from or today
     end = params.date_to or (start + timedelta(days=_DEFAULT_WINDOW_DAYS))
-    service = ScheduleService(session=ctx.session, tenant_id=ctx.tenant_id)
-    events = await service.list_events(
-        viewer=ctx.user.id,
-        start=start,
-        end=end,
-        date_field=DateField.DEADLINE if params.by_deadline else DateField.SCHEDULED,
-        user_id=params.responsible_id,
-        show_completed=params.include_completed,
-        today=today,
+    service = PostService(session=ctx.session, tenant_id=ctx.tenant_id)
+    details = await service.search(
+        viewer_id=ctx.user.id,
+        date_from=start,
+        date_to=end,
+        by_deadline=params.by_deadline,
+        assignee_id=params.responsible_id,
+        only_open=not params.include_completed,
+        limit=min(params.limit, MAX_ROWS) + 1,
     )
-    items, truncated = truncate_rows(events, params.limit)
+    items, truncated = truncate_rows(details, params.limit)
     return {
         "period": {"from": start.isoformat(), "to": end.isoformat()},
         "items": [
             {
-                "post_id": str(event.post_id),
-                "lawsuit_id": str(event.lawsuit_id),
-                "task_type": event.task_type_name,
-                "date": event.axis_date.isoformat(),
-                "status": event.status.value,
-                "is_urgent": event.is_urgent,
-                "is_important": event.is_important,
-                "assignees": event.assignee_names,
+                "post_id": str(detail.post.id),
+                "lawsuit_id": str(detail.post.lawsuit_id),
+                "task_type": detail.task_type_name,
+                "scheduled_date": (
+                    detail.post.scheduled_date.isoformat() if detail.post.scheduled_date else None
+                ),
+                "deadline_date": (
+                    detail.post.deadline_date.isoformat() if detail.post.deadline_date else None
+                ),
+                "completed": bool(detail.assignees)
+                and all(item.line.completed_at is not None for item in detail.assignees),
+                "is_urgent": detail.post.is_urgent,
+                "is_important": detail.post.is_important,
+                "assignees": [item.user.name for item in detail.assignees],
             }
-            for event in items
+            for detail in items
         ],
-        "total": len(events),
+        "total": len(details),
         "truncated": truncated,
     }
 

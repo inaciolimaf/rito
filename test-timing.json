@@ -274,6 +274,10 @@
     "082": {
       "wall_clock_seconds": 176,
       "notes": "1098 backend (1086 da 081 + 12 novos: grafo simples, interrupção/retomada (o teste central da spec), recusa cancelando com motivo, retomada sem repetir o nó caro, expiração de 24 h com relógio injetado, timeout de nó sem `sleep` (evento que ninguém dispara), cancelamento na fronteira do nó, teto de passos, payload de 200 KB virando referência, 403 do colega + auditoria do ADMINISTRADOR, RLS nas três tabelas e o caminho HTTP com SSE) + 215 frontend (211 + 4 do AgentStepsTimeline). LangGraph entrou como dependência; o import (~2 s) é sob demanda, fora do caminho do app.main."
+    },
+    "083": {
+      "wall_clock_seconds": 177,
+      "notes": "1115 backend (1098 da 082 + 17 novos: 6 unitários do registry (16 ferramentas descobertas por decorator, schema derivado do Pydantic, descrição útil, handler sem modelo recusado, erro estruturado, teto no schema), 8 de integração (o parametrizado com as 16 ferramentas contra um intruso de outro tenant, financeiro com NONE, tarefa privada, teto de linhas, corte de 20 KB, registro em ai_tool_calls, erro estruturado, 11ª chamada barrada) e 3 meta (sem vector store no código, sem dependência de RAG, ferramenta sem query própria). Sem frontend nesta spec."
     }
   }
 }

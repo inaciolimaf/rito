@@ -67,9 +67,11 @@ async def search_transactions(ctx: ToolContext, params: SearchTransactionsInput)
                 "kind": row.transaction.kind.value,
                 "amount": float(row.transaction.amount),
                 "due_date": row.transaction.due_date.isoformat(),
-                "payment_date": row.transaction.payment_date.isoformat()
-                if row.transaction.payment_date
-                else None,
+                "payment_date": (
+                    row.transaction.payment_date.isoformat()
+                    if row.transaction.payment_date
+                    else None
+                ),
                 "description": row.transaction.description,
                 "customer": row.customer_name,
                 "category": row.category_name,

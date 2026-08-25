@@ -82,6 +82,48 @@ class PostService:
             )
         return details
 
+    async def search(
+        self,
+        *,
+        viewer_id: uuid.UUID,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        by_deadline: bool = False,
+        assignee_id: uuid.UUID | None = None,
+        lawsuit_id: uuid.UUID | None = None,
+        task_type_id: uuid.UUID | None = None,
+        only_open: bool = True,
+        limit: int = 20,
+    ) -> list[PostDetail]:
+        """Busca de tarefas com a regra 8 da 033 aplicada: tarefa privada de terceiro
+        não aparece — nem para o agente de IA de um colega (spec 083, regra 3)."""
+        posts = await self.posts.search(
+            date_from=date_from,
+            date_to=date_to,
+            by_deadline=by_deadline,
+            assignee_id=assignee_id,
+            lawsuit_id=lawsuit_id,
+            task_type_id=task_type_id,
+            only_open=only_open,
+            limit=limit,
+        )
+        lines_by_post = await self.posts.assignee_lines_for([post.id for post in posts])
+        names = await self.task_types.names_for({post.task_type_id for post in posts})
+        details: list[PostDetail] = []
+        for post in posts:
+            lines = lines_by_post.get(post.id, [])
+            assignee_ids = {line.user_id for _user, line in lines}
+            if post.is_private and not _is_involved(post, assignee_ids, viewer_id):
+                continue
+            details.append(
+                PostDetail(
+                    post=post,
+                    task_type_name=names[post.task_type_id],
+                    assignees=[AssigneeDetail(user=user, line=line) for user, line in lines],
+                )
+            )
+        return details
+
     async def update(self, post: Post, payload: PostUpdateRequest) -> PostDetail:
         await validate_references(
             lawsuits=self.lawsuits, task_types=self.task_types, payload=payload

@@ -364,7 +364,7 @@ Client genérico OpenRouter atrás da interface `LLMProvider`; **modelo selecion
 Grafos de agente; checkpointer em Postgres; interrupção para **human-in-the-loop**; retomada; timeout; observabilidade de passos.
 **Aceite:** grafo interrompe, persiste e retoma após confirmação. **t:** 6 s. **Deps:** 081
 
-### ⬜ 083 — Ferramentas de leitura
+### ✅ 083 — Ferramentas de leitura
 Tool registry tipado: consultar processos, clientes, tarefas, agenda, financeiro, métricas, intimações. **Sem RAG** — contexto por tool calling. Toda tool respeita RLS e RBAC do usuário.
 **Aceite:** tool não retorna dado de outro tenant nem além do RBAC. **t:** 6 s. **Deps:** 082
 

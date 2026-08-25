@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.ai.tools.base import MAX_ROWS, ToolContext, ToolError, tool, truncate_rows
+from app.domain.lawsuits.parties_service import PartiesService
 from app.domain.lawsuits.schemas import LawsuitFiltersQuery
 from app.domain.lawsuits.service import LawsuitService
 from app.domain.publications.schemas import PublicationFilters
@@ -101,6 +102,9 @@ async def get_lawsuit(ctx: ToolContext, params: GetLawsuitInput) -> dict[str, An
     if detail is None:
         raise ToolError("not_found", "Processo não encontrado neste escritório.")
     lawsuit = detail.lawsuit
+    parties = await PartiesService(session=ctx.session, tenant_id=ctx.tenant_id).list_parties(
+        lawsuit.id
+    )
     # Regra 2 da 083 + regra 9 da 079: valor é dado financeiro; sem acesso, não sai.
     from app.core.permissions import FinancialAccess
 
@@ -110,12 +114,14 @@ async def get_lawsuit(ctx: ToolContext, params: GetLawsuitInput) -> dict[str, An
         "process_number": lawsuit.process_number,
         "folder": lawsuit.folder,
         "action_group": detail.action_group_name,
-        "lawsuit_type": detail.lawsuit_type_name,
-        "stage": detail.stage_name,
         "step": detail.step_name,
         "parties": [
-            {"name": party.customer_name, "pole": party.pole, "is_client": party.is_client}
-            for party in detail.parties
+            {
+                "name": party.customer_name,
+                "pole": party.party.pole.value,
+                "is_client": party.party.is_client,
+            }
+            for party in parties
         ],
         "county": lawsuit.county,
         "judiciary": lawsuit.judiciary,
@@ -152,7 +158,8 @@ async def get_lawsuit_timeline(ctx: ToolContext, params: GetTimelineInput) -> di
                 "kind": item.kind,
                 "occurred_at": item.occurred_at.isoformat(),
                 "title": item.title,
-                "body": item.body,
+                "summary": item.summary,
+                "actor": item.actor,
             }
             for item in page.items
         ],
@@ -193,9 +200,9 @@ async def search_publications(ctx: ToolContext, params: SearchPublicationsInput)
                 "process_number": row.publication.process_number,
                 "kind": row.publication.communication_type,
                 "is_read": row.is_read,
-                "lawsuit_id": str(row.publication.lawsuit_id)
-                if row.publication.lawsuit_id
-                else None,
+                "lawsuit_id": (
+                    str(row.publication.lawsuit_id) if row.publication.lawsuit_id else None
+                ),
             }
             for row in items
         ],
@@ -220,7 +227,7 @@ async def get_publication(ctx: ToolContext, params: GetPublicationInput) -> dict
         "court": publication.court_code,
         "process_number": publication.process_number,
         "kind": publication.communication_type,
-        "body": publication.content,
+        "body": publication.body,
         "is_read": detail.is_read,
         "recipients": [item.name for item in detail.recipients],
         "lawyers": [item.name for item in detail.lawyers],

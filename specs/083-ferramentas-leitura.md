@@ -1,7 +1,7 @@
 # 083 — Ferramentas de leitura
 
 **Fase:** 8 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 082 · **Status:** ⬜ pendente
+**Depende de:** 082 · **Status:** ✅ concluída
 
 ---
 
@@ -122,8 +122,44 @@ class SearchLawsuitsOutput(BaseModel):
 
 ## 9. Descobertas
 
-*(preencher)*
+- **O teste de isolamento é um só, com 16 casos — e é agressivo de propósito.** Em vez
+  de 16 testes parecidos, um teste monta um escritório completo (contato, processo,
+  tarefa, intimação, lançamento), chama TODAS as ferramentas como um intruso de outro
+  tenant apontando para os ids exatos, e falha se qualquer identificador aparecer na
+  resposta. O intruso é GESTOR com `financial_access = FULL` no próprio escritório: o
+  que o barra é o RLS, não o RBAC — que é exatamente o que precisa ser provado.
+- **`search_tasks` não podia ser a agenda.** A primeira versão usou o `ScheduleService`
+  (spec 037), que só enxerga posts com `show_in_schedule` — ou seja, a ferramenta
+  responderia "nenhuma tarefa" para a maioria das tarefas. Virou `PostService.search()`,
+  novo, com a regra da tarefa privada aplicada no service (não na ferramenta): assim ela
+  vale para qualquer consumidor futuro, e não existe uma segunda versão dela para
+  divergir.
+- **O catálogo que vai para o modelo já sai filtrado pelo RBAC** (`tool_specs(user)`).
+  Oferecer `search_transactions` a quem tem `financial_access = NONE` só produz
+  tentativa recusada e token gasto. A checagem no runner continua lá — filtrar a oferta
+  é economia, não segurança.
+- **Erro de ferramenta é resposta, não exceção** (regra 8), inclusive erro inesperado:
+  o runner captura tudo, registra em `ai_tool_calls` com a mensagem e devolve
+  `{"error": {...}}` para o modelo. Foi o que aconteceu com um bug real durante a
+  implementação (`ScheduleService` com assinatura diferente): o grafo não caiu, o erro
+  ficou no log e o teste apontou o lugar.
+- **O corte de saída (regra 5) é por linhas, não por bytes.** Cortar o JSON no byte
+  20.480 entregaria ao modelo um documento quebrado; cortar linhas e dizer quantas
+  ficaram deixa ele decidir se refina o filtro. `ai_tool_calls` guarda contagem e
+  resumo, nunca o conteúdo lido — duplicar dado sensível fora da tabela que o protege
+  seria criar um segundo lugar para vazar.
+- **A proibição de RAG virou teste** (`tests/meta/test_no_rag.py`): varre `app/`,
+  `alembic/` e o `pyproject.toml` atrás de pgvector, embeddings e vector stores. É a
+  regra do CLAUDE.md §7 com dente — e o mesmo arquivo garante que nenhuma ferramenta
+  monta query própria (regra 10), porque SQL solto não herda de graça as regras que os
+  services aplicam.
+- **`get_lawsuit` redige valor financeiro** para quem tem `financial_access = NONE`,
+  em vez de esconder o processo inteiro: o agente responde sobre o processo e diz que
+  não pode ver os valores. É o mesmo desenho da regra 9 da spec 079.
 
 ## 10. Definição de pronto
 
-Checklist padrão · 16 ferramentas com teste de isolamento · Zero RAG no projeto · Commit `feat(083): ferramentas de leitura`
+- [x] Checklist padrão
+- [x] 16 ferramentas com teste de isolamento (um teste, 16 casos)
+- [x] Zero RAG no projeto — verificado por teste meta
+- [x] Commit `feat(083): ferramentas de leitura`

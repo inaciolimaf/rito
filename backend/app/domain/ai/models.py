@@ -141,3 +141,92 @@ class AiStep(TenantMixin, Base):
     duration_ms: Mapped[int | None] = mapped_column(default=None)
     error: Mapped[str | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AiToolCall(TenantMixin, Base):
+    """Uma consulta do agente ao banco (spec 083, regra 6). Guarda o que foi pedido e
+    quanto voltou — nunca o conteúdo lido, que já vive protegido na tabela de origem."""
+
+    __tablename__ = "ai_tool_calls"
+
+    thread_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ai_threads.id", ondelete="CASCADE"), default=None
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    tool_name: Mapped[str]
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSONB(), default=dict)
+    result_summary: Mapped[str | None] = mapped_column(default=None)
+    row_count: Mapped[int | None] = mapped_column(default=None)
+    duration_ms: Mapped[int | None] = mapped_column(default=None)
+    error: Mapped[str | None] = mapped_column(default=None)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AiActionStatus(StrEnum):
+    """Ciclo de uma proposta de escrita (spec 084 §4)."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    EXECUTED = "executed"
+    FAILED = "failed"
+    EXPIRED = "expired"
+
+
+class AiAction(TenantMixin, Base):
+    """Uma escrita PROPOSTA pela IA, esperando confirmação humana (spec 084, regra 1).
+
+    Enquanto esta linha existe em `pending`, nada foi gravado no domínio — o preview é
+    literalmente o que vai acontecer se alguém aprovar.
+    """
+
+    __tablename__ = "ai_actions"
+
+    thread_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ai_threads.id", ondelete="CASCADE"), default=None
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    tool_name: Mapped[str]
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSONB(), default=dict)
+    preview: Mapped[dict[str, Any]] = mapped_column(JSONB(), default=dict)
+    before_state: Mapped[dict[str, Any] | None] = mapped_column(JSONB(), default=None)
+    status: Mapped[str] = mapped_column(
+        default=AiActionStatus.PENDING.value, server_default=text("'pending'")
+    )
+    affected_type: Mapped[str | None] = mapped_column(default=None)
+    affected_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), default=None)
+    rejection_reason: Mapped[str | None] = mapped_column(default=None)
+    error: Mapped[str | None] = mapped_column(default=None)
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(default=None)
+    executed_at: Mapped[datetime | None] = mapped_column(default=None)
+    undone_at: Mapped[datetime | None] = mapped_column(default=None)
+    expires_at: Mapped[datetime] = mapped_column(
+        server_default=text("now() + interval '1 hour'")
+    )
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AiAuditLog(TenantMixin, Base):
+    """O que a IA gravou, com estado antes e depois (spec 084, regra 7).
+
+    Append-only garantido no banco (trigger + REVOKE, migration 084): esta tabela é a
+    resposta para "quem mudou isso?" quando a resposta for "a IA, e fulano aprovou".
+    """
+
+    __tablename__ = "ai_audit_log"
+
+    action_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ai_actions.id")
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    tool_name: Mapped[str]
+    affected_type: Mapped[str]
+    affected_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True))
+    before_state: Mapped[dict[str, Any] | None] = mapped_column(JSONB(), default=None)
+    after_state: Mapped[dict[str, Any] | None] = mapped_column(JSONB(), default=None)
+    model: Mapped[str]
+    thread_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), default=None)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

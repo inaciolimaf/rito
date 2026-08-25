@@ -35,6 +35,42 @@ class PostRepository(BaseRepository[Post]):
         )
         return (await self.session.scalars(stmt)).all()
 
+    async def search(
+        self,
+        *,
+        date_from: date | None,
+        date_to: date | None,
+        by_deadline: bool,
+        assignee_id: uuid.UUID | None,
+        lawsuit_id: uuid.UUID | None,
+        task_type_id: uuid.UUID | None,
+        only_open: bool,
+        limit: int,
+    ) -> Sequence[Post]:
+        """Busca de tarefas por filtros (spec 083 §5, `search_tasks`).
+
+        Diferente da agenda (spec 037), que só enxerga o que tem `show_in_schedule`:
+        aqui o recorte é a TAREFA, com ou sem compromisso marcado.
+        """
+        axis = Post.deadline_date if by_deadline else Post.scheduled_date
+        stmt = select(Post).where(axis.is_not(None)).order_by(axis, Post.id).limit(limit)
+        if date_from is not None:
+            stmt = stmt.where(axis >= date_from)
+        if date_to is not None:
+            stmt = stmt.where(axis <= date_to)
+        if lawsuit_id is not None:
+            stmt = stmt.where(Post.lawsuit_id == lawsuit_id)
+        if task_type_id is not None:
+            stmt = stmt.where(Post.task_type_id == task_type_id)
+        if assignee_id is not None or only_open:
+            stmt = stmt.join(PostUser, PostUser.post_id == Post.id)
+            if assignee_id is not None:
+                stmt = stmt.where(PostUser.user_id == assignee_id)
+            if only_open:
+                stmt = stmt.where(PostUser.completed_at.is_(None))
+            stmt = stmt.distinct()
+        return (await self.session.scalars(stmt)).all()
+
     async def assignees_for(self, post_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, list[User]]:
         """Responsáveis de vários posts em UMA query (sem N+1), na ordem alfabética."""
         if not post_ids:

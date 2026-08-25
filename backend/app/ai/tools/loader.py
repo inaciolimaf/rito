@@ -12,6 +12,7 @@ _TOOL_MODULES = (
     "app.ai.tools.read_tasks",
     "app.ai.tools.read_financial",
     "app.ai.tools.read_analytics",
+    "app.ai.tools.write",
 )
 
 _loaded = False

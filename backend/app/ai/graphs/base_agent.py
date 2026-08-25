@@ -9,6 +9,7 @@ Este é o único módulo que importa LangGraph no caminho de execução; ele é 
 sob demanda (`app/ai/graphs/__init__.py` não importa nada).
 """
 
+import json
 from typing import Any
 
 from langgraph.graph import END, StateGraph
@@ -64,18 +65,39 @@ class BaseAgentGraph:
                     "messages": messages,
                     "scratch": {
                         **(state.get("scratch") or {}),
-                        "tool_calls": [call.name for call in response.tool_calls],
+                        "tool_calls": [
+                            {"id": call.id, "name": call.name, "arguments": call.arguments}
+                            for call in response.tool_calls
+                        ],
                     },
                 }
             return {"messages": messages, "output": {"answer": response.content}}
 
         async def use_tools(state: GraphState) -> dict[str, Any]:
-            """Ponto de extensão das specs 083/084. Sem ferramentas registradas, a volta
-            termina explicando isso em vez de fingir que executou algo."""
+            """Executa o que o modelo pediu e devolve o resultado como mensagem de
+            ferramenta (spec 083). Erro de ferramenta também volta como mensagem: o
+            agente precisa poder se corrigir, não estourar."""
             pedidas = (state.get("scratch") or {}).get("tool_calls") or []
+            if deps.tool_runner is None:
+                return {
+                    "scratch": {**(state.get("scratch") or {}), "tool_calls": []},
+                    "output": {"answer": None, "unavailable_tools": [c["name"] for c in pedidas]},
+                }
+            deps.tool_runner.begin_step()
+            messages = [*(state.get("messages") or [])]
+            for call in pedidas:
+                result = await deps.tool_runner.call(call["name"], call.get("arguments") or {})
+                messages.append(
+                    {
+                        "role": "tool",
+                        "name": call["name"],
+                        "tool_call_id": call.get("id", ""),
+                        "content": json.dumps(result, ensure_ascii=False, default=str),
+                    }
+                )
             return {
+                "messages": messages,
                 "scratch": {**(state.get("scratch") or {}), "tool_calls": []},
-                "output": {"answer": None, "unavailable_tools": pedidas},
             }
 
         def route(state: GraphState) -> str:
@@ -85,7 +107,7 @@ class BaseAgentGraph:
                 return END
             if state.get("output") is not None:
                 return END
-            if ((state.get("scratch") or {}).get("tool_calls")) and deps.tools:
+            if (state.get("scratch") or {}).get("tool_calls"):
                 return "tools"
             return "think"
 
@@ -93,7 +115,9 @@ class BaseAgentGraph:
         graph.add_node("tools", use_tools)
         graph.set_conditional_entry_point(route, {"think": "think", "tools": "tools", END: END})
         graph.add_conditional_edges("think", route, {"think": END, "tools": "tools", END: END})
-        graph.add_edge("tools", END)
+        # Depois das ferramentas o modelo fala de novo, com o resultado em mãos — o teto
+        # de 25 passos do runtime é quem impede a volta virar laço.
+        graph.add_conditional_edges("tools", route, {"think": "think", "tools": END, END: END})
         return graph.compile()
 
 

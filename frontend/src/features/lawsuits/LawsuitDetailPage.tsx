@@ -17,6 +17,13 @@ import { LawsuitTimeline } from "@/features/lawsuits/LawsuitTimeline";
 import { TimelineFilters } from "@/features/lawsuits/TimelineFilters";
 import { useTimelineKinds } from "@/features/lawsuits/useTimelineKinds";
 import { formatCnj } from "@/lib/cnj";
+import {
+  listLawsuitShares,
+  listPartnerships,
+  shareLawsuit,
+} from "@/features/partners/api";
+import { ShareLawsuitDialog } from "@/features/partners/ShareLawsuitDialog";
+import { SharedBadge } from "@/features/partners/SharedBadge";
 
 type Tab = "timeline" | "documents";
 
@@ -35,12 +42,26 @@ export function LawsuitDetailPage(): JSX.Element {
   const { kinds, setKinds, isLoading: kindsLoading } = useTimelineKinds();
   const [modalOpen, setModalOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<TimelineItem | null>(null);
+  const [shareOpen, setShareOpen] = React.useState(false);
 
   const { data: lawsuit, isLoading } = useQuery({
     queryKey: ["lawsuits", id],
     queryFn: () => getLawsuit(id!),
     enabled: !!id,
   });
+
+  // Spec 079: o badge de compartilhamento (regra 12) é permanente enquanto houver
+  // parceiro com acesso — por isso a consulta vive no detalhe, não no diálogo.
+  const { data: shares } = useQuery({
+    queryKey: ["lawsuits", id, "shares"],
+    queryFn: () => listLawsuitShares(id!),
+    enabled: !!id,
+  });
+  const { data: partnerships } = useQuery({
+    queryKey: ["partnerships", "ATIVA"],
+    queryFn: () => listPartnerships("ATIVA"),
+  });
+  const activeShares = shares?.items ?? [];
 
   async function handleSubmitMovement(values: MovementPayload): Promise<void> {
     if (!id) return;
@@ -66,27 +87,54 @@ export function LawsuitDetailPage(): JSX.Element {
             </Link>{" "}
             / {lawsuit.action_group_name}
           </p>
-          <h1 className="text-lg font-semibold text-primary">
+          <h1 className="flex items-center gap-2 text-lg font-semibold text-primary">
             {lawsuit.process_number
               ? formatCnj(lawsuit.process_number)
               : lawsuit.folder || "Processo sem número"}
+            {activeShares[0] && (
+              <SharedBadge
+                partnerName={activeShares[0].partner_name}
+                count={activeShares.length}
+              />
+            )}
           </h1>
           <p className="text-sm text-muted">
             {lawsuit.action_group_name} · {lawsuit.step_name}
             {lawsuit.is_archived ? " · Arquivado" : ""}
           </p>
         </div>
-        {tab === "timeline" && (
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setModalOpen(true);
-            }}
-          >
-            Nova movimentação
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => setShareOpen(true)}>
+            Compartilhar
           </Button>
-        )}
+          {tab === "timeline" && (
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setModalOpen(true);
+              }}
+            >
+              Nova movimentação
+            </Button>
+          )}
+        </div>
       </div>
+
+      <ShareLawsuitDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        partnerships={partnerships?.items ?? []}
+        lawsuitLabel={
+          lawsuit.process_number
+            ? formatCnj(lawsuit.process_number)
+            : lawsuit.folder || "Processo sem número"
+        }
+        onShare={async (payload) => {
+          const created = await shareLawsuit(id!, payload);
+          await queryClient.invalidateQueries({ queryKey: ["lawsuits", id, "shares"] });
+          return created;
+        }}
+      />
 
       <TabBar
         items={TABS}

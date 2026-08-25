@@ -74,6 +74,13 @@ class Post(TenantMixin, Base):
         ForeignKey("post_recurrences.id", ondelete="SET NULL"),
         default=None,
     )
+    # Spec 079, regra 8: preenchido só quando a tarefa foi criada por um escritório
+    # PARCEIRO num processo compartilhado — a tarefa nasce no tenant do dono e guarda
+    # de onde veio a demanda (é o que separa "pendente pelo escritório" de tarefa
+    # própria nos cards da parceria).
+    partner_tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("tenants.id"), default=None
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 

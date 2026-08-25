@@ -23,6 +23,7 @@ import { FinancialSettingsPage } from "@/features/financial/FinancialSettingsPag
 import { TransactionsListPage } from "@/features/financial/TransactionsListPage";
 import { InboxPage } from "@/features/inbox/InboxPage";
 import { IntegrationsSettingsPage } from "@/features/integrations/IntegrationsSettingsPage";
+import { PartnersPage } from "@/features/partners/PartnersPage";
 import { PostDetailPage } from "@/features/posts/PostDetailPage";
 import { PublicationListPage } from "@/features/publications/PublicationListPage";
 import { ReportsPage } from "@/features/reports/ReportsPage";
@@ -86,6 +87,7 @@ export function App(): JSX.Element {
                     <Route path="/schedules" element={<CalendarPage />} />
                     <Route path="/publications" element={<PublicationListPage />} />
                     <Route path="/crm" element={<CrmPage />} />
+                    <Route path="/partners" element={<PartnersPage />} />
                     <Route path="/transactions" element={<TransactionsListPage />} />
                     <Route path="/library" element={<TemplatesListPage />} />
                     <Route path="/library/:id" element={<TemplateEditorPage />} />
@@ -99,6 +101,7 @@ export function App(): JSX.Element {
                         item.path !== "/schedules" &&
                         item.path !== "/publications" &&
                         item.path !== "/crm" &&
+                        item.path !== "/partners" &&
                         item.path !== "/transactions" &&
                         item.path !== "/library" &&
                         item.path !== "/reports",

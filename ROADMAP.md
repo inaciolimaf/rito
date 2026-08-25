@@ -345,7 +345,7 @@ CAC, custo médio em produção, execução, rotação completa e **custo por po
 Materialized views + refresh a cada 8 h; relatórios tabulares em tempo real; invalidação sob demanda.
 **Aceite:** view refresca; tabela não usa cache. **t:** 4 s. **Deps:** 077
 
-### ⬜ 079 — Parceiros
+### ✅ 079 — Parceiros
 Convite por e-mail, rede, compartilhamento de processos, demandas pendentes de cada lado, filtros.
 **Aceite:** processo compartilhado visível aos dois tenants com escopo restrito. **t:** 6 s. **Deps:** 027
 

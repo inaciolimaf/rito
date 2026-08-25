@@ -1,7 +1,7 @@
 # 079 — Parceiros
 
 **Fase:** 7 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 027 · **Status:** ⬜ pendente
+**Depende de:** 027 · **Status:** ✅ concluída
 
 ---
 
@@ -125,8 +125,58 @@ Cards: Processos compartilhados ativos · Demanda pendente pelo escritório · D
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Nenhuma política de RLS existente foi afrouxada.** A spec §4 previa estender o
+  `SELECT` de `lawsuits`/`posts`/`lawsuit_parties` com um `OR EXISTS (shared_lawsuits…)`.
+  Escrito assim, o processo do parceiro passaria a entrar em TODA query dele — listagem,
+  `/lawsuits/stats`, relatórios tabulares e as matviews de BI —, o que viola a regra 4
+  ("não enxerga relatórios e BI") num lugar longe daqui, onde ninguém procuraria. O
+  acesso cross-tenant ficou concentrado em 11 funções `SECURITY DEFINER` na migration
+  079 (mesmo padrão de `lookup_ical_feed`, spec 037), todas com o mesmo guarda: existe
+  `shared_lawsuits` não revogado, de parceria `ATIVA`, para
+  `current_setting('app.tenant_id')`. Consequência boa: o parceiro pede o processo
+  compartilhado pela rota `/partnerships/shared-with-me/...` e recebe 404 na rota normal
+  `/lawsuits/{id}` — os testes de vazamento afirmam as duas coisas.
+- **`partnerships` e `shared_lawsuits` são as únicas tabelas sem `tenant_id`** — a linha
+  pertence aos dois lados. Política escrita à mão: leitura para as duas pontas, escrita
+  só para o lado dono. Aceitar e encerrar tocam a linha do outro lado e por isso passam
+  por função, não por política de UPDATE: uma política de UPDATE para o parceiro deixaria
+  ele mudar `can_view_financial` do próprio compartilhamento.
+- **Regra 9 é aplicada dentro do banco, não no serializer.** `partner_shared_lawsuits()`
+  devolve `CASE WHEN can_view_financial THEN case_value END` — sem permissão o valor nem
+  sai do Postgres, então não há caminho de resposta que possa vazá-lo por engano.
+- **A "caixa de entrada do parceiro" é a lista do processo compartilhado**, não o
+  `/inbox`. A tarefa criada pelo parceiro nasce no tenant do DONO (é ele quem executa),
+  marcada com `posts.partner_tenant_id`, e cai no `/inbox` do responsável pelo processo
+  — essa metade da regra 8 está literal. A outra metade não: para a mesma linha aparecer
+  no `/inbox` do parceiro seria preciso que ele enxergasse `posts`, `post_users` E
+  `task_types` do dono por RLS, exatamente o afrouxamento recusado acima. O parceiro vê a
+  demanda em `GET /partnerships/shared-with-me/{id}` (com `from_partner: true`) e no card
+  "Demanda pendente pelo parceiro". Se a paridade literal for necessária, a saída é uma
+  view de inbox unificada — fica anotado para a refatoração 080.
+- **Sem envio de e-mail**, igual ao convite de usuário (spec 012): o token volta na
+  resposta de `POST /partnerships/invite` e `account_exists` distingue os dois convites
+  da regra 2 (parceria x cadastro). Infra de e-mail transacional continua pendente no
+  projeto inteiro.
+- **`GET /partnerships/{id}` não existe** — a spec §5 não pede e a tela lê tudo da
+  listagem. `GET /lawsuits/{id}/shares` foi acrescentada (não estava na tabela §5) porque
+  o badge permanente da regra 12 precisa saber com quem o processo está compartilhado;
+  ela é COLABORADOR, já que o badge aparece para todo mundo.
+- **Rota de filtro `steps[]`** é aplicada em Python sobre o retorno da função (a lista de
+  compartilhados é pequena por definição — regra 3 proíbe compartilhar a carteira). O
+  `report=true` devolve a contagem por fase e o total de tarefas em aberto no mesmo
+  endpoint.
+- **Custo medido:** os 13 testes de integração rodam em ~9 s isolados num worker
+  (~5 s dentro do `-n 2` da suíte, que os distribui) e o teste de frontend em ~0,35 s;
+  `make test` segue dentro do orçamento.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Todos os testes de vazamento passando · Auditoria completa · Commit `feat(079): parceiros`
+- [x] Escopo implementado, nada além
+- [x] Todas as regras de negócio com teste (regra 8 com o desvio documentado acima)
+- [x] Teste de isolamento por tenant — os 5 testes de vazamento
+- [x] `make test` verde e dentro do orçamento
+- [x] `make lint` verde
+- [x] Sem `Any`/`as any`/`# type: ignore` sem justificativa
+- [x] Componentes reutilizados: `DataTable`, `StatCard`, `EmptyState`, `ConfirmDialog`
+- [x] `ROADMAP.md` atualizado para ✅
+- [x] Commit `feat(079): parceiros`

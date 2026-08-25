@@ -344,6 +344,67 @@
   não só em runs sujos. Corrigido com um `DELETE` explícito no teste culpado ao final
   (higiene de teste, zero mudança na regra de produto verificada).
 
+## Refatoração 080 — isolamento e performance do BI
+
+### Refresh das views com volume real
+
+Medido em 2026-08-26 com `backend/scripts/bench_aggregates.py` (script, não teste — a
+suíte não paga esse custo): um tenant descartável com **100.000 processos, 500.000
+tarefas e 200.000 lançamentos** (seed em 140 s), `REFRESH MATERIALIZED VIEW
+CONCURRENTLY` das oito views do registry, sequencial, como o beat faz.
+
+| View | Segundos | Linhas |
+|---|---|---|
+| `user_monthly_scores` | 1,68 | 223 |
+| `account_daily_balances` | 0,14 | 146 |
+| `agility_daily` | 1,70 | 609 |
+| `timesheet_daily` | 0,05 | 30 |
+| `bi_pipeline_monthly` | 0,19 | 1.723 |
+| `bi_vintage` | 0,09 | 343 |
+| `bi_lawsuit_cycles` | 1,77 | 34.164 |
+| `bi_cost_allocation` | 0,42 | 205 |
+
+**Nenhum refresh passa de 2 s** — trinta vezes abaixo do teto de 60 s da spec 080 e do
+limiar que dispara alerta (`SLOW_REFRESH_ALERT_SECONDS`, spec 078 regra 9). As três
+views mais caras são exatamente as que varrem as tabelas grandes (`post_users` nas
+duas de produtividade, `lawsuits` fechados na de ciclos); as demais agregam sobre
+recortes pequenos. **Refresh incremental não se justifica** — a complexidade de manter
+delta por tenant não paga 1,8 s a cada 8 horas. Reavaliar quando uma view passar de
+10 s, não antes.
+
+`CONCURRENTLY` confirmado sem bloqueio de leitura: com o refresh de
+`bi_lawsuit_cycles` em curso (1,08 s), um `SELECT` concorrente na mesma view respondeu
+em 0,05 s. As oito views têm índice único, requisito do `CONCURRENTLY` — e o plano de
+leitura pela view barreira usa esse índice (`Bitmap Index Scan on ux_bi_cycles`), não
+varredura sequencial.
+
+O refresh sequencial usa **uma conexão por vez** (`refresh_due_aggregates` chama
+`refresh_aggregate` em série, cada um com o próprio engine descartável): não há como
+estourar o pool com oito refreshes simultâneos, porque simultâneos eles não são.
+
+### `aggregate_refresh_log` era a única tabela sem teto
+
+A auditoria de retenção encontrou o furo: o beat de 1 minuto grava uma linha por view
+refrescada (10–12 mil linhas/dia em regime) e a spec 078 criou a tabela sem expurgo.
+Retenção de 90 dias (mesmo horizonte de `sync_runs`), beat diário
+`aggregate-refresh-log-purge`. `access_logs` já tinha o expurgo mensal de 12 meses da
+spec 073.
+
+### Divisão por zero num lugar só
+
+`app/core/ratios.py` (`safe_ratio`/`safe_percentage`) substitui nove condições
+`if denominador > 0 else None` espalhadas por BI, relatórios e taskscore. A regra que
+elas escondiam é de produto, não de aritmética: **zero é um diagnóstico, `None` é a
+ausência dele** — "0% de conversão" e "nenhuma oportunidade no período" não podem
+aparecer iguais num relatório. O arredondamento acontece uma vez, no fim (arredondar o
+quociente antes de multiplicar por 100 move a casa decimal), e `digits=None` devolve o
+quociente cru para quem formata depois.
+
+### Fronteira do tenant: ver `SEGURANCA-RLS.md`
+
+O inventário completo das 56 políticas, das 6 exceções e das 12 funções
+`SECURITY DEFINER` ficou em documento próprio, com o teste que sustenta cada linha.
+
 ## Ambiente de execução do agente (não é decisão de produto)
 
 - Este sandbox resolve Postgres/Redis via o hostname `dind` (Docker-in-Docker remoto), não

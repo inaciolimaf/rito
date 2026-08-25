@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 # Regra 9: refresh que passa de 60 s gera alerta — a view precisa de otimização.
 SLOW_REFRESH_ALERT_SECONDS = 60
+# Retenção do log de refresh (refatoração 080) — mesmo horizonte de `sync_runs`.
+REFRESH_LOG_RETENTION_DAYS = 90
 _SLOW_ALERT_INTEGRATION = "aggregates"
 _SLOW_ALERT_CODE = "slow_refresh"
 
@@ -230,3 +232,33 @@ def refresh_aggregate_by_name(name: str) -> None:
 @celery_app.task(name="app.workers.aggregates.refresh_due_aggregates")  # type: ignore[untyped-decorator]
 def refresh_due_aggregates_task() -> None:
     asyncio.run(refresh_due_aggregates())
+
+
+async def purge_refresh_log(url: str | None = None) -> int:
+    """Retenção de `aggregate_refresh_log` (refatoração 080).
+
+    O beat de 1 min escreve uma linha por view refrescada: em regime, algo entre 10 e
+    12 mil linhas por dia. A spec 078 criou a tabela sem expurgo — a auditoria da 080
+    encontrou a única tabela de crescimento ilimitado do banco. 90 dias é o suficiente
+    para investigar uma degradação de refresh (é o mesmo horizonte de `sync_runs`).
+    """
+    resolved = url or get_settings().migrations_database_url
+    if resolved is None:
+        raise RuntimeError("MIGRATIONS_DATABASE_URL não configurada para o expurgo.")
+    engine = create_engine_from_url(resolved)
+    try:
+        async with engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "DELETE FROM aggregate_refresh_log "
+                    f"WHERE started_at < now() - interval '{REFRESH_LOG_RETENTION_DAYS} days'"
+                )
+            )
+            return int(result.rowcount)
+    finally:
+        await engine.dispose()
+
+
+@celery_app.task(name="app.workers.aggregates.purge_refresh_log")  # type: ignore[untyped-decorator]
+def purge_refresh_log_task() -> int:
+    return asyncio.run(purge_refresh_log())

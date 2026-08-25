@@ -5,6 +5,7 @@ from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import previous_month_start
+from app.core.ratios import safe_percentage, safe_ratio
 from app.domain.taskscore.exceptions import ActionGroupNotFoundError
 from app.domain.taskscore.models import MonthlyScore
 from app.domain.taskscore.repository import TaskscoreRepository
@@ -25,8 +26,8 @@ def _summary(user: User, score: MonthlyScore | None, assigned: int) -> ScoreSumm
     resolved = score or MonthlyScore(
         user_id=user.id, month=date.min, tasks_completed=0, points=0, on_time=0, late=0
     )
-    engagement = round(resolved.tasks_completed / assigned, 3) if assigned > 0 else None
-    goal_pct = round(resolved.points / user.points_goal * 100, 1) if user.points_goal else None
+    engagement = safe_ratio(resolved.tasks_completed, assigned, digits=3)
+    goal_pct = safe_percentage(resolved.points, user.points_goal)
     return ScoreSummary(
         user_id=user.id,
         user_name=user.name,

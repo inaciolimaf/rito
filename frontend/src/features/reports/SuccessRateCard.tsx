@@ -1,4 +1,5 @@
 import type { SuccessRateGroupData, SuccessTrendPointData } from "@/features/reports/api";
+import { SmallSampleWarning } from "@/features/reports/SmallSampleWarning";
 
 export interface SuccessRateCardProps {
   group: SuccessRateGroupData;
@@ -25,7 +26,10 @@ function Sparkline({ points }: { points: SuccessTrendPointData[] }): JSX.Element
       {points.map((point, index) =>
         point.success_rate === null ? null : (
           <rect
-            key={point.month}
+            // Chave pela posição, não pelo mês: a série vem do backend e um mês
+            // repetido (dado sujo) duplicava a chave e o React descartava a barra
+            // (refatoração 080 — o aviso aparecia na saída da suíte desde a 075).
+            key={index}
             x={index * barWidth}
             y={height - (point.success_rate / 100) * height}
             width={Math.max(1, barWidth - 1)}
@@ -65,11 +69,7 @@ export function SuccessRateCard({ group, trend, rateNote }: SuccessRateCardProps
       <p className="text-xs text-muted">
         {group.won} ganhos · {group.lost} perdidos · {group.settled} acordos
       </p>
-      {group.small_sample && (
-        <p className="mt-1 text-xs text-warning" role="note">
-          Amostra pequena: menos de 10 processos concluídos — a taxa pode não significar nada.
-        </p>
-      )}
+      {group.small_sample && <SmallSampleWarning minimum={10} variant="text" />}
     </div>
   );
 }

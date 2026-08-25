@@ -2,6 +2,7 @@ import { DataTable } from "@/components/domain/DataTable";
 import type { DataTableColumn } from "@/components/domain/types";
 import type { TimeFeesTypeData } from "@/features/reports/api";
 import { formatBrl } from "@/lib/money";
+import { SmallSampleWarning } from "@/features/reports/SmallSampleWarning";
 
 export interface ProfitabilityTableProps {
   types: TimeFeesTypeData[];
@@ -19,11 +20,7 @@ const COLUMNS: DataTableColumn<TimeFeesTypeData>[] = [
         {/* Regra 8: null (nenhum processo com rotação completa) → "—", nunca R$ 0,00. */}
         <span>{formatBrl(row.monthly_profitability)}</span>
         {/* Regra 9: menos de 5 processos no recorte. */}
-        {row.small_sample && (
-          <span className="text-xs text-warning" title="Amostra pequena: menos de 5 processos">
-            ⚠
-          </span>
-        )}
+        {row.small_sample && <SmallSampleWarning minimum={5} unit="processos" />}
       </span>
     ),
   },

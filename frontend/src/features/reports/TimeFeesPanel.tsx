@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 
 import { StatCard } from "@/components/domain/StatCard";
-import { FilterBar } from "@/components/domain/FilterBar";
 import type { FilterFieldDef } from "@/components/domain/types";
 import { useFilters } from "@/components/domain/useFilters";
 import { listActionGroups } from "@/features/action-groups/api";
@@ -12,7 +11,7 @@ import {
   getBiTimeFeesByGroup,
   getBiTimeFeesByType,
 } from "@/features/reports/api";
-import { BiRefreshIndicator } from "@/features/reports/BiRefreshIndicator";
+import { BiTabPanel } from "@/features/reports/BiTabPanel";
 import { CycleBarChart } from "@/features/reports/CycleBarChart";
 import { LostTimeCard } from "@/features/reports/LostTimeCard";
 import { ProfitabilityTable } from "@/features/reports/ProfitabilityTable";
@@ -85,58 +84,60 @@ export function TimeFeesPanel(): JSX.Element {
   });
 
   return (
-    <div className="space-y-4">
-      <FilterBar fields={filterFields} />
+    <BiTabPanel
+      filterFields={filterFields}
+      stalenessHint={timeFees?.staleness_hint}
+      cards={
+        <>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <StatCard
+              label="Processos no recorte"
+              value={timeFees?.lawsuits ?? 0}
+              isLoading={isLoading}
+            />
+            <StatCard
+              label="Honorários médios por processo"
+              value={formatBrl(timeFees?.avg_fees ?? null)}
+              isLoading={isLoading}
+            />
+            <StatCard
+              label="Média mensal de honorários"
+              value={formatBrl(timeFees?.avg_monthly_fees ?? null)}
+              isLoading={isLoading}
+            />
+          </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <StatCard
-          label="Processos no recorte"
-          value={timeFees?.lawsuits ?? 0}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Honorários médios por processo"
-          value={formatBrl(timeFees?.avg_fees ?? null)}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Média mensal de honorários"
-          value={formatBrl(timeFees?.avg_monthly_fees ?? null)}
-          isLoading={isLoading}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard
-          label="Prospecção (criação → fechamento)"
-          value={formatDays(timeFees?.cycles.prospecting_days ?? null)}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Produção (fechamento → trânsito)"
-          value={formatDays(timeFees?.cycles.production_days ?? null)}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Execução (trânsito → arquivamento)"
-          value={formatDays(timeFees?.cycles.execution_days ?? null)}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Rotação completa (criação → arquivamento)"
-          value={formatDays(timeFees?.cycles.full_cycle_days ?? null)}
-          isLoading={isLoading}
-        />
-      </div>
-
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatCard
+              label="Prospecção (criação → fechamento)"
+              value={formatDays(timeFees?.cycles.prospecting_days ?? null)}
+              isLoading={isLoading}
+            />
+            <StatCard
+              label="Produção (fechamento → trânsito)"
+              value={formatDays(timeFees?.cycles.production_days ?? null)}
+              isLoading={isLoading}
+            />
+            <StatCard
+              label="Execução (trânsito → arquivamento)"
+              value={formatDays(timeFees?.cycles.execution_days ?? null)}
+              isLoading={isLoading}
+            />
+            <StatCard
+              label="Rotação completa (criação → arquivamento)"
+              value={formatDays(timeFees?.cycles.full_cycle_days ?? null)}
+              isLoading={isLoading}
+            />
+          </div>
+        </>
+      }
+    >
       <div className="grid gap-4 lg:grid-cols-2">
         <CycleBarChart groups={byGroup?.groups ?? []} />
         <LostTimeCard data={lostTime} isLoading={isLoading} />
       </div>
 
       <ProfitabilityTable types={byType?.types ?? []} isLoading={isLoadingTypes} />
-
-      {timeFees && <BiRefreshIndicator hint={timeFees.staleness_hint} />}
-    </div>
+    </BiTabPanel>
   );
 }

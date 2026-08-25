@@ -262,6 +262,10 @@
     "079": {
       "wall_clock_seconds": 163,
       "notes": "1052 backend (1039 anteriores + 13 novos: os 13 casos de integração do plano da spec — convite/aceite bilateral, convite para e-mail sem conta, compartilhar dá acesso, os 5 de VAZAMENTO (outros processos, contatos, financeiro sem permissão, financeiro com permissão, BI/relatórios), 403 sem can_create_tasks, revogar corta e preserva, encerrar revoga dos dois lados, demanda nas duas pontas) + 207 frontend (206 + 1 do ShareLawsuitDialog: o escopo explícito antes de confirmar). Medição feita neste host com `pytest -n 2` (163 s) e vitest (63 s) rodados em sequência, não pelo runner concorrente — o Postgres/Redis desta máquina só é alcançável por hostname do daemon Docker, o que o webServer do e2e não enxerga."
+    },
+    "080": {
+      "wall_clock_seconds": 172,
+      "notes": "1060 backend (1052 da 079 + 6 novos da auditoria: 5 de matriz de isolamento (RLS forçado em toda tabela com tenant_id, RLS sem política, exceção não documentada, rito_app sem BYPASSRLS/SET ROLE, matriz ler/atualizar/apagar/inserir entre tenants) + 3 de vazamento do parceiro (financeiro com FULL do lado dele, modelos, BI depois do refresh) + 3 unitários de safe_ratio + 1 de retenção do log de refresh) + 208 frontend (206 + 2 do BiTabPanel). Refatoração não muda comportamento: nenhum teste de 071–079 foi editado. Medição com `pytest -n 2` neste host; o benchmark de volume (100 mil processos) roda fora da suíte, em scripts/bench_aggregates.py."
     }
   }
 }

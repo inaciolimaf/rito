@@ -82,6 +82,12 @@ celery_app.conf.beat_schedule = {
         "schedule": _daily_crontab(_settings.dunning_sync_cron),
     },
     # Spec 073, regra 9: expurgo mensal de access_logs além da retenção de 12 meses.
+    # Refatoração 080: o log de refresh crescia sem teto (uma linha por view por
+    # minuto) — expurgo diário com retenção de 90 dias.
+    "aggregate-refresh-log-purge": {
+        "task": "app.workers.aggregates.purge_refresh_log",
+        "schedule": crontab(hour=4, minute=20),
+    },
     "access-logs-purge": {
         "task": "app.workers.timesheet.purge_access_logs",
         "schedule": crontab(day_of_month=1, hour=4, minute=0),

@@ -1,6 +1,7 @@
 import { DataTable } from "@/components/domain/DataTable";
 import type { DataTableColumn } from "@/components/domain/types";
 import type { VintageYearData } from "@/features/reports/api";
+import { SmallSampleWarning } from "@/features/reports/SmallSampleWarning";
 
 export interface VintageTableProps {
   years: VintageYearData[];
@@ -45,9 +46,7 @@ const COLUMNS: DataTableColumn<VintageYearData>[] = [
         )}
         {/* Regra 5: menos de 10 concluídos na safra. */}
         {row.small_sample && row.success_rate !== null && (
-          <span className="text-xs text-warning" title="Amostra pequena: menos de 10 concluídos">
-            ⚠
-          </span>
+          <SmallSampleWarning minimum={10} unit="concluídos" />
         )}
       </span>
     ),

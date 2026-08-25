@@ -3,12 +3,11 @@ import * as React from "react";
 
 import { DataTable } from "@/components/domain/DataTable";
 import { DonutChart } from "@/components/domain/DonutChart";
-import { FilterBar } from "@/components/domain/FilterBar";
 import { StatCard } from "@/components/domain/StatCard";
 import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
 import { useFilters } from "@/components/domain/useFilters";
 import { listActionGroups } from "@/features/action-groups/api";
-import { BiRefreshIndicator } from "@/features/reports/BiRefreshIndicator";
+import { BiTabPanel } from "@/features/reports/BiTabPanel";
 import { ConversionFunnel } from "@/features/reports/ConversionFunnel";
 import { SixMonthTrend } from "@/features/reports/SixMonthTrend";
 import { StaleWarning } from "@/features/reports/StaleWarning";
@@ -103,29 +102,30 @@ export function PipelinePanel(): JSX.Element {
   });
 
   return (
-    <div className="space-y-4">
-      <FilterBar fields={filterFields} />
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <StatCard
-          label="Oportunidades do mês"
-          value={data?.opportunities_month ?? 0}
-          isLoading={isLoading}
-        />
-        <StatCard label="Processos ativos" value={data?.active ?? 0} isLoading={isLoading} />
-        <StatCard label="Arquivados" value={data?.archived ?? 0} isLoading={isLoading} />
-        <StatCard label="Parados +120 dias" value={data?.idle_120 ?? 0} isLoading={isLoading} />
-        <StatCard
-          label="Fechamentos do mês"
-          value={data?.closed_month.value ?? 0}
-          isLoading={isLoading}
-          variation={data ? closedVariation(data.closed_month) : null}
-        />
-        <StatCard label="Em atendimento" value={data?.in_service ?? 0} isLoading={isLoading} />
-      </div>
-
-      {data && <StaleWarning idleCount={data.idle_120} />}
-
+    <BiTabPanel
+      filterFields={filterFields}
+      stalenessHint={data?.staleness_hint}
+      alert={data ? <StaleWarning idleCount={data.idle_120} /> : null}
+      cards={
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <StatCard
+            label="Oportunidades do mês"
+            value={data?.opportunities_month ?? 0}
+            isLoading={isLoading}
+          />
+          <StatCard label="Processos ativos" value={data?.active ?? 0} isLoading={isLoading} />
+          <StatCard label="Arquivados" value={data?.archived ?? 0} isLoading={isLoading} />
+          <StatCard label="Parados +120 dias" value={data?.idle_120 ?? 0} isLoading={isLoading} />
+          <StatCard
+            label="Fechamentos do mês"
+            value={data?.closed_month.value ?? 0}
+            isLoading={isLoading}
+            variation={data ? closedVariation(data.closed_month) : null}
+          />
+          <StatCard label="Em atendimento" value={data?.in_service ?? 0} isLoading={isLoading} />
+        </div>
+      }
+    >
       <div className="grid gap-4 lg:grid-cols-2">
         <ConversionFunnel groups={conversion?.groups ?? []} isLoading={isLoadingConversion} />
         <SixMonthTrend points={data?.closed_trend ?? []} />
@@ -185,12 +185,8 @@ export function PipelinePanel(): JSX.Element {
         )}
       </section>
 
-      {data && (
-        <div className="space-y-1">
-          <BiRefreshIndicator hint={data.staleness_hint} />
-          <p className="text-xs text-muted">{data.crm_warning}</p>
-        </div>
-      )}
-    </div>
+      {/* O aviso do CRM é específico desta aba; a defasagem vem do BiTabPanel. */}
+      {data && <p className="text-xs text-muted">{data.crm_warning}</p>}
+    </BiTabPanel>
   );
 }

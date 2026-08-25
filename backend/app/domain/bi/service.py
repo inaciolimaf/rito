@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import month_end, previous_month_start, shift_month
 from app.core.materialized_view import MATERIALIZED_VIEWS, MaterializedViewSpec
+from app.core.ratios import safe_percentage, safe_ratio
 from app.domain.aggregates.schemas import AggregateMeta
 from app.domain.aggregates.service import realtime_meta, view_meta
 from app.domain.bi.models import SuccessMonthRow
@@ -70,9 +71,7 @@ CRM_WARNING = (
 
 def _delta(current: int, previous: int) -> float | None:
     """Anterior zerado → None ("novo" na UI), nunca ∞ — mesmo idioma da spec 028."""
-    if previous == 0:
-        return None
-    return round((current - previous) / previous * 100, 1)
+    return safe_percentage(current - previous, previous)
 
 
 def _month_start(value: date) -> date:
@@ -160,11 +159,7 @@ class BiPipelineService:
                     opportunities=row.opportunities,
                     closed=row.closed,
                     # Regra 11: zero oportunidades → None (a UI exibe "—"), nunca 0%.
-                    conversion_rate=(
-                        round(row.closed / row.opportunities * 100, 1)
-                        if row.opportunities > 0
-                        else None
-                    ),
+                    conversion_rate=safe_percentage(row.closed, row.opportunities),
                 )
                 for row in rows
             ],
@@ -227,10 +222,7 @@ RATE_NOTE = (
 def _success_rate(won: int, lost: int, settled: int) -> float | None:
     """Regras 1, 2 e 11: taxa = ganhos ÷ concluídos; zero concluídos → None ("—" na
     UI), nunca NaN ou 0%."""
-    concluded = won + lost + settled
-    if concluded == 0:
-        return None
-    return round(won / concluded * 100, 1)
+    return safe_percentage(won, won + lost + settled)
 
 
 def _small_sample(won: int, lost: int, settled: int) -> bool:
@@ -414,7 +406,7 @@ class BiTimeFeesService:
         return TimeFeesResponse(
             lawsuits=row.lawsuits,
             # Regra 3: soma ÷ processos no filtro; zero processos → None, não 0,00.
-            avg_fees=(round(float(row.total_fees) / row.lawsuits, 2) if row.lawsuits > 0 else None),
+            avg_fees=safe_ratio(row.total_fees, row.lawsuits),
             avg_monthly_fees=(
                 round(row.avg_monthly_fees, 2) if row.avg_monthly_fees is not None else None
             ),
@@ -567,7 +559,8 @@ class BiCostsService:
         new_customers = await self.repo.new_customers(
             month_start=period, month_end=month_end(period.year, period.month)
         )
-        cac = round(marketing / new_customers, 2) if marketing > 0 and new_customers > 0 else None
+        # Marketing zerado não é CAC zero: é "não houve investimento no período".
+        cac = safe_ratio(marketing, new_customers) if marketing > 0 else None
         return CacResponse(
             period=period,
             marketing_cost=round(marketing, 2),

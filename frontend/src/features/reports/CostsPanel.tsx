@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import * as React from "react";
 
 import { DataTable } from "@/components/domain/DataTable";
-import { FilterBar } from "@/components/domain/FilterBar";
 import { StatCard } from "@/components/domain/StatCard";
 import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
 import { useFilters } from "@/components/domain/useFilters";
@@ -14,7 +13,7 @@ import {
   type CostLawsuitItemData,
 } from "@/features/reports/api";
 import { AllocationExplainer } from "@/features/reports/AllocationExplainer";
-import { BiRefreshIndicator } from "@/features/reports/BiRefreshIndicator";
+import { BiTabPanel } from "@/features/reports/BiTabPanel";
 import { CacCard } from "@/features/reports/CacCard";
 import { CostPerPointCard } from "@/features/reports/CostPerPointCard";
 import { CostPerStageChart } from "@/features/reports/CostPerStageChart";
@@ -109,24 +108,26 @@ export function CostsPanel(): JSX.Element {
   const allocationNote = costs?.allocation_note ?? byStage?.allocation_note ?? "";
 
   return (
-    <div className="space-y-4">
-      <FilterBar fields={filterFields} />
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <CacCard data={cac} isLoading={isLoadingCac} />
-        <CostPerPointCard data={perPoint} isLoading={isLoadingPerPoint} />
-        <StatCard
-          label="Custo direto total"
-          value={formatBrl(costs?.total_direct ?? null)}
-          isLoading={isLoading}
-        />
-        <StatCard
-          label="Custo alocado total"
-          value={formatBrl(costs?.total_allocated ?? null)}
-          isLoading={isLoading}
-        />
-      </div>
-
+    <BiTabPanel
+      filterFields={filterFields}
+      stalenessHint={costs?.staleness_hint}
+      cards={
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <CacCard data={cac} isLoading={isLoadingCac} />
+          <CostPerPointCard data={perPoint} isLoading={isLoadingPerPoint} />
+          <StatCard
+            label="Custo direto total"
+            value={formatBrl(costs?.total_direct ?? null)}
+            isLoading={isLoading}
+          />
+          <StatCard
+            label="Custo alocado total"
+            value={formatBrl(costs?.total_allocated ?? null)}
+            isLoading={isLoading}
+          />
+        </div>
+      }
+    >
       <CostPerStageChart stages={byStage?.stages ?? []} />
 
       <section aria-label="Custo por processo" className="space-y-2">
@@ -143,8 +144,6 @@ export function CostsPanel(): JSX.Element {
           emptyMessage="Nenhum processo no recorte."
         />
       </section>
-
-      {costs && <BiRefreshIndicator hint={costs.staleness_hint} />}
-    </div>
+    </BiTabPanel>
   );
 }

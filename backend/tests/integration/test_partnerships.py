@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
-from app.domain.users.models import UserRole
+from app.domain.users.models import FinancialAccess, UserRole
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import (
     _auth_header,
@@ -46,11 +46,18 @@ async def _invite(client: AsyncClient, headers: dict[str, str], email: str) -> d
     return dict(response.json())
 
 
-async def _setup(client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]) -> Scenario:
+async def _setup(
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    *,
+    owner_financial: FinancialAccess = FinancialAccess.NONE,
+    partner_financial: FinancialAccess = FinancialAccess.NONE,
+) -> Scenario:
     """Dois escritórios com parceria ATIVA e um processo (ainda não compartilhado) do
-    lado do dono."""
-    owner = await make_user(role=UserRole.GESTOR)
-    partner = await make_user(role=UserRole.GESTOR)
+    lado do dono. `partner_financial` existe para a regra 9: o acesso financeiro do
+    parceiro no tenant DELE não pode abrir nada do dono."""
+    owner = await make_user(role=UserRole.GESTOR, financial_access=owner_financial)
+    partner = await make_user(role=UserRole.GESTOR, financial_access=partner_financial)
     owner_headers = _auth_header(owner)
     partner_headers = _auth_header(partner)
 

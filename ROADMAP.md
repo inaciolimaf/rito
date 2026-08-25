@@ -349,7 +349,7 @@ Materialized views + refresh a cada 8 h; relatórios tabulares em tempo real; in
 Convite por e-mail, rede, compartilhamento de processos, demandas pendentes de cada lado, filtros.
 **Aceite:** processo compartilhado visível aos dois tenants com escopo restrito. **t:** 6 s. **Deps:** 027
 
-### ⬜ 080 — 🔧 REFATORAÇÃO — Gestão e BI
+### ✅ 080 — 🔧 REFATORAÇÃO — Gestão e BI
 **t:** −
 
 ---

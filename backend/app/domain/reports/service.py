@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import month_end
 from app.core.materialized_view import MATERIALIZED_VIEWS
+from app.core.ratios import safe_ratio
 from app.domain.reports.repository import ReportsRepository
 from app.domain.reports.schemas import (
     AgilityResponse,
@@ -34,12 +35,8 @@ class ReportsService:
         self, *, user_id: uuid.UUID | None, start: date, end: date
     ) -> AgilityResponse:
         totals = await self.repo.agility_totals(user_id=user_id, start=start, end=end)
-        avg_days = (
-            float(totals.sum_days_to_complete / totals.completed_count)
-            if totals.completed_count > 0
-            else None
-        )
-        avg_delay = float(totals.sum_delay_days / totals.late) if totals.late > 0 else None
+        avg_days = safe_ratio(totals.sum_days_to_complete, totals.completed_count, digits=None)
+        avg_delay = safe_ratio(totals.sum_delay_days, totals.late, digits=None)
         return AgilityResponse(
             on_time=totals.on_time,
             late=totals.late,

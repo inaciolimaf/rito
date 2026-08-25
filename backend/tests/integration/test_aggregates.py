@@ -361,3 +361,48 @@ async def test_meta_em_toda_resposta_de_bi(
     realtime_meta_body = realtime.json()["meta"]
     assert realtime_meta_body["staleness_seconds"] == 0
     assert realtime_meta_body["is_stale"] is False
+
+
+async def test_expurgo_do_log_de_refresh_respeita_a_retencao(admin_engine: AsyncEngine) -> None:
+    """Refatoração 080: `aggregate_refresh_log` era a única tabela sem teto de
+    crescimento (uma linha por view por minuto). O expurgo apaga o que passou de 90
+    dias e não encosta no recente."""
+    from app.workers.aggregates import REFRESH_LOG_RETENTION_DAYS, purge_refresh_log
+
+    url = get_settings().migrations_database_url
+    assert url is not None
+
+    async with admin_engine.begin() as conn:
+        antigo = (
+            await conn.execute(
+                text(
+                    "INSERT INTO aggregate_refresh_log (name, started_at) "
+                    "VALUES ('bi_vintage', now() - make_interval(days => :days)) RETURNING id"
+                ),
+                {"days": REFRESH_LOG_RETENTION_DAYS + 1},
+            )
+        ).scalar_one()
+        recente = (
+            await conn.execute(
+                text(
+                    "INSERT INTO aggregate_refresh_log (name, started_at) "
+                    "VALUES ('bi_vintage', now()) RETURNING id"
+                )
+            )
+        ).scalar_one()
+
+    await purge_refresh_log(url)
+
+    async with admin_engine.begin() as conn:
+        sobreviventes = (
+            (
+                await conn.execute(
+                    text("SELECT id FROM aggregate_refresh_log WHERE id IN (:a, :b)"),
+                    {"a": antigo, "b": recente},
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    assert sobreviventes == [recente]

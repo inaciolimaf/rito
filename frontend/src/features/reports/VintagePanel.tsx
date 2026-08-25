@@ -2,7 +2,6 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import * as React from "react";
 
 import { BarChart } from "@/components/domain/BarChart";
-import { FilterBar } from "@/components/domain/FilterBar";
 import type { FilterFieldDef } from "@/components/domain/types";
 import { useFilters } from "@/components/domain/useFilters";
 import { listActionGroups } from "@/features/action-groups/api";
@@ -12,7 +11,7 @@ import {
   getBiVintage,
   type SuccessTrendPointData,
 } from "@/features/reports/api";
-import { BiRefreshIndicator } from "@/features/reports/BiRefreshIndicator";
+import { BiTabPanel } from "@/features/reports/BiTabPanel";
 import { SuccessRateCard } from "@/features/reports/SuccessRateCard";
 import { SuccessTrendChart } from "@/features/reports/SuccessTrendChart";
 import { VintageTable } from "@/features/reports/VintageTable";
@@ -85,9 +84,7 @@ export function VintagePanel(): JSX.Element {
   const rateNote = successRate?.rate_note ?? "";
 
   return (
-    <div className="space-y-4">
-      <FilterBar fields={filterFields} />
-
+    <BiTabPanel filterFields={filterFields} stalenessHint={vintage?.staleness_hint}>
       <section aria-label="Taxa de sucesso por grupo de ação" className="space-y-2">
         <h3 className="text-sm font-medium text-primary">
           Taxa de sucesso por grupo de ação — mês corrente
@@ -122,8 +119,6 @@ export function VintagePanel(): JSX.Element {
       </div>
 
       <VintageTable years={vintage?.years ?? []} isLoading={isLoadingVintage} />
-
-      {vintage && <BiRefreshIndicator hint={vintage.staleness_hint} />}
-    </div>
+    </BiTabPanel>
   );
 }

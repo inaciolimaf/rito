@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 172,
+  "last_measured_wall_clock_seconds": 176,
   "last_measured_at": "2026-08-26",
   "specs": {
     "001": {
@@ -270,6 +270,10 @@
     "081": {
       "wall_clock_seconds": 172,
       "notes": "1086 backend (1060 da 080 + 26 novos: 9 unitários do client OpenRouter (payload, resposta com/sem tool call, argumento ilegível, os 4 eventos de streaming, evento SSE, catálogo e custo, fixture gravada ponta a ponta, sem chave, stream que para no done), 9 de integração do AiRunner (modelo da config, padrão com aviso, feature desligada, fallback uma vez, uso registrado em erro, custo pelo catálogo, prompt sem opt-in, catálogo vazio sem chave, painel de consumo) e os 3 meta (SDK de provider, id de modelo hardcoded, rede em teste)) + 211 frontend (208 + 3 do ModelSelect: preço por milhão, contexto e modelo fora do catálogo). Backend 172 s com `-n 2` e frontend 66 s neste host; nenhuma chamada real de LLM."
+    },
+    "082": {
+      "wall_clock_seconds": 176,
+      "notes": "1098 backend (1086 da 081 + 12 novos: grafo simples, interrupção/retomada (o teste central da spec), recusa cancelando com motivo, retomada sem repetir o nó caro, expiração de 24 h com relógio injetado, timeout de nó sem `sleep` (evento que ninguém dispara), cancelamento na fronteira do nó, teto de passos, payload de 200 KB virando referência, 403 do colega + auditoria do ADMINISTRADOR, RLS nas três tabelas e o caminho HTTP com SSE) + 215 frontend (211 + 4 do AgentStepsTimeline). LangGraph entrou como dependência; o import (~2 s) é sob demanda, fora do caminho do app.main."
     }
   }
 }

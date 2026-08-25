@@ -24,6 +24,7 @@ dependencies = [
     "fpdf2>=2.8.7",
     "num2words>=0.5.14",
     "xhtml2pdf>=0.2.17",
+    "langgraph>=1.2.11",
 ]
 
 [dependency-groups]

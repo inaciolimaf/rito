@@ -88,6 +88,15 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.aggregates.purge_refresh_log",
         "schedule": crontab(hour=4, minute=20),
     },
+    # Spec 082, regras 4 e 12: espera humana morre em 24 h, thread concluído em 90 dias.
+    "ai-threads-expire": {
+        "task": "app.workers.ai_threads.expire_waiting",
+        "schedule": crontab(minute=25),
+    },
+    "ai-threads-purge": {
+        "task": "app.workers.ai_threads.purge_old",
+        "schedule": crontab(hour=4, minute=35),
+    },
     "access-logs-purge": {
         "task": "app.workers.timesheet.purge_access_logs",
         "schedule": crontab(day_of_month=1, hour=4, minute=0),

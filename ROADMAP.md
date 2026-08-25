@@ -360,7 +360,7 @@ Convite por e-mail, rede, compartilhamento de processos, demandas pendentes de c
 Client genérico OpenRouter atrás da interface `LLMProvider`; **modelo selecionável por feature** em `ai_feature_config` com UI; streaming SSE; contagem de tokens e custo em `ai_usage`; fallback de modelo; fixtures gravadas.
 **Aceite:** trocar modelo pela UI muda a chamada; nenhuma chamada real em teste. **t:** 5 s. **Deps:** 041
 
-### ⬜ 082 — Runtime LangGraph
+### ✅ 082 — Runtime LangGraph
 Grafos de agente; checkpointer em Postgres; interrupção para **human-in-the-loop**; retomada; timeout; observabilidade de passos.
 **Aceite:** grafo interrompe, persiste e retoma após confirmação. **t:** 6 s. **Deps:** 081
 

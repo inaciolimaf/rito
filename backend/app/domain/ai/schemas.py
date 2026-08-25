@@ -1,5 +1,6 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -83,3 +84,64 @@ class UsageRecordResponse(BaseModel):
     feature_key: str
     model: str
     status: str
+
+
+class ThreadCreateRequest(BaseModel):
+    graph_name: str
+    input: dict[str, Any] = Field(default_factory=dict)
+    context: dict[str, Any] = Field(default_factory=dict)
+    title: str | None = Field(default=None, max_length=200)
+    # `false` cria o thread parado, para o cliente abrir o SSE e assistir do 1º passo.
+    autorun: bool = True
+
+
+class ThreadResumeRequest(BaseModel):
+    approved: bool
+    human_input: dict[str, Any] | None = None
+
+
+class PendingActionResponse(BaseModel):
+    kind: str
+    title: str
+    preview: dict[str, Any]
+    description: str | None = None
+
+
+class ThreadResponse(BaseModel):
+    id: uuid.UUID
+    graph_name: str
+    feature_key: str
+    title: str | None
+    status: str
+    context: dict[str, Any]
+    pending_action: PendingActionResponse | None
+    output: dict[str, Any] | None
+    error: str | None
+    step_count: int
+    user_id: uuid.UUID
+    waiting_since: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ThreadListResponse(BaseModel):
+    items: list[ThreadResponse]
+    next_cursor: str | None
+    total: int
+
+
+class StepResponse(BaseModel):
+    id: uuid.UUID
+    step: int
+    node: str
+    kind: str
+    input: dict[str, Any] | None
+    output: dict[str, Any] | None
+    duration_ms: int | None
+    error: str | None
+    created_at: datetime
+
+
+class StepListResponse(BaseModel):
+    items: list[StepResponse]
+    total: int

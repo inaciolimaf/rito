@@ -1,7 +1,7 @@
 # 082 — Runtime LangGraph
 
 **Fase:** 8 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 081 · **Status:** ⬜ pendente
+**Depende de:** 081 · **Status:** ✅ concluída
 
 ---
 
@@ -137,6 +137,46 @@ class GraphResult:
 **Total:** ~4,9 s
 LLM sempre mockado; grafos de teste usam nós determinísticos.
 
-## 10. Definição de pronto
+## 10. Descobertas
 
-Checklist padrão · Interrupção e retomada provadas · Todo passo auditável · Commit `feat(082): runtime LangGraph`
+- **O checkpointer é nosso, não o `PostgresSaver` do LangGraph.** Três motivos, nesta
+  ordem: (1) o `PostgresSaver` grava o checkpoint serializado em msgpack — a spec pede
+  `state JSONB`, e o valor de auditoria depende de alguém conseguir LER o estado meses
+  depois sem o código que o gravou; (2) ele fala psycopg, um segundo driver ao lado do
+  asyncpg, com pool próprio; (3) ele não conhece `app.tenant_id`, então as linhas
+  ficariam fora do RLS que protege todo o resto do banco. O LangGraph continua fazendo
+  o que ele faz bem: topologia, roteamento condicional e execução dos nós.
+- **Grafo daqui é retomável por construção.** Sem o checkpointer do LangGraph não há
+  "continuar de onde parou" mágico, então o padrão é: o primeiro nó é um roteador que
+  olha o estado e decide a entrada. Retomar = carregar o último checkpoint e entrar de
+  novo — o roteador pula o que já foi feito. O teste da regra 1 prova isso pelo lado
+  que importa: o nó caro roda UMA vez, mesmo depois de uma falha no nó seguinte.
+- **`StateGraph(dict)` perde o estado; `StateGraph(GraphState)` não.** Com esquema
+  `dict`, cada nó substitui o estado inteiro pelo que devolve — o `input` sumia entre um
+  nó e outro. Com o `TypedDict`, cada chave vira um canal e o retorno parcial atualiza
+  só o que mencionou. Custou um teste vermelho de dois minutos e vale para todo grafo
+  das specs 083+.
+- **`ThreadStatus.PENDING` não estava na spec.** Separa "thread criado" de "thread
+  rodando" para que o cliente possa abrir o SSE ANTES de a execução começar e assistir
+  do primeiro passo — é o que a 085 precisa. Quem chama `POST /threads` com o padrão
+  (`autorun: true`) nunca vê esse estado.
+- **Auditar não é agir (regra 11 desdobrada).** ADMINISTRADOR lê thread alheio e os
+  passos dele; aprovar a ação pendente continua sendo só do dono. Aprovar no lugar de
+  outra pessoa não é auditoria — é assinar por ela. Há teste dos dois lados.
+- **Cancelamento é lido do banco, não da memória** (regra 6): o cancelamento chega por
+  OUTRA request, então o runtime relê o status do thread na fronteira de cada nó. O nó
+  em andamento termina; o próximo não começa.
+- **LangGraph custa ~2 s de import** (`langchain_core` junto). Nenhum módulo do
+  caminho de `app.main` importa: os grafos são carregados sob demanda por
+  `app/ai/graphs/loader.py`, na primeira vez que alguém pede um grafo pelo nome. Sem
+  isso, todo worker da suíte pagaria esse tempo para servir rotas que não usam IA.
+- **A retenção da regra 12 virou worker** (`app/workers/ai_threads.py`), junto com a
+  expiração de 24 h da regra 4 — thread pendurado guarda estado com dado do escritório
+  dentro; deixá-lo esperando para sempre é vazamento silencioso, não desorganização.
+
+## 11. Definição de pronto
+
+- [x] Checklist padrão
+- [x] Interrupção e retomada provadas (o teste central da spec)
+- [x] Todo passo auditável — `ai_steps` com entrada, saída, duração e erro
+- [x] Commit `feat(082): runtime LangGraph`

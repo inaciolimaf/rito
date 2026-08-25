@@ -337,11 +337,11 @@ Taxa de sucesso por grupo de ação (só concluídos; acordo no denominador, for
 Média de honorários por processo e média mensal (honorários ÷ meses de duração), **tempo perdido** (meses dos processos sem receita paga); matview `bi_lawsuit_cycles` por processo fechado + view barreira, refresh 8 h; os 4 ciclos (prospecção/produção/execução/rotação, nulo ≠ zero) por grupo com as 4 cores; rentabilidade mensal por tipo com aviso de amostra <5; dupla permissão (ADMINISTRADOR/GESTOR + financial_access ≥ READ_ONLY); em `/reports?tab=time-fees`.
 **Aceite:** ciclos calculados a partir da timeline. **t:** 5 s. **Deps:** 075
 
-### ⬜ 077 — BI: Custos
+### ✅ 077 — BI: Custos
 CAC, custo médio em produção, execução, rotação completa e **custo por ponto**; considera processos em andamento.
 **Aceite:** custo por ponto = despesa ÷ pontos do período. **t:** 5 s. **Deps:** 076
 
-### ⬜ 078 — BI: camada de agregação
+### ✅ 078 — BI: camada de agregação
 Materialized views + refresh a cada 8 h; relatórios tabulares em tempo real; invalidação sob demanda.
 **Aceite:** view refresca; tabela não usa cache. **t:** 4 s. **Deps:** 077
 

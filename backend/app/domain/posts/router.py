@@ -36,7 +36,7 @@ from app.domain.posts.schemas import (
 )
 from app.domain.posts.service import PostService
 from app.domain.users.models import User
-from app.workers.scores import schedule_scores_refresh
+from app.workers.aggregates import schedule_aggregate_refresh
 
 router = APIRouter(tags=["posts"])
 
@@ -264,10 +264,11 @@ async def complete_post(
         raise HTTPException(
             status_code=422, detail="A conclusão não pode ser uma data futura."
         ) from exc
-    # Spec 039, regra 9: concluir agenda o refresh imediato da view de pontuação
-    # (countdown curto — o commit desta request acontece no teardown da sessão, logo
-    # após o retorno). Broker fora não afeta a conclusão; o beat de 15 min cobre.
-    schedule_scores_refresh()
+    # Spec 039, regra 9 + spec 078, regra 5: concluir agenda o refresh imediato das
+    # views invalidadas por task.completed (pontuação, agilidade e custos de BI) —
+    # countdown curto, o commit desta request acontece no teardown da sessão, logo
+    # após o retorno. Broker fora não afeta a conclusão; o beat de 1 min cobre.
+    schedule_aggregate_refresh("task.completed")
     return _to_response(completed)
 
 
@@ -292,8 +293,9 @@ async def reopen_post(
             status_code=403,
             detail="Reabrir pela linha de outro responsável exige perfil ADMINISTRADOR.",
         ) from exc
-    # Reabrir também muda a pontuação — mesmo refresh da regra 9 (spec 039).
-    schedule_scores_refresh()
+    # Reabrir desfaz a conclusão — mesmo conjunto de views do evento task.completed
+    # (spec 078, regra 5; mesma motivação da regra 9 da spec 039).
+    schedule_aggregate_refresh("task.completed")
     return _to_response(reopened)
 
 

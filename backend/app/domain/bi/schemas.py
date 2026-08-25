@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.domain.aggregates.schemas import AggregateMeta
+
 
 class ClosedMonthCard(BaseModel):
     """Fechamentos do período com variação (regra 5) — `delta_pct` None = período
@@ -22,7 +24,7 @@ class ClosedTrendPoint(BaseModel):
 class PipelineResponse(BaseModel):
     """Os 6 indicadores da aba (regras 1–6) + série de 6 meses e os dois avisos
     obrigatórios: defasagem da view (regra 8) e dependência do CRM alimentado
-    (regra 12)."""
+    (regra 12). Spec 078, §5: `meta` carrega a defasagem estruturada da view."""
 
     opportunities_month: int
     active: int
@@ -33,6 +35,7 @@ class PipelineResponse(BaseModel):
     closed_trend: list[ClosedTrendPoint]
     staleness_hint: str
     crm_warning: str
+    meta: AggregateMeta
 
 
 class ConversionGroupItem(BaseModel):
@@ -48,6 +51,7 @@ class ConversionResponse(BaseModel):
     period: date
     groups: list[ConversionGroupItem]
     staleness_hint: str
+    meta: AggregateMeta
 
 
 class PortfolioStepItem(BaseModel):
@@ -66,10 +70,12 @@ PortfolioGroupBy = Literal["step", "period"]
 
 class PortfolioResponse(BaseModel):
     """Resumo da carteira (tempo real, regra 8) agrupado por fase ou por período de
-    criação — as duas formas compartilham a rota, discriminadas por `group_by`."""
+    criação — as duas formas compartilham a rota, discriminadas por `group_by`.
+    Spec 078, §5: `meta` de tempo real (defasagem zero — não vem de view)."""
 
     group_by: PortfolioGroupBy
     items: list[PortfolioStepItem] | list[PortfolioPeriodItem]
+    meta: AggregateMeta
 
 
 # ---- Spec 075 — BI: Safra e Qualidade ----------------------------------------------
@@ -98,6 +104,7 @@ class VintageYearItem(BaseModel):
 class VintageResponse(BaseModel):
     years: list[VintageYearItem]
     staleness_hint: str
+    meta: AggregateMeta
 
 
 class SuccessRateGroupItem(BaseModel):
@@ -120,6 +127,8 @@ class SuccessRateResponse(BaseModel):
     groups: list[SuccessRateGroupItem]
     # Regra 2: o critério da taxa vai na resposta para a UI explicá-lo no tooltip.
     rate_note: str
+    # Spec 078, §5: meta de tempo real (defasagem zero — calculado na hora, sem view).
+    meta: AggregateMeta
 
 
 class SuccessTrendPoint(BaseModel):
@@ -138,6 +147,8 @@ class SuccessTrendResponse(BaseModel):
     months: int
     points: list[SuccessTrendPoint]
     rate_note: str
+    # Spec 078, §5: meta de tempo real (defasagem zero — calculado na hora, sem view).
+    meta: AggregateMeta
 
 
 # ---- Spec 076 — BI: Tempo e Honorários ----------------------------------------------
@@ -164,6 +175,7 @@ class TimeFeesResponse(BaseModel):
     avg_monthly_fees: float | None
     cycles: CycleAverages
     staleness_hint: str
+    meta: AggregateMeta
 
 
 class TimeFeesGroupItem(BaseModel):
@@ -178,6 +190,7 @@ class TimeFeesGroupItem(BaseModel):
 class TimeFeesByGroupResponse(BaseModel):
     groups: list[TimeFeesGroupItem]
     staleness_hint: str
+    meta: AggregateMeta
 
 
 class TimeFeesTypeItem(BaseModel):
@@ -195,6 +208,7 @@ class TimeFeesTypeItem(BaseModel):
 class TimeFeesByTypeResponse(BaseModel):
     types: list[TimeFeesTypeItem]
     staleness_hint: str
+    meta: AggregateMeta
 
 
 class LostTimeResponse(BaseModel):
@@ -204,6 +218,7 @@ class LostTimeResponse(BaseModel):
     zero_revenue_lawsuits: int
     lost_months: float
     staleness_hint: str
+    meta: AggregateMeta
 
 
 # ---- Spec 077 — BI: Custos ----------------------------------------------------------
@@ -235,6 +250,7 @@ class CostsResponse(BaseModel):
     total_direct: float
     total_allocated: float
     staleness_hint: str
+    meta: AggregateMeta
     allocation_note: str
 
 
@@ -248,6 +264,7 @@ class CacResponse(BaseModel):
     new_customers: int
     cac: float | None
     staleness_hint: str
+    meta: AggregateMeta
 
 
 class CostPerPointResponse(BaseModel):
@@ -260,6 +277,7 @@ class CostPerPointResponse(BaseModel):
     points: int
     cost_per_point: float | None
     staleness_hint: str
+    meta: AggregateMeta
 
 
 class CostStageItem(BaseModel):
@@ -276,4 +294,5 @@ class CostStageItem(BaseModel):
 class CostsByStageResponse(BaseModel):
     stages: list[CostStageItem]
     staleness_hint: str
+    meta: AggregateMeta
     allocation_note: str

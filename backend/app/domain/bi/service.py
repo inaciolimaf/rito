@@ -8,7 +8,9 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import month_end, previous_month_start, shift_month
-from app.core.materialized_view import MATERIALIZED_VIEWS
+from app.core.materialized_view import MATERIALIZED_VIEWS, MaterializedViewSpec
+from app.domain.aggregates.schemas import AggregateMeta
+from app.domain.aggregates.service import realtime_meta, view_meta
 from app.domain.bi.models import SuccessMonthRow
 from app.domain.bi.repository import (
     BiCostsRepository,
@@ -48,6 +50,12 @@ from app.domain.bi.schemas import (
 from app.domain.lawsuits.models import LawsuitOutcome
 
 _BI_VIEW = next(v for v in MATERIALIZED_VIEWS if v.view_name == "bi_pipeline_monthly")
+
+
+async def _meta(session: AsyncSession, view: MaterializedViewSpec) -> AggregateMeta:
+    """Atalho dos services de BI: envelope `meta` (spec 078, §5) da view associada."""
+    return await view_meta(session, view.view_name, now=datetime.now(UTC))
+
 
 _IDLE_DAYS = 120
 _TREND_MONTHS = 6
@@ -121,6 +129,7 @@ class BiPipelineService:
             closed_trend=trend,
             staleness_hint=_BI_VIEW.staleness_hint(),
             crm_warning=CRM_WARNING,
+            meta=await _meta(self.repo.session, _BI_VIEW),
         )
 
     async def _closed_trend(
@@ -160,6 +169,7 @@ class BiPipelineService:
                 for row in rows
             ],
             staleness_hint=_BI_VIEW.staleness_hint(),
+            meta=await _meta(self.repo.session, _BI_VIEW),
         )
 
     async def portfolio(
@@ -180,6 +190,7 @@ class BiPipelineService:
                     )
                     for row in step_rows
                 ],
+                meta=realtime_meta(),
             )
         first_year, first_month = shift_month(
             today.year, today.month, -(_PORTFOLIO_PERIOD_MONTHS - 1)
@@ -190,6 +201,7 @@ class BiPipelineService:
         return PortfolioResponse(
             group_by="period",
             items=[PortfolioPeriodItem(month=row.month, active=row.active) for row in period_rows],
+            meta=realtime_meta(),
         )
 
 
@@ -275,6 +287,7 @@ class BiVintageService:
         return VintageResponse(
             years=years,
             staleness_hint=_BI_VINTAGE_VIEW.staleness_hint(),
+            meta=await _meta(self.repo.session, _BI_VINTAGE_VIEW),
         )
 
     async def success_rate(
@@ -303,6 +316,7 @@ class BiVintageService:
                 for row in rows
             ],
             rate_note=RATE_NOTE,
+            meta=realtime_meta(),
         )
 
     async def success_trend(
@@ -332,7 +346,9 @@ class BiVintageService:
                     success_rate=_success_rate(row.won, row.lost, row.settled),
                 )
             )
-        return SuccessTrendResponse(months=months, points=points, rate_note=RATE_NOTE)
+        return SuccessTrendResponse(
+            months=months, points=points, rate_note=RATE_NOTE, meta=realtime_meta()
+        )
 
 
 # ---- Spec 076 — BI: Tempo e Honorários ----------------------------------------------
@@ -409,6 +425,7 @@ class BiTimeFeesService:
                 full_cycle_days=_round_days(row.avg_full_cycle_days),
             ),
             staleness_hint=_BI_CYCLES_VIEW.staleness_hint(),
+            meta=await _meta(self.repo.session, _BI_CYCLES_VIEW),
         )
 
     async def cycles_by_group(self) -> TimeFeesByGroupResponse:
@@ -430,6 +447,7 @@ class BiTimeFeesService:
                 for row in rows
             ],
             staleness_hint=_BI_CYCLES_VIEW.staleness_hint(),
+            meta=await _meta(self.repo.session, _BI_CYCLES_VIEW),
         )
 
     async def profitability_by_type(
@@ -453,6 +471,7 @@ class BiTimeFeesService:
                 for row in rows
             ],
             staleness_hint=_BI_CYCLES_VIEW.staleness_hint(),
+            meta=await _meta(self.repo.session, _BI_CYCLES_VIEW),
         )
 
     async def lost_time(self) -> LostTimeResponse:
@@ -462,6 +481,7 @@ class BiTimeFeesService:
             zero_revenue_lawsuits=row.zero_revenue_lawsuits,
             lost_months=round(row.lost_months, 1),
             staleness_hint=_BI_CYCLES_VIEW.staleness_hint(),
+            meta=await _meta(self.repo.session, _BI_CYCLES_VIEW),
         )
 
 
@@ -535,6 +555,7 @@ class BiCostsService:
             total_allocated=round(total_allocated, 2),
             staleness_hint=_BI_COSTS_VIEW.staleness_hint(),
             allocation_note=ALLOCATION_NOTE,
+            meta=await _meta(self.repo.session, _BI_COSTS_VIEW),
         )
 
     async def cac(self, *, period: date) -> CacResponse:
@@ -553,6 +574,7 @@ class BiCostsService:
             new_customers=new_customers,
             cac=cac,
             staleness_hint=_BI_COSTS_VIEW.staleness_hint(),
+            meta=await _meta(self.repo.session, _BI_COSTS_VIEW),
         )
 
     async def per_point(self, *, period: date) -> CostPerPointResponse:
@@ -572,6 +594,7 @@ class BiCostsService:
                 else None
             ),
             staleness_hint=_BI_COSTS_VIEW.staleness_hint(),
+            meta=await _meta(self.repo.session, _BI_COSTS_VIEW),
         )
 
     async def by_stage(self) -> CostsByStageResponse:
@@ -592,4 +615,5 @@ class BiCostsService:
             ],
             staleness_hint=_BI_COSTS_VIEW.staleness_hint(),
             allocation_note=ALLOCATION_NOTE,
+            meta=await _meta(self.repo.session, _BI_COSTS_VIEW),
         )

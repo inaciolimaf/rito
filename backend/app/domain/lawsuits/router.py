@@ -109,6 +109,7 @@ from app.integrations.datajud.client import (
 from app.integrations.http.client import create_http_client
 from app.integrations.http.types import HostPolicy
 from app.integrations.messaging.base import MessagingChannel
+from app.workers.aggregates import schedule_aggregate_refresh
 
 router = APIRouter(prefix="/lawsuits", tags=["lawsuits"])
 
@@ -119,6 +120,18 @@ _PARTY_NOT_FOUND_DETAIL = "Parte não encontrada."
 _PARTY_CUSTOMER_DETAIL = "Contato não encontrado."
 _DUPLICATE_PARTY_DETAIL = "Esta pessoa já está neste polo do processo."
 _LAST_PARTY_DETAIL = "O processo precisa de pelo menos uma parte."
+
+
+def _schedule_cycle_events(previous: tuple[object, object], current: tuple[object, object]) -> None:
+    """Spec 078, regra 5: a TRANSIÇÃO para fechado/arquivado agenda o refresh das
+    views de BI em até 1 min, sem bloquear a operação que disparou. Criar processo
+    já fechado (importação) conta como transição — `previous` (None, None)."""
+    prev_closure, prev_archived = previous
+    closure, archived = current
+    if closure is not None and prev_closure is None:
+        schedule_aggregate_refresh("lawsuit.closed")
+    if archived is not None and prev_archived is None:
+        schedule_aggregate_refresh("lawsuit.archived")
 
 
 def _raise_party_errors(exc: Exception) -> NoReturn:
@@ -371,6 +384,11 @@ async def create_lawsuit(
     await invalidate_stats_cache(
         redis, current_user.tenant_id, created.lawsuit.closure_date, created.lawsuit.archived_date
     )
+    # Spec 078, regra 5: processo criado já fechado/arquivado (importação) invalida
+    # as views de BI.
+    _schedule_cycle_events(
+        (None, None), (created.lawsuit.closure_date, created.lawsuit.archived_date)
+    )
     dispatcher = NotificationDispatcher(
         session=session, tenant_id=current_user.tenant_id, channels=channels
     )
@@ -492,6 +510,10 @@ async def update_lawsuit(
         *previous_cycle_dates,
         updated.lawsuit.closure_date,
         updated.lawsuit.archived_date,
+    )
+    # Spec 078, regra 5: fechou ou arquivou nesta atualização → refresh das views de BI.
+    _schedule_cycle_events(
+        previous_cycle_dates, (updated.lawsuit.closure_date, updated.lawsuit.archived_date)
     )
     return _to_response(updated)
 
@@ -654,11 +676,15 @@ async def delete_lawsuit(
 ) -> None:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    was_archived = detail.lawsuit.is_archived
     await service.delete(detail.lawsuit)
     # Soft delete arquiva (is_archived) — o card de ativos muda (regra 7, spec 028).
     await invalidate_stats_cache(
         redis, current_user.tenant_id, detail.lawsuit.closure_date, detail.lawsuit.archived_date
     )
+    # Spec 078, regra 5: arquivar pelo soft delete também invalida as views de BI.
+    if not was_archived:
+        schedule_aggregate_refresh("lawsuit.archived")
 
 
 @router.get("/{lawsuit_id}/financial-summary")

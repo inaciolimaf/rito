@@ -30,16 +30,19 @@ def _daily_crontab(expression: str) -> crontab:
 
 
 celery_app.conf.beat_schedule = {
+    # Spec 078: um único tick por minuto refresca SEQUENCIALMENTE as views vencidas
+    # conforme o intervalo do aggregate_registry (BI 8 h, produtividade/agilidade
+    # 15 min, saldo diário 10 min), com log e alerta de refresh lento. Substitui os
+    # beats individuais das specs 039/059/071/073/074/075/076/077 — os workers de
+    # domínio continuam existindo porque os testes chamam os wrappers async direto.
+    "aggregates-refresh-due": {
+        "task": "app.workers.aggregates.refresh_due_aggregates",
+        "schedule": crontab(),
+    },
     # Spec 034, regra 2: varredura diária das séries de recorrência atrasadas.
     "post-recurrence-sweep": {
         "task": "app.workers.recurrences.sweep_recurrences",
         "schedule": crontab(hour=3, minute=12),
-    },
-    # Spec 039, regra 9: refresh da view materializada de pontuação a cada 15 min
-    # (concluir tarefa também agenda um refresh imediato — ver workers/scores.py).
-    "taskscore-refresh": {
-        "task": "app.workers.scores.refresh_scores",
-        "schedule": crontab(minute="*/15"),
     },
     # Spec 041, §4: retenção de 30 dias da auditoria de chamadas externas.
     "external-requests-purge": {
@@ -67,12 +70,6 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.stagnation.sweep_all_tenants",
         "schedule": crontab(hour=3, minute=0),
     },
-    # Spec 059, regra 11: refresh da view materializada de saldo diário a cada 10 min
-    # (baixa/estorno também agenda um refresh imediato — ver workers/financial_dashboard.py).
-    "financial-balances-refresh": {
-        "task": "app.workers.financial_dashboard.refresh_account_balances",
-        "schedule": crontab(minute="*/10"),
-    },
     # Spec 057, regra 4: recorrência financeira nunca gera tudo de uma vez — varredura
     # mensal (dia 1, 3h30) mantém `generated_until` sempre 3 meses à frente.
     "financial-recurrence-sweep": {
@@ -84,48 +81,16 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.dunning.sweep_dunning_rules",
         "schedule": _daily_crontab(_settings.dunning_sync_cron),
     },
-    # Spec 071, regra 10: refresh da view materializada de agilidade a cada 15 min.
-    "agility-refresh": {
-        "task": "app.workers.agility.refresh_agility",
-        "schedule": crontab(minute="*/15"),
-    },
-    # Spec 073: refresh do livro de ponto a cada 15 min (mesmo intervalo de 071).
-    "timesheet-refresh": {
-        "task": "app.workers.timesheet.refresh_timesheet",
-        "schedule": crontab(minute="*/15"),
-    },
     # Spec 073, regra 9: expurgo mensal de access_logs além da retenção de 12 meses.
     "access-logs-purge": {
         "task": "app.workers.timesheet.purge_access_logs",
         "schedule": crontab(day_of_month=1, hour=4, minute=0),
     },
-    # Spec 074, regra 8: refresh da view do funil de BI a cada 8 horas, como no ADVBOX.
-    "bi-pipeline-refresh": {
-        "task": "app.workers.bi_pipeline.refresh_bi_pipeline",
-        "schedule": crontab(minute=21, hour="*/8"),
-    },
-    # Spec 075, §4: refresh da view de safra a cada 8 horas (minuto deslocado do
-    # refresh da 074 para os dois REFRESH CONCURRENTLY não concorrerem).
-    "bi-vintage-refresh": {
-        "task": "app.workers.bi_vintage.refresh_bi_vintage_view",
-        "schedule": crontab(minute=51, hour="*/8"),
-    },
-    # Spec 076, §4: refresh da view de ciclos a cada 8 horas (minuto deslocado dos
-    # refreshes da 074/075 pelo mesmo motivo).
-    "bi-cycles-refresh": {
-        "task": "app.workers.bi_cycles.refresh_bi_cycles_view",
-        "schedule": crontab(minute=36, hour="*/8"),
-    },
-    # Spec 077, §4: refresh da view de custos a cada 8 horas (minuto deslocado dos
-    # refreshes da 074/075/076 pelo mesmo motivo).
-    "bi-costs-refresh": {
-        "task": "app.workers.bi_costs.refresh_bi_costs_view",
-        "schedule": crontab(minute=6, hour="*/8"),
-    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
 celery_app.conf.imports = (
+    "app.workers.aggregates",
     "app.workers.recurrences",
     "app.workers.scores",
     "app.workers.external_requests",

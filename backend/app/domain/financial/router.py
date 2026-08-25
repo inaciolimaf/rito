@@ -108,7 +108,7 @@ from app.domain.financial.service import (
 )
 from app.domain.users.models import User
 from app.integrations.storage.base import FileStorage
-from app.workers.financial_dashboard import schedule_account_balances_refresh
+from app.workers.aggregates import schedule_aggregate_refresh
 
 router = APIRouter(tags=["financial"])
 
@@ -739,7 +739,9 @@ async def pay_transaction(
     if payload.payment_date > date.today():
         raise HTTPException(status_code=422, detail="Data de pagamento não pode ser no futuro.")
     await service.pay(detail.transaction, payload.payment_date)
-    schedule_account_balances_refresh()
+    # Spec 059, regra 11 + spec 078, regra 5: baixa agenda o refresh imediato das
+    # views invalidadas por transaction.paid (saldo diário, ciclos e custos de BI).
+    schedule_aggregate_refresh("transaction.paid")
     updated = await service.get(transaction_id)
     assert updated is not None
     return _transaction_to_response(updated)
@@ -754,7 +756,9 @@ async def unpay_transaction(
     service = TransactionService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(transaction_id), "Lançamento não encontrado.")
     await service.unpay(detail.transaction)
-    schedule_account_balances_refresh()
+    # Estorno muda o saldo do mesmo jeito — mesmo conjunto de views do evento
+    # transaction.paid (spec 078, regra 5; mesma motivação da regra 11 da spec 059).
+    schedule_aggregate_refresh("transaction.paid")
     updated = await service.get(transaction_id)
     assert updated is not None
     return _transaction_to_response(updated)

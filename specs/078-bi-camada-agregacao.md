@@ -1,7 +1,7 @@
 # 078 — BI: camada de agregação
 
 **Fase:** 7 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 077 · **Status:** ⬜ pendente
+**Depende de:** 077 · **Status:** ✅ concluída
 
 ---
 
@@ -103,7 +103,52 @@ Toda resposta de BI passa a incluir:
 
 ## 9. Descobertas
 
-*(preencher)*
+- **`aggregate_registry.name` ficou UNIQUE, não PRIMARY KEY.** A `Base` da casa
+  (`app/core/models.py`) já injeta `id` UUID como PK em todo modelo — manter o DDL
+  literal da spec exigiria uma segunda `DeclarativeBase` só para duas tabelas. A
+  unicidade de `name` (o que o FK do log e o refresh usam) está preservada.
+- **Envelope `meta` é aditivo, sem aninhar `data`.** A especificação exemplifica
+  `{ "data": ..., "meta": ... }`, mas as 14 respostas de BI já tinham contrato plano
+  consumido por testes e pelos painéis do frontend. Cada resposta ganhou o campo
+  `meta: {computed_at, staleness_seconds, is_stale}` no topo, ao lado dos campos
+  existentes — contrato anterior intacto, regra §5 cumprida (`meta.staleness_seconds`
+  em toda resposta de BI). Endpoints atrelados a view derivam `meta` do registry;
+  endpoints de tempo real (portfolio, success-rate, success-trend) respondem
+  `staleness_seconds: 0, is_stale: false`. O `staleness_hint` textual das specs
+  074–077 foi mantido.
+- **Invalidação por evento usa task Celery com countdown** (não há barramento de
+  eventos no código — o padrão existente era `schedule_*_refresh` por domínio).
+  `schedule_aggregate_refresh(event)` em `app/workers/aggregates.py` mapeia os 4
+  eventos da regra 5 para as views afetadas (`EVENT_TO_VIEWS`) e agenda
+  `refresh_aggregate_by_name` com countdown de 5 s (≤ 1 min, cobre o commit da
+  request); broker fora nunca derruba a operação, e em `APP_ENV=test` é no-op
+  (CLAUDE.md §3). Os hooks antigos (`schedule_scores_refresh`,
+  `schedule_account_balances_refresh`) foram substituídos por este caminho único —
+  reabrir tarefa e estornar lançamento disparam os mesmos eventos (`task.completed`,
+  `transaction.paid`), pois desfazem a mutação. `lawsuit.closed`/`lawsuit.archived`
+  disparam na TRANSIÇÃO (update, create já fechado/arquivado — importação — e soft
+  delete). `EVENT_TO_VIEWS` espelha o `invalidate_on` do seed da migration 078 —
+  mudou um, muda o outro (há teste de consistência).
+- **Os 8 beats individuais viraram um único tick por minuto**
+  (`aggregates-refresh-due`), que refresca sequencialmente (regra 10) só as views
+  vencidas conforme o intervalo do registry — assim o intervalo virou dado
+  (ajustável sem deploy) e todo refresh passa a ter log, duração e alerta >60 s
+  (regra 9, `integration_alerts` com `tenant_id` NULL, deduplicado por view).
+  Os workers de domínio (`bi_pipeline.py`, `scores.py`, …) mantêm só o wrapper
+  async que os testes chamam direto.
+- **Refresh manual é inline** (não enfileira): o endpoint executa
+  `refresh_aggregate` com a MIGRATIONS_DATABASE_URL e devolve o status atualizado;
+  falha volta como `last_error` no corpo, nunca como erro HTTP (regra 7). Throttle
+  de 1/10 min por tenant via Redis (`check_and_increment`, mesmo padrão do
+  recálculo de estagnação da 052).
+- **Leitura do registry pela role de aplicação** usa `populate_existing` no
+  repository: o refresh manual atualiza a linha por outra conexão (superusuário) e
+  a identity map da request devolveria o estado de antes do refresh.
+- **Testes de lentidão e falha sem sleep nem quebra de banco:** o relógio do worker
+  (`monotonic`) e o SQL de refresh (`_refresh_view`) são pontos de monkeypatch —
+  o teste de alerta simula 61 s e o de falha força exceção por nome de view.
+- Custo medido: os 12 testes novos (2 meta + 9 integração + 1 frontend com 4 casos)
+  rodam em ~5 s no backend e ~0,3 s no frontend; suíte completa segue < 300 s.
 
 ## 10. Definição de pronto
 

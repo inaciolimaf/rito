@@ -78,3 +78,34 @@ export async function getPublicationMetrics(period = 7): Promise<PublicationMetr
 export async function getTermHealth(termId: string): Promise<TermHealth> {
   return apiRequest<TermHealth>(`/api/v1/monitored-terms/${termId}/health`);
 }
+
+// ---- Spec 078 — camada de agregação -------------------------------------------
+
+export interface AggregateStatusItem {
+  name: string;
+  description: string;
+  refresh_interval_seconds: number;
+  invalidate_on: string[];
+  last_refresh_at: string | null;
+  last_refresh_duration_ms: number | null;
+  last_error: string | null;
+  is_enabled: boolean;
+  computed_at: string | null;
+  staleness_seconds: number | null;
+  is_stale: boolean;
+}
+
+export interface AggregateStatus {
+  items: AggregateStatusItem[];
+}
+
+export async function getAggregateStatus(): Promise<AggregateStatus> {
+  return apiRequest<AggregateStatus>("/api/v1/aggregates/status");
+}
+
+export async function refreshAggregate(name: string): Promise<AggregateStatusItem> {
+  return apiRequest<AggregateStatusItem>(`/api/v1/aggregates/${name}/refresh`, {
+    method: "POST",
+    body: {},
+  });
+}

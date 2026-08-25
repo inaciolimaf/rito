@@ -8,6 +8,7 @@ import { ModulePlaceholderPage } from "@/components/shell/ModulePlaceholderPage"
 import { NotFoundPage } from "@/components/shell/NotFoundPage";
 import { ROUTABLE_NAV_ITEMS } from "@/components/shell/navItems";
 import { AccountPage } from "@/features/account/AccountPage";
+import { AiSettingsPage } from "@/features/ai/AiSettingsPage";
 import { ActionGroupsListPage } from "@/features/action-groups/ActionGroupsListPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { MonitoredTermsListPage } from "@/features/monitored-terms/MonitoredTermsListPage";
@@ -78,6 +79,7 @@ export function App(): JSX.Element {
                     <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
                     <Route path="/settings/monitored-terms" element={<MonitoredTermsListPage />} />
                     <Route path="/settings/integrations" element={<IntegrationsSettingsPage />} />
+                    <Route path="/settings/ai" element={<AiSettingsPage />} />
                     <Route path="/settings/financial" element={<FinancialSettingsPage />} />
                     <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
                     <Route path="/customers" element={<CustomerListPage />} />

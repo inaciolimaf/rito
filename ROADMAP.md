@@ -356,7 +356,7 @@ Convite por e-mail, rede, compartilhamento de processos, demandas pendentes de c
 
 ## Fase 8 — Inteligência Artificial (081–090)
 
-### ⬜ 081 — Camada LLM (OpenRouter)
+### ✅ 081 — Camada LLM (OpenRouter)
 Client genérico OpenRouter atrás da interface `LLMProvider`; **modelo selecionável por feature** em `ai_feature_config` com UI; streaming SSE; contagem de tokens e custo em `ai_usage`; fallback de modelo; fixtures gravadas.
 **Aceite:** trocar modelo pela UI muda a chamada; nenhuma chamada real em teste. **t:** 5 s. **Deps:** 041
 

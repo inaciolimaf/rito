@@ -21,6 +21,7 @@ from app.core.redis import create_redis_client
 from app.domain.account.router import router as account_router
 from app.domain.action_groups.router import action_groups_router, lawsuit_types_router
 from app.domain.aggregates.router import router as aggregates_router
+from app.domain.ai.router import router as ai_router
 from app.domain.attachments.router import router as attachments_router
 from app.domain.auth.router import router as auth_router
 from app.domain.bi.router import router as bi_router
@@ -54,6 +55,7 @@ from app.domain.templates.router import router as templates_router
 from app.domain.users.router import invitations_router, occupations_router, users_router
 from app.domain.workflows.router import router as workflows_router
 from app.integrations.messaging.registry import create_document_mailer, create_messaging_channels
+from app.integrations.openrouter.factory import create_llm_provider
 from app.integrations.storage.s3 import create_file_storage
 
 
@@ -69,6 +71,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.file_storage = create_file_storage()
     app.state.messaging_channels = create_messaging_channels()
     app.state.document_mailer = create_document_mailer()
+    # Spec 081: um provider para o app inteiro — nenhuma rota monta client de LLM.
+    app.state.llm_provider = create_llm_provider(redis=app.state.redis)
 
     yield
 
@@ -140,6 +144,7 @@ def create_app() -> FastAPI:
     app.include_router(reports_router, prefix="/api/v1")
     app.include_router(bi_router, prefix="/api/v1")
     app.include_router(aggregates_router, prefix="/api/v1")
+    app.include_router(ai_router, prefix="/api/v1")
 
     return app
 

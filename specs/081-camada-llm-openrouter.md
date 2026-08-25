@@ -1,7 +1,7 @@
 # 081 — Camada LLM (OpenRouter)
 
 **Fase:** 8 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 041 · **Status:** ⬜ pendente
+**Depende de:** 041 · **Status:** ✅ concluída
 
 ---
 
@@ -134,6 +134,45 @@ class LLMResponse:
 
 **Total:** ~4,1 s
 
-## 10. Definição de pronto
+## 10. Descobertas
 
-Checklist padrão · Os 3 testes meta ativos · Sistema funciona sem chave de IA · Commit `feat(081): camada LLM (OpenRouter)`
+- **Streaming exigiu um método novo na camada 041.** `ResilientHttpClient` só sabia
+  responder inteiro; SSE precisa de linha a linha. Ganhou `stream_lines`, exposto por
+  um Protocol separado (`StreamingHttpClient`, ISP) — nenhum fake de `HttpClient`
+  precisou mudar. O streaming fica de propósito **fora** do retry e do cache: uma
+  resposta já parcialmente entregue não pode ser reenviada de forma transparente, e
+  reenviar custaria tokens de novo. O breaker continua valendo.
+- **Registrar uso de chamada que falhou exige commit explícito.** A sessão por request
+  faz rollback em qualquer exceção — sem `session.commit()` antes de propagar, o
+  registro de `ai_usage` da chamada que falhou (a que mais interessa) sumiria junto.
+  Mesmo idioma da revogação de família em `AuthService.refresh()` (spec 004), pelo
+  mesmo motivo; está comentado no código.
+- **O fallback é UMA linha em `ai_usage`, não duas** (regra 5 + 6). Do ponto de vista
+  da feature houve uma chamada, que terminou em `fallback` com o erro do modelo
+  principal no campo `error`. Duas linhas inflariam a contagem de chamadas do painel
+  de custo e fariam a taxa de erro mentir.
+- **`store_prompts` e as colunas `prompt`/`response_text` não estavam no DDL da spec.**
+  A regra 13 exige opt-in para persistir conteúdo, mas nenhum lugar para persistir
+  tinha sido definido. Ficaram em `ai_feature_config` (o opt-in é por feature: resumir
+  intimação e conversar com o copiloto têm sensibilidades diferentes) e em `ai_usage`,
+  nulos por padrão — há teste dos dois estados.
+- **Um único id de modelo existe no `app/`, em `config.py`** (`openrouter_default_model`),
+  que é literalmente a variável de ambiente da regra 2 — o teste meta isenta esse
+  arquivo e só ele. As fixtures e os testes usam ids fictícios (`fabricante-x/…`) para
+  não fixar modelo real nenhum no repositório.
+- **Custo ausente vira `NULL`, nunca zero** (regra 7): sem custo na resposta e sem
+  catálogo carregado, `cost_usd` fica nulo. Zero leria como "essa chamada foi de
+  graça", que é uma afirmação diferente de "não sei quanto custou".
+- **`GET /ai/models` responde 200 com lista vazia sem chave**, em vez de erro (regra
+  11): a tela de configuração precisa abrir antes de existir chave — é lá que o
+  escritório escolhe os modelos que vai usar quando ela chegar.
+- **O endpoint SSE não existe ainda** e isso é escopo: a spec entrega o provider com
+  `stream()` e o formatador dos quatro eventos (`app/domain/ai/sse.py`), testados; a
+  rota que os expõe nasce com a primeira feature que conversa (085).
+
+## 11. Definição de pronto
+
+- [x] Checklist padrão
+- [x] Os 3 testes meta ativos (SDK de provider, modelo hardcoded, rede em teste)
+- [x] Sistema funciona sem chave de IA
+- [x] Commit `feat(081): camada LLM (OpenRouter)`

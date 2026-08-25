@@ -1,7 +1,7 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 471,
-  "last_measured_at": "2026-08-24",
+  "last_measured_wall_clock_seconds": 172,
+  "last_measured_at": "2026-08-26",
   "specs": {
     "001": {
       "wall_clock_seconds": 2,
@@ -266,6 +266,10 @@
     "080": {
       "wall_clock_seconds": 172,
       "notes": "1060 backend (1052 da 079 + 6 novos da auditoria: 5 de matriz de isolamento (RLS forçado em toda tabela com tenant_id, RLS sem política, exceção não documentada, rito_app sem BYPASSRLS/SET ROLE, matriz ler/atualizar/apagar/inserir entre tenants) + 3 de vazamento do parceiro (financeiro com FULL do lado dele, modelos, BI depois do refresh) + 3 unitários de safe_ratio + 1 de retenção do log de refresh) + 208 frontend (206 + 2 do BiTabPanel). Refatoração não muda comportamento: nenhum teste de 071–079 foi editado. Medição com `pytest -n 2` neste host; o benchmark de volume (100 mil processos) roda fora da suíte, em scripts/bench_aggregates.py."
+    },
+    "081": {
+      "wall_clock_seconds": 172,
+      "notes": "1086 backend (1060 da 080 + 26 novos: 9 unitários do client OpenRouter (payload, resposta com/sem tool call, argumento ilegível, os 4 eventos de streaming, evento SSE, catálogo e custo, fixture gravada ponta a ponta, sem chave, stream que para no done), 9 de integração do AiRunner (modelo da config, padrão com aviso, feature desligada, fallback uma vez, uso registrado em erro, custo pelo catálogo, prompt sem opt-in, catálogo vazio sem chave, painel de consumo) e os 3 meta (SDK de provider, id de modelo hardcoded, rede em teste)) + 211 frontend (208 + 3 do ModelSelect: preço por milhão, contexto e modelo fora do catálogo). Backend 172 s com `-n 2` e frontend 66 s neste host; nenhuma chamada real de LLM."
     }
   }
 }

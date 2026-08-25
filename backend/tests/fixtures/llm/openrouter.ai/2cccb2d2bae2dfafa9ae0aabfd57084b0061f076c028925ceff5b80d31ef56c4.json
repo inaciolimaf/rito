@@ -1,0 +1,9 @@
+{
+  "method": "GET",
+  "url": "https://openrouter.ai/api/v1/models",
+  "status_code": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body_b64": "eyJkYXRhIjogW3siaWQiOiAiZmFicmljYW50ZS14L21vZGVsby15IiwgIm5hbWUiOiAiTW9kZWxvIFkiLCAiY29udGV4dF9sZW5ndGgiOiAxMjgwMDAsICJwcmljaW5nIjogeyJwcm9tcHQiOiAiMC4wMDAwMDE1IiwgImNvbXBsZXRpb24iOiAiMC4wMDAwMDYifX0sIHsiaWQiOiAiZmFicmljYW50ZS16L21vZGVsby13IiwgIm5hbWUiOiAiTW9kZWxvIFciLCAiY29udGV4dF9sZW5ndGgiOiAzMjAwMCwgInByaWNpbmciOiB7InByb21wdCI6ICIwLjAwMDAwMDUiLCAiY29tcGxldGlvbiI6ICIwLjAwMDAwMTUifX1dfQ=="
+}

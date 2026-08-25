@@ -1,0 +1,85 @@
+import uuid
+from datetime import date
+
+from pydantic import BaseModel, Field
+
+
+class ModelInfoResponse(BaseModel):
+    id: str
+    name: str
+    context_length: int
+    # Preço por token, como o OpenRouter publica — a UI multiplica por 1M para exibir.
+    prompt_price_usd: float
+    completion_price_usd: float
+
+
+class ModelCatalogResponse(BaseModel):
+    items: list[ModelInfoResponse]
+    total: int
+    # Regra 11: sem chave, o catálogo vem vazio e a UI explica em vez de quebrar.
+    is_configured: bool
+
+
+class FeatureConfigResponse(BaseModel):
+    feature_key: str
+    label: str
+    description: str
+    model: str
+    fallback_model: str | None
+    temperature: float
+    max_tokens: int | None
+    is_enabled: bool
+    store_prompts: bool
+    is_default: bool
+
+
+class FeatureConfigListResponse(BaseModel):
+    items: list[FeatureConfigResponse]
+    is_configured: bool
+    default_model: str
+
+
+class FeatureConfigRequest(BaseModel):
+    feature_key: str
+    model: str = Field(min_length=1)
+    fallback_model: str | None = None
+    temperature: float = Field(default=0.2, ge=0, le=2)
+    max_tokens: int | None = Field(default=None, ge=1)
+    is_enabled: bool = True
+    # Regra 13: opt-in explícito para guardar prompt e resposta.
+    store_prompts: bool = False
+
+
+class UsageGroupResponse(BaseModel):
+    key: str
+    calls: int
+    prompt_tokens: int
+    completion_tokens: int
+    cost_usd: float
+    errors: int
+
+
+class UsageTotalsResponse(BaseModel):
+    calls: int
+    prompt_tokens: int
+    completion_tokens: int
+    cost_usd: float
+    errors: int
+    avg_latency_ms: int | None
+
+
+class UsageResponse(BaseModel):
+    group_by: str
+    from_: date | None = Field(default=None, alias="from")
+    to: date | None = None
+    items: list[UsageGroupResponse]
+    totals: UsageTotalsResponse
+
+    model_config = {"populate_by_name": True}
+
+
+class UsageRecordResponse(BaseModel):
+    id: uuid.UUID
+    feature_key: str
+    model: str
+    status: str

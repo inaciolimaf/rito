@@ -1,6 +1,7 @@
 """Tipos e erros da camada HTTP resiliente (spec 041, §5)."""
 
 import json
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -22,6 +23,22 @@ class HttpClient(Protocol):
         params: dict[str, str] | None = None,
         content: bytes | None = None,
     ) -> "HttpResponse": ...
+
+
+class StreamingHttpClient(Protocol):
+    """Streaming linha a linha (spec 081, regra 8) — interface separada de propósito
+    (ISP): só o client de LLM precisa dela, e nenhum fake de `HttpClient` é obrigado a
+    implementar streaming para continuar servindo aos outros consumidores."""
+
+    def stream_lines(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        content: bytes | None = None,
+        timeout_s: float | None = None,
+    ) -> "AsyncIterator[str]": ...
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,9 @@
+{
+  "method": "POST",
+  "url": "https://openrouter.ai/api/v1/chat/completions",
+  "status_code": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body_b64": "eyJpZCI6ICJnZW4tZml4dHVyZS0wODEiLCAibW9kZWwiOiAiZmFicmljYW50ZS14L21vZGVsby15IiwgImNob2ljZXMiOiBbeyJtZXNzYWdlIjogeyJyb2xlIjogImFzc2lzdGFudCIsICJjb250ZW50IjogIlByYXpvIGRlIDE1IGRpYXMgcGFyYSBjb250ZXN0YXIuIn0sICJmaW5pc2hfcmVhc29uIjogInN0b3AifV0sICJ1c2FnZSI6IHsicHJvbXB0X3Rva2VucyI6IDQyLCAiY29tcGxldGlvbl90b2tlbnMiOiAxMiwgImNvc3QiOiAwLjAwMDEzNX19"
+}

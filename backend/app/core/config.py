@@ -26,8 +26,20 @@ class Settings(BaseSettings):
     s3_bucket: str | None = None
     s3_region: str | None = None
 
+    # Spec 081: OpenRouter é o único gateway de LLM (regra 1). O modelo padrão vive
+    # aqui, em variável de ambiente (regra 2: trocar de modelo é configuração, não
+    # deploy) — este é o ÚNICO arquivo do `app/` onde um id de modelo pode aparecer, e
+    # o teste meta de "modelo não hardcoded" isenta só ele.
     openrouter_api_key: str | None = None
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_default_model: str = "openai/gpt-4o-mini"
+    # Regra 10: o OpenRouter atribui o tráfego por estes dois headers.
+    openrouter_site_url: str = "https://rito.app"
+    openrouter_app_name: str = "Rito"
+    openrouter_fallback_model: str | None = None
+    openrouter_rate_limit_per_minute: int = 60
+    # Spec 081, regra 12: fixtures de LLM ficam separadas das de integração externa.
+    llm_fixtures_dir: str = "tests/fixtures/llm"
 
     datajud_api_key: str | None = None
     datajud_base_url: str = "https://api-publica.datajud.cnj.jus.br"

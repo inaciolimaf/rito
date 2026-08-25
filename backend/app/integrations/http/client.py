@@ -12,7 +12,7 @@ import logging
 import random
 import time
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 
 import httpx
 from redis.asyncio import Redis
@@ -315,6 +315,49 @@ class ResilientHttpClient:
                 error=None,
             )
         )
+
+    async def stream_lines(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str] | None = None,
+        content: bytes | None = None,
+        timeout_s: float | None = None,
+    ) -> AsyncIterator[str]:
+        """Resposta linha a linha, para SSE (spec 081, regra 8).
+
+        Deliberadamente FORA das camadas de retry e cache: uma resposta já
+        parcialmente entregue não pode ser reenviada de forma transparente — quem
+        consome decide o que fazer com o erro no meio do stream. O breaker continua
+        valendo (não faz sentido abrir stream para host derrubado) e a falha conta
+        para ele, como em qualquer outra chamada.
+        """
+        method = method.upper()
+        parsed = httpx.URL(url)
+        host = parsed.host or "unknown"
+        policy = self._policy_for(host)
+        breaker = self._breaker_for(host, policy)
+        if not breaker.allow():
+            raise CircuitOpenError(host)
+
+        request = self._client.build_request(
+            method, url, headers=headers, content=content, timeout=timeout_s or policy.timeout_s
+        )
+        try:
+            response = await self._client.send(request, stream=True)
+        except httpx.HTTPError as exc:
+            breaker.on_failure()
+            raise HttpRequestError(url, exc) from exc
+        try:
+            if response.status_code >= 500:
+                breaker.on_failure()
+                raise HttpStatusError(url, response.status_code)
+            breaker.on_success()
+            async for line in response.aiter_lines():
+                yield line
+        finally:
+            await response.aclose()
 
 
 def create_http_client(

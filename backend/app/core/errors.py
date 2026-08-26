@@ -97,6 +97,24 @@ async def handle_http_exception(request: Request, exc: Exception) -> JSONRespons
     )
 
 
+async def handle_budget_exceeded(request: Request, exc: Exception) -> JSONResponse:
+    """Spec 090, alvo 2: teto de IA estourado vale para TODA rota de IA.
+
+    É handler global e não `try/except` em cada router porque a política é uma só — oito
+    cópias divergiriam, e a nona rota de IA nasceria sem nenhuma. A resposta traz os dois
+    números para a UI poder dizer quanto falta em vez de só "não deu".
+    """
+    from app.domain.ai.budget import BudgetExceededError
+
+    assert isinstance(exc, BudgetExceededError)
+    return _problem_response(
+        status_code=409,
+        detail=str(exc),
+        instance=request.url.path,
+        extra={"spent_usd": float(exc.spent), "limit_usd": float(exc.limit)},
+    )
+
+
 async def handle_unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Erro não tratado", exc_info=exc)
     return _problem_response(

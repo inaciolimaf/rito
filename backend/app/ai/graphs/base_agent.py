@@ -20,13 +20,12 @@ from app.ai.graphs.base import (
     GraphState,
     register_graph_placeholder,
 )
+from app.ai.prompts import load_prompt
 from app.integrations.openrouter.types import Message
 
-SYSTEM_PROMPT = (
-    "Você é o assistente do Rito, um sistema de gestão para escritórios de advocacia "
-    "brasileiros. Responda em português do Brasil, de forma objetiva. Você não tem "
-    "acesso a nenhum dado do escritório além do que receber nesta conversa."
-)
+# Spec 090, alvo 3: o texto mora em `app/ai/prompts/copilot.md`, versionado e revisável
+# sem passar por dentro da lógica do grafo.
+SYSTEM_PROMPT = load_prompt("copilot")
 
 
 def _system_prompt(deps: GraphDeps) -> str:

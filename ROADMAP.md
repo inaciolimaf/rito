@@ -392,7 +392,7 @@ Continuar escrevendo, reescrever trecho, ajustar tom, revisar peça com checklis
 Text-to-SQL **guardrailed** (allowlist de tabelas/colunas, somente leitura, limite de linhas) para métricas; next-best-action por processo; detecção de risco (prazo, estagnação, inadimplência).
 **Aceite:** SQL fora da allowlist é bloqueado; injeção não escapa. **t:** 6 s. **Deps:** 085, 078
 
-### ⬜ 090 — 🔧 REFATORAÇÃO — IA
+### ✅ 090 — 🔧 REFATORAÇÃO — IA
 **t:** −
 
 ---

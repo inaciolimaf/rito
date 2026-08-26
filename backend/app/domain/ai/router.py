@@ -6,15 +6,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.permissions import UserRole, require_role
+from app.domain.ai.budget import AiBudgetService
 from app.domain.ai.exceptions import UnknownFeatureError
 from app.domain.ai.features import AI_FEATURES
 from app.domain.ai.repository import AiUsageRepository
 from app.domain.ai.schemas import (
+    BudgetRequest,
+    BudgetResponse,
     FeatureConfigListResponse,
     FeatureConfigRequest,
     FeatureConfigResponse,
     ModelCatalogResponse,
     ModelInfoResponse,
+    SpendingAnomalyResponse,
     UsageGroupResponse,
     UsageResponse,
     UsageTotalsResponse,
@@ -154,3 +158,50 @@ async def get_usage(
             avg_latency_ms=int(totals.avg_latency_ms) if totals.avg_latency_ms else None,
         ),
     )
+
+
+async def _budget_response(service: AiBudgetService) -> BudgetResponse:
+    situacao = await service.status()
+    return BudgetResponse(
+        monthly_limit_usd=float(situacao.limit_usd) if situacao.limit_usd is not None else None,
+        spent_usd=float(situacao.spent_usd),
+        used_pct=situacao.used_pct,
+        alert_pct=situacao.alert_pct,
+        is_blocking=situacao.is_blocking,
+        is_alerting=situacao.should_alert,
+        is_exceeded=situacao.exceeded,
+        anomalies=[
+            SpendingAnomalyResponse(
+                feature_key=item.feature_key,
+                today_usd=float(item.today_usd),
+                daily_average_usd=float(round(item.daily_average_usd, 6)),
+                factor=item.factor,
+            )
+            for item in await service.anomalies()
+        ],
+    )
+
+
+@router.get("/budget")
+async def get_budget(
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> BudgetResponse:
+    """Spec 090, alvo 2: quanto o escritório já gastou no mês e o que acontece no teto."""
+    return await _budget_response(AiBudgetService(session, current_user.tenant_id))
+
+
+@router.put("/budget")
+async def save_budget(
+    payload: BudgetRequest,
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> BudgetResponse:
+    service = AiBudgetService(session, current_user.tenant_id)
+    await service.save(
+        limit_usd=payload.monthly_limit_usd,
+        alert_pct=payload.alert_pct,
+        is_blocking=payload.is_blocking,
+        actor_id=current_user.id,
+    )
+    return await _budget_response(service)

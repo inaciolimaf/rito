@@ -96,7 +96,10 @@ export function PartnersPage(): JSX.Element {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Processos compartilhados" value={summary?.shared_lawsuits ?? 0} />
-        <StatCard label="Demanda pendente pelo escritório" value={summary?.pending_by_office ?? 0} />
+        <StatCard
+          label="Demanda pendente pelo escritório"
+          value={summary?.pending_by_office ?? 0}
+        />
         <StatCard label="Demanda pendente pelo parceiro" value={summary?.pending_by_partner ?? 0} />
       </div>
 

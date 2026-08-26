@@ -19,6 +19,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.prompts import load_prompt
 from app.core.repository import BaseRepository
 from app.domain.account.repository import AccountRepository
 from app.domain.ai.service import AiRunner
@@ -51,15 +52,7 @@ ACT_TYPE_KEYWORDS: dict[str, tuple[str, ...]] = {
     "pericia": ("perícia", "pericia"),
 }
 
-_SYSTEM_PROMPT = (
-    "Você lê intimações judiciais brasileiras e devolve APENAS um JSON, sem texto em "
-    "volta, com as chaves: summary (até 3 parágrafos), act_type (sentenca, despacho, "
-    "decisao, intimacao_prazo, audiencia, recurso, pericia ou outro), requires_action "
-    "(booleano), deadline_days (inteiro ou null), deadline_kind ('uteis', 'corridos' ou "
-    "null), confidence (0 a 1) e reasoning (uma frase explicando de onde veio o prazo). "
-    "NÃO calcule a data final: informe só a quantidade de dias e a espécie de contagem. "
-    "Se o texto não trouxer prazo, devolva deadline_days null — não estime."
-)
+_SYSTEM_PROMPT = load_prompt("publication_analysis")
 
 
 @dataclass(frozen=True)
@@ -153,6 +146,7 @@ class PublicationAnalysisService:
     ) -> PublicationAnalysis:
         """Regra 13: reanalisar substitui o conteúdo e PRESERVA as correções humanas
         anteriores — elas são o histórico de qualidade do modelo, não rascunho."""
+        anterior = await self.analyses.get_for_publication(publication.id)
         response = await self.runner.run(
             feature_key=FEATURE_KEY,
             messages=[
@@ -160,6 +154,11 @@ class PublicationAnalysisService:
                 Message(role="user", content=_publication_prompt(publication)),
             ],
             user_id=user.id if user else None,
+            # Spec 090, alvo 2: a PRIMEIRA análise pode vir do cache — clique duplo,
+            # nova tentativa depois de um erro e a varredura automática mandam o mesmo
+            # prompt. Já a REanálise é alguém pedindo outra leitura de propósito: pagar
+            # de novo é exatamente o que se quer ali.
+            use_cache=anterior is None,
         )
         parsed = parse_model_output(response.content)
         feriados = await self.holidays.national_dates()
@@ -171,7 +170,7 @@ class PublicationAnalysisService:
         )
         task_type_id = await self._suggest_task_type(parsed.act_type)
 
-        analise = await self.analyses.get_for_publication(publication.id)
+        analise = anterior
         if analise is None:
             analise = PublicationAnalysis(
                 tenant_id=self.tenant_id,

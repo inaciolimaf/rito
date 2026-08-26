@@ -13,17 +13,14 @@ estar preservado em algum lugar confiável.
 
 from dataclasses import dataclass
 
+from app.ai.prompts import SAFETY_RULES
+
 # Regra 6: a proibição vale para todos os agentes, sem exceção e sem "salvo se".
+# Spec 090, alvo 3: as proibições são as MESMAS de todo prompt do produto — repetidas
+# com palavras diferentes, divergiriam na primeira correção.
 GUARDRAILS = (
-    "REGRAS INEGOCIÁVEIS:\n"
-    "1. NÃO cite jurisprudência, súmula, precedente, acórdão ou número de processo que "
-    "não esteja explicitamente no contexto fornecido. Se precisar de amparo "
-    "jurisprudencial, escreva [PESQUISAR JURISPRUDÊNCIA] e siga.\n"
-    "2. NÃO invente fatos, datas, valores, nomes ou documentos. O que não estiver no "
-    "contexto, deixe como ______ para o advogado preencher.\n"
-    "3. NÃO afirme ter consultado nada além do que recebeu.\n"
-    "4. Este texto é MINUTA: escreva para ser revisado por um advogado, não para ser "
-    "protocolado como está."
+    SAFETY_RULES + "\n5. Este texto é MINUTA: escreva para ser revisado por um "
+    "advogado, não para ser protocolado como está."
 )
 
 _BASE = (
@@ -121,7 +118,7 @@ AGENT_SEEDS: tuple[AgentSeed, ...] = (
         "penal-1",
         "Agente Penal",
         "Direito Penal",
-        "endereçamento, qualificação, dos fatos, do direito, do pedido e do rol " "de testemunhas",
+        "endereçamento, qualificação, dos fatos, do direito, do pedido e do rol de testemunhas",
         "Código Penal e Código de Processo Penal",
     ),
     AgentSeed(

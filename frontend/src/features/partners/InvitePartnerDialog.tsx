@@ -50,8 +50,8 @@ export function InvitePartnerDialog({
       <DialogContent>
         <DialogTitle>Convidar escritório parceiro</DialogTitle>
         <DialogDescription>
-          A parceria é bilateral: aceita uma vez, vale para os dois lados. Compartilhar
-          processos continua sendo uma decisão por processo.
+          A parceria é bilateral: aceita uma vez, vale para os dois lados. Compartilhar processos
+          continua sendo uma decisão por processo.
         </DialogDescription>
 
         {result === null ? (

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     openrouter_api_key: str | None = None
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_default_model: str = "openai/gpt-4o-mini"
+    # Spec 090, alvo 2: classificação e resumo curto não precisam do modelo mais caro.
+    # Qual é o barato continua sendo configuração (regra 2) — o código só sabe que
+    # existe um mais barato e quais features podem usá-lo.
+    openrouter_economy_model: str = "openai/gpt-4o-mini"
     # Regra 10: o OpenRouter atribui o tráfego por estes dois headers.
     openrouter_site_url: str = "https://rito.app"
     openrouter_app_name: str = "Rito"

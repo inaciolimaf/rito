@@ -16,8 +16,9 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.domain.ai.budget import AiBudgetService
 from app.domain.ai.exceptions import FeatureDisabledError, UnknownFeatureError
-from app.domain.ai.features import FEATURE_KEYS
+from app.domain.ai.features import FEATURE_KEYS, FEATURES_BY_KEY
 from app.domain.ai.models import AiFeatureConfig, AiUsage
 from app.domain.ai.repository import AiFeatureConfigRepository, AiUsageRepository
 from app.integrations.openrouter.types import (
@@ -76,7 +77,11 @@ class AiConfigService:
             )
             return ResolvedFeature(
                 feature_key=feature_key,
-                model=settings.openrouter_default_model,
+                model=(
+                    settings.openrouter_economy_model
+                    if FEATURES_BY_KEY[feature_key].tier == "economico"
+                    else settings.openrouter_default_model
+                ),
                 fallback_model=settings.openrouter_fallback_model,
                 temperature=0.2,
                 max_tokens=None,
@@ -149,6 +154,7 @@ class AiRunner:
         self.provider = provider
         self.configs = AiConfigService(session, tenant_id)
         self.usage = AiUsageRepository(session)
+        self.budget = AiBudgetService(session, tenant_id)
         # Catálogo opcional: só serve para calcular custo quando a resposta não traz
         # (regra 7). Sem ele, `cost_usd` fica nulo em vez de virar zero mentiroso.
         self._catalog = {model.id: model for model in catalog or ()}
@@ -160,12 +166,25 @@ class AiRunner:
         messages: Sequence[Message],
         user_id: uuid.UUID | None = None,
         tools: Sequence[ToolSpec] | None = None,
+        use_cache: bool = False,
     ) -> LLMResponse:
         feature = await self.configs.resolve(feature_key)
         if not feature.is_enabled:
             raise FeatureDisabledError(feature_key)
         if self.model_override:
             feature = replace(feature, model=self.model_override)
+        # Spec 090, alvo 2: o teto é checado ANTES de gastar — bloquear depois seria
+        # cobrar a chamada e negar o resultado.
+        await self.budget.ensure_within_budget()
+        # Cache é opt-in do chamador (`use_cache`), não automático: só quem conhece a
+        # feature sabe se repetir a mesma entrada significa "de novo, por favor" ou
+        # "essa resposta serve". Reanalisar uma intimação é o primeiro caso.
+        if use_cache:
+            em_cache = await self.budget.cached(
+                feature_key=feature_key, model=feature.model, messages=messages
+            )
+            if em_cache is not None:
+                return em_cache
 
         started = time.monotonic()
         try:
@@ -227,6 +246,13 @@ class AiRunner:
             messages=messages,
             response=response,
         )
+        if use_cache:
+            await self.budget.store(
+                feature_key=feature_key,
+                model=feature.model,
+                messages=messages,
+                response=response,
+            )
         return response
 
     async def _commit_usage(self) -> None:
@@ -256,6 +282,7 @@ class AiRunner:
         feature = await self.configs.resolve(feature_key)
         if not feature.is_enabled:
             raise FeatureDisabledError(feature_key)
+        await self.budget.ensure_within_budget()
         started = time.monotonic()
         recebido = 0
         erro: str | None = None

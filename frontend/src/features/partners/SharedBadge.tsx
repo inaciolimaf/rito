@@ -10,7 +10,9 @@ export interface SharedBadgeProps {
  * há um terceiro escritório olhando. */
 export function SharedBadge({ partnerName, count = 1 }: SharedBadgeProps): JSX.Element {
   const label =
-    count > 1 ? `Compartilhado com ${count} parceiros` : `Compartilhado com ${partnerName ?? "parceiro"}`;
+    count > 1
+      ? `Compartilhado com ${count} parceiros`
+      : `Compartilhado com ${partnerName ?? "parceiro"}`;
   return (
     <span
       data-testid="shared-badge"

@@ -6,6 +6,7 @@ import {
   saveFeatureConfig,
   type FeatureConfigPayload,
 } from "@/features/ai/api";
+import { AiBudgetPanel } from "@/features/ai/AiBudgetPanel";
 import { AiUsagePanel } from "@/features/ai/AiUsagePanel";
 import { FeatureConfigRow } from "@/features/ai/FeatureConfigRow";
 import { PendingActionsList } from "@/features/ai/PendingActionsList";
@@ -68,6 +69,8 @@ export function AiSettingsPage(): JSX.Element {
         </p>
         <PendingActionsList />
       </section>
+
+      <AiBudgetPanel />
 
       <AiUsagePanel />
     </div>

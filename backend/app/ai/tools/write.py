@@ -651,7 +651,9 @@ _DEFINITIONS = [
     ),
     WriteToolDef(
         name="update_lawsuit",
-        description="Propõe atualizar pasta, comarca ou observações de um processo.",
+        description=(
+            "Propõe atualizar pasta, comarca ou observações de um processo. Exige confirmação."
+        ),
         params_model=UpdateLawsuitInput,
         preview=_preview_update_lawsuit,
         execute=_execute_update_lawsuit,
@@ -665,7 +667,9 @@ _DEFINITIONS = [
     ),
     WriteToolDef(
         name="create_task",
-        description="Propõe criar uma tarefa num processo, com responsáveis e prazo.",
+        description=(
+            "Propõe criar uma tarefa num processo, com responsáveis e prazo. Exige confirmação."
+        ),
         params_model=CreateTaskInput,
         preview=_preview_create_task,
         execute=_execute_create_task,
@@ -679,7 +683,7 @@ _DEFINITIONS = [
     ),
     WriteToolDef(
         name="create_transaction",
-        description="Propõe um lançamento financeiro (receita ou despesa).",
+        description="Propõe um lançamento financeiro (receita ou despesa). Exige confirmação.",
         params_model=CreateTransactionInput,
         preview=_preview_create_transaction,
         execute=_execute_create_transaction,
@@ -687,14 +691,16 @@ _DEFINITIONS = [
     ),
     WriteToolDef(
         name="link_publication",
-        description="Propõe vincular uma intimação recebida a um processo.",
+        description=("Propõe vincular uma intimação recebida a um processo. Exige confirmação."),
         params_model=LinkPublicationInput,
         preview=_preview_link_publication,
         execute=_execute_link_publication,
     ),
     WriteToolDef(
         name="apply_workflow",
-        description="Propõe aplicar um workflow a um processo, criando as tarefas dele.",
+        description=(
+            "Propõe aplicar um workflow a um processo, criando as tarefas dele. Exige confirmação."
+        ),
         params_model=ApplyWorkflowInput,
         preview=_preview_apply_workflow,
         execute=_execute_apply_workflow,

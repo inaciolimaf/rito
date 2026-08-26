@@ -336,3 +336,39 @@ class AiInsight(TenantMixin, Base):
     )
     dismissed_at: Mapped[datetime | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AiBudget(TenantMixin, Base):
+    """Teto mensal de gasto com IA (spec 090, alvo 2).
+
+    `monthly_limit_usd` nulo é "sem teto" — o estado de quem nunca configurou. O alerta
+    de 80% só faz sentido com teto; sem ele, o painel mostra o gasto e não bloqueia nada.
+    """
+
+    __tablename__ = "ai_budgets"
+
+    monthly_limit_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), default=None)
+    alert_pct: Mapped[int] = mapped_column(SmallInteger(), default=80, server_default=text("80"))
+    # Desligar o bloqueio mantém o alerta: há escritório que prefere estourar a parar.
+    is_blocking: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
+    )
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+class AiCacheEntry(TenantMixin, Base):
+    """Resposta reaproveitada para entrada idêntica (spec 090, alvo 2).
+
+    A chave é o hash de (feature, modelo, mensagens) — o prompt em si não é guardado,
+    porque guardar conteúdo exige opt-in (regra 13 da 081) e cache não é opt-in.
+    """
+
+    __tablename__ = "ai_cache"
+
+    feature_key: Mapped[str]
+    cache_key: Mapped[str]
+    model: Mapped[str]
+    response: Mapped[dict[str, Any]] = mapped_column(JSONB(), default=dict)
+    expires_at: Mapped[datetime]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

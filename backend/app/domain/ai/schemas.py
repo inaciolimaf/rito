@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -145,3 +146,29 @@ class StepResponse(BaseModel):
 class StepListResponse(BaseModel):
     items: list[StepResponse]
     total: int
+
+
+class BudgetRequest(BaseModel):
+    """Teto mensal do escritório (spec 090, alvo 2). Nulo é 'sem teto'."""
+
+    monthly_limit_usd: Decimal | None = Field(default=None, ge=0, le=1_000_000)
+    alert_pct: int = Field(default=80, ge=1, le=100)
+    is_blocking: bool = True
+
+
+class SpendingAnomalyResponse(BaseModel):
+    feature_key: str
+    today_usd: float
+    daily_average_usd: float
+    factor: float
+
+
+class BudgetResponse(BaseModel):
+    monthly_limit_usd: float | None
+    spent_usd: float
+    used_pct: float | None
+    alert_pct: int
+    is_blocking: bool
+    is_alerting: bool
+    is_exceeded: bool
+    anomalies: list[SpendingAnomalyResponse]

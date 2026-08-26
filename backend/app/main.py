@@ -10,6 +10,7 @@ from app import __version__
 from app.core.config import get_settings
 from app.core.db import create_engine, create_session_factory
 from app.core.errors import (
+    handle_budget_exceeded,
     handle_http_exception,
     handle_unhandled_exception,
     handle_validation_error,
@@ -24,6 +25,7 @@ from app.domain.aggregates.router import router as aggregates_router
 from app.domain.ai.actions_router import router as ai_actions_router
 from app.domain.ai.analytics_router import lawsuits_router as ai_lawsuit_actions_router
 from app.domain.ai.analytics_router import router as ai_analytics_router
+from app.domain.ai.budget import BudgetExceededError
 from app.domain.ai.copilot_router import router as ai_copilot_router
 from app.domain.ai.editor_router import router as ai_editor_router
 from app.domain.ai.router import router as ai_router
@@ -102,6 +104,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestIDMiddleware)
 
+    app.add_exception_handler(BudgetExceededError, handle_budget_exceeded)
     app.add_exception_handler(RequestValidationError, handle_validation_error)
     app.add_exception_handler(StarletteHTTPException, handle_http_exception)
     app.add_exception_handler(Exception, handle_unhandled_exception)

@@ -7,6 +7,12 @@ do tenant ou do padrão do ambiente (regra 2).
 """
 
 from dataclasses import dataclass
+from typing import Literal
+
+# Spec 090, alvo 2: "econômica" é a feature em que o modelo mais caro não muda o
+# resultado — classificar um ato processual e resumir três parágrafos. O escritório
+# continua podendo trocar o modelo na UI; isto é só o padrão de quem nunca trocou.
+FeatureTier = Literal["padrao", "economico"]
 
 
 @dataclass(frozen=True)
@@ -14,6 +20,7 @@ class AiFeature:
     key: str
     label: str
     description: str
+    tier: FeatureTier = "padrao"
 
 
 AI_FEATURES: tuple[AiFeature, ...] = (
@@ -26,6 +33,7 @@ AI_FEATURES: tuple[AiFeature, ...] = (
         key="publication_summary",
         label="Resumo de intimações",
         description="Resumo e classificação de intimação recebida (spec 086).",
+        tier="economico",
     ),
     AiFeature(
         key="petition_draft",
@@ -45,3 +53,4 @@ AI_FEATURES: tuple[AiFeature, ...] = (
 )
 
 FEATURE_KEYS: frozenset[str] = frozenset(feature.key for feature in AI_FEATURES)
+FEATURES_BY_KEY: dict[str, AiFeature] = {feature.key: feature for feature in AI_FEATURES}

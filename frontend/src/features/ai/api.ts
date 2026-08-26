@@ -86,3 +86,36 @@ export async function saveFeatureConfig(payload: FeatureConfigPayload): Promise<
 export async function getAiUsage(groupBy: "feature" | "model" | "status"): Promise<UsageData> {
   return apiRequest<UsageData>(`/api/v1/ai/usage?group_by=${groupBy}`);
 }
+
+/** Teto mensal de gasto com IA (spec 090, alvo 2). Limite nulo é "sem teto". */
+export interface SpendingAnomalyData {
+  feature_key: string;
+  today_usd: number;
+  daily_average_usd: number;
+  factor: number;
+}
+
+export interface BudgetData {
+  monthly_limit_usd: number | null;
+  spent_usd: number;
+  used_pct: number | null;
+  alert_pct: number;
+  is_blocking: boolean;
+  is_alerting: boolean;
+  is_exceeded: boolean;
+  anomalies: SpendingAnomalyData[];
+}
+
+export interface BudgetPayload {
+  monthly_limit_usd: string | null;
+  alert_pct: number;
+  is_blocking: boolean;
+}
+
+export async function getAiBudget(): Promise<BudgetData> {
+  return apiRequest<BudgetData>("/api/v1/ai/budget");
+}
+
+export async function saveAiBudget(payload: BudgetPayload): Promise<BudgetData> {
+  return apiRequest<BudgetData>("/api/v1/ai/budget", { method: "PUT", body: payload });
+}

@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 206,
+  "last_measured_wall_clock_seconds": 202,
   "last_measured_at": "2026-08-26",
   "specs": {
     "001": {
@@ -302,6 +302,10 @@
     "089": {
       "wall_clock_seconds": 206,
       "notes": "1221 backend (1192 da 088 + 29 novos: 20 unitários do guarda-corpo de SQL (uma instrução só, SELECT por tipo de nó da AST, allowlist cobrindo CTE e subconsulta, coluna/relação financeira, LIMIT imposto, e o caso que prova parser != regex: `stage = 'delete me'` passa) e 9 de integração (fluxo em duas fases com o guardrail rodando de novo na confirmação, INSERT injetado à mão barrado PELA conexão somente-leitura, consulta recusada ficando registrada, next-best-action decidida por regra, insights e dispensa por 30 dias)) + 245 frontend (241 + 4 do AskMetricsBox/SqlPreview). A visão `ai_allowed_metrics` entrou com `security_invoker = true`."
+    },
+    "090": {
+      "wall_clock_seconds": 202,
+      "notes": "1253 backend (1221 da 089 + 32 novos: 17 de orçamento e cache (bloqueio em 100% ANTES de chamar o modelo, alerta em 80% sem bloquear, bloqueio desligado mantendo o alerta, mês anterior não conta, teto por escritório, cache opt-in e por tenant, anomalia de 3x contra a média da própria feature, estreia não é anomalia, rotas GET/PUT, 403 do colaborador, 409 com os números, tier econômico, configuração vencendo o tier e o teto de tamanho de prompt), 10 de segurança (injeção chegando como mensagem `tool`, regra 4 em todo prompt versionado, injeção obedecida parando na confirmação humana, recorte de ferramentas do Colaborador, analítica de ADMINISTRADOR, o grep de escrita fora de ai_actions virado teste, aviso de confirmação em toda ferramenta de escrita, allowlist sem coluna de dado pessoal, allowlist correspondendo ao banco e privilégios de ai_audit_log) e 5 de contrato de grafo (registro não vazio, feature conhecida, teto de passos e timeout sobre os grafos REAIS, e os 25 passos de produção)) + 251 frontend (245 + 6 do AiBudgetPanel). Backend 202 s com `-n 2`, dentro do gate de 300 s do CLAUDE.md — a meta de 90 s da própria spec 090 não foi atingida e está explicada nas Descobertas. Nenhum teste de 081-089 precisou de edicao."
     }
   }
 }

@@ -10,14 +10,17 @@ import { ProductivityPanel } from "@/features/reports/ProductivityPanel";
 import { ReportPage } from "@/features/reports/ReportPage";
 import { TimeFeesPanel } from "@/features/reports/TimeFeesPanel";
 import { VintagePanel } from "@/features/reports/VintagePanel";
+import { InsightsPanel } from "@/features/reports/InsightsPanel";
 
-type PanelTab = "agility" | "productivity" | "tabular" | "bi";
+type PanelTab = "agility" | "productivity" | "tabular" | "bi" | "insights";
 
 const PANEL_TABS: { value: PanelTab; label: string }[] = [
   { value: "agility", label: "Agilidade" },
   { value: "productivity", label: "Produtividade" },
   { value: "tabular", label: "Relatórios" },
   { value: "bi", label: "BI" },
+  // Spec 089: perguntar em português e ver o que o sistema já percebeu.
+  { value: "insights", label: "Insights" },
 ];
 
 const BI_TAB_VALUES = ["pipeline", "vintage", "time-fees", "costs"];
@@ -35,7 +38,7 @@ export function ReportsPage(): JSX.Element {
   const tab: PanelTab =
     requestedBiTab !== null && BI_TAB_VALUES.includes(requestedBiTab)
       ? "bi"
-      : requestedTab === "productivity" || requestedTab === "tabular"
+      : requestedTab === "productivity" || requestedTab === "tabular" || requestedTab === "insights"
         ? requestedTab
         : requestedTab === "agility"
           ? "agility"
@@ -58,6 +61,7 @@ export function ReportsPage(): JSX.Element {
   return (
     <div className="space-y-4">
       <TabBar items={PANEL_TABS} active={tab} ariaLabel="Painel" onSelect={handleSelect} />
+      {tab === "insights" && <InsightsPanel />}
       {tab === "agility" && <AgilityPanel />}
       {tab === "productivity" && <ProductivityPanel />}
       {tab === "tabular" && <ReportPage />}

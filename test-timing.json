@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 195,
+  "last_measured_wall_clock_seconds": 206,
   "last_measured_at": "2026-08-26",
   "specs": {
     "001": {
@@ -298,6 +298,10 @@
     "088": {
       "wall_clock_seconds": 195,
       "notes": "1192 backend (1183 da 087 + 9 de integração do editor: continuação a partir do contexto por streaming, reescrita só da seleção, os 4 tons com saída distinta, checklist estruturado com os 5 eixos e documento intocado no banco, citação inventada removida, corte de contexto em 2.000/500 caracteres, seleção acima de 5.000 virando 422, feedback gravando `accepted` e o evento de erro sem chave) + 241 frontend (233 da 087 + 8: menu `/`, Tab/Esc no fantasma, Ctrl+Z desfazendo a sugestão inteira com o Editor real do TipTap, barra de seleção e o painel de revisão). `AiRunner.stream()` nasceu aqui — as três ações sem ferramenta passam direto pelo provider."
+    },
+    "089": {
+      "wall_clock_seconds": 206,
+      "notes": "1221 backend (1192 da 088 + 29 novos: 20 unitários do guarda-corpo de SQL (uma instrução só, SELECT por tipo de nó da AST, allowlist cobrindo CTE e subconsulta, coluna/relação financeira, LIMIT imposto, e o caso que prova parser != regex: `stage = 'delete me'` passa) e 9 de integração (fluxo em duas fases com o guardrail rodando de novo na confirmação, INSERT injetado à mão barrado PELA conexão somente-leitura, consulta recusada ficando registrada, next-best-action decidida por regra, insights e dispensa por 30 dias)) + 245 frontend (241 + 4 do AskMetricsBox/SqlPreview). A visão `ai_allowed_metrics` entrou com `security_invoker = true`."
     }
   }
 }

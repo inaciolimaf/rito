@@ -14,6 +14,10 @@ export class ApiError extends Error {
   readonly type: string;
   readonly instance: string;
   readonly errors?: unknown[];
+  /** Membros de extensão do problem+json (RFC 7807 §3.2): o backend usa isso para
+   * mandar dado estruturado junto do erro — o primeiro caso é a dúvida do text-to-SQL
+   * (spec 089, regra 1). Sem guardar, a informação chegaria e seria descartada aqui. */
+  readonly extensions: Record<string, unknown>;
 
   constructor(problem: ProblemDetail) {
     super(problem.detail);
@@ -23,6 +27,12 @@ export class ApiError extends Error {
     this.type = problem.type;
     this.instance = problem.instance;
     this.errors = problem.errors;
+    const standard = new Set(["type", "title", "status", "detail", "instance", "errors"]);
+    this.extensions = Object.fromEntries(
+      Object.entries(problem as unknown as Record<string, unknown>).filter(
+        ([key]) => !standard.has(key),
+      ),
+    );
   }
 }
 

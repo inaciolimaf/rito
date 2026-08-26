@@ -295,3 +295,44 @@ class EditorAiAction(TenantMixin, Base):
     tokens_used: Mapped[int | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
+
+class AiSqlQuery(TenantMixin, Base):
+    """Uma pergunta em linguagem natural e o que o guardrail decidiu (spec 089 §4).
+
+    A linha existe mesmo quando a consulta foi RECUSADA — e é essa que mais interessa:
+    é onde aparece alguém (ou algum modelo) tentando ler o que não devia.
+    """
+
+    __tablename__ = "ai_sql_queries"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    question: Mapped[str]
+    generated_sql: Mapped[str]
+    was_allowed: Mapped[bool]
+    rejection_reason: Mapped[str | None] = mapped_column(default=None)
+    row_count: Mapped[int | None] = mapped_column(default=None)
+    duration_ms: Mapped[int | None] = mapped_column(default=None)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AiInsight(TenantMixin, Base):
+    """Um aviso do job diário (spec 089 §4).
+
+    `subject_type`/`subject_id` são obrigatórios na prática (regra 12): alerta que não
+    aponta um registro vira ruído que ninguém sabe o que fazer com.
+    """
+
+    __tablename__ = "ai_insights"
+
+    kind: Mapped[str]
+    severity: Mapped[str]
+    subject_type: Mapped[str | None] = mapped_column(default=None)
+    subject_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), default=None)
+    title: Mapped[str]
+    body: Mapped[str]
+    suggested_action: Mapped[dict[str, Any] | None] = mapped_column(JSONB(), default=None)
+    dismissed_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
+    )
+    dismissed_at: Mapped[datetime | None] = mapped_column(default=None)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

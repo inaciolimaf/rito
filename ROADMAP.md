@@ -388,7 +388,7 @@ Resumo, classificação do tipo de ato, **cálculo de prazo** (dias úteis, feri
 Continuar escrevendo, reescrever trecho, ajustar tom, revisar peça com checklist, sugerir fundamentação.
 **Aceite:** ações aplicam no documento com desfazer. **t:** 6 s. **Deps:** 087
 
-### ⬜ 089 — IA analítica
+### ✅ 089 — IA analítica
 Text-to-SQL **guardrailed** (allowlist de tabelas/colunas, somente leitura, limite de linhas) para métricas; next-best-action por processo; detecção de risco (prazo, estagnação, inadimplência).
 **Aceite:** SQL fora da allowlist é bloqueado; injeção não escapa. **t:** 6 s. **Deps:** 085, 078
 

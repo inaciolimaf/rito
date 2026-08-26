@@ -1,7 +1,7 @@
 # 089 — IA analítica
 
 **Fase:** 8 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 085, 078 · **Status:** ⬜ pendente
+**Depende de:** 085, 078 · **Status:** ✅ concluída
 
 ---
 
@@ -127,6 +127,48 @@ Camadas, todas obrigatórias:
 > As quatro camadas de guardrail marcadas precisam de teste independente. Um guardrail que
 > depende de outro para funcionar não é guardrail.
 
-## 10. Definição de pronto
+## 10. Descobertas
 
-Checklist padrão · 4 camadas de guardrail testadas isoladamente · SQL sempre visível · Commit `feat(089): IA analítica`
+- **A view `ai_allowed_metrics` precisou de `security_invoker = true`.** Sem isso ela
+  rodaria com o RLS do DONO (o superusuário da migration) e devolveria o banco inteiro
+  para qualquer tenant — o text-to-SQL viraria a maior porta de vazamento do produto.
+  É a mesma armadilha que a auditoria da 080 mapeou para views; aqui ela apareceria com
+  consequência máxima.
+- **A quarta camada precisou de um SAVEPOINT.** O Postgres não deixa voltar de
+  `transaction_read_only = on` para read-write dentro da mesma transação — a primeira
+  versão executava a consulta e quebrava ao tentar restaurar. A saída é rodar a consulta
+  dentro de um savepoint e dar `ROLLBACK TO`: o GUC volta ao que era, e nada se perde
+  porque o que rodou ali foi um SELECT com as linhas já em memória.
+- **Guardrail com parser é diferente de guardrail com regex, e o teste mostra os dois
+  lados**: `SELECT ... WHERE stage = 'delete me'` PASSA (é consulta legítima com a
+  palavra no meio de um texto) e `SELECT 1; DROP TABLE users` é barrado por ter dois
+  comandos. Nenhuma das duas coisas um regex acerta sem sorte.
+- **A allowlist é de relações, não de tabelas** — e a varredura é na árvore inteira
+  (`find_all(exp.Table)`), o que faz a camada 3 (subquery/CTE em tabela proibida) não
+  precisar de código próprio: uma tabela escondida três níveis abaixo aparece na mesma
+  lista. Os testes atacam CTE, subquery no WHERE e subquery na projeção, separadamente.
+- **A tentativa recusada precisa de commit explícito**, senão o rollback da request
+  apaga justamente o registro que interessa auditar (regra 8 do §5). Mesmo idioma da 081
+  e da 084 — é a terceira vez que essa armadilha aparece, e agora está comentada nos três
+  lugares.
+- **`next-best-action` não usa modelo nenhum.** Os cinco sinais são lidos por SQL e a
+  recomendação sai de uma cadeia de regras, na ordem da urgência real do escritório:
+  prazo vencido, prazo próximo, processo parado, processo sem tarefa, dinheiro em atraso.
+  Fica igual toda vez que os dados forem iguais, custa zero token e é testável — três
+  coisas que a versão com LLM não teria.
+- **Insights também são determinísticos** (regra 8): job diário, quatro consultas, sem
+  modelo. Um aviso que muda de texto todo dia sem nada ter mudado no escritório ensina
+  as pessoas a ignorá-lo.
+- **`ApiError` passou a guardar os membros de extensão do problem+json.** A dúvida do
+  text-to-SQL (regra 1) chega como extensão `clarification`, seguindo a convenção que o
+  `app/core/errors.py` já tinha — o cliente é que estava descartando tudo que não fosse
+  campo padrão.
+- **`sqlglot` entrou como dependência.** É a única forma de cumprir "parser de AST, não
+  regex" sem escrever um parser de SQL — e a spec é explícita sobre isso.
+
+## 11. Definição de pronto
+
+- [x] Checklist padrão
+- [x] 4 camadas de guardrail testadas isoladamente (3 estáticas + a conexão read-only)
+- [x] SQL sempre visível — duas etapas, e o guardrail roda de novo na confirmação
+- [x] Commit `feat(089): IA analítica`

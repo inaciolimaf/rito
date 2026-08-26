@@ -95,6 +95,12 @@ celery_app.conf.beat_schedule = {
     },
     # Spec 084, regra 4: a proposta de escrita expira em 1 h — a varredura é de 10 em
     # 10 min porque a janela é curta.
+    # Spec 086, regra 10: leitura automática das intimações novas, de hora em hora, só
+    # para quem ligou a opção.
+    "publication-analysis": {
+        "task": "app.workers.publication_analysis.analyze_pending",
+        "schedule": crontab(minute=40),
+    },
     "ai-actions-expire": {
         "task": "app.workers.ai_threads.expire_actions",
         "schedule": crontab(minute="*/10"),

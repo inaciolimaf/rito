@@ -24,6 +24,8 @@ import { LinkToLawsuitDialog } from "@/features/publications/LinkToLawsuitDialog
 import { PublicationDetailDrawer } from "@/features/publications/PublicationDetailDrawer";
 import { UnlinkedBanner } from "@/features/publications/UnlinkedBanner";
 import { useAuth } from "@/providers/AuthProvider";
+import { AutoReadToggle } from "@/features/publications/AutoReadToggle";
+import { setAutoReadPublications } from "@/features/publications/analysis";
 
 const FILTER_FIELDS: FilterFieldDef[] = [
   {
@@ -68,6 +70,11 @@ export function PublicationListPage(): JSX.Element {
     queryFn: () => getPublicationMetrics(7),
     enabled: canSeeMetrics && !hasNoTermConfigured,
   });
+
+  // Spec 086, regra 10: a leitura automática é decisão do escritório e vive junto da
+  // lista, onde a consequência dela aparece.
+  const [autoRead, setAutoRead] = React.useState(false);
+  const [savingAutoRead, setSavingAutoRead] = React.useState(false);
 
   const { values, setValue } = useFilters(FILTER_FIELDS);
   const dateFrom = typeof values.date_from === "string" ? values.date_from : undefined;
@@ -159,6 +166,19 @@ export function PublicationListPage(): JSX.Element {
     <ListPageLayout
       title="Intimações"
       filterFields={FILTER_FIELDS}
+      dashboard={
+        canSeeMetrics ? (
+          <AutoReadToggle
+            enabled={autoRead}
+            disabled={savingAutoRead}
+            onChange={(enabled) => {
+              setAutoRead(enabled);
+              setSavingAutoRead(true);
+              void setAutoReadPublications(enabled).finally(() => setSavingAutoRead(false));
+            }}
+          />
+        ) : undefined
+      }
       actions={
         <>
           <Button variant="outline" onClick={() => void listPage.exportAs("xlsx")}>

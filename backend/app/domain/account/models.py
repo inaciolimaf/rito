@@ -56,5 +56,10 @@ class Account(TenantMixin, Base):
     )
     # Spec 073, regra 1: desligado é o padrão — LGPD, o escritório decide rastrear.
     track_access_logs: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    # Spec 086, regra 10: análise automática de intimação por IA — desligada por padrão,
+    # porque cada análise custa tokens e ninguém deve descobrir isso na fatura.
+    ai_auto_read_publications: Mapped[bool] = mapped_column(
+        default=False, server_default=text("false")
+    )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

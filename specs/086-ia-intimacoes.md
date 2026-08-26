@@ -1,7 +1,7 @@
 # 086 — IA em intimações
 
 **Fase:** 8 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 085, 045 · **Status:** ⬜ pendente
+**Depende de:** 085, 045 · **Status:** ✅ concluída
 
 ---
 
@@ -114,8 +114,40 @@ RLS ligado. Migration `086_publication_analyses.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **O modelo lê, o código conta.** Esta é a decisão que carrega a spec. O prompt proíbe
+  o modelo de calcular a data final: ele devolve só "15 dias úteis", e
+  `app/domain/publications/deadline.py` faz a conta com os feriados REAIS do banco
+  (spec 038). Contar dia útil é aritmética — e aritmética a gente testa em tabela, não
+  confia a um modelo que às vezes acerta. A tabela exigida pela spec (5/15/30 dias,
+  sexta-feira, véspera de feriado, virada de ano) rodou em 0,06 s e já pegou um erro
+  meu de contagem na revisão.
+- **O parser desconfia do modelo.** JSON embrulhado em ```json, texto puro, resposta
+  vazia: nada disso vira exceção. O pior caso aceitável é uma análise sem prazo (regra
+  5); uma intimação que some da fila porque o parser quebrou, não.
+- **`should_prefill_deadline` é campo da API, não regra do frontend.** O corte de 0,8
+  (regra 4) mora no backend e chega decidido — se ficasse no componente, a próxima tela
+  que mostrasse o prazo (e-mail, app, relatório) teria que reimplementar o mesmo corte
+  para chegar à mesma conclusão.
+- **`human_correction = {}` é informação.** Revisar sem corrigir nada significa "a IA
+  acertou", e isso é tão importante quanto a correção para medir qualidade ao longo do
+  tempo (regra 11). Por isso o campo é preenchido com objeto vazio, não deixado nulo.
+- **Reanálise preserva as correções em `previous_corrections`** (regra 13): o campo não
+  estava no DDL da spec, mas "substituir preservando o histórico" precisa de algum lugar
+  para o histórico. A análise nova volta a `reviewed_at = NULL` — quem confirmou a
+  anterior confirmou aquele texto, não este.
+- **A sugestão de tarefa erra para o lado seguro.** Sem correspondência no catálogo do
+  escritório, cai em "Analisar intimação" (regra 8) em vez de escolher um tipo
+  "parecido" — tipo parecido manda a tarefa para a fila errada e ninguém percebe.
+- **Leitura automática é opt-in de verdade**: a coluna nasce `false`, o teste começa
+  provando que a varredura não faz nada, e só depois liga a opção. Análise custa token,
+  e ninguém deve descobrir isso na fatura.
+- **Intimação sem processo vinculado não vira tarefa**, mesmo aprovada: não há onde
+  pendurá-la. A revisão fica registrada e o vínculo continua sendo trabalho humano
+  (spec 045) — inventar um processo para acomodar a tarefa seria pior.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Prazo nunca aplicado sem humano · Raciocínio sempre visível · Commit `feat(086): IA em intimações`
+- [x] Checklist padrão
+- [x] Prazo nunca aplicado sem humano — teste dedicado: analisar não cria tarefa nenhuma
+- [x] Raciocínio sempre visível — `reasoning` na API e ao lado do campo na UI
+- [x] Commit `feat(086): IA em intimações`

@@ -46,6 +46,7 @@ from app.domain.notifications.router import router as notifications_router
 from app.domain.partnerships.router import lawsuit_sharing_router
 from app.domain.partnerships.router import router as partnerships_router
 from app.domain.posts.router import router as posts_router
+from app.domain.publications.analysis_router import router as publication_analysis_router
 from app.domain.publications.router import router as publications_router
 from app.domain.reports.router import router as reports_router
 from app.domain.schedule.router import ical_router
@@ -140,6 +141,9 @@ def create_app() -> FastAPI:
     app.include_router(workflows_router, prefix="/api/v1")
     app.include_router(goals_router, prefix="/api/v1")
     app.include_router(taskscore_router, prefix="/api/v1")
+    # Análise por IA antes do router de intimações: `/publications/analysis/estimate`
+    # perderia para `/publications/{publication_id}` por ordem de registro.
+    app.include_router(publication_analysis_router, prefix="/api/v1")
     app.include_router(publications_router, prefix="/api/v1")
     app.include_router(monitored_terms_router, prefix="/api/v1")
     app.include_router(integration_alerts_router, prefix="/api/v1")

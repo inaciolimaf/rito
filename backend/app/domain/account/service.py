@@ -68,6 +68,16 @@ class AccountService:
         account.updated_at = datetime.now(UTC)
         return account
 
+    async def update_ai_settings(self, *, auto_read_publications: bool) -> Account:
+        """Spec 086, regra 10: leitura automática de intimação. Desligar não apaga as
+        análises já feitas — só para de gastar token com as próximas."""
+        account = await self.accounts.get_current()
+        if account is None:
+            raise AccountNotFoundError
+        account.ai_auto_read_publications = auto_read_publications
+        account.updated_at = datetime.now(UTC)
+        return account
+
     async def update_plan(self, plan: AccountPlan) -> Account:
         """Regra 12 (spec 063): troca de plano não mexe em documento já enviado, só
         no teto de novos uploads — por isso não há nada além de gravar o valor."""

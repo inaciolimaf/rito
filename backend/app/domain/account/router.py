@@ -12,6 +12,8 @@ from app.domain.account.schemas import (
     AccountPlanUpdateRequest,
     AccountResponse,
     AccountUpdateRequest,
+    AiSettingsRequest,
+    AiSettingsResponse,
     PublicationsSettingsResponse,
     PublicationsSettingsUpdateRequest,
 )
@@ -140,6 +142,24 @@ async def update_publications_settings(
     return PublicationsSettingsResponse(
         default_publications_user_id=account.default_publications_user_id
     )
+
+
+@router.put("/ai-settings")
+async def update_ai_settings(
+    payload: AiSettingsRequest,
+    current_user: User = Depends(require_role(UserRole.GESTOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    storage: FileStorage = Depends(get_file_storage),
+) -> AiSettingsResponse:
+    """Spec 086, regra 10: liga a leitura automática de intimações por IA."""
+    service = AccountService(session=session, storage=storage, tenant_id=current_user.tenant_id)
+    try:
+        account = await service.update_ai_settings(
+            auto_read_publications=payload.ai_auto_read_publications
+        )
+    except AccountNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Conta ainda não configurada.") from exc
+    return AiSettingsResponse(ai_auto_read_publications=account.ai_auto_read_publications)
 
 
 @router.put("/access-tracking")

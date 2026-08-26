@@ -3,6 +3,13 @@ import * as React from "react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { CancelledBadge } from "@/features/publications/CancelledBadge";
+import {
+  analyzePublication,
+  getPublicationAnalysis,
+  reviewPublicationAnalysis,
+  type ReviewPayload,
+} from "@/features/publications/analysis";
+import { PublicationAnalysisCard } from "@/features/publications/PublicationAnalysisCard";
 import { getPublication, markPublicationRead } from "@/features/publications/api";
 
 export interface PublicationDetailDrawerProps {
@@ -27,6 +34,34 @@ export function PublicationDetailDrawer({
     enabled: isOpen,
   });
 
+  // Spec 086: a leitura da IA fica ao lado do inteiro teor — nunca no lugar dele
+  // (regra 6). `retry: false` porque "ainda não analisada" é 404 e é um estado normal.
+  const { data: analysis, refetch: refetchAnalysis } = useQuery({
+    queryKey: ["publications", "analysis", publicationId],
+    queryFn: () => getPublicationAnalysis(publicationId as string),
+    enabled: isOpen,
+    retry: false,
+  });
+  const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+
+  async function handleAnalyze(): Promise<void> {
+    if (!publicationId) return;
+    setIsAnalyzing(true);
+    try {
+      await analyzePublication(publicationId);
+      await refetchAnalysis();
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  async function handleReview(payload: ReviewPayload): Promise<void> {
+    if (!publicationId) return;
+    await reviewPublicationAnalysis(publicationId, payload);
+    await refetchAnalysis();
+    await queryClient.invalidateQueries({ queryKey: ["publications"] });
+  }
+
   React.useEffect(() => {
     if (!publicationId || !publication || publication.is_read) return;
     void markPublicationRead(publicationId).then(() => {
@@ -45,6 +80,13 @@ export function PublicationDetailDrawer({
 
         {publication && (
           <div className="mt-4 space-y-4 text-sm">
+            <PublicationAnalysisCard
+              analysis={analysis ?? null}
+              isAnalyzing={isAnalyzing}
+              onAnalyze={() => void handleAnalyze()}
+              onReview={handleReview}
+            />
+
             <dl className="grid grid-cols-2 gap-2">
               <div>
                 <dt className="text-muted">Disponibilização</dt>

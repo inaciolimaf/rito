@@ -116,3 +116,13 @@ class AccessTrackingResponse(BaseModel):
 
 class AccessTrackingUpdateRequest(BaseModel):
     enabled: bool
+
+
+class AiSettingsRequest(BaseModel):
+    """Spec 086 §5."""
+
+    ai_auto_read_publications: bool
+
+
+class AiSettingsResponse(BaseModel):
+    ai_auto_read_publications: bool

@@ -372,7 +372,7 @@ Tool registry tipado: consultar processos, clientes, tarefas, agenda, financeiro
 Criar cliente/processo/tarefa, mudar etapa, criar lançamento. Fluxo obrigatório: propor → `AIActionPreview` → confirmar → executar → `ai_audit_log`.
 **Aceite:** nenhuma escrita ocorre sem confirmação; auditoria registra antes/depois. **t:** 6 s. **Deps:** 083
 
-### ⬜ 085 — Copiloto global
+### ✅ 085 — Copiloto global
 Chat lateral em todo o sistema, ciente da tela atual; streaming; histórico por usuário; sugestões contextuais; seleção de modelo.
 **Aceite:** pergunta sobre dados reais responde via tools. **t:** 8 s. **Deps:** 084
 

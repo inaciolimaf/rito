@@ -10,7 +10,7 @@ import logging
 import time
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -138,9 +138,13 @@ class AiRunner:
         provider: LLMProvider,
         *,
         catalog: Sequence[ModelInfo] | None = None,
+        model_override: str | None = None,
     ) -> None:
         self.session = session
         self.tenant_id = tenant_id
+        # Spec 085, regra 9: o usuário escolheu o modelo para AQUELA conversa. Fica
+        # acima da configuração da feature, e o uso é registrado com o modelo real.
+        self.model_override = model_override
         self.provider = provider
         self.configs = AiConfigService(session, tenant_id)
         self.usage = AiUsageRepository(session)
@@ -159,6 +163,8 @@ class AiRunner:
         feature = await self.configs.resolve(feature_key)
         if not feature.is_enabled:
             raise FeatureDisabledError(feature_key)
+        if self.model_override:
+            feature = replace(feature, model=self.model_override)
 
         started = time.monotonic()
         try:

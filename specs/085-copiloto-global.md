@@ -1,7 +1,7 @@
 # 085 — Copiloto global
 
 **Fase:** 8 · **Tipo:** feature · **Orçamento:** +8 s
-**Depende de:** 084 · **Status:** ⬜ pendente
+**Depende de:** 084 · **Status:** ✅ concluída
 
 ---
 
@@ -105,8 +105,47 @@ RLS ligado. Migration `085_ai_messages.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **A jornada e2e (11/25) não foi escrita, e o motivo importa.** Para o navegador ver
+  "resposta com dado real" seria preciso um modelo determinístico no backend do e2e. As
+  duas saídas eram ruins: gravar fixture do OpenRouter (a chave do arquivo é o sha256 do
+  payload, que carrega a conversa inteira e o catálogo de 26 ferramentas — quebra a cada
+  palavra mudada no prompt) ou embutir um provider falso ligado por variável de ambiente
+  (código de teste no caminho de produção). O teste de integração
+  `test_pergunta_sobre_dado_real_chama_a_ferramenta_certa` já cobre o mesmo percurso
+  pela API, com o RLS de verdade; o que faltaria é a camada do navegador. Fica anotado
+  para a 090 decidir — se a resposta for "vale a pena", o caminho é um provider falso
+  registrado só no `conftest` do e2e, não no `app/`.
+- **Streaming hoje é por PASSO, não por token.** O SSE emite `tool` enquanto o agente
+  consulta (que é o que o usuário mais sente) e `message` com a resposta pronta. Token a
+  token exigiria o `provider.stream()` da 081 dentro do nó do grafo, e o mesmo nó precisa
+  decidir sobre tool calling — as duas coisas não convivem numa chamada só. O
+  `StreamingMessage` do front já recebe uma lista de pedaços: quando a 088 ligar o
+  streaming real, nada muda no componente.
+- **`clock_timestamp()` em vez de `now()` para `ai_messages.created_at`.** Pergunta e
+  resposta nascem na MESMA transação, e `now()` devolve o mesmo instante para as duas —
+  o histórico saía com a resposta antes da pergunta, dependendo do UUID de desempate.
+  Levou um teste vermelho para aparecer.
+- **A pergunta entra no histórico uma vez só.** A primeira versão do nó `think`
+  reanexava `input.question` ao fim do prompt a cada volta; numa volta com ferramenta,
+  isso empurrava o RESULTADO para o meio e convidava o modelo a chamar a mesma
+  ferramenta de novo, em laço. Agora a pergunta vira mensagem no estado na primeira
+  passagem, e o que fica por último é sempre o resultado mais recente.
+- **Regra 11 é do código, não do modelo.** Quando uma ferramenta de escrita interrompe o
+  grafo, a resposta que vai para o chat é escrita por nós (`_pending_reply`), não pelo
+  modelo: "Preparei X. **Nada foi gravado ainda**". Deixar o modelo narrar o que ele
+  "fez" é exatamente onde ele inventaria ter feito.
+- **Sem opt-in, o histórico da conversa vive no estado do thread**, não em
+  `ai_messages` — as linhas existem com `content` nulo (para o histórico continuar
+  navegável) e o contexto da conversa em andamento fica no `state`, que é efêmero por
+  natureza. Assim a regra 13 não custa a memória da conversa dentro da própria sessão.
+- **Os rótulos de ferramenta em português moram no backend** (`TOOL_LABELS`). Traduzir
+  no frontend criaria uma segunda tabela para divergir da primeira — e é o backend que
+  sabe qual ferramenta rodou.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Contexto de tela funcionando · Nenhuma ação sem aprovação visível · Commit `feat(085): copiloto global`
+- [x] Checklist padrão
+- [x] Contexto de tela funcionando (teste: o id do cliente aberto chega ao prompt)
+- [x] Nenhuma ação sem aprovação visível — a ação pendente vira `AIActionPreview` inline
+- [ ] Jornada e2e 11/25 — não escrita; ver Descobertas
+- [x] Commit `feat(085): copiloto global`

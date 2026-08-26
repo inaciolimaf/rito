@@ -1,12 +1,6 @@
 import { apiRequest } from "@/lib/api";
 
-export type ActionStatus =
-  | "pending"
-  | "approved"
-  | "rejected"
-  | "executed"
-  | "failed"
-  | "expired";
+export type ActionStatus = "pending" | "approved" | "rejected" | "executed" | "failed" | "expired";
 
 export interface ActionChange {
   before?: unknown;

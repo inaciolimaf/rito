@@ -22,6 +22,7 @@ from app.domain.account.router import router as account_router
 from app.domain.action_groups.router import action_groups_router, lawsuit_types_router
 from app.domain.aggregates.router import router as aggregates_router
 from app.domain.ai.actions_router import router as ai_actions_router
+from app.domain.ai.copilot_router import router as ai_copilot_router
 from app.domain.ai.router import router as ai_router
 from app.domain.ai.threads_router import router as ai_threads_router
 from app.domain.attachments.router import router as attachments_router
@@ -148,6 +149,7 @@ def create_app() -> FastAPI:
     app.include_router(aggregates_router, prefix="/api/v1")
     app.include_router(ai_router, prefix="/api/v1")
     app.include_router(ai_actions_router, prefix="/api/v1")
+    app.include_router(ai_copilot_router, prefix="/api/v1")
     app.include_router(ai_threads_router, prefix="/api/v1")
 
     return app

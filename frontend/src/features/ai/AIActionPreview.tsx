@@ -80,9 +80,7 @@ export function AIActionPreview({
               }
             >
               <dt className="text-muted">{label(field)}</dt>
-              {!isNew && (
-                <dd className="text-muted line-through">{display(change.before)}</dd>
-              )}
+              {!isNew && <dd className="text-muted line-through">{display(change.before)}</dd>}
               <dd className="font-medium text-primary">{display(change.after)}</dd>
             </div>
           );

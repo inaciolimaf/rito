@@ -1,12 +1,6 @@
 import { apiRequest } from "@/lib/api";
 
-export type ThreadStatus =
-  | "pending"
-  | "running"
-  | "waiting_human"
-  | "done"
-  | "error"
-  | "cancelled";
+export type ThreadStatus = "pending" | "running" | "waiting_human" | "done" | "error" | "cancelled";
 
 export interface PendingActionData {
   kind: string;

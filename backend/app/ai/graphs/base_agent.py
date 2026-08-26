@@ -29,12 +29,49 @@ SYSTEM_PROMPT = (
 )
 
 
-def _messages_for(state: GraphState) -> list[Message]:
-    history = [Message(role="system", content=SYSTEM_PROMPT)]
+def _system_prompt(deps: GraphDeps) -> str:
+    """Regra 1 da 085: a tela em que o usuário está entra no prompt.
+
+    É o que faz "quanto esse cliente deve?" ser respondível na ficha do cliente sem o
+    usuário repetir de quem está falando — o agente resolve o "esse" pelo contexto e
+    confirma pelas ferramentas.
+    """
+    context = deps.context or {}
+    linhas = []
+    if context.get("route"):
+        linhas.append(f"- Tela atual: {context['route']}")
+    if context.get("lawsuit_id"):
+        linhas.append(f"- Processo aberto na tela: {context['lawsuit_id']}")
+    if context.get("customer_id"):
+        linhas.append(f"- Cliente aberto na tela: {context['customer_id']}")
+    if context.get("transaction_id"):
+        linhas.append(f"- Lançamento aberto na tela: {context['transaction_id']}")
+    if not linhas:
+        return SYSTEM_PROMPT
+    return (
+        f"{SYSTEM_PROMPT}\n\nContexto da tela (use para resolver referências como "
+        f"'este processo' ou 'esse cliente'):\n" + "\n".join(linhas)
+    )
+
+
+def _messages_for(state: GraphState, deps: GraphDeps) -> list[Message]:
+    history = [Message(role="system", content=_system_prompt(deps))]
     for raw in state.get("messages") or []:
-        history.append(Message(role=raw.get("role", "user"), content=raw.get("content", "")))
+        history.append(
+            Message(
+                role=raw.get("role", "user"),
+                content=raw.get("content") or "",
+                tool_call_id=raw.get("tool_call_id") or None,
+                name=raw.get("name"),
+            )
+        )
     pergunta = (state.get("input") or {}).get("question")
-    if pergunta:
+    # Só entra se ainda não estiver no histórico: numa volta com ferramenta, o modelo
+    # precisa ver o RESULTADO como última mensagem — repetir a pergunta no fim empurraria
+    # o resultado para o meio e convidaria o modelo a chamar a mesma ferramenta de novo.
+    if pergunta and not any(
+        item.role == "user" and item.content == str(pergunta) for item in history
+    ):
         history.append(Message(role="user", content=str(pergunta)))
     return history
 
@@ -51,13 +88,21 @@ class BaseAgentGraph:
         async def think(state: GraphState) -> dict[str, Any]:
             """Uma volta de conversa com o modelo. O `llm` é o `AiRunner` da 081: o
             modelo efetivo, o fallback e a contabilidade já vêm resolvidos de lá."""
+            # A pergunta entra no histórico UMA vez, aqui: nas voltas seguintes o que
+            # precisa estar por último é o resultado da ferramenta.
+            messages = [*(state.get("messages") or [])]
+            pergunta = (state.get("input") or {}).get("question")
+            if pergunta and not any(
+                item.get("role") == "user" and item.get("content") == str(pergunta)
+                for item in messages
+            ):
+                messages.append({"role": "user", "content": str(pergunta)})
             response = await deps.llm.run(
                 feature_key=deps.feature_key,
-                messages=_messages_for(state),
+                messages=_messages_for({**state, "messages": messages}, deps),
                 user_id=deps.user_id,
                 tools=list(deps.tools.values()) or None,
             )
-            messages = [*(state.get("messages") or [])]
             if response.content:
                 messages.append({"role": "assistant", "content": response.content})
             if response.tool_calls:

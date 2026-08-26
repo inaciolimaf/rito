@@ -105,6 +105,10 @@ class AiThread(TenantMixin, Base):
     # Regra 4: espera humana expira em 24 h — este é o relógio.
     waiting_since: Mapped[datetime | None] = mapped_column(default=None)
     finished_at: Mapped[datetime | None] = mapped_column(default=None)
+    # Spec 085, regra 9: modelo escolhido pelo usuário para ESTE thread (nulo = o da
+    # configuração da feature). Regra 7: arquivamento por inatividade.
+    model: Mapped[str | None] = mapped_column(default=None)
+    archived_at: Mapped[datetime | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -240,3 +244,29 @@ class AiAuditLog(TenantMixin, Base):
     model: Mapped[str]
     thread_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AiMessage(TenantMixin, Base):
+    """Uma mensagem da conversa com o copiloto (spec 085 §4).
+
+    `content` nulo não é erro: é o tenant que não pediu para guardar o texto (regra 13).
+    A linha continua servindo para reconstruir o histórico — quantas trocas houve, quais
+    ferramentas foram consultadas, que ações foram propostas.
+    """
+
+    __tablename__ = "ai_messages"
+
+    thread_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ai_threads.id", ondelete="CASCADE")
+    )
+    role: Mapped[str]
+    content: Mapped[str | None] = mapped_column(default=None)
+    tool_call_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ai_tool_calls.id", ondelete="SET NULL"), default=None
+    )
+    action_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ai_actions.id", ondelete="SET NULL"), default=None
+    )
+    # Ver a migration 085: `clock_timestamp()` porque pergunta e resposta nascem na
+    # mesma transação e precisam sair na ordem em que aconteceram.
+    created_at: Mapped[datetime] = mapped_column(server_default=text("clock_timestamp()"))

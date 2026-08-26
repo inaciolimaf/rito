@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/shell/GlobalSearch";
 import { NotificationBell } from "@/components/shell/NotificationBell";
 import { QuickAddMenu } from "@/components/shell/QuickAddMenu";
+import { CopilotPanel } from "@/features/ai/CopilotPanel";
 import { useAuth } from "@/providers/AuthProvider";
 
 export interface HeaderProps {
@@ -77,6 +78,8 @@ export function Header({ onToggleMobileSidebar, onNewTask }: HeaderProps): JSX.E
 
       <div className="ml-auto flex items-center gap-2">
         <QuickAddMenu onNewTask={onNewTask} />
+        {/* Spec 085, regra 10: o painel some sozinho quando não há IA configurada. */}
+        <CopilotPanel />
         <NotificationBell />
         <ThemeToggle />
         <UserMenu />

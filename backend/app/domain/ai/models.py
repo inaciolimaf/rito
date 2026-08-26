@@ -270,3 +270,28 @@ class AiMessage(TenantMixin, Base):
     # Ver a migration 085: `clock_timestamp()` porque pergunta e resposta nascem na
     # mesma transação e precisam sair na ordem em que aconteceram.
     created_at: Mapped[datetime] = mapped_column(server_default=text("clock_timestamp()"))
+
+
+class EditorAiAction(TenantMixin, Base):
+    """Uma ajuda de escrita dentro do editor (spec 088 §4).
+
+    `accepted` nulo é o estado normal logo depois de gerar: a sugestão está na tela em
+    cinza, esperando Tab ou Esc. Ele só vira booleano quando alguém decide — e é essa
+    proporção que diz se a feature está ajudando (regra 10).
+    """
+
+    __tablename__ = "editor_ai_actions"
+
+    template_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("templates.id", ondelete="CASCADE"), default=None
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    action: Mapped[str]
+    instruction: Mapped[str | None] = mapped_column(default=None)
+    input_excerpt: Mapped[str]
+    output: Mapped[str]
+    accepted: Mapped[bool | None] = mapped_column(default=None)
+    model: Mapped[str]
+    tokens_used: Mapped[int | None] = mapped_column(default=None)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+

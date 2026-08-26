@@ -9,7 +9,7 @@ ambiente. Nenhum provider concreto é importado (regra 1 + DIP): o service receb
 import logging
 import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
 
@@ -21,6 +21,7 @@ from app.domain.ai.features import FEATURE_KEYS
 from app.domain.ai.models import AiFeatureConfig, AiUsage
 from app.domain.ai.repository import AiFeatureConfigRepository, AiUsageRepository
 from app.integrations.openrouter.types import (
+    LLMChunk,
     LLMError,
     LLMProvider,
     LLMResponse,
@@ -237,6 +238,53 @@ class AiRunner:
         `AuthService.refresh()`, pelo mesmo motivo.
         """
         await self.session.commit()
+
+    async def stream(
+        self,
+        *,
+        feature_key: str,
+        messages: Sequence[Message],
+        user_id: uuid.UUID | None = None,
+    ) -> AsyncIterator[LLMChunk]:
+        """Streaming de token para as features que NÃO usam ferramenta (spec 088).
+
+        Sem fallback de propósito (regra 5 da 081 vale para `complete`, não aqui): uma
+        resposta já parcialmente entregue não pode ser refeita em outro modelo sem
+        contradizer o que a pessoa já leu na tela. Falha no meio vira evento de erro, e
+        o uso é registrado do mesmo jeito (regra 6 da 081).
+        """
+        feature = await self.configs.resolve(feature_key)
+        if not feature.is_enabled:
+            raise FeatureDisabledError(feature_key)
+        started = time.monotonic()
+        recebido = 0
+        erro: str | None = None
+        try:
+            async for chunk in self.provider.stream(
+                messages=messages,
+                model=feature.model,
+                temperature=feature.temperature,
+                max_tokens=feature.max_tokens,
+            ):
+                if chunk.kind == "chunk" and chunk.content:
+                    recebido += len(chunk.content)
+                if chunk.kind == "error":
+                    erro = chunk.error
+                yield chunk
+        finally:
+            await self._record(
+                feature=feature,
+                model=feature.model,
+                status=STATUS_ERROR if erro else STATUS_OK,
+                # O protocolo só manda o uso no fim, e nem sempre manda: sem número
+                # confiável, estimar por caractere é melhor que gravar zero.
+                usage=Usage(completion_tokens=recebido // 4),
+                latency_ms=_elapsed_ms(started),
+                user_id=user_id,
+                error=erro,
+                messages=messages,
+                response=None,
+            )
 
     async def _call(
         self,

@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 246,
+  "last_measured_wall_clock_seconds": 195,
   "last_measured_at": "2026-08-26",
   "specs": {
     "001": {
@@ -294,6 +294,10 @@
     "087": {
       "wall_clock_seconds": 246,
       "notes": "1183 backend (1165 da 086 + 18 novos: 5 unitários do guarda-corpo de citação e 13 de integração (catálogo dos 19 agentes, contexto por ferramenta, modelo do escritório como estrutura, estrutura padrão, saída HTML, citação inventada removida, precedência das instruções, modelo/tokens registrados, agente desabilitado, prompt editável virando cópia do escritório e restaurável, minuta não salva sozinha, timeout claro)) + 233 frontend (227 + 5 do GeneratedBriefPreview/GenerationProgress + 1). Backend 246 s com `-n 2` disputando CPU com o vitest; medições isoladas ficaram em ~190 s."
+    },
+    "088": {
+      "wall_clock_seconds": 195,
+      "notes": "1192 backend (1183 da 087 + 9 de integração do editor: continuação a partir do contexto por streaming, reescrita só da seleção, os 4 tons com saída distinta, checklist estruturado com os 5 eixos e documento intocado no banco, citação inventada removida, corte de contexto em 2.000/500 caracteres, seleção acima de 5.000 virando 422, feedback gravando `accepted` e o evento de erro sem chave) + 241 frontend (233 da 087 + 8: menu `/`, Tab/Esc no fantasma, Ctrl+Z desfazendo a sugestão inteira com o Editor real do TipTap, barra de seleção e o painel de revisão). `AiRunner.stream()` nasceu aqui — as três ações sem ferramenta passam direto pelo provider."
     }
   }
 }

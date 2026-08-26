@@ -25,6 +25,7 @@ import * as React from "react";
 
 import { VariablePicker } from "@/features/templates/VariablePicker";
 import { cn } from "@/lib/utils";
+import { EditorAiAssistant } from "@/features/templates/EditorAiAssistant";
 
 const TEXT_COLORS = ["#111827", "#dc2626", "#2563eb", "#16a34a", "#ca8a04"];
 
@@ -215,11 +216,19 @@ function Toolbar({ editor }: { editor: Editor }): JSX.Element {
 export interface TemplateEditorProps {
   content: string;
   onChange: (html: string) => void;
+  /** Spec 088: id do modelo em edição e processo de contexto, quando houver. */
+  templateId?: string;
+  lawsuitId?: string;
 }
 
 /** Editor rico do corpo do modelo (spec 065) — cabeçalho/rodapé/marca d'água ficam
  * fora daqui (regra 1), são campos de texto próprios em `TemplateEditorPage`. */
-export function TemplateEditor({ content, onChange }: TemplateEditorProps): JSX.Element | null {
+export function TemplateEditor({
+  content,
+  onChange,
+  templateId,
+  lawsuitId,
+}: TemplateEditorProps): JSX.Element | null {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -247,6 +256,8 @@ export function TemplateEditor({ content, onChange }: TemplateEditorProps): JSX.
     <div className="rounded border border-default bg-surface">
       <Toolbar editor={editor} />
       <EditorContent editor={editor} />
+      {/* Spec 088: a assistência mora ao lado do texto, nunca por cima dele. */}
+      <EditorAiAssistant editor={editor} templateId={templateId} lawsuitId={lawsuitId} />
     </div>
   );
 }

@@ -24,6 +24,12 @@ export function getRefreshToken(): string | null {
 // O backend exige X-Tenant-Id em /auth/refresh e /auth/logout (spec 004: pré-autenticação
 // sempre resolve o tenant pelo header, nunca pelo corpo) — sem persistir isso ao lado do
 // refresh token, o refresh em silêncio ao carregar a página falha com 400.
+/** Token de acesso corrente, para quem precisa montar a requisição na mão — hoje só o
+ * streaming SSE do editor (spec 088), que é POST e não passa pelo `apiRequest`. */
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
 export function getStoredTenantId(): string | null {
   return localStorage.getItem(TENANT_ID_KEY);
 }

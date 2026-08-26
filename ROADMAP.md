@@ -384,7 +384,7 @@ Resumo, classificação do tipo de ato, **cálculo de prazo** (dias úteis, feri
 19 agentes por área do direito; coletam contexto por tool calling; geram peça no editor; usam modelos do escritório como base.
 **Aceite:** agente produz peça com dados reais do processo. **t:** 7 s. **Deps:** 086, 066
 
-### ⬜ 088 — IA no editor
+### ✅ 088 — IA no editor
 Continuar escrevendo, reescrever trecho, ajustar tom, revisar peça com checklist, sugerir fundamentação.
 **Aceite:** ações aplicam no documento com desfazer. **t:** 6 s. **Deps:** 087
 

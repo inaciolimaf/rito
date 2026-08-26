@@ -380,7 +380,7 @@ Chat lateral em todo o sistema, ciente da tela atual; streaming; histórico por 
 Resumo, classificação do tipo de ato, **cálculo de prazo** (dias úteis, feriados, base `data_disponibilizacao`), tarefa sugerida com responsável e data; leitura automática opcional.
 **Aceite:** prazo calculado confere em casos de fixture; sugestão sempre revisável. **t:** 6 s. **Deps:** 085, 045
 
-### ⬜ 087 — Agentes de petição
+### ✅ 087 — Agentes de petição
 19 agentes por área do direito; coletam contexto por tool calling; geram peça no editor; usam modelos do escritório como base.
 **Aceite:** agente produz peça com dados reais do processo. **t:** 7 s. **Deps:** 086, 066
 

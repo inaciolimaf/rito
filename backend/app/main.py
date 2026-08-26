@@ -40,6 +40,8 @@ from app.domain.inbox.router import router as inbox_router
 from app.domain.integration_alerts.router import router as integration_alerts_router
 from app.domain.integrations.router import router as integrations_router
 from app.domain.lawsuits.router import router as lawsuits_router
+from app.domain.legal_agents.router import agents_router as legal_agents_router
+from app.domain.legal_agents.router import generations_router as agent_generations_router
 from app.domain.locations.router import cities_router, states_router
 from app.domain.monitored_terms.router import router as monitored_terms_router
 from app.domain.notifications.router import router as notifications_router
@@ -154,6 +156,8 @@ def create_app() -> FastAPI:
     app.include_router(ai_router, prefix="/api/v1")
     app.include_router(ai_actions_router, prefix="/api/v1")
     app.include_router(ai_copilot_router, prefix="/api/v1")
+    app.include_router(legal_agents_router, prefix="/api/v1")
+    app.include_router(agent_generations_router, prefix="/api/v1")
     app.include_router(ai_threads_router, prefix="/api/v1")
 
     return app

@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 190,
+  "last_measured_wall_clock_seconds": 246,
   "last_measured_at": "2026-08-26",
   "specs": {
     "001": {
@@ -290,6 +290,10 @@
     "086": {
       "wall_clock_seconds": 190,
       "notes": "1165 backend (1141 da 085 + 24 novos: 10 unitários do cálculo de prazo (a tabela exigida pela spec — 5/15/30 dias úteis, sexta-feira, véspera de feriado, virada de ano, dias corridos com prorrogação, sem prazo e o corte de confiança) e 14 de integração (resumo/tipo/prazo, prazo não vira tarefa sem revisão, revisão aplica, confiança baixa não pré-preenche, sem prazo não sugere data, catálogo e fallback de tarefa, correção humana gravada, reanálise preservando histórico, leitura automática opt-in, estimativa de custo, feriado do banco e os 2 do parser)) + 227 frontend (219 + 4 do PublicationAnalysisCard + 4 já contados). "
+    },
+    "087": {
+      "wall_clock_seconds": 246,
+      "notes": "1183 backend (1165 da 086 + 18 novos: 5 unitários do guarda-corpo de citação e 13 de integração (catálogo dos 19 agentes, contexto por ferramenta, modelo do escritório como estrutura, estrutura padrão, saída HTML, citação inventada removida, precedência das instruções, modelo/tokens registrados, agente desabilitado, prompt editável virando cópia do escritório e restaurável, minuta não salva sozinha, timeout claro)) + 233 frontend (227 + 5 do GeneratedBriefPreview/GenerationProgress + 1). Backend 246 s com `-n 2` disputando CPU com o vitest; medições isoladas ficaram em ~190 s."
     }
   }
 }

@@ -20,8 +20,8 @@ CREATE POLICY tenant_isolation ON "t"
 CREATE INDEX ix_t_tenant ON "t" (tenant_id);
 ```
 
-Estado atual: **56 políticas em 54 tabelas**, das quais **50 são exatamente esta**.
-As outras 6 estão na seção 3, uma a uma.
+Estado atual (spec 087): **68 políticas em 66 tabelas**, das quais **61 são
+exatamente esta**. As outras 7 estão na seção 3, uma a uma.
 
 Duas garantias sustentam o resto:
 
@@ -42,7 +42,7 @@ Postgres não aplica RLS em view materializada. Por isso toda matview de agrega�
 true)::uuid` e é a única com `GRANT SELECT` para `rito_app`. A matview crua não é
 acessível pela role da aplicação — só pelo superusuário que faz o refresh.
 
-## 3. As seis exceções
+## 3. As sete exceções
 
 Cada uma está em `DOCUMENTED_EXCEPTIONS` no teste de auditoria; mexer numa das duas
 pontas sem a outra quebra a suíte.
@@ -68,7 +68,21 @@ Mesma natureza (spec 049): "o DJEN está fora do ar" é um alerta do sistema, n�
 escritório. Alertas com `tenant_id` preenchido (um termo monitorado falhando, por
 exemplo) seguem a regra normal.
 
-### 3.3 e 3.4 `partnerships` — políticas `partnerships_read` e `partnerships_write`
+### 3.3 `legal_agents` — política `tenant_isolation`
+
+```sql
+USING      (tenant_id IS NULL OR tenant_id = current_setting('app.tenant_id', true)::uuid)
+WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid)
+```
+
+Os 19 agentes de petição (spec 087) são catálogo global, como `courts` e `steps`: nascem
+com `tenant_id` nulo e são iguais para todos os escritórios. A diferença para as duas
+exceções acima está no `WITH CHECK`, que **não** repete o `IS NULL`: um escritório lê o
+catálogo de sistema, mas só escreve linha sua. Personalizar o prompt de um agente de
+sistema cria uma cópia do próprio tenant (`LegalAgentService.update_prompt`) — ninguém
+reescreve o prompt do vizinho.
+
+### 3.4 e 3.5 `partnerships` — políticas `partnerships_read` e `partnerships_write`
 
 ```sql
 partnerships_read  (SELECT) USING (requester_tenant_id = current OR partner_tenant_id = current)
@@ -82,7 +96,7 @@ lado e passam pelas funções `partnership_accept`/`partnership_end`, não por u
 política de UPDATE — uma política de UPDATE para o lado convidado deixaria ele mudar o
 próprio escopo de acesso.
 
-### 3.5 e 3.6 `shared_lawsuits` — políticas `shared_lawsuits_read` e `shared_lawsuits_write`
+### 3.6 e 3.7 `shared_lawsuits` — políticas `shared_lawsuits_read` e `shared_lawsuits_write`
 
 ```sql
 shared_lawsuits_read  (SELECT) USING (owner_tenant_id = current OR partner_tenant_id = current)

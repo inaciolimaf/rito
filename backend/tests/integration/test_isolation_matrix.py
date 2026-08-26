@@ -40,6 +40,11 @@ DOCUMENTED_EXCEPTIONS: dict[tuple[str, str], str] = {
         "Alerta global de integração (spec 049): saúde do DJEN/DataJud é do sistema, "
         "não de um escritório — `tenant_id IS NULL` é visível a todos."
     ),
+    ("legal_agents", "tenant_isolation"): (
+        "Spec 087: os 19 agentes de petição são catálogo GLOBAL (tenant nulo), como "
+        "courts e steps; o escritório enxerga os de sistema e os seus, e só escreve "
+        "nos seus (WITH CHECK sem o `IS NULL`)."
+    ),
     ("partnerships", "partnerships_read"): (
         "Spec 079: a parceria pertence aos dois escritórios, então as duas pontas leem."
     ),

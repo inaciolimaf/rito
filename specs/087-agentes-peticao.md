@@ -1,7 +1,7 @@
 # 087 — Agentes de petição
 
 **Fase:** 8 · **Tipo:** feature · **Orçamento:** +7 s
-**Depende de:** 086, 066 · **Status:** ⬜ pendente
+**Depende de:** 086, 066 · **Status:** ✅ concluída
 
 ---
 
@@ -122,8 +122,42 @@ modelo base), `GenerationProgress` (mostra as ferramentas em uso),
 
 ## 9. Descobertas
 
-*(preencher)*
+- **A regra 6 não é prompt, é código.** O prompt de sistema proíbe citar jurisprudência
+  fora do contexto — mas prompt é pedido, não garantia. `app/domain/legal_agents/
+  citations.py` varre a minuta pronta e **remove** súmula, REsp e número de processo que
+  não aparecem no contexto coletado, registrando o que tirou em `warnings`. A escolha de
+  remover (em vez de só avisar) é deliberada: minuta com súmula inventada que passa por
+  uma revisão apressada vira petição protocolada com súmula inventada. A comparação é
+  pelo número normalizado, então "Súmula 297 do TST" e "súmula nº 297" são a mesma coisa.
+- **Editar o prompt de um agente de sistema cria uma cópia do escritório**, não altera o
+  catálogo global (regra 10). Sem isso, um tenant reescreveria o prompt do vizinho — os
+  19 agentes são catálogo compartilhado, como `courts` e `steps`. A listagem mostra a
+  cópia no lugar do original, nunca os dois.
+- **Isso trouxe a sétima exceção de RLS do projeto**, e o teste de auditoria da 080
+  cobrou: `legal_agents` precisa de `tenant_id IS NULL OR tenant_id = current` na
+  leitura, mas o `WITH CHECK` **não** repete o `IS NULL` — lê-se o catálogo de sistema,
+  escreve-se só linha própria. Está documentada em `docs/SEGURANCA-RLS.md` §3.3.
+- **O conteúdo é HTML, não JSON do TipTap.** A spec pede "documento TipTap"; o editor da
+  065 guarda `editor.getHTML()`, então a minuta sai no mesmo formato e abre sem
+  conversão. O JSONB guarda `{"format": "html", "html": "…"}` — o envelope existe para
+  que um formato futuro não exija migration de dados.
+- **O contexto é coletado por duas ferramentas fixas** (`get_lawsuit`,
+  `get_lawsuit_timeline`), não escolhidas pelo modelo. Deixar o agente decidir o que
+  consultar geraria voltas extras (cada uma um custo) sem melhorar a peça — o que a
+  minuta precisa saber sobre o processo é sempre o mesmo. Ferramenta é chamada pelo
+  `ToolRunner` da 083, com o RLS e o RBAC de quem pediu, e cada chamada fica em
+  `ai_tool_calls`.
+- **Gerar não salva** (regra 12): `agent_generations` é rascunho de IA, e só
+  `POST /agent-generations/{id}/to-template` cruza a linha para `templates`. O teste
+  confirma que o escritório não ganha documento nenhum enquanto ninguém clicar.
+- **O catálogo dos 19 agentes é código, não seed de banco editável.** Mudar o prompt de
+  um agente é decisão revisável em pull request; o seed da migration só materializa o que
+  está em `catalog.py`, e o mesmo texto vai para `original_system_prompt` — que é de onde
+  a restauração parte.
 
 ## 10. Definição de pronto
 
-Checklist padrão · 19 agentes semeados · Nenhuma citação inventada · Commit `feat(087): agentes de petição`
+- [x] Checklist padrão
+- [x] 19 agentes semeados — teste unitário confirma o catálogo e as proibições
+- [x] Nenhuma citação inventada — guarda-corpo com teste dedicado
+- [x] Commit `feat(087): agentes de petição`

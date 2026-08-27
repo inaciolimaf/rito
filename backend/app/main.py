@@ -32,6 +32,7 @@ from app.domain.ai.router import router as ai_router
 from app.domain.ai.threads_router import router as ai_threads_router
 from app.domain.attachments.router import router as attachments_router
 from app.domain.auth.router import router as auth_router
+from app.domain.automations.router import router as automations_router
 from app.domain.bi.router import router as bi_router
 from app.domain.comments.router import router as comments_router
 from app.domain.courts.router import court_systems_router, courts_router
@@ -138,6 +139,7 @@ def create_app() -> FastAPI:
     app.include_router(task_types_router, prefix="/api/v1")
     app.include_router(financial_router, prefix="/api/v1")
     app.include_router(dunning_router, prefix="/api/v1")
+    app.include_router(automations_router, prefix="/api/v1")
     app.include_router(documents_router, prefix="/api/v1")
     app.include_router(document_extraction_router, prefix="/api/v1")
     app.include_router(templates_router, prefix="/api/v1")

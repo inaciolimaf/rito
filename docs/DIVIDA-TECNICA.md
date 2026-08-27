@@ -319,3 +319,38 @@ Quando a 070 implementar o saldo real de conta (regra 3 acima), a query TEM que
 filtrar `NOT is_internal`, do mesmo jeito que `TransactionRepository.
 lawsuit_financial_totals` já faz desde a 058 — registrado aqui pra não esquecer no
 retrofit.
+
+---
+
+## Cancelamento no meio do nó derruba a sessão (spec 082 + 090)
+
+**Descoberto em:** spec 092, no teste de contrato dos grafos (`test_graph_contract.py`).
+
+O `GraphRuntime` diz, em comentário e em intenção, que o cancelamento acontece **entre
+nós** (regra 6 da 082) — "nunca no meio de um nó, que poderia estar com uma escrita em
+andamento". Mas o **timeout por nó** (regra 5) é implementado com
+`asyncio.wait_for(iterator.__anext__(), timeout=...)`, e `wait_for` cancela exatamente no
+meio: onde a corrotina estiver.
+
+Enquanto o primeiro `await` dentro do nó era a chamada ao modelo, isso não fazia mal. A
+spec 090 acrescentou duas consultas antes dela (a configuração da feature e o teto de
+gasto), e um timeout curto passou a poder cortar **dentro de uma query**. Cancelar uma
+query em andamento deixa a sessão do SQLAlchemy inutilizável, e aí o próprio caminho de
+`_fail` — que existe para registrar o timeout — falha com `PendingRollbackError`. O
+resultado prático é o pior possível: a execução que estourou o tempo não consegue
+registrar que estourou o tempo.
+
+**Contorno atual:** o teste de contrato usa `node_timeout_s=1.0`, folgado o bastante para
+que o corte caia na chamada ao modelo e não numa query. Em produção o timeout é de
+dezenas de segundos, então o caso é raro — mas raro não é nunca, e é o tipo de falha que
+aparece no dia em que o banco está lento, que é justamente o dia em que os timeouts
+disparam.
+
+**Correção de verdade:** envolver o avanço do nó num `SAVEPOINT`
+(`session.begin_nested()`), como já fazem `AiActionService.approve` (084) e
+`AutomationEngine.advance` (092), para que o rollback do cancelamento devolva a sessão
+utilizável e o registro da falha sobreviva. Não foi feito em 091–093 porque mexe na
+semântica de checkpoint do runtime da 082 e merece o seu próprio ciclo, com os testes de
+082 rodando junto.
+
+**Spec-alvo:** 100 (refatoração final).

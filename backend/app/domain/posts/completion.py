@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.automations.engine import AutomationEngine
+from app.domain.automations.models import TriggerKind
 from app.domain.posts.detail import PostDetail, build_detail
 from app.domain.posts.exceptions import (
     CompleteForOthersForbiddenError,
@@ -28,6 +30,7 @@ class CompletePostUseCase:
         self.posts = PostRepository(session)
         self.task_types = TaskTypeRepository(session)
         self.recurrences = RecurrenceService(session, tenant_id)
+        self.automations = AutomationEngine(session, tenant_id)
 
     async def _resolve_completion_line(
         self, post: Post, actor: User, target_user_id: uuid.UUID | None
@@ -66,6 +69,22 @@ class CompletePostUseCase:
             # Spec 034, regra 1: a série gera a próxima ocorrência ao concluir a
             # atual como um todo (todos os responsáveis).
             await self.recurrences.advance_on_completion(post)
+        if await self.posts.all_completed(post.id):
+            # Spec 092: a tarefa concluída é um dos 5 gatilhos, e é também o que acorda
+            # quem esperava por ela (`after_previous`). Sem automação configurada isto é
+            # um SELECT indexado e nada mais.
+            await self.automations.emit(
+                TriggerKind.TASK_COMPLETED.value,
+                payload={
+                    "post_id": str(post.id),
+                    "lawsuit_id": str(post.lawsuit_id),
+                    "task_type_id": str(post.task_type_id),
+                    "completed_by": str(actor.id),
+                },
+                subject_type="post",
+                subject_id=post.id,
+            )
+            await self.automations.resume_waiting_on(post.id)
         return await self._detail(post)
 
     async def reopen(self, post: Post, actor: User, payload: PostReopenRequest) -> PostDetail:

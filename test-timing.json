@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 207,
+  "last_measured_wall_clock_seconds": 210,
   "last_measured_at": "2026-08-27",
   "specs": {
     "001": {
@@ -310,6 +310,10 @@
     "091": {
       "wall_clock_seconds": 207,
       "notes": "1268 backend (1253 da 090 + 15 novos: PDF com texto pulando o OCR e imagem passando por ele, extração de RG e de contrato social, confiança abaixo de 0,7 não pré-preenchendo, CPF inválido marcado e não descartado, aplicar passando por ai_actions com auditoria (o teste central), correção humana gravada, arquivo vinculado à nuvem do cadastro criado, duplicata de CPF oferecendo atualizar, 21 páginas recusadas ANTES de chamar o modelo, ilegível devolvendo o texto lido, servidor sem OCR explicando, descarte e isolamento entre escritórios) + 257 frontend (251 da 090 + 6 do ExtractionReview). OCR e LLM entram por Protocol e nunca são chamados de verdade; o storage é o MinIO real, porque a spec exige LER o arquivo de volta."
+    },
+    "092": {
+      "wall_clock_seconds": 210,
+      "notes": "1288 backend (1268 da 091 + 20 novos: os 5 gatilhos parametrizados pelo enum, trigger_config restringindo, sequência por position, after_previous esperando a tarefa ser concluída de verdade, atraso em dias úteis pulando o Natal, condição falsa pulando E registrando, as duas metades da proteção contra laço (auto-disparo e profundidade 10), reprocesso idempotente pelo UNIQUE do banco, falha interrompendo e preservando as anteriores, simulação sem persistir, permissão do criador, 21ª ação recusada, desativar sem afetar execução em andamento, lançamento vencido no dia exato e isolamento entre escritórios) + 261 frontend (257 + 4 do AutomationBuilder). Os gatilhos são emitidos de dentro dos use cases que já existiam — sem automação configurada, `emit` é um SELECT indexado."
     }
   }
 }

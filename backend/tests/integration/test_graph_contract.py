@@ -180,8 +180,12 @@ async def test_todo_grafo_respeita_o_timeout_de_no(
     execução inteira. Quem corta é o runtime — nenhum grafo precisa lembrar disso."""
     user = await make_user()
 
+    # 1 s, e não 50 ms: antes de chegar ao provider o nó faz duas consultas (a
+    # configuração da feature e o teto de gasto da 090). Com um timeout curto demais o
+    # corte cai DENTRO de uma query, e cancelar uma query em andamento deixa a sessão
+    # inutilizável — ver docs/DIVIDA-TECNICA.md, "cancelamento no meio do nó".
     resultado = await _drive(
-        app_session_factory, user, graph_name, SlowProvider(), node_timeout_s=0.05
+        app_session_factory, user, graph_name, SlowProvider(), node_timeout_s=1.0
     )
 
     assert resultado.status == "error"

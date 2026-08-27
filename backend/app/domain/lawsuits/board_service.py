@@ -15,6 +15,8 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.repository import decode_cursor, encode_cursor
+from app.domain.automations.engine import AutomationEngine
+from app.domain.automations.models import TriggerKind
 from app.domain.lawsuits.exceptions import (
     LawsuitNotFoundError,
     NotResponsibleForLawsuitError,
@@ -132,6 +134,7 @@ class BoardService:
         também gerar histórico."""
         if lawsuit.stage_id == to_stage_id:
             return
+        anterior = lawsuit.stage_id
         await self.history.create(
             LawsuitStageHistory(
                 tenant_id=self.tenant_id,
@@ -152,3 +155,16 @@ class BoardService:
         # em vez de rodar StagnationService.recalculate_stage por uma query a mais.
         lawsuit.is_stagnant = False
         lawsuit.stagnant_since = None
+        # Spec 092: o gatilho vive AQUI, e não no router, pelo mesmo motivo que o
+        # histórico vive aqui — mudar de etapa por fora do Kanban é mudar de etapa.
+        await AutomationEngine(self.session, self.tenant_id).emit(
+            TriggerKind.LAWSUIT_STAGE_CHANGED.value,
+            payload={
+                "lawsuit_id": str(lawsuit.id),
+                "stage_id": str(to_stage_id),
+                "from_stage_id": str(anterior) if anterior else None,
+                "lawsuit_type_id": str(lawsuit.lawsuit_type_id),
+            },
+            subject_type="lawsuit",
+            subject_id=lawsuit.id,
+        )

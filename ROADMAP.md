@@ -403,7 +403,7 @@ Text-to-SQL **guardrailed** (allowlist de tabelas/colunas, somente leitura, limi
 Upload → OCR → LLM → campos estruturados → **preview** → cadastro de cliente ou processo.
 **Aceite:** PDF de fixture gera cadastro correto após confirmação. **t:** 6 s. **Deps:** 084, 063
 
-### ⬜ 092 — Automação: gatilhos e ações
+### ✅ 092 — Automação: gatilhos e ações
 Motor gatilho → ação → tempo. Gatilhos: tarefa concluída, mudança de etapa. Ações: criar tarefa, definir responsável, calcular prazo, aguardar condição.
 **Aceite:** fluxo de 3 passos executa na ordem com os prazos certos. **t:** 6 s. **Deps:** 038
 

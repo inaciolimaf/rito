@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.action_groups.repository import ActionGroupRepository, LawsuitTypeRepository
+from app.domain.automations.engine import AutomationEngine
+from app.domain.automations.models import TriggerKind
 from app.domain.courts.repository import CourtRepository
 from app.domain.financial.repository import TransactionRepository
 from app.domain.lawsuits.board_service import BoardService
@@ -111,6 +113,7 @@ class LawsuitService:
         self.courts = CourtRepository(session)
         self.listing = LawsuitListingRepository(session)
         self.parties_service = PartiesService(session, tenant_id)
+        self.automations = AutomationEngine(session, tenant_id)
         self.movements_service = MovementsService(session, tenant_id)
         self.board_service = BoardService(session, tenant_id)
 
@@ -203,6 +206,19 @@ class LawsuitService:
         created = await self.lawsuits.create(lawsuit)
         for party_input in payload.parties:
             await self.parties_service.create_party(created.id, party_input)
+        # Spec 092: processo novo é gatilho — é onde mora "abriu processo trabalhista,
+        # crie a tarefa de cálculo".
+        await self.automations.emit(
+            TriggerKind.LAWSUIT_CREATED.value,
+            payload={
+                "lawsuit_id": str(created.id),
+                "lawsuit_type_id": str(created.lawsuit_type_id),
+                "stage_id": str(created.stage_id),
+                "user_id": str(created.user_id),
+            },
+            subject_type="lawsuit",
+            subject_id=created.id,
+        )
         return await self._with_derived(created)
 
     async def update(

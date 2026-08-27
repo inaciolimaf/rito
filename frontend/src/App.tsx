@@ -36,6 +36,7 @@ import { TemplatesListPage } from "@/features/templates/TemplatesListPage";
 import { GoalsSettingsPage } from "@/features/taskscore/GoalsSettingsPage";
 import { UserDetailPage } from "@/features/users/UserDetailPage";
 import { UsersSettingsPage } from "@/features/users/UsersSettingsPage";
+import { AutomationsSettingsPage } from "@/features/automations/AutomationsSettingsPage";
 import { WorkflowsListPage } from "@/features/workflows/WorkflowsListPage";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { ThemeProvider } from "@/providers/ThemeProvider";
@@ -73,6 +74,7 @@ export function App(): JSX.Element {
                     <Route path="/settings/stages" element={<StagesListPage />} />
                     <Route path="/settings/task-types" element={<TaskTypesListPage />} />
                     <Route path="/settings/workflows" element={<WorkflowsListPage />} />
+                    <Route path="/settings/automations" element={<AutomationsSettingsPage />} />
                     <Route path="/settings/goals" element={<GoalsSettingsPage />} />
                     {/* Atalho legado do widget de meta (spec 028 aponta para /goals). */}
                     <Route path="/goals" element={<Navigate to="/settings/goals" replace />} />

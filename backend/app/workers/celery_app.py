@@ -39,6 +39,13 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.aggregates.refresh_due_aggregates",
         "schedule": crontab(),
     },
+    # Spec 092: acorda execução cujo atraso venceu e publica os lançamentos que
+    # vencem hoje. De 15 em 15 minutos — uma automação com atraso em DIAS não precisa
+    # de precisão de minuto, e a varredura é uma consulta por índice parcial.
+    "automations-sweep": {
+        "task": "app.workers.automations.sweep_automations",
+        "schedule": crontab(minute="*/15"),
+    },
     # Spec 034, regra 2: varredura diária das séries de recorrência atrasadas.
     "post-recurrence-sweep": {
         "task": "app.workers.recurrences.sweep_recurrences",

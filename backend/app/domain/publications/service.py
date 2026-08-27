@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.br_documents import strip_document_mask
 from app.core.repository import decode_cursor, encode_cursor
+from app.domain.automations.engine import AutomationEngine
+from app.domain.automations.models import TriggerKind
 from app.domain.publications.exceptions import PublicationAlreadyExistsError
 from app.domain.publications.export import build_pdf, build_xlsx
 from app.domain.publications.models import (
@@ -132,6 +134,19 @@ class PublicationService:
                 )
             )
         await self.session.flush()
+        # Spec 092: intimação recebida é gatilho — "chegou intimação nesse processo,
+        # avise o responsável" é a automação que todo escritório escreve primeiro.
+        await AutomationEngine(self.session, self.tenant_id).emit(
+            TriggerKind.PUBLICATION_RECEIVED.value,
+            payload={
+                "publication_id": str(publication.id),
+                "process_number": publication.process_number,
+                "court_code": publication.court_code,
+                "communication_type": publication.communication_type,
+            },
+            subject_type="publication",
+            subject_id=publication.id,
+        )
         return publication
 
     async def get_by_id(self, publication_id: uuid.UUID) -> Publication | None:

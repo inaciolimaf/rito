@@ -1,7 +1,7 @@
 # 092 — Automação: gatilhos e ações
 
 **Fase:** 9 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 038 · **Status:** ⬜ pendente
+**Depende de:** 038 · **Status:** ✅ concluída
 
 ---
 
@@ -126,8 +126,56 @@ RLS nas três. Migration `092_automations.py`.
 
 ## 9. Descobertas
 
-*(preencher)*
+- **O schema da spec não guardava o passo pulado, e isso quebra o suporte.** `§4` previa
+  só `actions_completed` na execução. A regra 6 diz que a condição falsa "é pulada e
+  registrada como tal" — sem uma linha por passo, condição falsa e ação nunca alcançada
+  ficam indistinguíveis, e "por que a tarefa não foi criada?" (a pergunta que chega ao
+  suporte) não tem resposta. Entrou `automation_run_steps`, com `UNIQUE (run_id,
+  position)` — que é a regra 8 escrita no banco em vez de confiada ao código.
+- **Uma execução precisa saber ONDE parou.** `next_position` mais
+  `next_action_at`/`waiting_on_id` foram acrescentados a `automation_runs` porque atraso
+  em dias e `after_previous` transformam a execução em algo que dura semanas. Retomar é
+  reler esse estado, nunca recomeçar — recomeçar recriaria as tarefas do passo 1.
+- **`after_previous` é encadeamento de verdade, não um atraso torcendo.** A alternativa
+  fácil seria "espere 3 dias e assuma que a revisão terminou". O que a regra 4 pede é
+  outra coisa: a execução fica `waiting` com `waiting_on_id` na tarefa criada, e quem a
+  acorda é o próprio gatilho `task.completed`. "Protocolar" só acontece depois de
+  "revisar" acontecer de fato.
+- **Dois dos cinco gatilhos não nascem de uma escrita.** `task.completed`,
+  `lawsuit.created` e `lawsuit.stage_changed` são emitidos de dentro do use case que já
+  existia — uma linha cada. `transaction.overdue` é uma DATA que passou, e `wait`/atraso
+  precisa de alguém que acorde a execução: os dois viraram varredura
+  (`app/domain/automations/sweep.py` + worker de 15 em 15 minutos). A varredura de
+  vencidos olha o **dia exato**, porque "tudo que está vencido" republicaria o mesmo
+  lançamento todo dia e a régua de cobrança dispararia de novo a cada tick.
+- **O gatilho de etapa mora no `change_stage`, não no router.** É o mesmo lugar onde a
+  051 pôs o histórico de etapa, e pelo mesmo motivo: mudar de etapa pelo PUT do processo
+  é mudar de etapa. Emitir do endpoint do Kanban teria deixado metade das mudanças sem
+  automação — e ninguém descobriria, porque a automação simplesmente não rodaria.
+- **Nenhuma ação escreve direto na tabela.** `create_task` passa pelo `CreatePostUseCase`,
+  `change_stage` pelo `BoardService.change_stage`, `notify` pelo `NotificationService`. A
+  validação que reprova um humano reprova a automação — e a duplicata de tarefa, que o
+  domínio já sabia reconhecer desde a 032, virou de graça a proteção contra a automação
+  rodar duas vezes sobre o mesmo processo.
+- **A execução de cada ação roda dentro de um SAVEPOINT.** Custou um teste vermelho: com
+  uma etapa inexistente, a FK estourava, a transação inteira ficava abortada e o registro
+  da própria falha não conseguia ser gravado. Mesmo idioma da 084 e pelo mesmo motivo —
+  parte das validações só falha no banco, e o usuário precisa poder ler o que falhou.
+- **A condição é um avaliador declarativo e deliberadamente burro.** `{campo, operador,
+  valor}`, nove operadores, sem expressão livre: expressão livre num campo de configuração
+  é execução de código com outro nome, e quem escreve a automação é advogado. A comparação
+  é por texto porque o payload vem de JSON — comparar um UUID string com um UUID objeto
+  faria a condição certa falhar em silêncio, que é a pior forma de falhar.
+- **A proteção contra laço tem duas metades, e as duas têm teste.** Uma automação não se
+  dispara (o caso real é "tarefa concluída → criar tarefa", que se auto-alimentaria na
+  primeira conclusão), e a profundidade viaja com o evento, parando no décimo elo — que é
+  o que impede duas automações de se alimentarem em pingue-pongue.
+- **A simulação não executa nem em rascunho.** Ela recalcula as datas e devolve o que
+  aconteceria, e a resposta traz `persisted: false` como campo. Um "teste" que grava é a
+  pior armadilha possível numa tela chamada Testar.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Proteção contra laço provada · Commit `feat(092): automação — gatilhos e ações`
+- [x] Checklist padrão
+- [x] Proteção contra laço provada — nos dois caminhos (auto-disparo e profundidade)
+- [x] Commit `feat(092): automação — gatilhos e ações`

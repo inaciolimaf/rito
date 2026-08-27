@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -69,4 +71,59 @@ class Document(TenantMixin, Base):
     content_type: Mapped[str]
     size_bytes: Mapped[int]
     uploaded_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ExtractionStatus(StrEnum):
+    """Estados de uma extração (spec 091 §4). `reviewed` existe entre a revisão e a
+    gravação: se a execução falhar no service do domínio, a extração não volta a ser
+    `pending` — ela já foi revisada, e o que falhou foi o cadastro."""
+
+    PENDING = "pending"
+    REVIEWED = "reviewed"
+    APPLIED = "applied"
+    DISCARDED = "discarded"
+
+
+class DocumentExtraction(TenantMixin, Base):
+    """Um documento lido e o que se conseguiu tirar dele (spec 091 §4).
+
+    `attachment_id` é nulo no caso mais comum: cadastrar um cliente a partir do RG
+    acontece ANTES de existir a ficha à qual anexar o arquivo. O `storage_key` é o que
+    sempre existe — o arquivo já está guardado, e é ele que vai para a nuvem do registro
+    quando o cadastro for confirmado (regra 7).
+    """
+
+    __tablename__ = "document_extractions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'reviewed', 'applied', 'discarded')",
+            name="ck_document_extractions_status",
+        ),
+    )
+
+    attachment_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("attachments.id", ondelete="CASCADE"), default=None
+    )
+    storage_key: Mapped[str]
+    filename: Mapped[str]
+    content_type: Mapped[str]
+    size_bytes: Mapped[int]
+    page_count: Mapped[int | None] = mapped_column(default=None)
+    user_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    document_kind: Mapped[str | None] = mapped_column(default=None)
+    ocr_text: Mapped[str | None] = mapped_column(default=None)
+    used_ocr: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    extracted: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    corrections: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    target_type: Mapped[str | None] = mapped_column(default=None)
+    action_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ai_actions.id", ondelete="SET NULL"), default=None
+    )
+    applied_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), default=None)
+    status: Mapped[str] = mapped_column(
+        default=ExtractionStatus.PENDING.value, server_default=text("'pending'")
+    )
+    model: Mapped[str | None] = mapped_column(default=None)
+    tokens_used: Mapped[int | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

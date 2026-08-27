@@ -1,7 +1,7 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 202,
-  "last_measured_at": "2026-08-26",
+  "last_measured_wall_clock_seconds": 207,
+  "last_measured_at": "2026-08-27",
   "specs": {
     "001": {
       "wall_clock_seconds": 2,
@@ -306,6 +306,10 @@
     "090": {
       "wall_clock_seconds": 202,
       "notes": "1253 backend (1221 da 089 + 32 novos: 17 de orçamento e cache (bloqueio em 100% ANTES de chamar o modelo, alerta em 80% sem bloquear, bloqueio desligado mantendo o alerta, mês anterior não conta, teto por escritório, cache opt-in e por tenant, anomalia de 3x contra a média da própria feature, estreia não é anomalia, rotas GET/PUT, 403 do colaborador, 409 com os números, tier econômico, configuração vencendo o tier e o teto de tamanho de prompt), 10 de segurança (injeção chegando como mensagem `tool`, regra 4 em todo prompt versionado, injeção obedecida parando na confirmação humana, recorte de ferramentas do Colaborador, analítica de ADMINISTRADOR, o grep de escrita fora de ai_actions virado teste, aviso de confirmação em toda ferramenta de escrita, allowlist sem coluna de dado pessoal, allowlist correspondendo ao banco e privilégios de ai_audit_log) e 5 de contrato de grafo (registro não vazio, feature conhecida, teto de passos e timeout sobre os grafos REAIS, e os 25 passos de produção)) + 251 frontend (245 + 6 do AiBudgetPanel). Backend 202 s com `-n 2`, dentro do gate de 300 s do CLAUDE.md — a meta de 90 s da própria spec 090 não foi atingida e está explicada nas Descobertas. Nenhum teste de 081-089 precisou de edicao."
+    },
+    "091": {
+      "wall_clock_seconds": 207,
+      "notes": "1268 backend (1253 da 090 + 15 novos: PDF com texto pulando o OCR e imagem passando por ele, extração de RG e de contrato social, confiança abaixo de 0,7 não pré-preenchendo, CPF inválido marcado e não descartado, aplicar passando por ai_actions com auditoria (o teste central), correção humana gravada, arquivo vinculado à nuvem do cadastro criado, duplicata de CPF oferecendo atualizar, 21 páginas recusadas ANTES de chamar o modelo, ilegível devolvendo o texto lido, servidor sem OCR explicando, descarte e isolamento entre escritórios) + 257 frontend (251 da 090 + 6 do ExtractionReview). OCR e LLM entram por Protocol e nunca são chamados de verdade; o storage é o MinIO real, porque a spec exige LER o arquivo de volta."
     }
   }
 }

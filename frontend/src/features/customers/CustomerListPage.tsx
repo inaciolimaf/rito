@@ -5,12 +5,14 @@ import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
 import { EmptyState } from "@/components/domain/EmptyState";
 import { FormModal } from "@/components/domain/FormModal";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ListPageLayout } from "@/components/domain/ListPageLayout";
 import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
 import { useFilters } from "@/components/domain/useFilters";
 import { useListPage } from "@/components/domain/useListPage";
 import { Button } from "@/components/ui/button";
 import { listCustomerOrigins } from "@/features/customer-origins/api";
+import { ExtractDocumentDialog } from "@/features/extractions/ExtractDocumentDialog";
 import {
   archiveCustomer,
   createCustomer,
@@ -125,6 +127,9 @@ export function CustomerListPage(): JSX.Element {
   const canArchive = user?.role === "GESTOR" || user?.role === "ADMINISTRADOR";
   const queryClient = useQueryClient();
 
+  // Spec 091: cadastrar a partir do RG/contrato é uma porta a MAIS, não a substituição
+  // do formulário — quem tem os dados na mão continua digitando direto.
+  const [extracting, setExtracting] = React.useState(false);
   const { data: statesData = [] } = useQuery({ queryKey: ["states"], queryFn: listStates });
   const { data: originsPage } = useQuery({
     queryKey: ["customer-origins", "for-customer-list"],
@@ -323,6 +328,9 @@ export function CustomerListPage(): JSX.Element {
           <Button variant="outline" onClick={() => void listPage.exportAs("pdf")}>
             Exportar PDF
           </Button>
+          <Button variant="outline" onClick={() => setExtracting(true)}>
+            Cadastrar por documento
+          </Button>
           <Button onClick={openCreateModal}>Novo contato</Button>
         </>
       }
@@ -371,6 +379,22 @@ export function CustomerListPage(): JSX.Element {
           pagination={listPage.pagination}
         />
       )}
+
+      <Dialog open={extracting} onOpenChange={setExtracting}>
+        <DialogContent className="max-w-3xl">
+          <DialogTitle>Cadastrar a partir de um documento</DialogTitle>
+          <DialogDescription>
+            Suba o RG, a CNH ou o contrato social. Nada é gravado antes de você revisar campo a
+            campo.
+          </DialogDescription>
+          <ExtractDocumentDialog
+            originId={origins[0]?.id ?? ""}
+            onCreated={() => {
+              void queryClient.invalidateQueries({ queryKey: ["customers"] });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <FormModal
         open={modalOpen}

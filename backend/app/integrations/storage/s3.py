@@ -58,6 +58,14 @@ class S3FileStorage:
     async def upload(self, *, key: str, content: bytes, content_type: str) -> None:
         await asyncio.to_thread(self._put, key=key, content=content, content_type=content_type)
 
+    def _get(self, *, key: str) -> bytes:
+        response = self._client.get_object(Bucket=self._bucket, Key=key)
+        body: bytes = response["Body"].read()
+        return body
+
+    async def download(self, *, key: str) -> bytes:
+        return await asyncio.to_thread(self._get, key=key)
+
     async def delete(self, *, key: str) -> None:
         await asyncio.to_thread(self._client.delete_object, Bucket=self._bucket, Key=key)
 

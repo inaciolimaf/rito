@@ -46,6 +46,11 @@ AI_FEATURES: tuple[AiFeature, ...] = (
         description="Reescrita e continuação dentro do editor de documentos (spec 088).",
     ),
     AiFeature(
+        key="document_extraction",
+        label="Extração de documentos",
+        description="Campos estruturados a partir de RG, contrato ou procuração (spec 091).",
+    ),
+    AiFeature(
         key="analytics",
         label="IA analítica",
         description="Perguntas em linguagem natural sobre os indicadores (spec 089).",

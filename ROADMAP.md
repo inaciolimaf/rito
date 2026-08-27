@@ -399,7 +399,7 @@ Text-to-SQL **guardrailed** (allowlist de tabelas/colunas, somente leitura, limi
 
 ## Fase 9 — Automação, API e produção (091–100)
 
-### ⬜ 091 — Extração de documentos
+### ✅ 091 — Extração de documentos
 Upload → OCR → LLM → campos estruturados → **preview** → cadastro de cliente ou processo.
 **Aceite:** PDF de fixture gera cadastro correto após confirmação. **t:** 6 s. **Deps:** 084, 063
 

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.rls import set_tenant_context
 from app.integrations.messaging.base import MessagingChannel
 from app.integrations.messaging.document_email import DocumentMailer
+from app.integrations.ocr.base import OcrProvider
 from app.integrations.storage.base import FileStorage
 
 
@@ -48,6 +49,10 @@ async def get_redis(request: Request) -> Redis:
 
 async def get_file_storage(request: Request) -> FileStorage:
     return cast(FileStorage, request.app.state.file_storage)
+
+
+async def get_ocr_provider(request: Request) -> OcrProvider:
+    return cast(OcrProvider, request.app.state.ocr_provider)
 
 
 async def get_messaging_channels(request: Request) -> Mapping[str, MessagingChannel]:

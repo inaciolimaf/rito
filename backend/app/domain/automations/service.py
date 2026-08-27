@@ -15,6 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.repository import BaseRepository
 from app.domain.automations.conditions import InvalidConditionError, validate_condition
+from app.domain.automations.decision import (
+    DecisionConfigError,
+    validate_decision_config,
+    validate_no_nested_branches,
+)
 from app.domain.automations.engine import MAX_ACTIONS, AutomationLimitError
 from app.domain.automations.models import (
     ActionKind,
@@ -50,6 +55,8 @@ class ActionInput:
     delay_kind: str = DelayKind.IMMEDIATE.value
     delay_value: int | None = None
     condition: dict[str, Any] | None = None
+    # Spec 094: só a ação de decisão preenche — `{"ramo": [posições]}`.
+    branches: dict[str, Any] | None = None
 
 
 class AutomationRepository(BaseRepository[Automation]):
@@ -167,9 +174,13 @@ class AutomationService:
                     delay_kind=entrada.delay_kind,
                     delay_value=entrada.delay_value,
                     condition=entrada.condition,
+                    branches=entrada.branches,
                 )
             )
         await self.session.flush()
+        # Spec 094, regras 7 e 9: as duas checagens que só fazem sentido com a sequência
+        # inteira à vista — quantas decisões existem e se alguma caiu dentro de um ramo.
+        validate_no_nested_branches(await self.actions_of(automation))
 
     def _validate(self, trigger_kind: str, actions: list[ActionInput]) -> None:
         if trigger_kind not in _TRIGGERS:
@@ -183,10 +194,13 @@ class AutomationService:
             if entrada.delay_kind not in _DELAYS:
                 raise UnknownActionKindError(entrada.delay_kind)
             validate_condition(entrada.condition)
+            if entrada.action_kind == ActionKind.LLM_DECISION.value:
+                validate_decision_config(entrada.action_config, entrada.branches)
 
 
 __all__ = [
     "ActionInput",
+    "DecisionConfigError",
     "AutomationLimitError",
     "AutomationNameConflictError",
     "AutomationRepository",

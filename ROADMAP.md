@@ -411,7 +411,7 @@ Motor gatilho → ação → tempo. Gatilhos: tarefa concluída, mudança de eta
 HTTP Request com payload padronizado (os dois formatos do levantamento); assinatura HMAC; retry; log de entrega.
 **Aceite:** payload bate com o contrato; retry em 5xx. **t:** 5 s. **Deps:** 092
 
-### ⬜ 094 — Automação com decisão por LLM
+### ✅ 094 — Automação com decisão por LLM
 Nó de decisão via LangGraph dentro do fluxo; ramificação condicional por análise do LLM.
 **Aceite:** decisão ramifica corretamente com fixture. **t:** 5 s. **Deps:** 093, 082
 

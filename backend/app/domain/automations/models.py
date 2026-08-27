@@ -1,7 +1,8 @@
 """Tabelas do motor de automação (spec 092 §4)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -9,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     ForeignKey,
+    Numeric,
     SmallInteger,
     UniqueConstraint,
     func,
@@ -43,6 +45,8 @@ class ActionKind(StrEnum):
     WAIT_CONDITION = "wait_condition"
     # Spec 093: a ação que fala com o mundo de fora.
     HTTP_REQUEST = "http_request"
+    # Spec 094: a ação que escolhe o ramo olhando o contexto, em vez de comparar campo.
+    LLM_DECISION = "llm_decision"
 
 
 class DelayKind(StrEnum):
@@ -77,6 +81,14 @@ class Automation(TenantMixin, Base):
     # Regra 2: restringe o gatilho — "tarefa concluída" pode valer só para um tipo.
     trigger_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    # Spec 094, regra 6: teto de IA DESTA automação. É separado do teto do escritório
+    # (090) porque protege de outra coisa — de UMA regra mal escrita que roda em toda
+    # intimação e come o mês inteiro sozinha.
+    monthly_ai_budget_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), default=None)
+    current_month_spend_usd: Mapped[Decimal] = mapped_column(
+        Numeric(12, 6), default=Decimal("0"), server_default=text("0")
+    )
+    spend_month: Mapped[date | None] = mapped_column(default=None)
     # Regra 12: a escrita roda com as permissões de QUEM CRIOU a automação, não de quem
     # por acaso disparou o evento — senão a mesma regra faria coisas diferentes conforme
     # quem mexeu no processo.
@@ -107,6 +119,9 @@ class AutomationAction(TenantMixin, Base):
     )
     delay_value: Mapped[int | None] = mapped_column(SmallInteger(), default=None)
     condition: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
+    # Spec 094: `{"nome_do_ramo": [posições]}`. Só a ação de decisão preenche — para as
+    # outras é nulo, e é assim que o motor sabe quais posições pertencem a um ramo.
+    branches: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
 
 
 class AutomationRun(TenantMixin, Base):
@@ -134,6 +149,9 @@ class AutomationRun(TenantMixin, Base):
         SmallInteger(), default=0, server_default=text("0")
     )
     chain_depth: Mapped[int] = mapped_column(SmallInteger(), default=0, server_default=text("0"))
+    # Spec 094: `{"<posição da decisão>": "<ramo escolhido>"}`. Fica na execução porque
+    # ela pode parar no meio de um ramo e voltar dias depois.
+    scratch: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     next_position: Mapped[int | None] = mapped_column(SmallInteger(), default=None)
     next_action_at: Mapped[datetime | None] = mapped_column(default=None)
     waiting_on_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), default=None)
@@ -165,4 +183,37 @@ class AutomationRunStep(TenantMixin, Base):
     status: Mapped[str]
     detail: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
     error: Mapped[str | None] = mapped_column(default=None)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AutomationDecision(TenantMixin, Base):
+    """Uma decisão tomada por modelo dentro de uma execução (spec 094 §4).
+
+    `reasoning` é NOT NULL de propósito (regra 4): a pergunta que chega seis semanas
+    depois é "por que ele mandou isso para o ramo urgente?", e guardar só o ramo
+    escolhido responderia "porque sim".
+
+    `fell_back` diz que a decisão não veio do modelo; `fallback_reason` diz por quê —
+    resposta fora da lista, confiança baixa, falha ou orçamento. Sem o segundo campo, o
+    primeiro informa que algo deu errado e esconde o quê.
+    """
+
+    __tablename__ = "automation_decisions"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("automation_runs.id", ondelete="CASCADE")
+    )
+    action_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("automation_actions.id", ondelete="CASCADE")
+    )
+    question: Mapped[str]
+    context_summary: Mapped[str | None] = mapped_column(default=None)
+    chosen_branch: Mapped[str | None] = mapped_column(default=None)
+    confidence: Mapped[Decimal | None] = mapped_column(Numeric(3, 2), default=None)
+    reasoning: Mapped[str]
+    model: Mapped[str]
+    tokens_used: Mapped[int | None] = mapped_column(default=None)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 6), default=None)
+    fell_back: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    fallback_reason: Mapped[str | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

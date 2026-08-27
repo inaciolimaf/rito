@@ -3,6 +3,7 @@ import * as React from "react";
 import { ActionRow, type ActionDraft } from "@/features/automations/ActionRow";
 import { TriggerSelect } from "@/features/automations/TriggerSelect";
 import type { AutomationData, AutomationPayload, TriggerKind } from "@/features/automations/api";
+import { ACTION_LABELS } from "@/features/automations/labels";
 
 /** Regra 13 do backend, repetida aqui para o usuário não descobrir no 422. */
 const MAX_ACTIONS = 20;
@@ -46,6 +47,7 @@ export function AutomationBuilder({
       delay_kind: item.delay_kind,
       delay_value: item.delay_value,
       condition: item.condition,
+      branches: item.branches,
     })) ?? [novaAcao()],
   );
 
@@ -86,6 +88,14 @@ export function AutomationBuilder({
               key={indice}
               index={indice}
               action={acao}
+              // Só o que vem DEPOIS pode compor um ramo: uma ação anterior à decisão
+              // já rodou quando ela acontece.
+              candidates={acoes
+                .map((item, posicao) => ({
+                  position: posicao,
+                  label: `${posicao + 1}. ${ACTION_LABELS[item.action_kind]}`,
+                }))
+                .filter((item) => item.position > indice)}
               onChange={(atualizada) =>
                 setAcoes((atual) =>
                   atual.map((item, posicao) => (posicao === indice ? atualizada : item)),

@@ -17,6 +17,8 @@ export const ACTION_LABELS: Record<ActionKind, string> = {
   change_stage: "Mudar de etapa",
   notify: "Notificar",
   wait_condition: "Aguardar condição",
+  http_request: "Enviar webhook",
+  llm_decision: "Decidir com IA",
 };
 
 export const DELAY_LABELS: Record<DelayKind, string> = {

@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dates import add_business_days
 from app.domain.automations.actions import ConditionNotMet
 from app.domain.automations.conditions import evaluate
+from app.domain.automations.decision import DecisionRunner, branch_owner_map
 from app.domain.automations.models import (
     ActionKind,
     Automation,
@@ -76,6 +77,7 @@ class AutomationEngine:
         *,
         now: datetime | None = None,
         webhook_sender: Any = None,
+        ai_runner: Any = None,
     ) -> None:
         self.session = session
         self.tenant_id = tenant_id
@@ -83,11 +85,31 @@ class AutomationEngine:
         # Spec 093: injetado nos testes (nenhuma chamada real de rede) e montado no
         # lifespan em produção. `None` faz a ação usar o transporte padrão.
         self.webhook_sender = webhook_sender
+        # Spec 094: injetado nos testes; em produção é montado sob demanda (ver
+        # `ai_runner`), porque o motor é chamado de dentro de use cases do domínio, que
+        # não têm — e não devem ter — acesso ao provider do app.
+        self._ai_runner = ai_runner
         self._now = now
         self._holiday_cache: set[date] | None = None
 
     def now(self) -> datetime:
         return self._now or datetime.now(UTC)
+
+    @property
+    def ai_runner(self) -> Any:
+        """O runner da 081, montado só quando um nó de decisão existir de fato.
+
+        Sem isto, a decisão por IA só funcionaria pela rota de simulação: os gatilhos
+        nascem dentro de `complete()`, `create()` e `change_stage()`, que não conhecem
+        `app.state`. Montar sob demanda mantém o custo em zero para as automações que
+        não usam IA — que são a maioria.
+        """
+        if self._ai_runner is None:
+            from app.domain.ai.service import AiRunner
+            from app.integrations.openrouter.factory import create_llm_provider
+
+            self._ai_runner = AiRunner(self.session, self.tenant_id, create_llm_provider())
+        return self._ai_runner
 
     # ------------------------------------------------------------------ emitir
 
@@ -159,12 +181,30 @@ class AutomationEngine:
 
         acoes = await self._actions_of(automation)
         ja_feitos = await self._steps_of(run)
+        # Spec 094: quais posições pertencem a um ramo, e de qual decisão.
+        dono_do_ramo = branch_owner_map(acoes)
         for action in acoes:
             if action.position < (run.next_position or 0):
                 continue
             # Regra 8: idempotência. Reprocessar não repete o que já rodou.
             if action.position in ja_feitos:
                 continue
+
+            pertence = dono_do_ramo.get(action.position)
+            if pertence is not None:
+                decisao_pos, nome_do_ramo = pertence
+                escolhido = (run.scratch or {}).get(str(decisao_pos))
+                if escolhido != nome_do_ramo:
+                    # Ramo não escolhido: pula e REGISTRA (mesma razão da regra 6 da
+                    # 092 — o que não rodou precisa ser explicável).
+                    await self._record_step(
+                        run,
+                        action,
+                        StepStatus.SKIPPED,
+                        detail={"branch": nome_do_ramo, "chosen": escolhido},
+                    )
+                    run.next_position = action.position + 1
+                    continue
 
             if not evaluate(action.condition, run.trigger_payload or {}):
                 # Regra 6: pulado é registrado. O suporte precisa poder responder
@@ -182,6 +222,29 @@ class AutomationEngine:
                 run.next_action_at = espera
                 await self.session.flush()
                 return run
+
+            if action.action_kind == ActionKind.LLM_DECISION.value:
+                # Spec 094: a decisão NUNCA levanta — pior caso, cai no ramo padrão.
+                # Por isso ela roda fora do try/except das outras ações: não há falha
+                # de decisão para tratar, só uma escolha registrada.
+                outcome = await DecisionRunner(self).decide(
+                    run=run, action=action, automation=automation, actor=autor
+                )
+                run.scratch = {**(run.scratch or {}), str(action.position): outcome.branch}
+                await self._record_step(
+                    run,
+                    action,
+                    StepStatus.DONE,
+                    detail={
+                        "branch": outcome.branch,
+                        "confidence": outcome.confidence,
+                        "fell_back": outcome.fell_back,
+                    },
+                )
+                run.actions_completed += 1
+                run.next_position = action.position + 1
+                await self.session.flush()
+                continue
 
             try:
                 # SAVEPOINT pelo mesmo motivo da 084: parte das validações só falha no

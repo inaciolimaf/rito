@@ -1,7 +1,7 @@
 # 094 — Automação com decisão por LLM
 
 **Fase:** 9 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 093, 082 · **Status:** ⬜ pendente
+**Depende de:** 093, 082 · **Status:** ✅ concluída
 
 ---
 
@@ -114,6 +114,56 @@ RLS ligado. Migration `094_llm_decisions.py`.
 
 **Total:** ~4,2 s
 
-## 10. Definição de pronto
+## 10. Descobertas
 
-Checklist padrão · IA indisponível nunca trava automação · Raciocínio sempre auditável · Commit `feat(094): automação com decisão por LLM`
+- **O `AiRunner` comitava no meio da transação de quem chama.** A regra 6 da 081 manda
+  gravar o uso mesmo quando a chamada falha, e o jeito de sobreviver ao rollback da
+  sessão-por-request era um `commit()` de emergência. Dentro da automação isso encerrava
+  o `session.begin()` do chamador no meio da execução — o erro que apareceu foi
+  `Can't operate on closed transaction`. O runner ganhou `commit_usage`, e quem é dono da
+  transação desliga: o registro do uso passa a viajar na transação de quem chama, que ou
+  termina (e grava) ou volta atrás inteira (e aí a chamada também não aconteceu).
+- **`NUMERIC(10,2)` zerava o contador de gasto.** Uma decisão custa centésimos de centavo;
+  com duas casas decimais, toda chamada arredondava para `0.00` e o teto da regra 6 nunca
+  seria atingido. A coluna virou `NUMERIC(12,6)` — o teto continua em duas casas, porque
+  o teto é uma decisão humana em reais, mas o contador precisa somar o que de fato foi
+  gasto.
+- **Ramificar não exigiu tabela nova.** `branches` mora na própria ação de decisão
+  (`{"ramo": [posições]}`), e a sequência continua linear: o motor pula o que pertence a
+  um ramo não escolhido. Uma tabela de "nó de fluxo" custaria dois JOINs em toda leitura
+  do editor para representar FORMA, não fatos da vida do escritório.
+- **A execução precisa lembrar o ramo escolhido.** `automation_runs.scratch` entrou junto:
+  uma execução que espera três dias no meio de um ramo volta sem contexto nenhum, e
+  recalcular a decisão na retomada significaria pagar duas vezes por uma escolha já
+  tomada — e possivelmente escolher diferente.
+- **O nó de decisão roda FORA do `try/except` das outras ações.** Não há falha de decisão
+  para tratar: pior caso, ela cai no ramo padrão e registra o motivo. Deixá-la no mesmo
+  bloco faria uma exceção interna virar "automação falhou", que é exatamente o que a
+  regra 5 proíbe.
+- **`fell_back` sem `fallback_reason` esconderia o que importa.** Saber que a IA não
+  decidiu é metade da informação; a outra metade — inventou um ramo, ficou abaixo da
+  confiança, não respondeu, ou o orçamento acabou — é a que diz se o problema é a
+  pergunta, o modelo ou a conta. A coluna extra não estava no §4 e entrou.
+- **Decisão sem raciocínio não vale mais que o padrão.** A regra 4 diz que `reasoning` é
+  obrigatório; a consequência prática só apareceu ao escrever o teste: se o modelo escolhe
+  um ramo válido e não explica, aceitar a escolha seria aceitar uma decisão não auditável.
+  Ela cai no padrão, com o motivo registrado.
+- **O runner de IA é montado sob demanda dentro do motor.** Os gatilhos nascem em
+  `complete()`, `create()` e `change_stage()` — use cases do domínio, que não conhecem (e
+  não devem conhecer) o `app.state`. Sem isso, a decisão por IA só funcionaria pela rota
+  de simulação, e a feature inteira seria uma demonstração.
+- **A simulação decide de verdade.** É o ponto: quem está escrevendo a automação precisa
+  ver o modelo escolher com o contexto real antes de deixar a regra no ar. O que ela não
+  faz é executar as ações do ramo — e a execução de apoio que carrega o payload é apagada
+  no fim, para não sujar o histórico com corridas que ninguém pediu.
+- **O limite de três decisões é sobre custo, não sobre capacidade.** Cada nó é uma chamada
+  paga em TODA execução da automação; a quarta decisão quase sempre é uma condição de
+  campo mal disfarçada — e essas são grátis desde a 092.
+
+## 11. Definição de pronto
+
+- [x] Checklist padrão
+- [x] IA indisponível nunca trava automação — provado por três caminhos (erro, sem chave,
+      orçamento estourado)
+- [x] Raciocínio sempre auditável — inclusive o do fallback
+- [x] Commit `feat(094): automação com decisão por LLM`

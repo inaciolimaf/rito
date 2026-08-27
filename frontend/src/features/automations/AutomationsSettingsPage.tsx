@@ -2,12 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 
 import { AutomationBuilder } from "@/features/automations/AutomationBuilder";
+import { AiBudgetField } from "@/features/automations/AiBudgetField";
 import { AutomationTestDialog } from "@/features/automations/AutomationTestDialog";
+import { DecisionLogCard } from "@/features/automations/DecisionLogCard";
 import { RunsTimeline } from "@/features/automations/RunsTimeline";
 import {
   createAutomation,
   deleteAutomation,
   listAutomations,
+  listDecisions,
+  setAiBudget,
   toggleAutomation,
   type AutomationData,
   type AutomationPayload,
@@ -52,7 +56,14 @@ export function AutomationsSettingsPage(): JSX.Element {
     onSuccess: () => void invalidar(),
   });
 
+  const orcamento = useMutation({
+    mutationFn: ({ id, value }: { id: string; value: string | null }) => setAiBudget(id, value),
+    onSuccess: () => void invalidar(),
+  });
+
   const items: AutomationData[] = data?.items ?? [];
+  const usaIa = (automation: AutomationData): boolean =>
+    automation.actions.some((acao) => acao.action_kind === "llm_decision");
 
   return (
     <div className="space-y-4 p-6">
@@ -132,12 +143,46 @@ export function AutomationsSettingsPage(): JSX.Element {
 
               <div className="mt-2 space-y-2">
                 <AutomationTestDialog automationId={automation.id} />
-                {abertaId === automation.id && <RunsTimeline automationId={automation.id} />}
+                {usaIa(automation) && (
+                  <AiBudgetField
+                    budgetUsd={automation.monthly_ai_budget_usd}
+                    spentUsd={automation.current_month_spend_usd}
+                    onSave={(value) => orcamento.mutate({ id: automation.id, value })}
+                  />
+                )}
+                {abertaId === automation.id && (
+                  <>
+                    <RunsTimeline automationId={automation.id} />
+                    {usaIa(automation) && <DecisionsPanel automationId={automation.id} />}
+                  </>
+                )}
               </div>
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/** As decisões que a IA tomou nesta automação (spec 094, regra 4). Só aparece para
+ * automação que usa IA — para as outras, seria uma seção sempre vazia. */
+function DecisionsPanel({ automationId }: { automationId: string }): JSX.Element {
+  const { data, isLoading } = useQuery({
+    queryKey: ["automation-decisions", automationId],
+    queryFn: () => listDecisions(automationId),
+  });
+
+  if (isLoading) return <p className="text-sm text-muted">Carregando decisões…</p>;
+  const items = data?.items ?? [];
+  if (items.length === 0) {
+    return <p className="text-sm text-muted">Nenhuma decisão registrada ainda.</p>;
+  }
+  return (
+    <div className="space-y-2" aria-label="Decisões da IA">
+      {items.map((decision) => (
+        <DecisionLogCard key={decision.id} decision={decision} />
+      ))}
     </div>
   );
 }

@@ -51,6 +51,11 @@ AI_FEATURES: tuple[AiFeature, ...] = (
         description="Campos estruturados a partir de RG, contrato ou procuração (spec 091).",
     ),
     AiFeature(
+        key="automation_decision",
+        label="Decisão em automação",
+        description="Escolha do ramo de uma automação a partir do contexto (spec 094).",
+    ),
+    AiFeature(
         key="analytics",
         label="IA analítica",
         description="Perguntas em linguagem natural sobre os indicadores (spec 089).",

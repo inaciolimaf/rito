@@ -68,8 +68,9 @@ class Cena:
         return {"lawsuit_id": self.lawsuit_id, "lawsuit_type_id": self.lawsuit_type_id}
 
 
-@pytest.fixture
-async def cena(client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]) -> Cena:
+async def build_cena(client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]) -> Cena:
+    """A cena como FUNÇÃO, não só fixture: a spec 094 monta a mesma base, e importar a
+    fixture de outro módulo faria o nome colidir com o parâmetro do teste."""
     user = await make_user(role=UserRole.GESTOR)
     headers = _auth_header(user)
     type_id, _group = await _create_lawsuit_type(client, headers)
@@ -86,6 +87,11 @@ async def cena(client: AsyncClient, make_user: Callable[..., Awaitable[SeededUse
     )
     task_type_id = await _create_task_type(client, headers)
     return Cena(user, str(lawsuit["id"]), stage_id, other_stage_id, task_type_id, type_id)
+
+
+@pytest.fixture
+async def cena(client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]) -> Cena:
+    return await build_cena(client, make_user)
 
 
 async def _criar_automacao(

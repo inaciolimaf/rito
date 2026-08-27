@@ -3,21 +3,35 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import UserRole, require_role
+from app.domain.ai.router import get_llm_provider
+from app.domain.ai.service import AiRunner
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.automations.conditions import InvalidConditionError
+from app.domain.automations.decision import DecisionRunner
 from app.domain.automations.engine import AutomationEngine, AutomationLimitError
-from app.domain.automations.models import Automation
+from app.domain.automations.models import (
+    ActionKind,
+    Automation,
+    AutomationDecision,
+    AutomationRun,
+)
 from app.domain.automations.schemas import (
     ActionResponse,
+    AiBudgetRequest,
     AutomationListResponse,
     AutomationRequest,
     AutomationResponse,
+    DecisionListResponse,
+    DecisionResponse,
     RunListResponse,
     RunResponse,
     RunStepResponse,
+    SimulateDecisionRequest,
+    SimulateDecisionResponse,
     SimulatedStepResponse,
     TestRequest,
     TestResponse,
@@ -27,10 +41,12 @@ from app.domain.automations.service import (
     ActionInput,
     AutomationNameConflictError,
     AutomationService,
+    DecisionConfigError,
     UnknownActionKindError,
     UnknownTriggerError,
 )
 from app.domain.users.models import User
+from app.integrations.openrouter.types import LLMProvider
 
 router = APIRouter(prefix="/automations", tags=["automations"])
 
@@ -45,6 +61,7 @@ def _to_inputs(payload: AutomationRequest) -> list[ActionInput]:
             delay_kind=item.delay_kind,
             delay_value=item.delay_value,
             condition=item.condition,
+            branches=item.branches,
         )
         for item in payload.actions
     ]
@@ -59,6 +76,12 @@ async def _to_response(service: AutomationService, automation: Automation) -> Au
         trigger_kind=automation.trigger_kind,
         trigger_config=automation.trigger_config,
         is_active=automation.is_active,
+        monthly_ai_budget_usd=(
+            float(automation.monthly_ai_budget_usd)
+            if automation.monthly_ai_budget_usd is not None
+            else None
+        ),
+        current_month_spend_usd=float(automation.current_month_spend_usd or 0),
         created_by=automation.created_by,
         created_at=automation.created_at,
         actions=[
@@ -70,6 +93,7 @@ async def _to_response(service: AutomationService, automation: Automation) -> Au
                 delay_kind=acao.delay_kind,
                 delay_value=acao.delay_value,
                 condition=acao.condition,
+                branches=acao.branches,
             )
             for acao in acoes
         ],
@@ -90,7 +114,7 @@ def _handle(exc: Exception) -> HTTPException:
         return HTTPException(status_code=422, detail=f"Gatilho desconhecido: {exc}.")
     if isinstance(exc, UnknownActionKindError):
         return HTTPException(status_code=422, detail=f"Ação desconhecida: {exc}.")
-    if isinstance(exc, AutomationLimitError | InvalidConditionError):
+    if isinstance(exc, AutomationLimitError | InvalidConditionError | DecisionConfigError):
         return HTTPException(status_code=422, detail=str(exc))
     raise exc
 
@@ -241,3 +265,117 @@ async def list_runs(
             )
         )
     return RunListResponse(items=items, total=len(items))
+
+
+@router.put("/{automation_id}/ai-budget")
+async def set_ai_budget(
+    automation_id: uuid.UUID,
+    payload: AiBudgetRequest,
+    current_user: User = Depends(require_role(UserRole.GESTOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> AutomationResponse:
+    """Regra 6: teto de IA por automação — o que protege de UMA regra mal escrita."""
+    service = AutomationService(session, current_user.tenant_id)
+    automation = await _get(session, automation_id)
+    automation.monthly_ai_budget_usd = payload.monthly_ai_budget_usd
+    await session.flush()
+    return await _to_response(service, automation)
+
+
+@router.get("/{automation_id}/decisions")
+async def list_decisions(
+    automation_id: uuid.UUID,
+    run_id: uuid.UUID | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> DecisionListResponse:
+    """O raciocínio de cada decisão (regra 4) — é o que torna a automação auditável."""
+    await _get(session, automation_id)
+    stmt = (
+        select(AutomationDecision)
+        .join(AutomationRun, AutomationRun.id == AutomationDecision.run_id)
+        .where(AutomationRun.automation_id == automation_id)
+        .order_by(AutomationDecision.created_at.desc())
+        .limit(limit)
+    )
+    if run_id is not None:
+        stmt = stmt.where(AutomationDecision.run_id == run_id)
+    decisoes = list((await session.scalars(stmt)).all())
+    return DecisionListResponse(
+        items=[
+            DecisionResponse(
+                id=item.id,
+                run_id=item.run_id,
+                action_id=item.action_id,
+                question=item.question,
+                context_summary=item.context_summary,
+                chosen_branch=item.chosen_branch,
+                confidence=float(item.confidence) if item.confidence is not None else None,
+                reasoning=item.reasoning,
+                model=item.model,
+                tokens_used=item.tokens_used,
+                cost_usd=float(item.cost_usd) if item.cost_usd is not None else None,
+                fell_back=item.fell_back,
+                fallback_reason=item.fallback_reason,
+                created_at=item.created_at,
+            )
+            for item in decisoes
+        ],
+        total=len(decisoes),
+    )
+
+
+@router.post("/{automation_id}/decisions/simulate")
+async def simulate_decision(
+    automation_id: uuid.UUID,
+    payload: SimulateDecisionRequest,
+    current_user: User = Depends(require_role(UserRole.GESTOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    provider: LLMProvider = Depends(get_llm_provider),
+) -> SimulateDecisionResponse:
+    """Regra 10: roda a decisão de verdade e NÃO executa as ações do ramo.
+
+    A decisão acontece mesmo — é o ponto: quem está escrevendo a automação precisa ver
+    o modelo escolher com o contexto real antes de deixar a regra no ar.
+    """
+    service = AutomationService(session, current_user.tenant_id)
+    automation = await _get(session, automation_id)
+    acoes = await service.actions_of(automation)
+    decisoes = [item for item in acoes if item.action_kind == ActionKind.LLM_DECISION.value]
+    if payload.position is not None:
+        decisoes = [item for item in decisoes if item.position == payload.position]
+    if not decisoes:
+        raise HTTPException(
+            status_code=422, detail="Esta automação não tem um nó de decisão por IA."
+        )
+    action = decisoes[0]
+
+    engine = AutomationEngine(
+        session,
+        current_user.tenant_id,
+        ai_runner=AiRunner(session, current_user.tenant_id, provider),
+    )
+    run = AutomationRun(
+        tenant_id=current_user.tenant_id,
+        automation_id=automation.id,
+        trigger_payload=payload.payload,
+        status="done",
+    )
+    session.add(run)
+    await session.flush()
+    outcome = await DecisionRunner(engine).decide(
+        run=run, action=action, automation=automation, actor=current_user, persist=False
+    )
+    # A execução de simulação não vira histórico: ela existiu só para carregar o payload.
+    await session.delete(run)
+    await session.flush()
+    return SimulateDecisionResponse(
+        position=action.position,
+        question=str((action.action_config or {}).get("question", "")),
+        chosen_branch=outcome.branch,
+        confidence=outcome.confidence,
+        reasoning=outcome.reasoning,
+        fell_back=outcome.fell_back,
+        fallback_reason=outcome.fallback_reason,
+    )

@@ -8,7 +8,13 @@ export type TriggerKind =
   | "transaction.overdue";
 
 export type ActionKind =
-  "create_task" | "set_assignee" | "change_stage" | "notify" | "wait_condition";
+  | "create_task"
+  | "set_assignee"
+  | "change_stage"
+  | "notify"
+  | "wait_condition"
+  | "http_request"
+  | "llm_decision";
 
 export type DelayKind = "immediate" | "business_days" | "calendar_days" | "after_previous";
 
@@ -20,6 +26,8 @@ export interface AutomationActionData {
   delay_kind: DelayKind;
   delay_value: number | null;
   condition: Record<string, unknown> | null;
+  /** Só a ação de decisão preenche: `{ramo: [posições]}` (spec 094). */
+  branches: Record<string, number[]> | null;
 }
 
 export interface AutomationData {
@@ -29,6 +37,8 @@ export interface AutomationData {
   trigger_kind: TriggerKind;
   trigger_config: Record<string, unknown>;
   is_active: boolean;
+  monthly_ai_budget_usd: number | null;
+  current_month_spend_usd: number;
   created_by: string;
   created_at: string;
   actions: AutomationActionData[];
@@ -45,6 +55,7 @@ export interface AutomationPayload {
     delay_kind: DelayKind;
     delay_value: number | null;
     condition: Record<string, unknown> | null;
+    branches?: Record<string, number[]> | null;
   }[];
 }
 
@@ -126,4 +137,59 @@ export async function testAutomation(
 
 export async function listRuns(id: string): Promise<{ items: RunData[]; total: number }> {
   return apiRequest<{ items: RunData[]; total: number }>(`/api/v1/automations/${id}/runs`);
+}
+
+export interface DecisionData {
+  id: string;
+  run_id: string;
+  action_id: string;
+  question: string;
+  context_summary: string | null;
+  chosen_branch: string | null;
+  confidence: number | null;
+  reasoning: string;
+  model: string;
+  tokens_used: number | null;
+  cost_usd: number | null;
+  fell_back: boolean;
+  fallback_reason: string | null;
+  created_at: string;
+}
+
+export async function listDecisions(automationId: string, runId?: string) {
+  const query = runId ? `?run_id=${runId}` : "";
+  return apiRequest<{ items: DecisionData[]; total: number }>(
+    `/api/v1/automations/${automationId}/decisions${query}`,
+  );
+}
+
+export interface SimulatedDecisionData {
+  position: number;
+  question: string;
+  chosen_branch: string;
+  confidence: number | null;
+  reasoning: string;
+  fell_back: boolean;
+  fallback_reason: string | null;
+  executed: boolean;
+}
+
+export async function simulateDecision(
+  automationId: string,
+  payload: Record<string, unknown>,
+): Promise<SimulatedDecisionData> {
+  return apiRequest<SimulatedDecisionData>(
+    `/api/v1/automations/${automationId}/decisions/simulate`,
+    { method: "POST", body: { payload } },
+  );
+}
+
+export async function setAiBudget(
+  automationId: string,
+  monthlyBudgetUsd: string | null,
+): Promise<AutomationData> {
+  return apiRequest<AutomationData>(`/api/v1/automations/${automationId}/ai-budget`, {
+    method: "PUT",
+    body: { monthly_ai_budget_usd: monthlyBudgetUsd },
+  });
 }

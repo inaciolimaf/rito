@@ -1,4 +1,5 @@
 import type { ActionKind, DelayKind } from "@/features/automations/api";
+import { LlmDecisionAction } from "@/features/automations/LlmDecisionAction";
 import { ACTION_LABELS, DELAY_LABELS } from "@/features/automations/labels";
 
 export interface ActionDraft {
@@ -7,6 +8,8 @@ export interface ActionDraft {
   delay_kind: DelayKind;
   delay_value: number | null;
   condition: Record<string, unknown> | null;
+  /** Spec 094: só a decisão preenche — `{ramo: [posições]}`. */
+  branches?: Record<string, number[]> | null;
 }
 
 export interface ActionRowProps {
@@ -14,6 +17,8 @@ export interface ActionRowProps {
   action: ActionDraft;
   onChange: (action: ActionDraft) => void;
   onRemove: () => void;
+  /** As ações que vêm DEPOIS desta — candidatas a compor um ramo (spec 094). */
+  candidates?: { position: number; label: string }[];
 }
 
 /** Um passo da sequência: o que fazer, quando, e sob qual condição.
@@ -21,9 +26,16 @@ export interface ActionRowProps {
  * A ordem visual é a ordem de execução — `position` é o índice na lista, e não um campo
  * que a pessoa preenche. Número de posição digitado à mão é convite para dois passos
  * "3" e uma automação que roda fora de ordem. */
-export function ActionRow({ index, action, onChange, onRemove }: ActionRowProps): JSX.Element {
+export function ActionRow({
+  index,
+  action,
+  onChange,
+  onRemove,
+  candidates = [],
+}: ActionRowProps): JSX.Element {
   const precisaDeDias =
     action.delay_kind === "business_days" || action.delay_kind === "calendar_days";
+  const ehDecisao = action.action_kind === "llm_decision";
 
   return (
     <li className="space-y-2 rounded border border-default p-3" aria-label={`Ação ${index + 1}`}>
@@ -52,6 +64,27 @@ export function ActionRow({ index, action, onChange, onRemove }: ActionRowProps)
           Remover
         </button>
       </div>
+
+      {ehDecisao && (
+        <LlmDecisionAction
+          config={{
+            question: String(action.action_config.question ?? ""),
+            branches: (action.action_config.branches as string[] | undefined) ?? [],
+            default_branch: String(action.action_config.default_branch ?? ""),
+            min_confidence: Number(action.action_config.min_confidence ?? 0.7),
+            context_tools: (action.action_config.context_tools as string[] | undefined) ?? [],
+          }}
+          assignment={action.branches ?? {}}
+          candidates={candidates}
+          onChange={(config, assignment) =>
+            onChange({
+              ...action,
+              action_config: { ...action.action_config, ...config },
+              branches: assignment,
+            })
+          }
+        />
+      )}
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col text-xs text-muted">

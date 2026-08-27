@@ -145,6 +145,7 @@ class AiRunner:
         *,
         catalog: Sequence[ModelInfo] | None = None,
         model_override: str | None = None,
+        commit_usage: bool = True,
     ) -> None:
         self.session = session
         self.tenant_id = tenant_id
@@ -155,6 +156,11 @@ class AiRunner:
         self.configs = AiConfigService(session, tenant_id)
         self.usage = AiUsageRepository(session)
         self.budget = AiBudgetService(session, tenant_id)
+        # Spec 094: quem é DONO da transação desliga isto. O commit de emergência da
+        # regra 6 existe para a sessão-por-request, que faz rollback ao subir a exceção;
+        # dentro de um `session.begin()` de quem chama, ele encerraria o bloco no meio e
+        # levaria junto a operação que estava em curso.
+        self.commit_usage = commit_usage
         # Catálogo opcional: só serve para calcular custo quando a resposta não traz
         # (regra 7). Sem ele, `cost_usd` fica nulo em vez de virar zero mentiroso.
         self._catalog = {model.id: model for model in catalog or ()}
@@ -256,6 +262,10 @@ class AiRunner:
         return response
 
     async def _commit_usage(self) -> None:
+        if not self.commit_usage:
+            # O registro do uso viaja na transação de quem chama — que ou termina (e
+            # grava) ou volta atrás inteira (e aí a chamada também não aconteceu).
+            return
         """Regra 6: o registro do uso precisa sobreviver à exceção que sobe.
 
         A sessão por request faz rollback em qualquer exceção (`get_session_for_

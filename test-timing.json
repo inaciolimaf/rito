@@ -1,7 +1,7 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 214,
-  "last_measured_at": "2026-08-27",
+  "last_measured_wall_clock_seconds": 220,
+  "last_measured_at": "2026-08-28",
   "specs": {
     "001": {
       "wall_clock_seconds": 2,
@@ -318,6 +318,10 @@
     "093": {
       "wall_clock_seconds": 214,
       "notes": "1319 backend (1288 da 092 + 31 novos: 15 unitários (5 de assinatura HMAC — a mesma conta que o cliente implementa — e 10 da peneira de SSRF, todos com IP literal para não depender de DNS) e 16 de integração (os dois payloads conferidos campo a campo contra o contrato público, assinatura verificável ponta a ponta, 500 agendando backoff, 400 não retentado, timeout retentado, worker parando na quarta tentativa, HTTP externo e IP privado recusados no cadastro, redirecionamento para host privado bloqueado no transporte, 20 falhas seguidas desativando com alerta, entrega boa zerando a sequência, reenvio com o payload ORIGINAL, resposta truncada em 10 KB, segredo só na criação e na rotação, isolamento entre escritórios)) + 264 frontend (261 + 3 do SecretRevealOnce). Nenhuma chamada de rede: o `WebhookSender` é Protocol."
+    },
+    "094": {
+      "wall_clock_seconds": 220,
+      "notes": "1334 backend (1319 da 093 + 15 novos: decisão escolhendo o ramo e executando só as ações dele, ramo inventado e confiança baixa caindo no padrão com o motivo registrado, contexto oferecendo SÓ ferramentas de leitura (mesmo quando a automação pede uma de escrita), raciocínio sempre gravado, decisão sem raciocínio valendo menos que o padrão, falha do modelo e ausência de chave com a automação continuando, orçamento estourado sem sequer chamar o modelo, gasto entrando no contador da automação, 4º nó e ramo aninhado recusados, ramo padrão inexistente recusado, simulação decidindo sem executar e isolamento entre escritórios) + 265 frontend (264 da 093 + 5 do BranchEditor/decisão, menos 4 já contados). `AiRunner` ganhou `commit_usage`: quem é dono da transação desliga o commit de emergência da 081."
     }
   }
 }

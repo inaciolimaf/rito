@@ -66,6 +66,8 @@ from app.domain.task_types.router import router as task_types_router
 from app.domain.taskscore.router import goals_router, taskscore_router
 from app.domain.templates.router import router as templates_router
 from app.domain.users.router import invitations_router, occupations_router, users_router
+from app.domain.webhooks.router import router as webhooks_router
+from app.domain.webhooks.sender import HttpxWebhookSender
 from app.domain.workflows.router import router as workflows_router
 from app.integrations.messaging.registry import create_document_mailer, create_messaging_channels
 from app.integrations.ocr.factory import create_ocr_provider
@@ -89,6 +91,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.llm_provider = create_llm_provider(redis=app.state.redis)
     # Spec 091: idem para o OCR — e um servidor sem Tesseract continua de pé.
     app.state.ocr_provider = create_ocr_provider()
+    # Spec 093: o transporte dos webhooks, com timeout de 10 s e redirect validado.
+    app.state.webhook_sender = HttpxWebhookSender()
 
     yield
 
@@ -140,6 +144,7 @@ def create_app() -> FastAPI:
     app.include_router(financial_router, prefix="/api/v1")
     app.include_router(dunning_router, prefix="/api/v1")
     app.include_router(automations_router, prefix="/api/v1")
+    app.include_router(webhooks_router, prefix="/api/v1")
     app.include_router(documents_router, prefix="/api/v1")
     app.include_router(document_extraction_router, prefix="/api/v1")
     app.include_router(templates_router, prefix="/api/v1")

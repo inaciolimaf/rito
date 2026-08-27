@@ -46,6 +46,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.automations.sweep_automations",
         "schedule": crontab(minute="*/15"),
     },
+    # Spec 093: o backoff de 1/5/15 minutos precisa de um tick de minuto para caber.
+    "webhooks-retry-due": {
+        "task": "app.workers.webhooks.sweep_webhook_deliveries",
+        "schedule": crontab(),
+    },
     # Spec 034, regra 2: varredura diária das séries de recorrência atrasadas.
     "post-recurrence-sweep": {
         "task": "app.workers.recurrences.sweep_recurrences",

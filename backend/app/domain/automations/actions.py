@@ -60,6 +60,8 @@ async def run_action(
         return await _change_stage(engine, run=run, config=config, actor=actor)
     if action.action_kind == ActionKind.NOTIFY.value:
         return await _notify(engine, run=run, config=config)
+    if action.action_kind == ActionKind.HTTP_REQUEST.value:
+        return await _http_request(engine, run=run, config=config, automation=automation)
     raise UnknownActionError(f"Ação desconhecida: {action.action_kind}")
 
 
@@ -154,3 +156,48 @@ async def _notify(
 
 CONDITION_RETRY = timedelta(hours=1)
 
+
+async def _http_request(
+    engine: "AutomationEngine",
+    *,
+    run: AutomationRun,
+    config: dict[str, Any],
+    automation: Automation,
+) -> dict[str, Any]:
+    """Spec 093: manda o evento para fora, pelo endpoint que o escritório cadastrou.
+
+    A ação NÃO falha quando o destino responde erro. Entrega é assíncrona por natureza —
+    o n8n do escritório estar fora do ar não pode interromper a automação que já criou o
+    prazo, e a entrega vai ser retentada pelo worker de qualquer forma (regra 3 da 093).
+    Só a configuração errada (endpoint inexistente ou desativado) reprova o passo.
+    """
+    from app.domain.webhooks.models import WebhookEndpoint
+    from app.domain.webhooks.sender import HttpxWebhookSender
+    from app.domain.webhooks.service import WebhookService
+
+    endpoint_id = config.get("endpoint_id")
+    if endpoint_id is None:
+        raise ValueError("A ação de webhook exige um endpoint configurado.")
+    endpoint = await engine.session.get(WebhookEndpoint, uuid.UUID(str(endpoint_id)))
+    if endpoint is None:
+        raise ValueError("O webhook configurado nesta automação não existe mais.")
+    if not endpoint.is_active:
+        raise ValueError(f"O webhook '{endpoint.name}' está desativado.")
+
+    service = WebhookService(
+        engine.session,
+        engine.tenant_id,
+        sender=engine.webhook_sender or HttpxWebhookSender(),
+        now=engine.now(),
+    )
+    delivery = await service.dispatch(
+        endpoint,
+        event=str(config.get("event") or automation.trigger_kind),
+        trigger_payload=run.trigger_payload or {},
+        run_id=run.id,
+    )
+    return {
+        "delivery_id": str(delivery.id),
+        "status_code": delivery.status_code,
+        "delivered": delivery.delivered_at is not None,
+    }

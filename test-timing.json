@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 210,
+  "last_measured_wall_clock_seconds": 214,
   "last_measured_at": "2026-08-27",
   "specs": {
     "001": {
@@ -314,6 +314,10 @@
     "092": {
       "wall_clock_seconds": 210,
       "notes": "1288 backend (1268 da 091 + 20 novos: os 5 gatilhos parametrizados pelo enum, trigger_config restringindo, sequência por position, after_previous esperando a tarefa ser concluída de verdade, atraso em dias úteis pulando o Natal, condição falsa pulando E registrando, as duas metades da proteção contra laço (auto-disparo e profundidade 10), reprocesso idempotente pelo UNIQUE do banco, falha interrompendo e preservando as anteriores, simulação sem persistir, permissão do criador, 21ª ação recusada, desativar sem afetar execução em andamento, lançamento vencido no dia exato e isolamento entre escritórios) + 261 frontend (257 + 4 do AutomationBuilder). Os gatilhos são emitidos de dentro dos use cases que já existiam — sem automação configurada, `emit` é um SELECT indexado."
+    },
+    "093": {
+      "wall_clock_seconds": 214,
+      "notes": "1319 backend (1288 da 092 + 31 novos: 15 unitários (5 de assinatura HMAC — a mesma conta que o cliente implementa — e 10 da peneira de SSRF, todos com IP literal para não depender de DNS) e 16 de integração (os dois payloads conferidos campo a campo contra o contrato público, assinatura verificável ponta a ponta, 500 agendando backoff, 400 não retentado, timeout retentado, worker parando na quarta tentativa, HTTP externo e IP privado recusados no cadastro, redirecionamento para host privado bloqueado no transporte, 20 falhas seguidas desativando com alerta, entrega boa zerando a sequência, reenvio com o payload ORIGINAL, resposta truncada em 10 KB, segredo só na criação e na rotação, isolamento entre escritórios)) + 264 frontend (261 + 3 do SecretRevealOnce). Nenhuma chamada de rede: o `WebhookSender` é Protocol."
     }
   }
 }

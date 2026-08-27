@@ -75,10 +75,14 @@ class AutomationEngine:
         tenant_id: uuid.UUID,
         *,
         now: datetime | None = None,
+        webhook_sender: Any = None,
     ) -> None:
         self.session = session
         self.tenant_id = tenant_id
         self.holidays = HolidayRepository(session)
+        # Spec 093: injetado nos testes (nenhuma chamada real de rede) e montado no
+        # lifespan em produção. `None` faz a ação usar o transporte padrão.
+        self.webhook_sender = webhook_sender
         self._now = now
         self._holiday_cache: set[date] | None = None
 

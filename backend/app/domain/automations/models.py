@@ -41,6 +41,8 @@ class ActionKind(StrEnum):
     CHANGE_STAGE = "change_stage"
     NOTIFY = "notify"
     WAIT_CONDITION = "wait_condition"
+    # Spec 093: a ação que fala com o mundo de fora.
+    HTTP_REQUEST = "http_request"
 
 
 class DelayKind(StrEnum):

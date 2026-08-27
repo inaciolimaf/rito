@@ -407,7 +407,7 @@ Upload → OCR → LLM → campos estruturados → **preview** → cadastro de c
 Motor gatilho → ação → tempo. Gatilhos: tarefa concluída, mudança de etapa. Ações: criar tarefa, definir responsável, calcular prazo, aguardar condição.
 **Aceite:** fluxo de 3 passos executa na ordem com os prazos certos. **t:** 6 s. **Deps:** 038
 
-### ⬜ 093 — Automação: webhooks outbound
+### ✅ 093 — Automação: webhooks outbound
 HTTP Request com payload padronizado (os dois formatos do levantamento); assinatura HMAC; retry; log de entrega.
 **Aceite:** payload bate com o contrato; retry em 5xx. **t:** 5 s. **Deps:** 092
 

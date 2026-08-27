@@ -1,7 +1,7 @@
 # 093 — Automação: webhooks outbound
 
 **Fase:** 9 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 092 · **Status:** ⬜ pendente
+**Depende de:** 092 · **Status:** ✅ concluída
 
 ---
 
@@ -133,8 +133,57 @@ Estrutura inspirada no contrato do Flowter documentado em
 
 ## 9. Descobertas
 
-*(preencher)*
+- **A peneira de SSRF roda a cada envio, não só ao salvar.** Validar no cadastro é o
+  óbvio; o que o óbvio não cobre é DNS que muda depois. `interno.exemplo.com` pode apontar
+  para `8.8.8.8` no dia do cadastro e para `10.0.0.5` na semana seguinte, e o servidor
+  continua dentro da rede privada. É por isso que a validação é na **resolução**, e é por
+  isso que ela acontece antes de cada tentativa.
+- **O redirecionamento é o caminho mais fácil de esquecer.** O destino pode ser
+  perfeitamente público e devolver um `Location` apontando para `169.254.169.254` —
+  seguir redirect com `follow_redirects=True` desfaz toda a validação feita na URL
+  original, em uma linha. O transporte segue os saltos à mão, no máximo três, passando
+  cada um pela mesma peneira. Foi o terceiro teste obrigatório da spec e o único que
+  exigiu mexer no transporte.
+- **Retry não cabe dentro da request.** O backoff é de 1, 5 e 15 minutos (regra 3): segurar
+  a request do usuário por 21 minutos seria absurdo, e retentar em memória perderia tudo
+  num deploy. A tentativa fica marcada com `next_attempt_at` na própria linha de entrega, e
+  quem volta é o worker. Retry usa a MESMA linha (`attempt` incrementa); só o reenvio manual
+  cria linha nova, porque ele é outro evento na vida do escritório.
+- **`failure_streak` é sequência, e a distinção importa.** Vinte falhas SEGUIDAS significam
+  destino morto (regra 10); vinte falhas espalhadas ao longo de um ano significam internet
+  ruim, e desativar por isso seria pior que o problema. Uma entrega boa zera o contador, e
+  existe teste para exatamente isso.
+- **Desativar em silêncio trocaria um problema visível por um invisível.** A desativação
+  automática grava um `IntegrationAlert` crítico — reusando o mesmo canal do DataJud e do
+  DJEN (spec 046), porque para quem administra o escritório é o mesmo tipo de aviso:
+  "uma integração parou".
+- **Cabeçalho do escritório não sobrescreve a assinatura.** O endpoint aceita headers
+  customizados (token de API do destino, por exemplo), mas `X-Rito-Signature` e os outros
+  três do protocolo são aplicados por último. Sem isso, um header configurado por engano
+  desligaria a validação que a assinatura existe para dar.
+- **O timestamp entra no que é assinado, não só num header ao lado.** Assinar apenas o
+  corpo deixaria a mesma mensagem válida para sempre — quem capturasse um envio poderia
+  reenviá-lo indefinidamente. A verificação é `compare_digest`, não `==`: comparação de
+  string vaza o tamanho do prefixo comum pelo tempo, e assinatura conferida com `==` é
+  assinatura conferida pela metade.
+- **O reenvio usa o payload gravado, e é por isso que ele fica gravado.** Remontar a partir
+  do estado atual mandaria dados diferentes dos do momento do evento — transformaria
+  "reenviar" em "mandar outra coisa", que é justamente o que quebra a conciliação do outro
+  lado.
+- **A ação `http_request` não falha quando o destino responde erro.** Entrega é assíncrona
+  por natureza: o n8n do escritório estar fora do ar não pode interromper a automação que
+  já criou o prazo, e a entrega vai ser retentada de qualquer forma. Só configuração errada
+  (endpoint inexistente ou desativado) reprova o passo — a diferença entre "não deu para
+  entregar agora" e "isto nunca vai funcionar".
+- **O contrato do payload virou teste de campo a campo.** As chaves são públicas: o n8n do
+  escritório lê `task.title`, `lawsuit.customers[].identification`. Renomear uma quebra a
+  integração de quem já ligou os fios, e um teste que comparasse só "tem as chaves
+  principais" deixaria isso passar. `important`/`urgent` são da TAREFA no Rito e vêm por
+  usuário no contrato do Flowter — replicamos o valor da tarefa em cada linha, que é o mais
+  fiel possível sem inventar um campo que o produto não tem.
 
 ## 10. Definição de pronto
 
-Checklist padrão · SSRF bloqueado em 3 caminhos · Commit `feat(093): automação — webhooks outbound`
+- [x] Checklist padrão
+- [x] SSRF bloqueado em 3 caminhos — IP privado, HTTP externo e redirecionamento
+- [x] Commit `feat(093): automação — webhooks outbound`

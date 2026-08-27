@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 220,
+  "last_measured_wall_clock_seconds": 234,
   "last_measured_at": "2026-08-28",
   "specs": {
     "001": {
@@ -322,6 +322,10 @@
     "094": {
       "wall_clock_seconds": 220,
       "notes": "1334 backend (1319 da 093 + 15 novos: decisão escolhendo o ramo e executando só as ações dele, ramo inventado e confiança baixa caindo no padrão com o motivo registrado, contexto oferecendo SÓ ferramentas de leitura (mesmo quando a automação pede uma de escrita), raciocínio sempre gravado, decisão sem raciocínio valendo menos que o padrão, falha do modelo e ausência de chave com a automação continuando, orçamento estourado sem sequer chamar o modelo, gasto entrando no contador da automação, 4º nó e ramo aninhado recusados, ramo padrão inexistente recusado, simulação decidindo sem executar e isolamento entre escritórios) + 265 frontend (264 da 093 + 5 do BranchEditor/decisão, menos 4 já contados). `AiRunner` ganhou `commit_usage`: quem é dono da transação desliga o commit de emergência da 081."
+    },
+    "095": {
+      "wall_clock_seconds": 234,
+      "notes": "1354 backend (1334 da 094 + 20 novos: 16 de integração (token válido resolvendo o tenant, ausente/inválido/expirado/revogado em 401, escopo faltando dizendo qual falta, allowed_ips restringindo com 401 deliberado, limite de GET com Retry-After, headers de limite em toda resposta, limite por rota, o teste de isolamento (listagem e acesso direto), escrita reprovada pelo service, RFC 7807, paginação por cursor com teto de 1.000, log da requisição e do erro, token exibido uma vez, 11º token e escopo desconhecido recusados) e 4 meta do contrato (os 22 endpoints exatos, escopo em toda rota, escopo declarado sempre conferido e o OpenAPI que se basta)) + 269 frontend (265 + 4 do CreateTokenDialog). Dois bugs de plataforma corrigidos: headers de HTTPException descartados no RFC 7807 e cursor de coluna temporal comparado como texto."
     }
   }
 }

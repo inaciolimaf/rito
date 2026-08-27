@@ -30,6 +30,7 @@ from app.domain.ai.copilot_router import router as ai_copilot_router
 from app.domain.ai.editor_router import router as ai_editor_router
 from app.domain.ai.router import router as ai_router
 from app.domain.ai.threads_router import router as ai_threads_router
+from app.domain.api_tokens.router import router as api_tokens_router
 from app.domain.attachments.router import router as attachments_router
 from app.domain.auth.router import router as auth_router
 from app.domain.automations.router import router as automations_router
@@ -73,6 +74,9 @@ from app.integrations.messaging.registry import create_document_mailer, create_m
 from app.integrations.ocr.factory import create_ocr_provider
 from app.integrations.openrouter.factory import create_llm_provider
 from app.integrations.storage.s3 import create_file_storage
+from app.public.middleware import PublicApiMiddleware
+from app.public.router import docs_router as public_docs_router
+from app.public.router import router as public_api_router
 
 
 @asynccontextmanager
@@ -112,6 +116,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(RequestIDMiddleware)
+    # Spec 095: headers de limite e log de requisição da API pública.
+    app.add_middleware(PublicApiMiddleware)
 
     app.add_exception_handler(BudgetExceededError, handle_budget_exceeded)
     app.add_exception_handler(RequestValidationError, handle_validation_error)
@@ -119,6 +125,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, handle_unhandled_exception)
 
     app.include_router(health_router)
+    # Spec 095: a API pública tem prefixo próprio e versão no caminho (regra 12).
+    app.include_router(public_api_router)
+    app.include_router(public_docs_router)
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(account_router, prefix="/api/v1")
     app.include_router(users_router, prefix="/api/v1")
@@ -143,6 +152,7 @@ def create_app() -> FastAPI:
     app.include_router(task_types_router, prefix="/api/v1")
     app.include_router(financial_router, prefix="/api/v1")
     app.include_router(dunning_router, prefix="/api/v1")
+    app.include_router(api_tokens_router, prefix="/api/v1")
     app.include_router(automations_router, prefix="/api/v1")
     app.include_router(webhooks_router, prefix="/api/v1")
     app.include_router(documents_router, prefix="/api/v1")

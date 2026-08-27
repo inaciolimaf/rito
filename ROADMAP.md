@@ -415,7 +415,7 @@ HTTP Request com payload padronizado (os dois formatos do levantamento); assinat
 Nó de decisão via LangGraph dentro do fluxo; ramificação condicional por análise do LLM.
 **Aceite:** decisão ramifica corretamente com fixture. **t:** 5 s. **Deps:** 093, 082
 
-### ⬜ 095 — API pública v1
+### ✅ 095 — API pública v1
 Bearer token por tenant; rate limit (30 GET/min, 500 POST/dia); endpoints de customers, lawsuits, posts, publications, transactions, documents, settings; OpenAPI.
 **Aceite:** rate limit retorna 429; contrato validado contra schema. **t:** 7 s. **Deps:** 059, 048
 

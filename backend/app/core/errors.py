@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from fastapi.encoders import jsonable_encoder
@@ -41,6 +41,7 @@ def _problem_response(
     # do Pydantic, lista de strings da política de senha) — RFC 7807 não fixa um schema.
     errors: Sequence[Any] | None = None,
     extra: dict[str, Any] | None = None,
+    headers: Mapping[str, str] | None = None,
 ) -> JSONResponse:
     slug = _SLUGS_BY_STATUS.get(status_code, "error")
     title = _TITLES_BY_STATUS.get(status_code, "Erro")
@@ -60,6 +61,10 @@ def _problem_response(
         status_code=status_code,
         content=jsonable_encoder(body),
         media_type=PROBLEM_CONTENT_TYPE,
+        # Spec 095: `Retry-After` no 429 e `WWW-Authenticate` no 401 são parte do
+        # protocolo, não decoração — um cliente HTTP automatizado depende deles, e até
+        # aqui o handler os descartava silenciosamente.
+        headers=dict(headers) if headers else None,
     )
 
 
@@ -94,6 +99,7 @@ async def handle_http_exception(request: Request, exc: Exception) -> JSONRespons
         instance=request.url.path,
         errors=errors,
         extra=extra or None,
+        headers=exc.headers,
     )
 
 

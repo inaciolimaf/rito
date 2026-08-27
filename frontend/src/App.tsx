@@ -37,6 +37,7 @@ import { GoalsSettingsPage } from "@/features/taskscore/GoalsSettingsPage";
 import { UserDetailPage } from "@/features/users/UserDetailPage";
 import { UsersSettingsPage } from "@/features/users/UsersSettingsPage";
 import { AutomationsSettingsPage } from "@/features/automations/AutomationsSettingsPage";
+import { ApiTokensPage } from "@/features/api-tokens/ApiTokensPage";
 import { WebhooksSettingsPage } from "@/features/webhooks/WebhooksSettingsPage";
 import { WorkflowsListPage } from "@/features/workflows/WorkflowsListPage";
 import { AuthProvider } from "@/providers/AuthProvider";
@@ -77,6 +78,7 @@ export function App(): JSX.Element {
                     <Route path="/settings/workflows" element={<WorkflowsListPage />} />
                     <Route path="/settings/automations" element={<AutomationsSettingsPage />} />
                     <Route path="/settings/webhooks" element={<WebhooksSettingsPage />} />
+                    <Route path="/settings/api" element={<ApiTokensPage />} />
                     <Route path="/settings/goals" element={<GoalsSettingsPage />} />
                     {/* Atalho legado do widget de meta (spec 028 aponta para /goals). */}
                     <Route path="/goals" element={<Navigate to="/settings/goals" replace />} />

@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping
 from datetime import date, datetime, time
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, literal, tuple_
+from sqlalchemy import ColumnElement, DateTime, Select, literal, tuple_
 from sqlalchemy.orm import InstrumentedAttribute
 
 Predicate = ColumnElement[bool]
@@ -63,6 +63,12 @@ def paginate_keyset[StmtT: Select[Any]](
     stmt = stmt.order_by(order_column, secondary).limit(limit)
     if cursor is not None:
         cursor_value, cursor_id = cursor
+        # O cursor viaja como texto (base64 de `valor|id`), então o valor de uma coluna
+        # temporal chega como string ISO. Comparar `timestamptz < varchar` não existe no
+        # Postgres — e o erro só apareceria na SEGUNDA página, que é o pior lugar para
+        # descobrir. Spec 095.
+        if isinstance(sort_column.type, DateTime) and isinstance(cursor_value, str):
+            cursor_value = datetime.fromisoformat(cursor_value)
         pair = tuple_(sort_column, id_column)
         cursor_pair = tuple_(literal(cursor_value), literal(cursor_id))
         stmt = stmt.where(pair < cursor_pair if descending else pair > cursor_pair)

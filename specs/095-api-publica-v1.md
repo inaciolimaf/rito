@@ -1,7 +1,7 @@
 # 095 — API pública v1
 
 **Fase:** 9 · **Tipo:** feature · **Orçamento:** +7 s
-**Depende de:** 059, 048 · **Status:** ⬜ pendente
+**Depende de:** 059, 048 · **Status:** ✅ concluída
 
 ---
 
@@ -120,8 +120,50 @@ etapas, tipos de processo e dados financeiros — no mesmo espírito do endpoint
 
 ## 9. Descobertas
 
-*(preencher)*
+- **A busca do token é a única consulta que não pode passar pelo RLS** — o tenant é
+  justamente o que ela descobre. A saída foi uma função `SECURITY DEFINER`
+  (`api_token_lookup`), o mesmo padrão que a 079 usou para leitura entre escritórios, e
+  não afrouxar a política da tabela: uma política mais permissiva valeria para toda
+  consulta a `api_tokens`, inclusive as que já sabem o tenant.
+- **Os schemas públicos são próprios, não os internos reaproveitados.** É o custo de um
+  arquivo (`app/public/schemas.py`) para comprar a regra 12: os schemas internos mudam
+  quando a UI muda, e a v1 pública não pode quebrar porque alguém renomeou um campo numa
+  tela.
+- **Dois bugs de plataforma apareceram, e os dois eram anteriores à spec.** O handler de
+  erro RFC 7807 descartava os headers da `HTTPException` — então `Retry-After` no 429 e
+  `WWW-Authenticate` no 401 nunca chegavam ao cliente, coisa que só dói em API para
+  máquina. E `paginate_keyset` comparava `timestamptz` com o texto do cursor, o que
+  estourava na SEGUNDA página de qualquer listagem ordenada por data. Os dois foram
+  corrigidos no lugar certo, e valem para a API interna também.
+- **`last_used_at` é atualizado depois da resposta sair.** É a regra 13, e o motivo é
+  concreto: um `UPDATE` no caminho crítico faria toda LEITURA da API custar uma escrita —
+  e o integrador que varre a base a cada dez minutos pagaria isso mil vezes por dia.
+- **O log usa sessão própria, e é por isso que ele existe.** A requisição que falhou é a
+  que mais interessa registrar; gravar na sessão da própria requisição significaria perder
+  exatamente esses registros no rollback.
+- **`allowed_ips` responde 401, não 403.** Um 403 diria ao IP recusado que o token é
+  válido, transformando a restrição de origem num oráculo para quem roubou a credencial.
+- **O 403 de escopo diz QUAL escopo falta.** São sete recursos e onze escopos; um "acesso
+  negado" seco obrigaria o integrador a adivinhar, e adivinhar termina em pedir todos os
+  escopos "para garantir" — que é o oposto do que escopo existe para fazer.
+- **O OpenAPI público é filtrado, com fecho transitivo dos `$ref`.** Servir o schema
+  inteiro exporia trezentos endpoints internos a quem tem um token de integração. Filtrar
+  só os caminhos não bastava: um `$ref` que não resolve quebra qualquer gerador de
+  cliente, então o documento carrega os schemas referenciados e os schemas DELES, até o
+  ponto fixo.
+- **O contrato virou teste meta com a lista escrita à mão.** Gerar a expectativa a partir
+  do código faria o teste concordar com qualquer coisa. Do jeito que ficou, endpoint que
+  some e endpoint que aparece sem passar pela spec quebram o CI — inclusive o "só um
+  endpointzinho a mais", que é superfície que alguém vai usar e que depois não pode sumir.
+- **Revogar não apaga.** O log aponta para o token, e apagar a linha transformaria o
+  histórico em `token_id` nulo — o oposto de auditoria.
+- **O download devolve 302 para URL assinada.** Streamar o binário pela API gastaria banda
+  e memória do Rito para entregar o que o object storage entrega melhor; a URL expira em
+  cinco minutos, como no download da UI.
 
 ## 10. Definição de pronto
 
-Checklist padrão · Isolamento por token provado · OpenAPI completo · Commit `feat(095): API pública v1`
+- [x] Checklist padrão
+- [x] Isolamento por token provado — listagem e acesso direto, os dois pelo RLS
+- [x] OpenAPI completo — 22 endpoints, com schemas que se bastam
+- [x] Commit `feat(095): API pública v1`

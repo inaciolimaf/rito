@@ -15,8 +15,10 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 
 import httpx
+from opentelemetry.trace import SpanKind
 from redis.asyncio import Redis
 
+from app.core.observability.tracing import get_tracer
 from app.core.rate_limit import check_and_increment
 from app.integrations.http.audit import AuditSink, NullAuditSink, RequestAuditEntry
 from app.integrations.http.breaker import CircuitBreaker, CircuitState
@@ -101,6 +103,29 @@ class ResilientHttpClient:
         method = method.upper()
         parsed = httpx.URL(url)
         host = parsed.host or "unknown"
+        # Spec 097, regra 4: o span de chamada externa nasce aqui, envolvendo breaker,
+        # rate limit, cache e retries — é o tempo que o CHAMADOR espera, que é o que a
+        # investigação de lentidão precisa ver. Um span por tentativa esconderia isso.
+        with get_tracer().start_as_current_span(
+            f"http {method}",
+            kind=SpanKind.CLIENT,
+            attributes={"http.request.method": method, "server.address": host},
+        ):
+            return await self._request_com_resiliencia(
+                method, url, parsed, host, headers, params, content, tenant_id
+            )
+
+    async def _request_com_resiliencia(
+        self,
+        method: str,
+        url: str,
+        parsed: httpx.URL,
+        host: str,
+        headers: dict[str, str] | None,
+        params: dict[str, str] | None,
+        content: bytes | None,
+        tenant_id: uuid.UUID | None,
+    ) -> HttpResponse:
         policy = self._policy_for(host)
         breaker = self._breaker_for(host, policy)
 
@@ -341,23 +366,34 @@ class ResilientHttpClient:
         if not breaker.allow():
             raise CircuitOpenError(host)
 
+        # Spec 097, regra 4: o span cobre o stream INTEIRO, não só a abertura da
+        # conexão — num SSE de LLM o que interessa medir é quanto tempo a resposta
+        # levou para terminar de chegar.
+        span = get_tracer().start_span(
+            f"http {method}",
+            kind=SpanKind.CLIENT,
+            attributes={"http.request.method": method, "server.address": host},
+        )
         request = self._client.build_request(
             method, url, headers=headers, content=content, timeout=timeout_s or policy.timeout_s
         )
         try:
-            response = await self._client.send(request, stream=True)
-        except httpx.HTTPError as exc:
-            breaker.on_failure()
-            raise HttpRequestError(url, exc) from exc
-        try:
-            if response.status_code >= 500:
+            try:
+                response = await self._client.send(request, stream=True)
+            except httpx.HTTPError as exc:
                 breaker.on_failure()
-                raise HttpStatusError(url, response.status_code)
-            breaker.on_success()
-            async for line in response.aiter_lines():
-                yield line
+                raise HttpRequestError(url, exc) from exc
+            try:
+                if response.status_code >= 500:
+                    breaker.on_failure()
+                    raise HttpStatusError(url, response.status_code)
+                breaker.on_success()
+                async for line in response.aiter_lines():
+                    yield line
+            finally:
+                await response.aclose()
         finally:
-            await response.aclose()
+            span.end()
 
 
 def create_http_client(

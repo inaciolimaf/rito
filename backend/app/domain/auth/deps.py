@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.observability.context import tenant_id_var, user_id_var
 from app.core.rls import set_tenant_context
 from app.core.tokens import decode_access_token
 from app.domain.users.models import User
@@ -35,6 +36,11 @@ async def get_current_user(
         user = await session.get(User, user_id)
         if user is None or not user.is_active:
             raise HTTPException(status_code=401, detail="Usuário não encontrado ou inativo.")
+        # Spec 097, regra 1: daqui para a frente todo log da requisição sai com tenant e
+        # usuário. Este é o primeiro instante em que eles são conhecidos — o middleware
+        # roda antes do token ser validado e não teria como saber.
+        tenant_id_var.set(str(tenant_id))
+        user_id_var.set(str(user_id))
         return cast(User, user)
 
 

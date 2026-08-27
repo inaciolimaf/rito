@@ -423,7 +423,7 @@ Bearer token por tenant; rate limit (30 GET/min, 500 POST/dia); endpoints de cus
 Busca unificada (Tudo / Pessoas / Processos) com ranking, `pg_trgm`, atalho `/`.
 **Aceite:** busca por nome parcial e por CNJ. **t:** 4 s. **Deps:** 027
 
-### ⬜ 097 — Observabilidade
+### ✅ 097 — Observabilidade
 Logs estruturados com `tenant_id` e `request_id`, tracing OpenTelemetry, métricas Prometheus, healthchecks profundos.
 **Aceite:** trace atravessa request → celery task. **t:** 3 s. **Deps:** 002
 

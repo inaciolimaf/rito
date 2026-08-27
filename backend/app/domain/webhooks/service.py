@@ -21,6 +21,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.observability.metrics import record_webhook_delivery
 from app.core.repository import BaseRepository
 from app.domain.integration_alerts.models import IntegrationAlert
 from app.domain.webhooks.models import WebhookDelivery, WebhookEndpoint
@@ -255,6 +256,15 @@ class WebhookService:
         delivery.duration_ms = resultado.duration_ms
         delivery.error = resultado.error[:500] if resultado.error else None
 
+        # Spec 097, regra 6: entregas de webhook por desfecho. Aqui, no único ponto
+        # por onde toda tentativa (primeira ou retry) passa.
+        record_webhook_delivery(
+            status=(
+                "delivered"
+                if resultado.ok
+                else ("retrying" if retryable and delivery.attempt < MAX_ATTEMPTS else "failed")
+            )
+        )
         if resultado.ok:
             delivery.delivered_at = self.now()
             delivery.next_attempt_at = None

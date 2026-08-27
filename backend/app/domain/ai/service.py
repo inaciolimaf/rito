@@ -13,9 +13,12 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
 
+from opentelemetry.trace import SpanKind
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.observability.metrics import record_llm_usage
+from app.core.observability.tracing import get_tracer
 from app.domain.ai.budget import AiBudgetService
 from app.domain.ai.exceptions import FeatureDisabledError, UnknownFeatureError
 from app.domain.ai.features import FEATURE_KEYS, FEATURES_BY_KEY
@@ -330,13 +333,21 @@ class AiRunner:
         tools: Sequence[ToolSpec] | None,
         model: str,
     ) -> LLMResponse:
-        return await self.provider.complete(
-            messages=messages,
-            model=model,
-            tools=tools,
-            temperature=feature.temperature,
-            max_tokens=feature.max_tokens,
-        )
+        # Spec 097, regra 4: span de LLM. O nome carrega a feature, não o modelo —
+        # trocar de modelo é configuração (CLAUDE.md §7, regra 2) e não deveria
+        # renomear a operação no trace; o modelo vai como atributo.
+        with get_tracer().start_as_current_span(
+            f"llm {feature.feature_key}",
+            kind=SpanKind.CLIENT,
+            attributes={"gen_ai.system": "openrouter", "gen_ai.request.model": model},
+        ):
+            return await self.provider.complete(
+                messages=messages,
+                model=model,
+                tools=tools,
+                temperature=feature.temperature,
+                max_tokens=feature.max_tokens,
+            )
 
     def _cost_for(self, model: str, usage: Usage) -> Decimal | None:
         """Regra 7: custo do próprio OpenRouter; ausente, calculado pelo catálogo."""
@@ -362,6 +373,17 @@ class AiRunner:
     ) -> AiUsage:
         """Regra 6: todo uso é registrado, inclusive o que falhou.
         Regra 13: conteúdo só entra com opt-in explícito do tenant."""
+        custo = self._cost_for(model, usage)
+        # Spec 097, regra 6: tokens e custo de LLM também viram métrica. Aqui, e não no
+        # provider, porque este é o único ponto por onde TODA chamada passa — inclusive
+        # a que falhou e a que caiu no fallback.
+        record_llm_usage(
+            feature=feature.feature_key,
+            model=model,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            cost_usd=float(custo) if custo is not None else 0.0,
+        )
         return await self.usage.record(
             AiUsage(
                 tenant_id=self.tenant_id,
@@ -370,7 +392,7 @@ class AiRunner:
                 model=model,
                 prompt_tokens=usage.prompt_tokens,
                 completion_tokens=usage.completion_tokens,
-                cost_usd=self._cost_for(model, usage),
+                cost_usd=custo,
                 latency_ms=latency_ms,
                 status=status,
                 error=error[:_MAX_ERROR_LENGTH] if error else None,

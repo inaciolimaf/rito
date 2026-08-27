@@ -10,6 +10,11 @@ from celery.schedules import crontab
 
 from app.core.config import get_settings
 
+# Import por efeito colateral: registra os sinais que propagam request_id e traceparent
+# da requisição para a task (spec 097, regras 2 e 5). Precisa acontecer no processo que
+# enfileira E no que executa — ambos importam este módulo para achar o `celery_app`.
+from app.workers import observability  # noqa: F401
+
 _settings = get_settings()
 
 celery_app = Celery("rito", broker=_settings.redis_url, backend=_settings.redis_url)

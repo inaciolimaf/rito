@@ -82,6 +82,17 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
+    # Spec 097. `otel_sample_ratio` é a regra 11: 10% do tráfego normal em produção — o
+    # que terminou em erro é exportado sempre, independentemente do sorteio (ver
+    # `core/observability/tracing.py`). Sem `otel_exporter_otlp_endpoint`, o trace fica
+    # em memória e nada sai do processo: é o modo de dev e o de teste.
+    otel_service_name: str = "rito-api"
+    otel_sample_ratio: float = 0.1
+    otel_exporter_otlp_endpoint: str | None = None
+    # Regra 6: o /metrics é interno. Com token configurado, exige bearer; sem token,
+    # depende do isolamento de rede de quem opera (ver docstring da rota).
+    metrics_token: str | None = None
+
     # CSV de origens permitidas (CORS) — o frontend roda em porta diferente do backend em dev.
     cors_allowed_origins: str = "http://localhost:5173"
 

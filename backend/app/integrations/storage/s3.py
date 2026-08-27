@@ -69,6 +69,9 @@ class S3FileStorage:
     async def delete(self, *, key: str) -> None:
         await asyncio.to_thread(self._client.delete_object, Bucket=self._bucket, Key=key)
 
+    async def ping(self) -> None:
+        await asyncio.to_thread(self._client.head_bucket, Bucket=self._bucket)
+
     def public_url(self, key: str) -> str:
         return self.signed_url(key, expires_in_seconds=_PRESIGNED_URL_EXPIRY_SECONDS)
 

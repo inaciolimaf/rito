@@ -17,6 +17,14 @@ class FileStorage(Protocol):
 
     def public_url(self, key: str) -> str: ...
 
+    async def ping(self) -> None:
+        """Sonda de prontidão (spec 097, regra 8) — levanta se o bucket não responde.
+
+        Existe na interface, e não só na implementação S3, porque o `/health/ready`
+        depende da abstração: trocar de storage não pode exigir mexer no healthcheck.
+        """
+        ...
+
     def signed_url(self, key: str, *, expires_in_seconds: int) -> str:
         """URL de download assinada com validade curta (spec 035, regra 6: 5 min
         para anexos) — diferente de `public_url`, que é a URL longa do logo."""

@@ -27,6 +27,7 @@ from typing import Protocol
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.locks import SyncLock
+from app.core.observability.metrics import record_sync_run
 from app.core.rls import set_tenant_context
 from app.domain.integration_alerts.models import IntegrationAlert
 from app.domain.integration_alerts.repository import IntegrationAlertRepository
@@ -210,6 +211,7 @@ class TermSyncService:
             term.status_message = message
             term.next_sync_at = next_daily_run(self.cron, now)
             term.consecutive_failures += 1  # spec 049, regra 1
+            record_sync_run(integration="djen", status="error")  # spec 097, regra 6
             if term.consecutive_failures >= CONSECUTIVE_FAILURE_ALERT_THRESHOLD:
                 await self._raise_or_update_alert(term, message)
             await self._commit()
@@ -221,6 +223,7 @@ class TermSyncService:
         term.status = TermStatus.ATIVO
         term.status_message = None
         term.last_success_at = now  # regra 11: silêncio é resultado válido
+        record_sync_run(integration="djen", status="ok")  # spec 097, regra 6
         term.next_sync_at = next_daily_run(self.cron, now)
         term.consecutive_failures = 0
         await self._commit()

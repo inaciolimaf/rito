@@ -17,7 +17,10 @@ from app.core.errors import (
 )
 from app.core.health import router as health_router
 from app.core.logging import configure_logging
-from app.core.middleware import RequestIDMiddleware
+from app.core.middleware import ObservabilityMiddleware
+from app.core.observability import metrics as observability_metrics
+from app.core.observability.tracing import build_span_exporter, configure_tracing
+from app.core.observability.tracing import instrument_engine as instrument_engine_tracing
 from app.core.redis import create_redis_client
 from app.domain.account.router import router as account_router
 from app.domain.action_groups.router import action_groups_router, lawsuit_types_router
@@ -84,8 +87,23 @@ from app.public.router import router as public_api_router
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
+    # Spec 097: o provider de trace é global ao processo e precisa existir antes da
+    # primeira requisição — instrumentar o engine sem provider criaria span órfão.
+    exporter = build_span_exporter(settings.otel_exporter_otlp_endpoint)
+    configure_tracing(
+        service_name=settings.otel_service_name,
+        sample_ratio=settings.otel_sample_ratio,
+        exporter=exporter,
+    )
 
     engine = create_engine()
+    # Spec 097, regra 6: contagem de queries por requisição, sempre — é barata (um
+    # `+= 1`) e a métrica de queries/request depende dela.
+    observability_metrics.instrument_engine(engine)
+    # Regra 4: span por query. Medido ao fechar a 097: com o sampler devolvendo
+    # RECORD_ONLY para o que não foi sorteado, o custo em 1.400 testes ficou dentro do
+    # ruído — não vale condicionar a regra 4 a ter coletor configurado.
+    instrument_engine_tracing(engine)
     app.state.engine = engine
     app.state.session_factory = create_session_factory(engine)
     app.state.redis = create_redis_client()
@@ -116,7 +134,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(ObservabilityMiddleware)
     # Spec 095: headers de limite e log de requisição da API pública.
     app.add_middleware(PublicApiMiddleware)
 

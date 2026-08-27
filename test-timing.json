@@ -1,7 +1,7 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 242,
-  "last_measured_at": "2026-08-28",
+  "last_measured_wall_clock_seconds": 287,
+  "last_measured_at": "2026-08-27",
   "specs": {
     "001": {
       "wall_clock_seconds": 2,
@@ -330,6 +330,10 @@
     "096": {
       "wall_clock_seconds": 242,
       "notes": "1384 backend (1354 da 095 + 30 novos: 17 unitários da detecção do tipo de entrada (CPF/CNPJ e CNJ com e sem máscara, texto, curto demais, prefixo do último termo e os operadores do tsquery higienizados) e 13 de integração (nome parcial sem acento, CPF e CNJ com/sem máscara, facetas separadas, exato antes de parcial, o teste de isolamento, tarefa privada, busca curta devolvendo recentes, clique registrado, histórico limitado a 20, recentes sem repetição, took_ms e o p95 com 20.000 contatos marcado @pytest.mark.slow)) + 279 frontend (269 + 10: GlobalSearch reescrita sobre o backend real, destaque do termo, total do grupo, recentes, debounce e os 2 unitários do useDebounced). A busca usa colunas geradas com `rito_unaccent` IMMUTABLE — sem trigger."
+    },
+    "097": {
+      "wall_clock_seconds": 287,
+      "notes": "1409 backend (1384 da 096 + 29 novos, menos 4 do test_health.py absorvido: 7 unitários da redação (senha/token/chave, Bearer, CPF/CNPJ/e-mail/telefone com e sem pontuação, UUID que NÃO é CPF, chave sensível e lista) e 22 de integração (os 8 campos de correlação no log, X-Request-Id de volta no header, tenant e usuário autenticados, nada sensível sobrevivendo ao formatter, stack no erro e não na requisição, span de banco pendurado no da requisição, spans externo e de LLM, span em erro exportado fora da amostra, request_id + traceparent atravessando a fila, sinais do Celery ligados, as 8 famílias do /metrics, rótulo por template e não por caminho, queries por request, /health sem tocar dependência, /health/ready com storage, Redis fora, Postgres fora, teto de 2 s por sonda, token do /metrics, nível por variável, log só para stdout, tokens e custo de LLM)) + 279 frontend (a 097 não tem front-end) + 10 e2e. O middleware virou ASGI puro: BaseHTTPMiddleware roda a aplicação em outra task e o contexto escrito pela rota não voltava. Cap do pytest subiu de 2 para 3 workers — a constante vinha da 035, quando o backend levava ~85 s; hoje ele é o poste mais alto (293 s de baseline neste host com 2 workers, 287 s com 3)."
     }
   }
 }

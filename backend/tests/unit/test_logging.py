@@ -2,7 +2,8 @@ import io
 import json
 import logging
 
-from app.core.logging import JSONFormatter, request_id_var
+from app.core.logging import JSONFormatter
+from app.core.observability.context import request_id_var
 
 
 def test_request_id_propagates_to_log_output() -> None:

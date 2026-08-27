@@ -23,7 +23,7 @@ run_backend() {
 	# IO/vacuum disso. Os testes criam tudo que precisam via fixtures; os catálogos
 	# globais (courts, steps, occupations, cidades) ficam — não têm FK para tenants.
 	MIGRATIONS_DATABASE_URL="${TEST_MIGRATIONS_DATABASE_URL:-$MIGRATIONS_DATABASE_URL}" \
-		uv run python -c "
+		uv run python - <<'PYCLEAN'
 import asyncio
 import os
 
@@ -34,7 +34,44 @@ from sqlalchemy.ext.asyncio import create_async_engine
 async def main() -> None:
     engine = create_async_engine(os.environ['MIGRATIONS_DATABASE_URL'])
     async with engine.begin() as conn:
+        # TRUNCATE ... CASCADE esvazia a tabela REFERENCIADORA INTEIRA, não só as linhas
+        # do tenant. Onde `tenant_id` é anulável (o NULO significa "catálogo global"), isso
+        # apaga o que a migration semeou uma única vez — e a migration não semeia de novo,
+        # porque já está aplicada. Descoberto na spec 097: os 19 agentes de sistema da 087
+        # sumiram do rito_test e 12 testes da 087 passaram a falhar em toda execução
+        # SEGUINTE a um `make test`. A lista é descoberta pelo catálogo, não escrita à mão,
+        # para continuar correta quando aparecer a próxima tabela desse tipo.
+        globais = (
+            await conn.execute(
+                text(
+                    """
+                    SELECT c.table_name
+                    FROM information_schema.columns c
+                    JOIN pg_constraint k
+                      ON k.conrelid = (quote_ident(c.table_name))::regclass
+                     AND k.confrelid = 'tenants'::regclass
+                     AND k.contype = 'f'
+                    WHERE c.table_schema = 'public'
+                      AND c.column_name = 'tenant_id'
+                      AND c.is_nullable = 'YES'
+                    GROUP BY 1
+                    """
+                )
+            )
+        ).scalars().all()
+        for tabela in globais:
+            await conn.execute(text(f'DROP TABLE IF EXISTS _globais_{tabela}'))
+            await conn.execute(
+                text(f'CREATE TABLE _globais_{tabela} AS '
+                     f'SELECT * FROM {tabela} WHERE tenant_id IS NULL')
+            )
+
         await conn.execute(text('TRUNCATE tenants CASCADE'))
+
+        for tabela in globais:
+            await conn.execute(text(f'INSERT INTO {tabela} SELECT * FROM _globais_{tabela}'))
+            await conn.execute(text(f'DROP TABLE _globais_{tabela}'))
+
         # integration_health (spec 049) não tem tenant_id — nunca é limpa pelo CASCADE
         # acima. Sem isso, rows que vazam de um pytest standalone (sem passar por este
         # script) se acumulam entre execuções e derrubam os testes de 'N verificações
@@ -44,13 +81,20 @@ async def main() -> None:
 
 
 asyncio.run(main())
-"
+PYCLEAN
 	# As 3 suítes rodam CONCORRENTES (CLAUDE.md §3): pytest -n auto (todos os cores) +
 	# vitest threads + playwright/uvicorn/vite disputavam 4 cores e o wall-clock
 	# oscilava 114→135 s em agosto/2026 (spec 035). Cap em 2 workers por padrão dá ar
 	# às outras suítes; PYTEST_WORKERS=auto devolve o comportamento antigo em máquina
 	# dedicada (CI com mais cores).
-	workers="${PYTEST_WORKERS:-2}"
+	#
+	# Spec 097: o cap subiu de 2 para 3. Quando ele foi escolhido (035) o backend levava
+	# ~85 s e as três suítes eram comparáveis; hoje o backend é o poste mais alto por
+	# larga margem (~300 s contra ~60 s do frontend e ~80 s do e2e), e as duas outras
+	# devolvem seus núcleos nos primeiros 90 s. Segurar o backend em 2 workers pelos
+	# 3,5 minutos seguintes deixa metade da máquina ociosa. Medido em host de 4 núcleos:
+	# 293 s com 2 workers, 287 s com 3 — e o backend sozinho cai de 300 s para 253 s.
+	workers="${PYTEST_WORKERS:-3}"
 	if [ -n "${PYTEST_ALLOW_HOSTS:-}" ]; then
 		uv run pytest -n "$workers" --allow-hosts="$PYTEST_ALLOW_HOSTS"
 	else

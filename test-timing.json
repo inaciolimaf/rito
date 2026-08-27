@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 234,
+  "last_measured_wall_clock_seconds": 242,
   "last_measured_at": "2026-08-28",
   "specs": {
     "001": {
@@ -326,6 +326,10 @@
     "095": {
       "wall_clock_seconds": 234,
       "notes": "1354 backend (1334 da 094 + 20 novos: 16 de integração (token válido resolvendo o tenant, ausente/inválido/expirado/revogado em 401, escopo faltando dizendo qual falta, allowed_ips restringindo com 401 deliberado, limite de GET com Retry-After, headers de limite em toda resposta, limite por rota, o teste de isolamento (listagem e acesso direto), escrita reprovada pelo service, RFC 7807, paginação por cursor com teto de 1.000, log da requisição e do erro, token exibido uma vez, 11º token e escopo desconhecido recusados) e 4 meta do contrato (os 22 endpoints exatos, escopo em toda rota, escopo declarado sempre conferido e o OpenAPI que se basta)) + 269 frontend (265 + 4 do CreateTokenDialog). Dois bugs de plataforma corrigidos: headers de HTTPException descartados no RFC 7807 e cursor de coluna temporal comparado como texto."
+    },
+    "096": {
+      "wall_clock_seconds": 242,
+      "notes": "1384 backend (1354 da 095 + 30 novos: 17 unitários da detecção do tipo de entrada (CPF/CNPJ e CNJ com e sem máscara, texto, curto demais, prefixo do último termo e os operadores do tsquery higienizados) e 13 de integração (nome parcial sem acento, CPF e CNJ com/sem máscara, facetas separadas, exato antes de parcial, o teste de isolamento, tarefa privada, busca curta devolvendo recentes, clique registrado, histórico limitado a 20, recentes sem repetição, took_ms e o p95 com 20.000 contatos marcado @pytest.mark.slow)) + 279 frontend (269 + 10: GlobalSearch reescrita sobre o backend real, destaque do termo, total do grupo, recentes, debounce e os 2 unitários do useDebounced). A busca usa colunas geradas com `rito_unaccent` IMMUTABLE — sem trigger."
     }
   }
 }

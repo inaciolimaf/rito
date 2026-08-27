@@ -419,7 +419,7 @@ Nó de decisão via LangGraph dentro do fluxo; ramificação condicional por an�
 Bearer token por tenant; rate limit (30 GET/min, 500 POST/dia); endpoints de customers, lawsuits, posts, publications, transactions, documents, settings; OpenAPI.
 **Aceite:** rate limit retorna 429; contrato validado contra schema. **t:** 7 s. **Deps:** 059, 048
 
-### ⬜ 096 — Busca global
+### ✅ 096 — Busca global
 Busca unificada (Tudo / Pessoas / Processos) com ranking, `pg_trgm`, atalho `/`.
 **Aceite:** busca por nome parcial e por CNJ. **t:** 4 s. **Deps:** 027
 

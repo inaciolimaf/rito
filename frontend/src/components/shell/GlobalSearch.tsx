@@ -1,32 +1,42 @@
+import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Input } from "@/components/ui/input";
+import { RecentSearches } from "@/features/search/RecentSearches";
+import { SearchResultGroup } from "@/features/search/SearchResultGroup";
+import {
+  recordSearchClick,
+  search,
+  type SearchFacet,
+  type SearchHitData,
+  type SearchResponseData,
+} from "@/features/search/api";
+import { useDebounced } from "@/features/search/useDebounced";
 import { cn } from "@/lib/utils";
 
-type FacetKey = "all" | "people" | "lawsuits";
-
-const FACETS: { key: FacetKey; label: string }[] = [
+const FACETS: { key: SearchFacet; label: string }[] = [
   { key: "all", label: "Tudo" },
   { key: "people", label: "Pessoas" },
   { key: "lawsuits", label: "Processos" },
 ];
 
-interface SearchResult {
-  id: string;
-  label: string;
-  facet: Exclude<FacetKey, "all">;
+const MIN_QUERY_LENGTH = 2;
+
+const VAZIO: SearchResponseData = {
+  people: { items: [], total: 0 },
+  lawsuits: { items: [], total: 0 },
+  tasks: { items: [], total: 0 },
+  took_ms: 0,
+  query_kind: "too_short",
+  recent: [],
+};
+
+interface FlatHit extends SearchHitData {
+  type: "customer" | "lawsuit" | "post";
   path: string;
 }
-
-// Backend real de busca fica para a spec 096 — esta lista é só para exercitar a UI
-// (facetas + navegação por teclado) até lá.
-const PLACEHOLDER_RESULTS: SearchResult[] = [
-  { id: "1", label: "Ana Souza", facet: "people", path: "/customers" },
-  { id: "2", label: "Bruno Lima", facet: "people", path: "/customers" },
-  { id: "3", label: "0001234-56.2026.8.26.0100", facet: "lawsuits", path: "/lawsuits" },
-];
 
 function isTypingTarget(target: EventTarget | null): boolean {
   return (
@@ -36,20 +46,51 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
+function flatten(data: SearchResponseData): FlatHit[] {
+  return [
+    ...data.people.items.map((hit) => ({
+      ...hit,
+      type: "customer" as const,
+      path: "/customers",
+    })),
+    ...data.lawsuits.items.map((hit) => ({
+      ...hit,
+      type: "lawsuit" as const,
+      path: `/lawsuits/${hit.id}`,
+    })),
+    ...data.tasks.items.map((hit) => ({
+      ...hit,
+      type: "post" as const,
+      path: `/posts/${hit.id}`,
+    })),
+  ];
+}
+
+/** Busca do header (spec 008 na UI, spec 096 no backend).
+ *
+ * O debounce de 250 ms (regra 7) é o que evita a tela piscar resultados fora de ordem
+ * enquanto alguém digita — e o que impede seis consultas para uma palavra de seis letras.
+ */
 export function GlobalSearch(): JSX.Element {
-  const [facet, setFacet] = React.useState<FacetKey>("all");
+  const [facet, setFacet] = React.useState<SearchFacet>("all");
   const [query, setQuery] = React.useState("");
   const [activeIndex, setActiveIndex] = React.useState(-1);
   const [isFocused, setIsFocused] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const debounced = useDebounced(query);
 
-  const results = React.useMemo(() => {
-    if (!query) return [];
-    return PLACEHOLDER_RESULTS.filter((result) => facet === "all" || result.facet === facet).filter(
-      (result) => result.label.toLowerCase().includes(query.toLowerCase()),
-    );
-  }, [facet, query]);
+  const { data = VAZIO } = useQuery({
+    queryKey: ["search", debounced, facet],
+    queryFn: () => search(debounced, facet),
+    enabled: isFocused,
+    // Resultado de busca envelhece rápido: o cadastro criado há dez segundos precisa
+    // aparecer, e a resposta é barata.
+    staleTime: 0,
+  });
+
+  const results = React.useMemo(() => flatten(data), [data]);
+  const activeId = results[activeIndex]?.id ?? null;
 
   React.useEffect(() => {
     function handleGlobalKeyDown(event: KeyboardEvent): void {
@@ -61,6 +102,15 @@ export function GlobalSearch(): JSX.Element {
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, []);
 
+  function selecionar(hit: FlatHit): void {
+    // Regra 8: o clique é o sinal que alimenta as recentes e a ordenação futura. Falhar
+    // aqui não pode impedir a navegação — o registro é telemetria, não o objetivo.
+    void recordSearchClick({ query: debounced, type: hit.type, id: hit.id }).catch(() => undefined);
+    navigate(hit.path);
+    setQuery("");
+    setIsFocused(false);
+  }
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>): void {
     if (results.length === 0) return;
     if (event.key === "ArrowDown") {
@@ -71,17 +121,14 @@ export function GlobalSearch(): JSX.Element {
       setActiveIndex((index) => Math.max(index - 1, 0));
     } else if (event.key === "Enter" && activeIndex >= 0) {
       event.preventDefault();
-      const result = results[activeIndex];
-      if (result) {
-        navigate(result.path);
-        setQuery("");
-        setIsFocused(false);
-      }
+      const hit = results[activeIndex];
+      if (hit) selecionar(hit);
     }
   }
 
   const listboxId = React.useId();
-  const showPanel = isFocused && (query.length > 0 || results.length > 0);
+  const showPanel = isFocused;
+  const curtoDemais = debounced.trim().length < MIN_QUERY_LENGTH;
 
   return (
     <div className="relative w-full max-w-md">
@@ -125,30 +172,36 @@ export function GlobalSearch(): JSX.Element {
             ))}
           </div>
           <ul id={listboxId} role="listbox">
-            {results.length === 0 ? (
-              <li className="px-3 py-4 text-center text-sm text-muted">
-                {query ? "Nenhum resultado." : "Digite para buscar."}
-              </li>
+            {curtoDemais ? (
+              <RecentSearches items={data.recent} onPick={setQuery} />
+            ) : results.length === 0 ? (
+              <li className="px-3 py-4 text-center text-sm text-muted">Nenhum resultado.</li>
             ) : (
-              results.map((result, index) => (
-                <li
-                  key={result.id}
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  className={cn(
-                    "cursor-pointer px-3 py-2 text-sm text-primary hover:bg-surface-muted",
-                    index === activeIndex && "bg-surface-muted",
-                  )}
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    navigate(result.path);
-                    setQuery("");
-                    setIsFocused(false);
-                  }}
-                >
-                  {result.label}
-                </li>
-              ))
+              <>
+                <SearchResultGroup
+                  title="Pessoas"
+                  facet={data.people}
+                  query={debounced}
+                  activeId={activeId}
+                  onSelect={(hit) => selecionar({ ...hit, type: "customer", path: "/customers" })}
+                />
+                <SearchResultGroup
+                  title="Processos"
+                  facet={data.lawsuits}
+                  query={debounced}
+                  activeId={activeId}
+                  onSelect={(hit) =>
+                    selecionar({ ...hit, type: "lawsuit", path: `/lawsuits/${hit.id}` })
+                  }
+                />
+                <SearchResultGroup
+                  title="Tarefas"
+                  facet={data.tasks}
+                  query={debounced}
+                  activeId={activeId}
+                  onSelect={(hit) => selecionar({ ...hit, type: "post", path: `/posts/${hit.id}` })}
+                />
+              </>
             )}
           </ul>
         </div>

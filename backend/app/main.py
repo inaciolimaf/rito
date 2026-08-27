@@ -61,6 +61,7 @@ from app.domain.publications.router import router as publications_router
 from app.domain.reports.router import router as reports_router
 from app.domain.schedule.router import ical_router
 from app.domain.schedule.router import router as schedule_router
+from app.domain.search.router import router as search_router
 from app.domain.squads.router import router as squads_router
 from app.domain.stages.router import stages_router, steps_router
 from app.domain.task_types.router import router as task_types_router
@@ -154,6 +155,7 @@ def create_app() -> FastAPI:
     app.include_router(dunning_router, prefix="/api/v1")
     app.include_router(api_tokens_router, prefix="/api/v1")
     app.include_router(automations_router, prefix="/api/v1")
+    app.include_router(search_router, prefix="/api/v1")
     app.include_router(webhooks_router, prefix="/api/v1")
     app.include_router(documents_router, prefix="/api/v1")
     app.include_router(document_extraction_router, prefix="/api/v1")

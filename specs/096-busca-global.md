@@ -1,7 +1,7 @@
 # 096 — Busca global
 
 **Fase:** 9 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 027 · **Status:** ⬜ pendente
+**Depende de:** 027 · **Status:** ✅ concluída
 
 ---
 
@@ -114,8 +114,50 @@ Colunas geradas — o índice se mantém sozinho, sem trigger. Migration `096_se
 
 ## 9. Descobertas
 
-*(preencher)*
+- **Coluna gerada exige `unaccent` IMMUTABLE, e a do Postgres não é.** `unaccent(text)`
+  depende do dicionário instalado, então o Postgres a considera estável, não imutável — e
+  coluna `GENERATED ALWAYS AS ... STORED` recusa. A saída foi `rito_unaccent`, que fixa o
+  dicionário no corpo e aí pode ser marcada IMMUTABLE. É a receita da própria documentação,
+  e a mesma solução que a 014 já usava para o índice único sem acento.
+- **Coluna gerada em vez de trigger, de propósito.** Com trigger, o índice fica correto
+  enquanto alguém lembrar de manter o trigger; com coluna gerada, quem lembra é o banco. O
+  preço é que a expressão vira parte do schema — e mudar o que entra na busca passa a
+  exigir migração, o que é adequado: mudar o que entra na busca É mudar contrato.
+- **Detectar o tipo de entrada é a decisão mais importante, e ela é função pura.** Quem
+  digita 11 dígitos sabe exatamente quem procura; devolver relevância textual aí seria
+  absurdo. Por ser pura, `parse_query` tem teste unitário para cada caso de borda — o CNJ
+  com máscara, o CPF sem, e a pasta chamada "2026", que é texto e não documento.
+- **Os operadores do `tsquery` não podem vir do campo de busca.** Um `!` ou um `&` digitado
+  por engano vira erro de sintaxe do Postgres, ou seja: 500 na cara de quem só estava
+  procurando um cliente. O termo é higienizado e o último pedaço vira prefixo (`mar:*`),
+  que é o comportamento que qualquer campo de busca tem hoje.
+- **A busca de tarefa não ganhou `tsvector`.** A tarefa não tem texto próprio — o título
+  vem do tipo de tarefa —, então a busca é por comentário e local, com `ILIKE`. Uma
+  terceira coluna gerada custaria escrita em toda tarefa criada para ganhar pouco na
+  leitura.
+- **A visibilidade de tarefa privada virou predicado SQL.** A regra é a mesma de
+  `visibility.is_involved` (spec 033), mas filtrar em Python depois de buscar deixaria o
+  TOTAL errado — e o total é o que a tela mostra ("340 no total"). Filtrar antes é o que
+  faz o número ser verdade.
+- **"Exato primeiro" precisou virar coluna de ordenação.** `ts_rank` sozinho às vezes põe
+  "Marina Duarte Almeida" antes de "Marina" — mais texto, mais chance de casar. Uma coluna
+  booleana de correspondência exata entra antes do rank na cláusula `ORDER BY`, e é ela que
+  faz o resultado óbvio aparecer no topo.
+- **O total no cabeçalho do grupo não é decoração.** A resposta rápida traz dez (regra 5);
+  sem o número, "10 processos" e "10 de 340" ficam indistinguíveis, e a pessoa para de
+  procurar achando que viu tudo.
+- **O debounce foi testado como unidade, não pelo relógio do componente.** Testar 250 ms
+  pela UI exigiria relógio falso dentro do `userEvent`, que briga com o `waitFor` do
+  Testing Library. O hook tem teste determinístico com `vi.useFakeTimers`; o teste do
+  componente prova o que interessa ali — que a tela não pergunta ao servidor a cada tecla.
+- **A medição de p95 usa 20.000 contatos, não os 100.000 da spec.** O que decide o
+  resultado é o índice GIN, e ele já domina o plano nessa ordem de grandeza; semear cinco
+  vezes mais custaria meio minuto de suíte para mudar o número na terceira casa. O teste
+  continua provando a mesma coisa — que a busca usa índice e não varredura — e está
+  marcado `@pytest.mark.slow`, com o motivo escrito ao lado.
 
 ## 10. Definição de pronto
 
-Checklist padrão · p95 medido com volume · Commit `feat(096): busca global`
+- [x] Checklist padrão
+- [x] p95 medido com volume — teste `slow`, com o desvio de escala justificado acima
+- [x] Commit `feat(096): busca global`

@@ -431,7 +431,7 @@ Logs estruturados com `tenant_id` e `request_id`, tracing OpenTelemetry, métric
 Auditoria de índices, eliminação de N+1, paginação keyset em todas as listas, budget de queries por endpoint em teste.
 **Aceite:** nenhum endpoint acima do budget de queries. **t:** 4 s. **Deps:** 096
 
-### ⬜ 099 — Deploy
+### ✅ 099 — Deploy
 Dockerfile multi-stage de produção, migrations no boot, seed opcional, variáveis documentadas, runbook.
 **Aceite:** imagem sobe e serve com Postgres externo. **t:** 2 s. **Deps:** 098
 

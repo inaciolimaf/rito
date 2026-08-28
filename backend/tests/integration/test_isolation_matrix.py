@@ -160,6 +160,17 @@ def test_nenhum_modulo_da_app_troca_de_role_ou_usa_conexao_de_migration() -> Non
     A exceção conhecida é o refresh de view materializada (spec 060/078), que roda no
     worker: `REFRESH MATERIALIZED VIEW CONCURRENTLY` não roda sob FORCE RLS. Ele vive
     em `app/core/materialized_view.py` e em `app/workers/`, nunca no caminho de request.
+
+    A 099 acrescentou quatro exceções, todas FORA do caminho de request e por isso
+    compatíveis com o que esta regra protege:
+
+    - `app/core/migrations.py` e `app/main.py` — migration no boot, sob trava (regra 3).
+      Acontece ANTES de a aplicação aceitar a primeira requisição;
+    - `app/cli.py` — a CLI de operação, executada por quem está no terminal de produção;
+    - `app/core/bootstrap.py` — só *nomeia* a variável, para exigi-la no boot.
+
+    O que a regra proíbe continua proibido: nenhuma rota, service ou repositório usa a
+    conexão de superusuário para atender alguém.
     """
     ofensores: list[str] = []
     for path in APP_DIR.rglob("*.py"):
@@ -169,7 +180,17 @@ def test_nenhum_modulo_da_app_troca_de_role_ou_usa_conexao_de_migration() -> Non
             ofensores.append(f"{relativo}: SET ROLE")
         if "migrations_database_url" in conteudo and not (
             relativo.startswith("app/workers/")
-            or relativo in ("app/core/materialized_view.py", "app/core/config.py", "app/core/db.py")
+            or relativo
+            in (
+                "app/core/materialized_view.py",
+                "app/core/config.py",
+                "app/core/db.py",
+                # Spec 099 — ver docstring.
+                "app/core/migrations.py",
+                "app/core/bootstrap.py",
+                "app/main.py",
+                "app/cli.py",
+            )
         ):
             ofensores.append(f"{relativo}: conexão de migration fora do worker")
     assert ofensores == [], ofensores

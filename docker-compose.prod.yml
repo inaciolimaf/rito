@@ -1,0 +1,89 @@
+# Compose de produção (spec 099).
+#
+# Sobe o Rito inteiro numa máquina só: API, worker, beat, frontend e as dependências.
+# Não é substituto de orquestrador — é o arranjo que permite a um escritório rodar o
+# sistema sem time de infra, e a quem tem orquestrador conferir a imagem antes.
+#
+#   cp .env.production.example .env.production   # e preencha
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Todo segredo vem de `.env.production`, que NÃO é versionado. Ver docs/RUNBOOK.md.
+
+x-backend: &backend
+  build:
+    context: ./backend
+  image: rito-backend:latest
+  env_file: [.env.production]
+  depends_on:
+    postgres: {condition: service_healthy}
+    redis: {condition: service_healthy}
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rito}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-rito}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rito}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # `appendonly`: fila e locks sobrevivem a um restart do Redis. Sem isso, um reinício
+    # perde as tarefas enfileiradas — e ninguém descobre até faltar uma sincronização.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    <<: *backend
+    ports:
+      - "${API_PORT:-8000}:8000"
+    # Regra 10: tempo para terminar as requisições em curso antes do SIGKILL. Precisa ser
+    # MAIOR que o `--timeout-graceful-shutdown` do uvicorn (30 s), senão o Docker mata
+    # antes de o processo terminar o que estava fazendo.
+    stop_grace_period: 40s
+
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel", "INFO"]
+    # Só a API aplica migration (a trava da regra 3 faria o worker esperar por nada).
+    environment:
+      RUN_MIGRATIONS_ON_BOOT: "false"
+    # Regra 10: o Celery termina a task corrente antes de sair.
+    stop_grace_period: 120s
+
+  beat:
+    <<: *backend
+    command: ["celery", "-A", "app.workers.celery_app", "beat", "--loglevel", "INFO"]
+    environment:
+      RUN_MIGRATIONS_ON_BOOT: "false"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?defina VITE_API_BASE_URL}
+    image: rito-frontend:latest
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on: [api]
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

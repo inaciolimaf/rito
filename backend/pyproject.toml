@@ -32,6 +32,11 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1.28",
 ]
 
+# Spec 099, §5: `rito` é a interface de operação — quem está no terminal de produção
+# não deveria precisar saber que por baixo é `python -m app.cli`.
+[project.scripts]
+rito = "app.cli:main"
+
 [dependency-groups]
 dev = [
     "ruff>=0.7",
@@ -46,6 +51,8 @@ dev = [
     "icalendar>=6.1",
     "boto3-stubs[s3]>=1.35",
     "types-openpyxl>=3.1.5.20260724",
+    "pyyaml>=6.0",
+    "types-pyyaml>=6.0.12.20260815",
 ]
 
 [tool.ruff]

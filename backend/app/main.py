@@ -7,8 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
+from app.core.bootstrap import ensure_valid
 from app.core.config import get_settings
-from app.core.db import create_engine, create_session_factory
+from app.core.db import create_engine, create_engine_from_url, create_session_factory
 from app.core.errors import (
     handle_budget_exceeded,
     handle_http_exception,
@@ -18,9 +19,11 @@ from app.core.errors import (
 from app.core.health import router as health_router
 from app.core.logging import configure_logging
 from app.core.middleware import ObservabilityMiddleware
+from app.core.migrations import upgrade_with_lock
 from app.core.observability import metrics as observability_metrics
 from app.core.observability.tracing import build_span_exporter, configure_tracing
 from app.core.observability.tracing import instrument_engine as instrument_engine_tracing
+from app.core.provisioning import seed_global_catalogs
 from app.core.redis import create_redis_client
 from app.domain.account.router import router as account_router
 from app.domain.action_groups.router import action_groups_router, lawsuit_types_router
@@ -87,6 +90,9 @@ from app.public.router import router as public_api_router
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
     configure_logging(settings.log_level)
+    # Spec 099, regras 5 e 6: configuração incompleta derruba o processo AQUI, com a
+    # lista inteira do que falta — nunca no meio da requisição de alguém.
+    ensure_valid(settings)
     # Spec 097: o provider de trace é global ao processo e precisa existir antes da
     # primeira requisição — instrumentar o engine sem provider criaria span órfão.
     exporter = build_span_exporter(settings.otel_exporter_otlp_endpoint)
@@ -97,6 +103,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
 
     engine = create_engine()
+    # Spec 099, regras 3 e 4: migrations no boot, sob trava, e falha de migration impede
+    # a aplicação de subir. Desligável por `RUN_MIGRATIONS_ON_BOOT=false` para quem
+    # prefere aplicar num job separado antes do rolling.
+    if settings.run_migrations_on_boot and settings.migrations_database_url:
+        migrations_engine = create_engine_from_url(settings.migrations_database_url)
+        try:
+            await upgrade_with_lock(migrations_engine)
+            # Regra 7: catálogo global reafirmado no boot, idempotente.
+            async with migrations_engine.begin() as conn:
+                await seed_global_catalogs(conn)
+        finally:
+            await migrations_engine.dispose()
+
     # Spec 097, regra 6: contagem de queries por requisição, sempre — é barata (um
     # `+= 1`) e a métrica de queries/request depende dela.
     observability_metrics.instrument_engine(engine)
@@ -119,6 +138,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     yield
 
+    # Spec 099, regra 10: desligamento gracioso. O uvicorn já parou de aceitar conexão e
+    # esperou as requisições em curso antes de chegar aqui — o que falta é soltar o que
+    # é nosso, e nessa ordem: primeiro o que as requisições usam (Redis, pool), por
+    # último o transporte HTTP dos webhooks, que pode ter uma entrega em voo.
     await app.state.redis.aclose()
     await engine.dispose()
 

@@ -93,6 +93,11 @@ class Settings(BaseSettings):
     # depende do isolamento de rede de quem opera (ver docstring da rota).
     metrics_token: str | None = None
 
+    # Spec 099, regra 3: migrations no boot, sob trava. Ligado por padrão — é o que faz
+    # `docker compose up` funcionar do zero. Quem prefere um job de migration separado
+    # antes do rolling desliga aqui.
+    run_migrations_on_boot: bool = True
+
     # CSV de origens permitidas (CORS) — o frontend roda em porta diferente do backend em dev.
     cors_allowed_origins: str = "http://localhost:5173"
 

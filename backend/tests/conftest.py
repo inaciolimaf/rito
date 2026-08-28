@@ -23,6 +23,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "postgresql+asyncpg://rito:rito@localhost:5432/rito_test",
     )
     os.environ["REDIS_URL"] = os.environ.get("TEST_REDIS_URL", "redis://localhost:6379/15")
+    # Spec 099, regra 3: a aplicação aplica migrations no boot. Em teste, quem migra é o
+    # `scripts/run-tests.sh`, UMA vez por sessão (spec 009, regra 3) — deixar cada
+    # `lifespan` de teste correr `alembic upgrade head` custaria segundos por teste e
+    # ainda faria os workers do xdist disputarem a trava.
+    os.environ["RUN_MIGRATIONS_ON_BOOT"] = "false"
     os.environ["ARGON2_TIME_COST"] = os.environ.get("TEST_ARGON2_TIME_COST", "1")
     os.environ["ARGON2_MEMORY_COST"] = os.environ.get("TEST_ARGON2_MEMORY_COST", "8192")
     # MinIO é infra local (como Postgres/Redis) — testes de logo (spec 011) usam o serviço

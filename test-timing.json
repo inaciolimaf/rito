@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 290,
+  "last_measured_wall_clock_seconds": 281,
   "last_measured_at": "2026-08-28",
   "specs": {
     "001": {
@@ -338,6 +338,10 @@
     "098": {
       "wall_clock_seconds": 290,
       "notes": "1439 backend (1409 da 097 + 31 novos, menos 1 movido para o noturno: 13 de orçamento de queries parametrizados por endpoint, 7 meta de invariante (FK sem índice, OFFSET, SELECT *, o contador do orçamento e o preâmbulo de RLS), 11 de cache (chave por tenant, segunda leitura sem recalcular, evento derrubando, Redis fora do ar degradando sem derrubar, dashboard e catálogo servidos do cache, escrita invalidando, listagem filtrada sem cache, isolamento entre escritórios)) + 286 frontend (279 da 097 + 4 de virtualização e 3 do bundle inicial) + 10 e2e. O `test_p95_abaixo_de_200ms_com_volume` da 096 virou @nightly: é latência com volume, e a regra 10 da 098 põe esses no noturno — no PR ele media contenção de CPU entre as três suítes, não regressão. Suíte noturna nova (`make test-nightly`): semeia 1,95 milhão de linhas, mede p95 de 7 telas e limpa com VACUUM."
+    },
+    "099": {
+      "wall_clock_seconds": 281,
+      "notes": "1477 backend (1439 da 098 + 38 novos: 7 unitários de validação de boot (produção completa, variável faltando com o motivo, a lista inteira de uma vez, SECRET_KEY de exemplo e curta, CORS em localhost, e desenvolvimento sem nada disso), 4 unitários do catálogo do tenant (tamanhos, tipo órfão, 9 fases, aspa simples), 16 de integração (advisory lock impedindo concorrência, dono visível na tabela, trava caindo com a conexão, banco sem a tabela, migration que falha soltando a trava, seed idempotente e repondo o que sumiu, escritório novo com a taxonomia inteira, provisionar duas vezes, isolamento entre escritórios, CLI criando e recusando slug repetido, contrato dos 7 comandos, restauração exigindo confirmação, boot recusando produção inválida, desligamento soltando pool e Redis) e 11 meta da imagem (não-root, multi-stage, sem toolchain, sem Node, healthcheck em liveness, desligamento gracioso, worker sem migration, segredos)) + 286 frontend + 10 e2e. A trava da §4 virou advisory lock: `migration_locks` é criada pela própria migration que ia rodar, e a versão baseada só na tabela não subia banco novo."
     }
   }
 }

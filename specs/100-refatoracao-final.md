@@ -94,7 +94,7 @@ Cada passo que travar vira correção nesta spec.
 
 ## 8. O que a auditoria encontrou
 
-Uma auditoria feita à mão vale pelo dia em que foi feita. **Dezoito dos itens desta spec
+Uma auditoria feita à mão vale pelo dia em que foi feita. **Dezenove dos itens desta spec
 viraram teste** (`tests/meta/test_final_audit.py`), para a próxima não precisar
 redescobrir o mesmo problema. O que os testes acharam:
 
@@ -135,6 +135,18 @@ silenciamentos diziam juntos — e dizer **antes**, para quem escrever a próxim
 `npm audit` apontou `nanoid` com severidade alta. Corrigida, e a auditoria das duas
 árvores (`pip-audit` e `npm audit`) virou passo de todo PR: é a superfície de ataque que
 não exige erro nosso — basta o tempo passar.
+
+### Catorze specs marcadas como pendentes sobre código em produção
+
+O `ROADMAP.md` é a fila e o cabeçalho de cada `specs/NNN-*.md` repete o mesmo estado —
+duas fontes para o mesmo fato, e elas divergiram. Catorze specs estavam ✅ no roadmap e
+⬜ no próprio arquivo, porque o ciclo que as fechou atualizou uma metade. Quem abrisse a
+017 leria "pendente" sobre contatos, que estão em produção desde agosto.
+
+Junto veio outra: **quatro specs tinham dois arquivos** — a versão planejada e a
+expandida, com nomes diferentes (`062-financeiro-dre-dfc.md` e
+`062-financeiro-relatorios-dre-dfc.md`). As planejadas foram removidas; um número, um
+arquivo. O teste passou a exigir as duas coisas.
 
 ### O que a regra de sleep realmente proíbe
 

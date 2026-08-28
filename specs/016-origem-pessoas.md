@@ -1,7 +1,7 @@
 # 016 — Origem de pessoas
 
 **Fase:** 1 · **Tipo:** feature · **Orçamento:** +2 s
-**Depende de:** 011 · **Status:** ⬜ pendente
+**Depende de:** 011 · **Status:** ✅ concluída
 
 ---
 

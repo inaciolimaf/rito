@@ -1,7 +1,7 @@
 # 017 — Contatos: modelo e CRUD
 
 **Fase:** 1 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 016 · **Status:** ⬜ pendente
+**Depende de:** 016 · **Status:** ✅ concluída
 
 ---
 

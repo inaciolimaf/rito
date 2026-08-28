@@ -1,7 +1,7 @@
 # 015 — Fases e etapas
 
 **Fase:** 1 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 014 · **Status:** ⬜ pendente
+**Depende de:** 014 · **Status:** ✅ concluída
 
 ---
 

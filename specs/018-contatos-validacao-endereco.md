@@ -1,7 +1,7 @@
 # 018 — Contatos: validação e endereço
 
 **Fase:** 1 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 017 · **Status:** ⬜ pendente
+**Depende de:** 017 · **Status:** ✅ concluída
 
 ---
 

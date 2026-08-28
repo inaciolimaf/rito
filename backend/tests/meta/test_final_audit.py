@@ -239,3 +239,43 @@ def test_nenhuma_fixture_tem_cpf_ou_cnpj_de_pessoa_real() -> None:
                     ofensores.append(f"{caminho.relative_to(RAIZ)}:{i + 1} → {achado}")
 
     assert ofensores == [], "documento de pessoa real em fixture:\n  " + "\n  ".join(ofensores)
+
+
+def test_cabecalho_de_cada_spec_concorda_com_o_roadmap() -> None:
+    """§2, coerência — e uma divergência que só a auditoria final expôs.
+
+    O `ROADMAP.md` é a fila; o cabeçalho de cada `specs/NNN-*.md` repete o mesmo estado.
+    Duas fontes para o mesmo fato divergem, e divergiram: catorze specs marcadas ✅ no
+    roadmap continuavam ⬜ no próprio arquivo, porque o ciclo que as fechou atualizou uma
+    metade. Quem abrisse a spec 017 leria "pendente" sobre código que está em produção.
+
+    Também exige um arquivo por número. Quatro specs tinham DUAS versões (a planejada e a
+    expandida, com nomes diferentes), e a busca por `grep 06X` trazia as duas.
+    """
+    specs = RAIZ / "specs"
+    roadmap = (RAIZ / "ROADMAP.md").read_text()
+
+    concluidas_no_roadmap = set(re.findall(r"^### ✅ (\d{3}) ", roadmap, flags=re.M))
+    divergentes: list[str] = []
+    por_numero: dict[str, list[str]] = {}
+
+    for caminho in sorted(specs.glob("*.md")):
+        numero = caminho.name[:3]
+        if not numero.isdigit() or numero == "000":
+            continue
+        por_numero.setdefault(numero, []).append(caminho.name)
+        cabecalho = caminho.read_text()[:400]
+        concluida_no_arquivo = "**Status:** ✅" in cabecalho
+        if concluida_no_arquivo != (numero in concluidas_no_roadmap):
+            divergentes.append(
+                f"{caminho.name}: arquivo diz "
+                f"{'✅' if concluida_no_arquivo else '⬜'}, roadmap diz "
+                f"{'✅' if numero in concluidas_no_roadmap else '⬜'}"
+            )
+
+    duplicadas = [
+        f"{numero}: {', '.join(nomes)}" for numero, nomes in por_numero.items() if len(nomes) > 1
+    ]
+
+    assert divergentes == [], "spec e roadmap discordam:\n  " + "\n  ".join(divergentes)
+    assert duplicadas == [], "mais de um arquivo para o mesmo número:\n  " + "\n  ".join(duplicadas)

@@ -1,7 +1,7 @@
 # 059 — Financeiro: dashboard e fluxo de caixa
 
 **Fase:** 5 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 058 · **Status:** ⬜ pendente
+**Depende de:** 058 · **Status:** ✅ concluída
 
 ---
 

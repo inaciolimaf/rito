@@ -1,7 +1,7 @@
 # 056 — Financeiro: lançamentos
 
 **Fase:** 5 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 055 · **Status:** ⬜ pendente
+**Depende de:** 055 · **Status:** ✅ concluída
 
 ---
 

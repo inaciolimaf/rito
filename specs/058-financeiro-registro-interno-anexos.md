@@ -1,7 +1,7 @@
 # 058 — Financeiro: registro interno e anexos
 
 **Fase:** 5 · **Tipo:** feature · **Orçamento:** +3 s
-**Depende de:** 056 · **Status:** ⬜ pendente
+**Depende de:** 056 · **Status:** ✅ concluída
 
 ---
 

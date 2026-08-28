@@ -1,7 +1,7 @@
 # 048 — Módulo Intimações
 
 **Fase:** 4 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 045, 007 · **Status:** ⬜ pendente
+**Depende de:** 045, 007 · **Status:** ✅ concluída
 
 ---
 

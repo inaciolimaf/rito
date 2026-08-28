@@ -1,7 +1,7 @@
 # 050 — 🔧 REFATORAÇÃO — Integrações CNJ
 
 **Fase:** 4 · **Tipo:** refatoração · **Orçamento:** reduzir
-**Depende de:** 041–049 · **Status:** ⬜ pendente
+**Depende de:** 041–049 · **Status:** ✅ concluída
 
 ---
 

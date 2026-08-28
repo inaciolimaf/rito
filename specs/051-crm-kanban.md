@@ -1,7 +1,7 @@
 # 051 — CRM: board Kanban
 
 **Fase:** 5 · **Tipo:** feature · **Orçamento:** +7 s
-**Depende de:** 027, 007 · **Status:** ⬜ pendente
+**Depende de:** 027, 007 · **Status:** ✅ concluída
 
 ---
 

@@ -1,7 +1,7 @@
 # 057 — Financeiro: recorrência e parcelamento
 
 **Fase:** 5 · **Tipo:** feature · **Orçamento:** +5 s
-**Depende de:** 056 · **Status:** ⬜ pendente
+**Depende de:** 056 · **Status:** ✅ concluída
 
 ---
 

@@ -1,7 +1,7 @@
 # 049 — Observabilidade da sincronização
 
 **Fase:** 4 · **Tipo:** feature · **Orçamento:** +4 s
-**Depende de:** 048 · **Status:** ⬜ pendente
+**Depende de:** 048 · **Status:** ✅ concluída
 
 ---
 

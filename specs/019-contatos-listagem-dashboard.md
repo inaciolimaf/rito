@@ -1,7 +1,7 @@
 # 019 — Contatos: listagem e dashboard
 
 **Fase:** 1 · **Tipo:** feature · **Orçamento:** +6 s
-**Depende de:** 018, 007 · **Status:** ⬜ pendente
+**Depende de:** 018, 007 · **Status:** ✅ concluída
 
 ---
 

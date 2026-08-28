@@ -435,7 +435,7 @@ Auditoria de índices, eliminação de N+1, paginação keyset em todas as lista
 Dockerfile multi-stage de produção, migrations no boot, seed opcional, variáveis documentadas, runbook.
 **Aceite:** imagem sobe e serve com Postgres externo. **t:** 2 s. **Deps:** 098
 
-### ⬜ 100 — 🔧 REFATORAÇÃO FINAL
+### ✅ 100 — 🔧 REFATORAÇÃO FINAL
 Pente fino geral: SOLID, duplicação, cobertura, tipos, orçamento de teste, dívidas anotadas.
 **Aceite:** suíte < 300 s; zero `# type: ignore` sem justificativa. **t:** −
 

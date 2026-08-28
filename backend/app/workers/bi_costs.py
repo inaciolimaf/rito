@@ -18,6 +18,6 @@ async def refresh_bi_costs(url: str | None = None) -> None:
     await refresh_materialized_view_concurrently("bi_cost_allocation", url)
 
 
-@celery_app.task(name="app.workers.bi_costs.refresh_bi_costs_view")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.bi_costs.refresh_bi_costs_view")
 def refresh_bi_costs_view() -> None:
     asyncio.run(refresh_bi_costs())

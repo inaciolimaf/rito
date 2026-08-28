@@ -400,6 +400,8 @@ async def test_health_ready_nao_espera_mais_que_o_teto_por_dependencia() -> None
     from app.core.health import PROBE_TIMEOUT_S, _probe
 
     async def nunca_responde() -> object:
+        # Dependência pendurada, simulada: dez vezes o teto da sonda. O sleep nunca
+        # decorre — o `wait_for` do `_probe` o cancela, e é isso que o teste afirma.
         await asyncio.sleep(PROBE_TIMEOUT_S * 10)
         return None
 

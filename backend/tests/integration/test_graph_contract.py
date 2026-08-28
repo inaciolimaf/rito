@@ -85,6 +85,9 @@ class SlowProvider(LoopingProvider):
     async def complete(self, **kwargs: Any) -> LLMResponse:
         import asyncio
 
+        # Dublê que trava de propósito: é a única forma de provar que o timeout do
+        # runtime corta. Este sleep nunca decorre — se decorresse, a linha seguinte
+        # falharia o teste, que é exatamente o que ela está aqui para fazer.
         await asyncio.sleep(30)
         raise AssertionError("o timeout do runtime tinha de ter cortado antes")
 

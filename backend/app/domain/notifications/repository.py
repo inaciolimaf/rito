@@ -85,7 +85,7 @@ class NotificationRepository(BaseRepository[Notification]):
             .values(read_at=when)
             .execution_options(synchronize_session=False)
         )
-        return int(result.rowcount)  # type: ignore[attr-defined]
+        return int(result.rowcount)  # type: ignore[attr-defined]  # SQLAlchemy tipa `rowcount` só em `CursorResult`; um UPDATE/DELETE sempre devolve um.
 
 
 class NotificationRuleRepository(BaseRepository[NotificationRule]):

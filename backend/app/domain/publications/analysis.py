@@ -165,6 +165,8 @@ class PublicationAnalysisService:
         calculado = compute_deadline(
             availability_date=publication.availability_date,
             days=parsed.deadline_days,
+            # `parse_model_output` valida o literal na saída do modelo; o tipo de
+            # retorno é `str` porque quem valida é o parser, não a anotação.
             kind=parsed.deadline_kind,  # type: ignore[arg-type]
             holidays=feriados,
         )

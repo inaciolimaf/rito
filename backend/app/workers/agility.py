@@ -17,6 +17,6 @@ async def refresh_agility_daily(url: str | None = None) -> None:
     await refresh_materialized_view_concurrently("agility_daily", url)
 
 
-@celery_app.task(name="app.workers.agility.refresh_agility")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.agility.refresh_agility")
 def refresh_agility() -> None:
     asyncio.run(refresh_agility_daily())

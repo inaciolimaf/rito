@@ -150,7 +150,7 @@ class PostRepository(BaseRepository[Post]):
             .values(task_type_id=to_id)
             .execution_options(synchronize_session=False)
         )
-        return int(result.rowcount)  # type: ignore[attr-defined]
+        return int(result.rowcount)  # type: ignore[attr-defined]  # SQLAlchemy tipa `rowcount` só em `CursorResult`; um UPDATE/DELETE sempre devolve um.
 
 
 class RecurrenceRepository(BaseRepository[PostRecurrence]):

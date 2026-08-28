@@ -25,7 +25,7 @@ async def refresh_timesheet_daily(url: str | None = None) -> None:
     await refresh_materialized_view_concurrently("timesheet_daily", url)
 
 
-@celery_app.task(name="app.workers.timesheet.refresh_timesheet")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.timesheet.refresh_timesheet")
 def refresh_timesheet() -> None:
     asyncio.run(refresh_timesheet_daily())
 
@@ -39,7 +39,7 @@ async def _purge_tenant(tenant_id: uuid.UUID, cutoff: datetime) -> int:
             result = await session.execute(delete(AccessLog).where(AccessLog.occurred_at < cutoff))
             # DELETE via ORM session sempre devolve CursorResult em runtime; a
             # assinatura de session.execute() só declara o Result[Any] genérico.
-            return int(result.rowcount)  # type: ignore[attr-defined]
+            return int(result.rowcount)  # type: ignore[attr-defined]  # SQLAlchemy tipa `rowcount` só em `CursorResult`; um UPDATE/DELETE sempre devolve um.
     finally:
         await engine.dispose()
 
@@ -61,7 +61,7 @@ async def purge_access_logs() -> int:
     return total
 
 
-@celery_app.task(name="app.workers.timesheet.purge_access_logs")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.timesheet.purge_access_logs")
 def purge_access_logs_task() -> int:
     """Regra 9: job mensal — retenção de 12 meses."""
     return asyncio.run(purge_access_logs())

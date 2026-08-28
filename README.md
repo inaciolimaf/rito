@@ -12,38 +12,36 @@ testada e commitada em um ciclo fechado.
 
 ## Estado
 
-🚧 **Spec 076 de 100 concluída.** Backend completo (multi-tenancy, RLS, autenticação,
-RBAC) + frontend com login real, design system de domínio e o app shell navegável
-(sidebar de 15 itens, busca global, breadcrumbs) + pipeline de testes com gate de 300 s
-executável (rede real bloqueada, contador de jornadas e2e, CI no GitHub Actions) +
-cadastros base (escritório, usuários, times, grupos/tipos de ação, fases/etapas,
-origens, contatos PF/PJ com validação real de CPF/CNPJ/CEP e 5.571 municípios IBGE) +
-processos (CRUD completo com partes, honorários e ciclo de vida, número CNJ validado,
-timeline unificada, 12 visões rápidas, dashboard com metas, pastas) + tarefas e
-Taskscore (catálogo de 152 tarefas, recorrência, comentários/menções/anexos, caixa de
-entrada, agenda com feed iCal, workflows com dias úteis e feriados, metas e ranking) +
-integração CNJ (DJEN e DataJud com cliente HTTP resiliente, dedupe por hash, intimação
-virando tarefa, observabilidade da sincronização) + CRM (board Kanban, estagnação,
-workflow ao mover) + financeiro (plano de contas, contas/cartões, lançamentos com
-recorrência e parcelamento, inadimplência com régua de cobrança, DRE/DFC, fluxo de
-caixa em 4 regimes) + documentos e modelos (storage S3 atrás de interface, editor
-TipTap, engine de variáveis com extenso, geração de PDF, biblioteca pública) +
-notificações por evento + relatórios (agilidade e produtividade com matview, 9
-relatórios tabulares, registro de acessos e livro de ponto) + três abas de BI:
-**Estoque e Prospecção** (matview `bi_pipeline_monthly` com refresh a cada 8 h via
-Celery beat, 6 indicadores de funil, conversão por grupo de ação, série de 6 meses de
-fechamentos e resumo da carteira em tempo real, em `/reports?tab=pipeline`), **Safra
-e Qualidade** (matview `bi_vintage` com refresh a cada 8 h, taxa de sucesso por grupo
-— só concluídos, acordo fora do numerador —, tabela ano × estágio com ciclo médio,
-comparação entre safras com destaque de variação >10 p.p. e série de 24 meses, em
-`/reports?tab=vintage`) e **Tempo e Honorários** (matview `bi_lawsuit_cycles` por
-processo fechado com refresh a cada 8 h, os 4 ciclos — prospecção, produção, execução
-e rotação completa, nulo ≠ zero —, média de honorários por processo e média mensal,
-tempo perdido dos processos sem receita paga e rentabilidade mensal por tipo com aviso
-de amostra <5, sob dupla permissão de perfil e acesso financeiro, em
-`/reports?tab=time-fees`) — próxima é a 077 (BI: Custos).
+✅ **As 100 specs concluídas.** O roadmap fechou.
 
-Acompanhe em [`ROADMAP.md`](./ROADMAP.md).
+O sistema entrega paridade quase total com o levantamento funcional do ADVBOX, mais uma
+camada de IA que não existe nele:
+
+- **Fundação** — multi-tenancy com RLS forçado, autenticação, RBAC com dimensão
+  financeira independente, design system de domínio, gate de testes de 300 s.
+- **Cadastros e processos** — contatos PF/PJ com validação real de CPF/CNPJ/CEP e os
+  5.571 municípios do IBGE; processos com partes, honorários, ciclo de vida, número CNJ
+  validado, timeline unificada e dashboard.
+- **Tarefas e Taskscore** — catálogo de 152 tarefas, recorrência, comentários com
+  menção, caixa de entrada, agenda com feed iCal, workflows com dias úteis e feriados,
+  metas e ranking.
+- **Integração CNJ** — DJEN e DataJud atrás de um cliente HTTP com circuit breaker,
+  rate limit e cache condicional; intimação vira tarefa; saúde da sincronização visível.
+- **CRM e financeiro** — Kanban com estagnação e workflow ao mover; plano de contas,
+  lançamentos com recorrência e parcelamento, régua de cobrança, DRE/DFC e fluxo de
+  caixa em quatro regimes.
+- **Documentos e modelos** — storage atrás de interface, editor TipTap, engine de
+  variáveis com valor por extenso, geração de PDF, biblioteca pública.
+- **BI** — quatro abas sobre views materializadas: estoque e prospecção, safra e
+  qualidade, tempo e honorários, custos.
+- **IA** — copiloto global, análise de intimações, agentes de petição, IA no editor e
+  IA analítica (texto → SQL conferido). Tudo por tool calling, com preview e confirmação
+  humana em toda escrita, e auditoria.
+- **Automação e API** — gatilhos e ações, webhooks assinados, nó de decisão por LLM, API
+  pública v1 com token e rate limit, busca global.
+- **Produção** — log correlacionado, tracing que atravessa a fila, métricas Prometheus,
+  orçamento de queries por endpoint barrado no CI, imagens de produção não-root e um
+  runbook de operação.
 
 ---
 

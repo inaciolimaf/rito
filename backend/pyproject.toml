@@ -82,11 +82,18 @@ ignore_missing_imports = true
 # num2words (spec 066, valores por extenso) também não tem stubs nem py.typed — a
 # chamada fica isolada em `variables.py`, o retorno é convertido pra `str` explícito
 # ali mesmo, então o "Any" não vaza pro resto do módulo.
-# Spec 097: os decoradores de sinal do Celery (`@task_prerun.connect`) são untyped, e
-# `strict` recusa função decorada por untyped. O módulo é só cola de 4 handlers — a
-# lógica que eles chamam vive em `core/observability/propagation.py`, tipada e testada.
+# Spec 100: os decoradores do Celery (`@celery_app.task`, `@task_prerun.connect`) são
+# untyped — a biblioteca não tem stubs nem `py.typed`, o que já está declarado acima —, e
+# `strict` recusa qualquer função decorada por untyped. Até a 100 isso era resolvido com
+# ~30 `# type: ignore[untyped-decorator]` espalhados, um por task: trinta silenciamentos
+# pontuais para UMA causa. Uma exceção declarada no lugar onde a causa mora diz a mesma
+# coisa uma vez, e não some quando alguém acrescenta a trigésima primeira task.
+#
+# O que isto NÃO afrouxa: os corpos das tasks continuam sob `strict`. E eles são finos de
+# propósito — a regra de negócio mora nos services, exercitada direto pelos testes
+# (CLAUDE.md §3: nenhum teste importa worker).
 [[tool.mypy.overrides]]
-module = ["app.workers.observability"]
+module = ["app.workers.*"]
 disallow_untyped_decorators = false
 
 [[tool.mypy.overrides]]

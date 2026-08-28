@@ -101,6 +101,8 @@ async def get_financial_summary(ctx: ToolContext, params: FinancialSummaryInput)
         raise ToolError("invalid_argument", "Regime inválido: use due, payment ou competence.")
     stats = await get_dashboard_stats(
         ctx.session,
+        # A guarda acima já restringiu `regime` aos quatro literais do `Regime`, mas o
+        # mypy não estreita um `str` por um `not in` com tupla.
         regime=params.regime,  # type: ignore[arg-type]
         month=month,
         account_id=None,

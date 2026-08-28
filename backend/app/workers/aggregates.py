@@ -224,12 +224,12 @@ def schedule_aggregate_refresh(event: str, countdown: float = 5.0) -> None:
             )
 
 
-@celery_app.task(name="app.workers.aggregates.refresh_aggregate_by_name")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.aggregates.refresh_aggregate_by_name")
 def refresh_aggregate_by_name(name: str) -> None:
     asyncio.run(refresh_aggregate(name))
 
 
-@celery_app.task(name="app.workers.aggregates.refresh_due_aggregates")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.aggregates.refresh_due_aggregates")
 def refresh_due_aggregates_task() -> None:
     asyncio.run(refresh_due_aggregates())
 
@@ -259,6 +259,6 @@ async def purge_refresh_log(url: str | None = None) -> int:
         await engine.dispose()
 
 
-@celery_app.task(name="app.workers.aggregates.purge_refresh_log")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.aggregates.purge_refresh_log")
 def purge_refresh_log_task() -> int:
     return asyncio.run(purge_refresh_log())

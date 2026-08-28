@@ -69,13 +69,13 @@ async def _sweep_all_tenants() -> int:
     return total
 
 
-@celery_app.task(name="app.workers.stagnation.sweep_all_tenants")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.stagnation.sweep_all_tenants")
 def sweep_all_tenants() -> int:
     """Regra 4: job diário às 3h — recalcula todos os tenants ativos."""
     return asyncio.run(_sweep_all_tenants())
 
 
-@celery_app.task(name="app.workers.stagnation.recalculate_stage")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.stagnation.recalculate_stage")
 def recalculate_stage(stage_id: str, tenant_id: str) -> int:
     return asyncio.run(_recalculate_stage(uuid.UUID(stage_id), uuid.UUID(tenant_id)))
 

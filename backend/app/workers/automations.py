@@ -54,6 +54,6 @@ async def _sweep_tenant(
         return vencidos + retomadas
 
 
-@celery_app.task(name="app.workers.automations.sweep_automations")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.automations.sweep_automations")
 def sweep_automations() -> int:
     return asyncio.run(_sweep(date.today()))

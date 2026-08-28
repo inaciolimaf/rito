@@ -138,6 +138,16 @@ jobs:
           npm run build
           npm run bundle:check
 
+      # Spec 100, §3: dependência com vulnerabilidade conhecida é a superfície de ataque
+      # que não exige erro nosso — basta o tempo passar. Roda em todo PR porque é barato
+      # e porque o custo de descobrir tarde é o de um incidente.
+      - name: Auditoria de dependências
+        run: |
+          cd backend
+          uv export --no-dev --no-emit-project --format requirements-txt > /tmp/reqs.txt
+          uv run --with pip-audit pip-audit --strict -r /tmp/reqs.txt
+          cd ../frontend && npm audit --audit-level=high
+
       # Spec 099: a imagem de produção é CONSTRUÍDA e posta de pé no CI. `docker build`
       # leva mais que a suíte inteira e não caberia no orçamento de 300 s do `make test`;
       # as propriedades estáticas (não-root, sem toolchain, healthcheck em liveness) têm

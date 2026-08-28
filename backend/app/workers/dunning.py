@@ -57,7 +57,7 @@ async def _sweep_all_tenants(reference_date: date) -> int:
     return total
 
 
-@celery_app.task(name="app.workers.dunning.sweep_dunning_rules")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.dunning.sweep_dunning_rules")
 def sweep_dunning_rules() -> int:
     """Regra 10: job diário — varre todos os tenants ativos."""
     return asyncio.run(_sweep_all_tenants(date.today()))

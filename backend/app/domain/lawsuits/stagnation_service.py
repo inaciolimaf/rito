@@ -61,7 +61,7 @@ class StagnationService:
                 )
             )
         result = await self.session.execute(stmt)
-        return int(result.rowcount)  # type: ignore[attr-defined]
+        return int(result.rowcount)  # type: ignore[attr-defined]  # SQLAlchemy tipa `rowcount` só em `CursorResult`; um UPDATE/DELETE sempre devolve um.
 
     async def recalculate_tenant(self) -> int:
         stages = await self.stages.list_filtered()

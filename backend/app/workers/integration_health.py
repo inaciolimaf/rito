@@ -96,6 +96,6 @@ async def run_daily_check() -> dict[str, int]:
         await engine.dispose()
 
 
-@celery_app.task(name="app.workers.integration_health.run_daily_health_check")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.integration_health.run_daily_health_check")
 def run_daily_health_check() -> dict[str, int]:
     return asyncio.run(run_daily_check())

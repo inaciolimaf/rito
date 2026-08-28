@@ -53,6 +53,8 @@ class Holiday(Base):
 
     __tablename__ = "holidays"
 
+    # Base.id é UUID; a PK de feriado é a própria DATA — catálogo global, uma linha
+    # por dia, e um id sintético só acrescentaria uma chave para ninguém usar.
     id: Mapped[date_type] = mapped_column("date", primary_key=True)  # type: ignore[assignment]
     name: Mapped[str]
     is_national: Mapped[bool] = mapped_column(default=True, server_default=text("true"))

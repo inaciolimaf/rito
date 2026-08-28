@@ -18,7 +18,7 @@ from app.workers.celery_app import celery_app
 RETENTION_DAYS = 30
 
 
-@celery_app.task(name="app.workers.external_requests.purge_external_requests")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.external_requests.purge_external_requests")
 def purge_external_requests() -> int:
     """Apaga registros com mais de 30 dias. Devolve quantas linhas saíram."""
     return asyncio.run(_purge())

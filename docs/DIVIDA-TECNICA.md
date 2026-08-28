@@ -5,6 +5,23 @@
 > continua aqui, a próxima spec de refatoração precisa decidir: resolver agora ou
 > re-atribuir com justificativa nova.
 
+## Estado no fechamento da spec 100
+
+A auditoria final percorreu os 20 itens. O que mudou:
+
+| Item | Estado depois da 100 |
+|---|---|
+| 14 — EXPLAIN sem volume real | **Resolvido** na 098: o perfilamento noturno roda com 1,95 milhão de linhas e achou o que o banco de dev escondia (a listagem de lançamentos sem paginação nenhuma, 94 FKs sem índice, o `OR` que virava Seq Scan). |
+| 17 — wall-clock à beira do teto | **Resolvido** na 098: o cap de workers do pytest era uma constante de tuning da 035, de quando o backend levava ~85 s. Hoje ele é o poste mais alto e o cap subiu para 3. |
+| 19 — PII real nas fixtures | **Resolvido** na 100. Ver abaixo. |
+| 3, 6, 7, 8 | Reclassificados: são lacunas de cobertura de branch defensivo, não risco. Custo de fechar > valor. |
+| 4, 5, 9, 10 | Reclassificados como **produto**, não dívida técnica: são telas que ninguém especificou, não código mal feito. Entram como spec 101+ se alguém quiser as telas. |
+| 11, 12, 13, 15, 16, 18, 20 | **Permanecem abertos**, com a spec-alvo re-atribuída para 101+. Nenhum é risco de segurança nem de perda de dado. |
+
+Nenhum item aberto é de segurança. O roadmap de 100 specs fecha com sete pendências
+funcionais conhecidas, nomeadas e classificadas — que é o oposto de fechar com zero
+pendências não medidas.
+
 ## 1. ~~`BaseRepository.list_paginated`/`build_keyset_query` não implementam o contrato de
    listagem do CLAUDE.md §6~~ — RESOLVIDO na spec 012
 
@@ -277,10 +294,32 @@ asserção sobre contagem/conteúdo específico de destinatários/nomes. Trocar 
 conteúdo sem uma varredura completa de quem depende de qual valor arrisca quebrar
 teste "sem edição" às cegas, o oposto do que uma spec de refatoração deve fazer.
 
-**Spec-alvo:** 098 (performance/qualidade) ou uma spec dedicada — mapear TODA
-asserção que depende do conteúdo desses fixtures, trocar nomes/CPF por sintéticos
-preservando forma (mesma quantidade de destinatários, mesmo formato de CPF/nome)
-e reconfirmar os ~40 testes um por um.
+### ✅ RESOLVIDO na spec 100
+
+A varredura que a 050 pediu foi feita, e o receio dela não se confirmou: **nenhum teste
+afirma sobre um nome ou CPF específico**. As asserções são sobre contagem, estrutura e
+roteamento — a forma do dado, não o conteúdo. Trocar valores preservando a forma era,
+portanto, seguro.
+
+55 nomes de pessoa e o CPF completo foram substituídos por sintéticos, de forma
+determinística e consistente entre arquivos (o mesmo nome real vira sempre o mesmo
+falso, para as referências cruzadas entre a lista de partes e a citação no corpo do
+texto continuarem batendo). Razão social de pessoa jurídica ficou como estava — não é
+dado pessoal, e os testes que distinguem parte física de jurídica precisam da distinção.
+
+Duas coisas que só apareceram fazendo:
+
+- **`nome` nem sempre é nome de gente.** No DataJud o mesmo campo nomeia movimento
+  processual, e a primeira passada transformou "Disponibilização no Diário da Justiça
+  Eletrônico" em "ANA SILVA". O discriminante é a CAIXA ALTA: registro de tribunal
+  escreve nome de pessoa toda em maiúscula, descrição de movimento em caixa mista.
+- **Dado real tem erro de digitação.** "CARLOS HENRIQUE BEREGENO" aparece no campo
+  estruturado e "CARLOS HENRIQE BEREGENO" (sem o U) no corpo do texto — o próprio
+  tribunal digitou errado. A troca por campo estruturado não alcança a variante, e ela
+  sobreviveu à primeira passada.
+
+`tests/meta/test_final_audit.py::test_nenhuma_fixture_tem_cpf_ou_cnpj_de_pessoa_real`
+impede a volta: qualquer CPF ou CNPJ que não seja o sintético de teste falha o CI.
 
 ## 20. `transactions` (spec 056) não retroalimenta as regras "em uso" de contas/categorias/centros de custo
 

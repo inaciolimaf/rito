@@ -37,6 +37,8 @@ class DreGroup(Base):
 
     __tablename__ = "dre_groups"
 
+    # Base.id é UUID; este é catálogo GLOBAL com PK inteira fixa (seed por id
+    # sequencial, sem tenant) — mesma exceção documentada em `Step` e `Occupation`.
     id: Mapped[int] = mapped_column(  # type: ignore[assignment]
         SmallInteger(), primary_key=True, autoincrement=False
     )
@@ -91,6 +93,8 @@ class FinancialInstitution(Base):
 
     __tablename__ = "financial_institutions"
 
+    # Base.id é UUID; este é catálogo GLOBAL com PK inteira fixa (seed por id
+    # sequencial, sem tenant) — mesma exceção documentada em `Step` e `Occupation`.
     id: Mapped[int] = mapped_column(  # type: ignore[assignment]
         SmallInteger(), primary_key=True, autoincrement=False
     )

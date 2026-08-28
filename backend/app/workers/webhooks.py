@@ -55,6 +55,6 @@ async def _sweep() -> int:
     return total
 
 
-@celery_app.task(name="app.workers.webhooks.sweep_webhook_deliveries")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.webhooks.sweep_webhook_deliveries")
 def sweep_webhook_deliveries() -> int:
     return asyncio.run(_sweep())

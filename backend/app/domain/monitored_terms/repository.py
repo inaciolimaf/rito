@@ -128,4 +128,4 @@ class TermSyncRunRepository(BaseRepository[TermSyncRun]):
         result = await self.session.execute(
             delete(TermSyncRun).where(TermSyncRun.started_at < cutoff)
         )
-        return int(result.rowcount)  # type: ignore[attr-defined]
+        return int(result.rowcount)  # type: ignore[attr-defined]  # SQLAlchemy tipa `rowcount` só em `CursorResult`; um UPDATE/DELETE sempre devolve um.

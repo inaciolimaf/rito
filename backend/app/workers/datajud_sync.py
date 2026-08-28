@@ -73,6 +73,6 @@ async def run_scheduled_sync() -> dict[str, int]:
         await engine.dispose()
 
 
-@celery_app.task(name="app.workers.datajud_sync.sync_due_movements")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.datajud_sync.sync_due_movements")
 def sync_due_movements() -> dict[str, int]:
     return asyncio.run(run_scheduled_sync())

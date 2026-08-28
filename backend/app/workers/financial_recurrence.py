@@ -17,7 +17,7 @@ from app.domain.financial.service import TransactionSeriesService
 from app.workers.celery_app import celery_app
 
 
-@celery_app.task(name="app.workers.financial_recurrence.sweep_financial_recurrences")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.financial_recurrence.sweep_financial_recurrences")
 def sweep_financial_recurrences() -> int:
     """Gera as próximas ocorrências (até 3 meses à frente) de todas as séries de
     recorrência ativas, em todos os tenants. Devolve o total gerado."""

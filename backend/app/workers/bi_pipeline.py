@@ -17,6 +17,6 @@ async def refresh_bi_pipeline_monthly(url: str | None = None) -> None:
     await refresh_materialized_view_concurrently("bi_pipeline_monthly", url)
 
 
-@celery_app.task(name="app.workers.bi_pipeline.refresh_bi_pipeline")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.bi_pipeline.refresh_bi_pipeline")
 def refresh_bi_pipeline() -> None:
     asyncio.run(refresh_bi_pipeline_monthly())

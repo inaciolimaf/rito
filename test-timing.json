@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 281,
+  "last_measured_wall_clock_seconds": 289,
   "last_measured_at": "2026-08-28",
   "specs": {
     "001": {
@@ -342,6 +342,11 @@
     "099": {
       "wall_clock_seconds": 281,
       "notes": "1477 backend (1439 da 098 + 38 novos: 7 unitários de validação de boot (produção completa, variável faltando com o motivo, a lista inteira de uma vez, SECRET_KEY de exemplo e curta, CORS em localhost, e desenvolvimento sem nada disso), 4 unitários do catálogo do tenant (tamanhos, tipo órfão, 9 fases, aspa simples), 16 de integração (advisory lock impedindo concorrência, dono visível na tabela, trava caindo com a conexão, banco sem a tabela, migration que falha soltando a trava, seed idempotente e repondo o que sumiu, escritório novo com a taxonomia inteira, provisionar duas vezes, isolamento entre escritórios, CLI criando e recusando slug repetido, contrato dos 7 comandos, restauração exigindo confirmação, boot recusando produção inválida, desligamento soltando pool e Redis) e 11 meta da imagem (não-root, multi-stage, sem toolchain, sem Node, healthcheck em liveness, desligamento gracioso, worker sem migration, segredos)) + 286 frontend + 10 e2e. A trava da §4 virou advisory lock: `migration_locks` é criada pela própria migration que ia rodar, e a versão baseada só na tabela não subia banco novo."
+    },
+    "100": {
+      "wall_clock_seconds": 289,
+      "notes": "1495 backend (1477 da 099 + 18 meta da auditoria final: type: ignore com justificativa, as any no frontend, TODO/FIXME órfão, sleep em teste, teste pulado, teto de 25 jornadas e2e, toda rota declarando permissão, os 10 documentos obrigatórios e CPF/CNPJ real em fixture) + 286 frontend + 10 e2e. Dezoito itens da checklist da spec viraram teste — auditoria feita à mão vale pelo dia em que foi feita. Resolvidos: PII real nas fixtures (55 nomes e um CPF completo, dívida nº 19 aberta desde a 050), 26 `type: ignore` removidos por uma exceção declarada onde a causa mora, dois workers tipados de verdade, e uma vulnerabilidade alta do npm. Auditoria de dependência virou passo de todo PR."
     }
-  }
+  },
+  "specs_concluidas": 100
 }

@@ -117,7 +117,7 @@ class FolderRepository:
             .execution_options(synchronize_session=False)
         )
         result = await self.session.execute(stmt)
-        return int(result.rowcount)  # type: ignore[attr-defined]
+        return int(result.rowcount)  # type: ignore[attr-defined]  # SQLAlchemy tipa `rowcount` só em `CursorResult`; um UPDATE/DELETE sempre devolve um.
 
     async def folder_counts(self, limit: int) -> Sequence[FolderCount]:
         """Regra 6: contagem por pasta, decrescente; NULL (sem pasta) é um grupo."""

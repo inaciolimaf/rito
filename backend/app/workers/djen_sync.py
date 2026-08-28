@@ -108,12 +108,12 @@ async def run_due_syncs(term_id: uuid.UUID | None = None) -> dict[str, int]:
         await engine.dispose()
 
 
-@celery_app.task(name="app.workers.djen_sync.sync_due_terms")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.djen_sync.sync_due_terms")
 def sync_due_terms() -> dict[str, int]:
     return asyncio.run(run_due_syncs())
 
 
-@celery_app.task(name="app.workers.djen_sync.sync_term_by_id")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.djen_sync.sync_term_by_id")
 def sync_term_by_id(term_id: str) -> dict[str, int]:
     return asyncio.run(run_due_syncs(uuid.UUID(term_id)))
 

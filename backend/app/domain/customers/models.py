@@ -22,6 +22,8 @@ class MaritalStatus(Base):
 
     __tablename__ = "marital_statuses"
 
+    # Base.id é UUID; este é catálogo GLOBAL com PK inteira fixa (seed por id
+    # sequencial, sem tenant) — mesma exceção documentada em `Step` e `Occupation`.
     id: Mapped[int] = mapped_column(  # type: ignore[assignment]
         SmallInteger(), primary_key=True, autoincrement=False
     )

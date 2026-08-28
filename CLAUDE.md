@@ -217,10 +217,38 @@ Refatoração **não muda comportamento**. Testes existentes continuam passando 
 ## 10. Comandos
 
 ```bash
-make up        # sobe Postgres + Redis
-make migrate   # alembic upgrade head
-make seed      # popula taxonomias padrão
-make dev       # backend + frontend
-make test      # 3 suítes em paralelo, falha se > 300s
-make lint      # ruff + mypy + eslint + tsc
+make up            # sobe Postgres + Redis + MinIO
+make migrate       # alembic upgrade head
+make dev           # backend + frontend
+make test          # 3 suítes em paralelo, falha se > 300 s
+make lint          # ruff + black + mypy + eslint + tsc + prettier
+make test-nightly  # perfilamento com 1,95 milhão de linhas — semeia, mede e limpa
 ```
+
+Operação (spec 099, dentro do container):
+
+```bash
+rito db upgrade      rito db seed        rito health
+rito tenant create --name --slug --admin-email
+rito backup create   rito backup restore --input <arquivo> --yes
+```
+
+## 11. Os dois gates que não são aviso
+
+O CI falha, não avisa, em qualquer um dos dois:
+
+- **wall-clock de `make test` acima de 300 s** — impede o projeto de ficar lento sem
+  ninguém notar;
+- **orçamento de queries por endpoint** (`tests/integration/test_query_budget.py`) —
+  impede o N+1 de entrar sem ninguém notar. Listagem cabe em 3 queries, detalhe em 5,
+  timeline em 3, busca global em 4. A contagem inclui a autenticação e exclui o preâmbulo
+  de RLS.
+
+Perfilamento com volume real fica fora do PR (`make test-nightly`): 1,95 milhão de linhas
+não cabem nos 300 s, e tempo medido em CI compartilhado oscila 30% entre execuções.
+
+## 12. Depois das 100
+
+O `ROADMAP.md` deixou de ser fila e virou histórico. Trabalho novo entra como spec 101 em
+diante, no mesmo ciclo — e a cada 10, uma refatoração. Os dois gates continuam valendo;
+são eles que impedem a spec 137 de desfazer o que a 098 comprou.

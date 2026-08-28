@@ -18,6 +18,6 @@ async def refresh_bi_cycles(url: str | None = None) -> None:
     await refresh_materialized_view_concurrently("bi_lawsuit_cycles", url)
 
 
-@celery_app.task(name="app.workers.bi_cycles.refresh_bi_cycles_view")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.bi_cycles.refresh_bi_cycles_view")
 def refresh_bi_cycles_view() -> None:
     asyncio.run(refresh_bi_cycles())

@@ -17,7 +17,7 @@ from app.domain.posts.recurrence_service import RecurrenceService
 from app.workers.celery_app import celery_app
 
 
-@celery_app.task(name="app.workers.recurrences.sweep_recurrences")  # type: ignore[untyped-decorator]
+@celery_app.task(name="app.workers.recurrences.sweep_recurrences")
 def sweep_recurrences() -> int:
     """Gera as ocorrências atrasadas de todos os tenants. Devolve o total gerado."""
     return asyncio.run(_sweep_all_tenants())

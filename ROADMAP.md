@@ -441,6 +441,104 @@ Pente fino geral: SOLID, duplicação, cobertura, tipos, orçamento de teste, d�
 
 ---
 
+## Fase 10 — Depois das 100 (101+)
+
+O roadmap das 100 virou histórico. Daqui em diante a fila é esta, no mesmo ciclo (CLAUDE.md §12).
+
+### ⬜ 101 — Correção dos stubs desbloqueados e da dívida nomeada
+Cinco stubs cuja dependência já chegou (etapas, origens, contatos com processo ativo, categorias/centros, contas), as dívidas 11/12/13/20, a rota `/settings`, o e-mail transacional, o `SAVEPOINT` do runtime de IA e o acerto do `DIVIDA-TECNICA.md`.
+**Aceite:** excluir em uso devolve 409 e não 500; saldo bancário é o saldo; três meta-testes impedem a reincidência. **t:** 12 s. **Deps:** 015, 016, 019, 022, 023, 054, 055, 056, 058, 082, 090
+
+### ⬜ 102–103 — reservadas
+Plano de corte da 101, caso o ciclo dela não feche (ver `specs/101-*.md`, Nota de execução).
+
+---
+
+## Fase 11 — Orçamento de teste e gates de lint (104–116)
+
+Leva originada da auditoria de 28/08/2026. Duas specs devolvem orçamento de wall-clock; as
+outras ligam, uma a uma, os gates que o `CLAUDE.md` pede mas nenhuma ferramenta verificava.
+Toda contagem abaixo foi medida no commit `44469bd`, sobre `ruff check .` (o escopo real do
+`make lint`), não sobre `app/` isolado.
+
+### ⬜ 104 — Imports pesados fora do caminho de import
+`xhtml2pdf`, `fpdf`, `openpyxl`, `boto3`, `sqlglot` e `num2words` saem do topo dos cinco módulos que os usam. Hoje `import app.main` custa 13,1 s e cada worker do `-n 3` paga esse custo antes do primeiro assert.
+**Aceite:** `import app.main` abaixo de 9 s; meta-teste por AST impede a reincidência; wall-clock não sobe. **t:** −0 s. **Deps:** 011, 041, 065, 066, 067, 088
+
+### ⬜ 105 — Template database e ROLLBACK por teste
+Implementa o que o `CLAUDE.md` §3 e a spec 009 declaram e que não existe no código: template DB por sessão, banco por worker, transação por teste com rollback no teardown. Some a causa dos 9.317 tenants acumulados no `rito_test`.
+**Aceite:** wall-clock ≤ 200 s; duas execuções seguidas não acumulam tenants; `test_isolation_matrix.py` passa sem edição. **t:** −80 s. **Deps:** 003, 009, 032
+
+### ⬜ 106 — Gate de complexidade ciclomática (C901, máx. 6)
+Liga `C90` com `max-complexity = 6` e resolve as 41 funções acima do teto — de `_build_conditions` (23) para baixo.
+**Aceite:** `ruff check .` sem C901; no máximo 3 `noqa` justificados, travados por meta-teste. **t:** 0 s. **Deps:** 104
+
+### ⬜ 107 — Higiene de estilo: RET, PTH, ERA, TID, ICN
+Quatro famílias com zero violações hoje; `ERA001` tem 2, ambas em migration commitada — exceção declarada no `pyproject.toml` citando o §9.
+**Aceite:** as cinco no `select`; nenhuma linha de `app/`, `tests/` ou `scripts/` alterada. **t:** 0 s. **Deps:** —
+
+### ⬜ 108 — ASYNC: I/O bloqueante em corrotina
+Duas ocorrências de `ASYNC240` — `integrations/ocr/tesseract.py:61` e um teste. `anyio.Path` ou `to_thread`, o padrão que o `storage/s3.py` já usa.
+**Aceite:** `ruff check . --select ASYNC` limpo, sem `noqa`; testes da 091 sem edição. **t:** 0 s. **Deps:** 091
+
+### ⬜ 109 — PLR0915: funções longas demais
+Quatro funções acima de 50 statements. `create_app` (70) é sequência linear e quebra de graça; as outras três já são alvo da 106.
+**Aceite:** gate verde; meta-teste de ordem de middleware e inventário de rotas. **t:** 0 s. **Deps:** 106
+
+### ⬜ 110 — 🔧 REFATORAÇÃO — Orçamento e gates
+Pente fino em 101 e 104–109. Auditar faixa de specs de qualidade é diferente de auditar features: o risco não é código ruim ter entrado, é gate ligado ter deixado de morder. Confere que o wall-clock voltou, que a contagem de `noqa` não cresceu e que nenhum gate foi silenciado por arquivo em vez de corrigido na origem.
+**Aceite:** wall-clock ≤ 200 s; suíte rodada em ordem invertida ao menos uma vez; sem mudança de comportamento. **t:** −. **Deps:** 101, 104–109
+
+### ⬜ 111 — PLR0912: ramos demais
+Seis funções acima de 12 ramos, cinco delas o mesmo padrão: despacho por valor escrito como cadeia de `if/elif`. Viram tabela de despacho exaustiva sobre o enum, o que torna «caso novo não tratado» um erro de mypy.
+**Aceite:** gate verde; teste que prova a exaustividade de cada tabela. **t:** 0 s. **Deps:** 106, 109
+
+### ⬜ 112 — PLR0911: returns demais
+Sete funções acima de 6 returns; três são o mesmo resolvedor de variável de modelo repetido em `templates/variables.py` e viram um registro só.
+**Aceite:** gate verde; os nomes publicados por `/api/v1/template-variables` inalterados. **t:** 0 s. **Deps:** 106, 111
+
+### ⬜ 113 — RUF100: noqa que não silencia nada
+31 diretivas mortas. Uma delas suprime `S608` e é herdada pela 115 — registrada em Descobertas para não sumir.
+**Aceite:** as 31 removidas; diff só com comentários; registro da linha herdada. **t:** 0 s. **Deps:** 107, 108, 109, 111, 112
+
+### ⬜ 114 — DTZ: «hoje» é o hoje de quem, exatamente?
+90 chamadas a `date.today()` num sistema de prazos que guarda timezone por escritório desde a 011, e só dois módulos usam esse dado. Cria `core/clock.py` injetado via `Depends`. **Muda comportamento de propósito.**
+**Aceite:** dois tenants em fusos diferentes recebem dias diferentes no mesmo endpoint; `"America/Sao_Paulo"` literal só em `DEFAULT_TIMEZONE`. **t:** 2 s. **Deps:** 011, 037
+
+### ⬜ 115 — Bandit (S): a superfície de segurança que o lint alcança
+3.880 violações, das quais 3.827 são `assert` em teste — `per-file-ignores` resolve. Sobram 53 reais, sendo 44 `assert` em código de produção, que somem sob `python -O`.
+**Aceite:** nenhum `assert` em `app/`; quoting de identificador centralizado; todo `noqa: S*` justificado. **t:** 0,5 s. **Deps:** 113
+
+### ⬜ 116 — PLR0913: argumentos demais
+`max-args = 8`, escolhido pelo joelho da curva medida (112 violações em 5, 14 em 8). O padrão dominante é repositório de listagem recebendo cada filtro solto, em quatro contextos — vira objeto de filtro tipado.
+**Aceite:** gate verde; nenhum query param de rota mudou de nome, tipo ou default. **t:** 0 s. **Deps:** 106, 111, 112
+
+### ⬜ 117 — Piso de cobertura
+Em 100 specs ninguém nunca soube a cobertura do Rito. Medida: backend 89,1% (91,1% sem `workers/`), frontend 55,0% de statements. Piso no valor medido, passo próprio de CI fora dos 300 s, `workers/` excluído com justificativa **e** meta-teste de corpo fino.
+**Aceite:** os dois pisos travados no medido; `coverage.json` versionado; nenhum teste de feature escrito nesta spec. **t:** 0 s. **Deps:** 009
+
+### ⬜ 118 — Gate de camadas: os sintomas de SOLID que dá para verificar
+Três checagens de AST para as regras que o §5 declara e ninguém verifica — e que já são violadas em 16 lugares: 2 routers com `select()`, 14 routers importando `repository`, e o `datajud` sem interface (o `djen` tem `source.py`, o `datajud` não).
+**Aceite:** as três checagens verdes com lista de exceção vazia; `LawsuitSource` no molde do `PublicationSource`; nenhum contrato de API alterado. **t:** 0,4 s. **Deps:** 003, 005
+
+### ⬜ 119 — Teto de duplicação
+Dá número à regra dos 3 usos: 0,61% em Python e 1,74% em TSX, medidos com jscpd sobre código de produção. O cluster exposto são seis páginas de CRUD repetindo o mesmo bloco, mais `LogoUploader`/`AvatarUploader`, que são o mesmo componente com dois nomes.
+**Aceite:** `.jscpd.json` versionado sem contagem dupla; teto por linguagem no medido + 0,1 pp; `<CrudListPage>` e `<ImageUploader>` em `components/domain/`. **t:** 1 s. **Deps:** 007
+
+### ⬜ 120 — 🔧 REFATORAÇÃO — Gates de estrutura
+Pente fino em 111–119, e a primeira spec cujo objeto são os próprios gates. Com catorze ligados em vinte specs, a pergunta deixa de ser «o CI está verde» e passa a ser «está verde porque o código está bom, ou porque alguém ajustou o gate?». Compara cada teto com o valor de entrada via `git log -p`, faz a revisão humana dos três gates de proxy, e entrega `docs/GATES.md`.
+**Aceite:** nenhum teto afrouxado sem spec; listas de exceção da 118 vazias; `docs/GATES.md` com meta-teste que o mantém completo. **t:** 0,2 s. **Deps:** 111–119
+
+---
+
+## Fase 12 — Estrutura (121+)
+
+### ⬜ 121 — Teto de 30 linhas por função
+Contagem **líquida** — só o corpo, sem docstring nem assinatura — porque contar bruto puniria a densidade de comentário que é metade do valor deste código: 224 funções acima de 30 no bruto, 134 no líquido. No frontend, 225 com `skipComments`. Vem por último de propósito: 106, 109, 111, 112 e 119 já resolvem boa parte, e a recontagem é a primeira tarefa.
+**Aceite:** backend e frontend abaixo de 30; no máximo 5 exceções justificadas; recontagem registrada antes de qualquer edição. **t:** 0,3 s. **Deps:** 106, 109, 111, 112, 119, 120
+
+---
+
 ## Orçamento acumulado
 
 | Fase | Acréscimo |

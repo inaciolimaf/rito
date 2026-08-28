@@ -4,22 +4,25 @@ import * as React from "react";
 import type { ListResponse } from "@/components/domain/types";
 import { ApiError } from "@/lib/errors";
 
-export interface UseListPageOptions<TFilters, TItem> {
+export interface UseListPageOptions<TFilters, TPage extends ListResponse<unknown>> {
   /** Chave estável da query (ex.: "lawsuits-list") — o export e o refresh a reutilizam. */
   queryKey: string;
   /** Filtros ativos (já extraídos da URL pela página via `useFilters`). */
   filters: TFilters;
-  fetchPage: (
-    params: TFilters & { cursor: string | undefined; limit: number },
-  ) => Promise<ListResponse<TItem>>;
-  exportFile: (format: "xlsx" | "pdf", filters: TFilters) => Promise<void>;
+  fetchPage: (params: TFilters & { cursor: string | undefined; limit: number }) => Promise<TPage>;
+  /** Opcional: nem toda listagem exporta. A de lançamentos (056) não tem export, e
+   * exigir um callback vazio dela seria fingir uma capacidade que a tela não oferece. */
+  exportFile?: (format: "xlsx" | "pdf", filters: TFilters) => Promise<void>;
   /** Quando qualquer um destes valores muda, a paginação volta para a primeira página. */
   resetDeps: readonly unknown[];
   limit?: number;
 }
 
-export interface UseListPageResult<TItem> {
-  items: TItem[];
+export interface UseListPageResult<TPage extends ListResponse<unknown>> {
+  items: TPage["items"];
+  /** A resposta crua da página. A listagem de lançamentos precisa dela para o rodapé
+   * de somatórios, que não é `items` nem paginação. */
+  page: TPage | undefined;
   isLoading: boolean;
   error: string | null;
   nextCursor: string | null;
@@ -36,14 +39,14 @@ export interface UseListPageResult<TItem> {
 
 /** Padrão de listagem (spec 030, alvo 2): URL + query + paginação keyset + export num
  * hook só — o que as telas de contatos (019) e processos (027) repetiam linha a linha. */
-export function useListPage<TFilters, TItem>({
+export function useListPage<TFilters, TPage extends ListResponse<unknown>>({
   queryKey,
   filters,
   fetchPage,
   exportFile,
   resetDeps,
   limit = 20,
-}: UseListPageOptions<TFilters, TItem>): UseListPageResult<TItem> {
+}: UseListPageOptions<TFilters, TPage>): UseListPageResult<TPage> {
   const queryClient = useQueryClient();
   const [cursorStack, setCursorStack] = React.useState<string[]>([]);
   const currentCursor = cursorStack[cursorStack.length - 1];
@@ -61,6 +64,7 @@ export function useListPage<TFilters, TItem>({
 
   return {
     items: data?.items ?? [],
+    page: data,
     isLoading,
     error: error instanceof ApiError ? error.message : null,
     nextCursor: data?.next_cursor ?? null,
@@ -74,7 +78,7 @@ export function useListPage<TFilters, TItem>({
         }
       },
     },
-    exportAs: (format) => exportFile(format, filters),
+    exportAs: (format) => exportFile?.(format, filters) ?? Promise.resolve(),
     refresh: () => queryClient.invalidateQueries({ queryKey: [queryKey] }),
   };
 }

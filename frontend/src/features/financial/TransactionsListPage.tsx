@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
+import { useListPage } from "@/components/domain/useListPage";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
 import { TabBar } from "@/components/domain/TabBar";
@@ -41,7 +42,6 @@ import {
   type TransactionFormValues,
 } from "@/features/financial/schema";
 import { formatBrl } from "@/lib/money";
-import { ApiError } from "@/lib/errors";
 import { useAuth } from "@/providers/AuthProvider";
 
 type Tab = "lancamentos" | "overdue" | "reports";
@@ -157,12 +157,19 @@ export function TransactionsListPage(): JSX.Element {
   const internal =
     typeof values.internal === "string" ? (values.internal as "true" | "false") : undefined;
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["transactions", { kind, status, q, internal }],
-    queryFn: () => listTransactions({ kind, status, q, internal }),
-    enabled: isLancamentos,
+  // Spec 098, regra 3: a listagem pagina por keyset como todas as outras. Antes esta
+  // tela pedia TODOS os lançamentos do escritório numa requisição — com 200 mil, 14
+  // segundos de espera e a base inteira no navegador.
+  const listPage = useListPage({
+    queryKey: "transactions",
+    filters: { kind, status, q, internal },
+    fetchPage: (params) => listTransactions(params),
+    resetDeps: [kind, status, q, internal],
+    limit: 50,
   });
-  const transactions = data?.items ?? [];
+  const { isLoading, error } = listPage;
+  const data = listPage.page;
+  const transactions = listPage.items;
 
   const { data: accountsPage } = useQuery({
     queryKey: ["bank-accounts", "for-transaction-form"],
@@ -301,7 +308,7 @@ export function TransactionsListPage(): JSX.Element {
             data={transactions}
             getRowId={(row) => row.id}
             isLoading={isLoading}
-            error={error instanceof ApiError ? error.message : null}
+            error={error}
             emptyMessage="Nenhum lançamento cadastrado ainda."
             rowActions={
               canWrite
@@ -353,6 +360,7 @@ export function TransactionsListPage(): JSX.Element {
                   )
                 : undefined
             }
+            pagination={listPage.pagination}
           />
 
           {transactions.length > 0 && (

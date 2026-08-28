@@ -427,7 +427,7 @@ Busca unificada (Tudo / Pessoas / Processos) com ranking, `pg_trgm`, atalho `/`.
 Logs estruturados com `tenant_id` e `request_id`, tracing OpenTelemetry, métricas Prometheus, healthchecks profundos.
 **Aceite:** trace atravessa request → celery task. **t:** 3 s. **Deps:** 002
 
-### ⬜ 098 — Performance
+### ✅ 098 — Performance
 Auditoria de índices, eliminação de N+1, paginação keyset em todas as listas, budget de queries por endpoint em teste.
 **Aceite:** nenhum endpoint acima do budget de queries. **t:** 4 s. **Deps:** 096
 

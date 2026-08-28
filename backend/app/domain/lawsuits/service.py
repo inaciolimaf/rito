@@ -174,6 +174,16 @@ class LawsuitService:
             return None
         return await self._with_derived(lawsuit)
 
+    async def get_lawsuit(self, lawsuit_id: uuid.UUID) -> Lawsuit | None:
+        """O processo sem os campos derivados (spec 098, regra 1).
+
+        Rotas que só precisam saber se o processo existe neste escritório — a timeline,
+        as partes, o resumo financeiro — pagavam o JOIN de grupo e fase para depois
+        jogá-lo fora. Uma query a menos em cada uma delas, e é o que faz a timeline
+        caber no orçamento de 3.
+        """
+        return await self.lawsuits.get_by_id(lawsuit_id)
+
     async def create(self, payload: LawsuitCreateRequest) -> LawsuitDetail:
         await self._validate_references(payload)
         await self.parties_service.validate_party_inputs(payload.parties)
@@ -321,18 +331,13 @@ class LawsuitService:
                 raise CourtSystemIncompatibleError
 
     async def _with_derived(self, lawsuit: Lawsuit) -> LawsuitDetail:
-        lawsuit_type = await self.types.get_by_id(lawsuit.lawsuit_type_id)
-        assert lawsuit_type is not None
-        group = await self.groups.get_by_id(lawsuit_type.action_group_id)
-        assert group is not None
-        stage = await self.stages.get_by_id(lawsuit.stage_id)
-        assert stage is not None
-        step = await self.steps.get_by_step_id(stage.step_id)
-        assert step is not None
+        """Spec 098, regra 6: uma query, não quatro. Ver `get_derived_refs`."""
+        refs = await self.lawsuits.get_derived_refs(lawsuit)
+        assert refs is not None
         return LawsuitDetail(
             lawsuit=lawsuit,
-            action_group_id=group.id,
-            action_group_name=group.name,
-            step_id=step.id,
-            step_name=step.name,
+            action_group_id=refs.action_group_id,
+            action_group_name=refs.action_group_name,
+            step_id=refs.step_id,
+            step_name=refs.step_name,
         )

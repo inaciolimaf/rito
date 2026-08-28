@@ -28,6 +28,28 @@ export interface DataTableProps<T> {
   pagination?: DataTablePagination;
 }
 
+/**
+ * Spec 098, regra 8: acima disto a tabela vira janela.
+ *
+ * O número não é arbitrário — abaixo de ~100 linhas o DOM inteiro cabe sem o usuário
+ * notar, e virtualizar cobraria a complexidade (altura fixa por linha, scroll
+ * controlado) sem devolver nada. Acima, cada linha são N células e N callbacks, e uma
+ * listagem de mil vira um travamento visível ao rolar.
+ */
+export const VIRTUALIZATION_THRESHOLD = 100;
+
+/** Altura de uma linha, em px — `px-3 py-2` com texto de 14 px. É constante de propósito:
+ * medir linha a linha exigiria um passe de layout por scroll, que é justamente o custo
+ * que a virtualização existe para evitar. */
+const ROW_HEIGHT_PX = 41;
+
+/** Altura da janela quando a virtualização liga. */
+const VIEWPORT_PX = 600;
+
+/** Linhas extras renderizadas acima e abaixo da janela, para o scroll rápido não
+ * mostrar vazio antes do React reconciliar. */
+const OVERSCAN = 8;
+
 /** Regra 1: nunca faz fetch sozinho — recebe dados e callbacks, quem busca é a feature. */
 export function DataTable<T>({
   columns,
@@ -47,6 +69,19 @@ export function DataTable<T>({
 }: DataTableProps<T>): JSX.Element {
   const selectable = selectedIds !== undefined && onSelectionChange !== undefined;
   const allIds = React.useMemo(() => data.map(getRowId), [data, getRowId]);
+
+  // Spec 098, regra 8.
+  const virtualizada = data.length > VIRTUALIZATION_THRESHOLD;
+  const [scrollTop, setScrollTop] = React.useState(0);
+  const visiveis = Math.ceil(VIEWPORT_PX / ROW_HEIGHT_PX) + OVERSCAN * 2;
+  const primeira = virtualizada ? Math.max(0, Math.floor(scrollTop / ROW_HEIGHT_PX) - OVERSCAN) : 0;
+  const ultima = virtualizada ? Math.min(data.length, primeira + visiveis) : data.length;
+  const janela = virtualizada ? data.slice(primeira, ultima) : data;
+  // Linhas-espaçador seguram a altura total: sem elas a barra de rolagem encolheria para
+  // o tamanho da janela e rolar ficaria impossível.
+  const espacoAcima = primeira * ROW_HEIGHT_PX;
+  const espacoAbaixo = (data.length - ultima) * ROW_HEIGHT_PX;
+  const colunasTotais = columns.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0);
   const allSelected = selectable && allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
   const someSelected = selectable && allIds.some((id) => selectedIds.has(id));
 
@@ -108,7 +143,19 @@ export function DataTable<T>({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded border border-default">
+      <div
+        className={cn(
+          "overflow-x-auto rounded border border-default",
+          virtualizada && "overflow-y-auto",
+        )}
+        style={virtualizada ? { maxHeight: VIEWPORT_PX } : undefined}
+        onScroll={
+          virtualizada
+            ? (event) => setScrollTop((event.target as HTMLDivElement).scrollTop)
+            : undefined
+        }
+        data-virtualized={virtualizada || undefined}
+      >
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-default bg-surface-muted">
@@ -149,6 +196,11 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
+            {virtualizada && espacoAcima > 0 && (
+              <tr aria-hidden="true" data-testid="datatable-spacer-top">
+                <td colSpan={colunasTotais} style={{ height: espacoAcima, padding: 0 }} />
+              </tr>
+            )}
             {isLoading
               ? Array.from({ length: 3 }).map((_, index) => (
                   <tr key={`skeleton-${index}`} className="border-b border-default last:border-0">
@@ -160,7 +212,7 @@ export function DataTable<T>({
                     </td>
                   </tr>
                 ))
-              : data.map((row) => {
+              : janela.map((row) => {
                   const id = getRowId(row);
                   return (
                     <tr key={id} className="border-b border-default last:border-0">
@@ -185,6 +237,11 @@ export function DataTable<T>({
                     </tr>
                   );
                 })}
+            {virtualizada && espacoAbaixo > 0 && (
+              <tr aria-hidden="true" data-testid="datatable-spacer-bottom">
+                <td colSpan={colunasTotais} style={{ height: espacoAbaixo, padding: 0 }} />
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -269,7 +269,9 @@ class TransactionTotalsResponse(BaseModel):
 
 class TransactionListResponse(BaseModel):
     items: list[TransactionResponse]
-    next_cursor: None = None
+    # Spec 098, regra 3: passou a ser preenchido de verdade — a listagem pagina por
+    # keyset em `(due_date, id)`. O campo existia desde a 056, sempre nulo.
+    next_cursor: str | None = None
     total: int
     totals: TransactionTotalsResponse
 

@@ -344,7 +344,15 @@ async def test_took_ms_volta_na_resposta(
 
 # slow: a meta de p95 da regra 10 só significa alguma coisa com volume, e semear 20.000
 # contatos custa segundos — sem volume, o teste mediria uma varredura de três linhas.
+#
+# nightly (spec 098, regra 10): é um teste de LATÊNCIA COM VOLUME, e o lugar desses é o
+# noturno. No CI de PR ele mede o host, não o código — as três suítes rodam
+# concorrentes por decisão do CLAUDE.md §3, e um limite de 200 ms de wall-clock por
+# chamada vira vermelho por contenção de CPU, não por regressão. A mesma meta continua
+# valendo e é medida com CINCO VEZES este volume em
+# `tests/nightly/test_latency_with_volume.py`, junto das outras seis telas.
 @pytest.mark.slow
+@pytest.mark.nightly
 async def test_p95_abaixo_de_200ms_com_volume(
     client: AsyncClient,
     make_user: Callable[..., Awaitable[SeededUser]],

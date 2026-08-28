@@ -1,9 +1,12 @@
 import uuid
-from typing import Literal
+from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import cached_json
+from app.core.deps import get_redis
 from app.core.exceptions import InvalidTransferError
 from app.core.http import get_or_404, parse_active_status
 from app.core.permissions import UserRole, require_role
@@ -25,7 +28,7 @@ from app.domain.task_types.schemas import (
     TaskTypeUpdateRequest,
 )
 from app.domain.task_types.score import suggest_reward
-from app.domain.task_types.service import TaskTypeService
+from app.domain.task_types.service import TaskTypeService, catalog_cache_key
 from app.domain.users.models import User
 
 router = APIRouter(prefix="/task-types", tags=["task-types"])
@@ -58,19 +61,39 @@ async def list_task_types(
     q: str | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> TaskTypeListResponse:
     service = TaskTypeService(session=session, tenant_id=current_user.tenant_id)
-    items = await service.list_types(
-        step_id=step_id, is_active=parse_active_status(status_), query=q
-    )
-    # As 9 fases são catálogo global — um dict em memória evita N+1 no step_name.
-    step_names = {step.id: step.name for step in await service.steps.list_all()}
-    return TaskTypeListResponse(
-        items=[
-            _to_response(item, step_names.get(item.step_id) if item.step_id is not None else None)
-            for item in items
-        ],
-        total=len(items),
+
+    async def montar() -> dict[str, object]:
+        items = await service.list_types(
+            step_id=step_id, is_active=parse_active_status(status_), query=q
+        )
+        # As 9 fases são catálogo global — um dict em memória evita N+1 no step_name.
+        step_names = {step.id: step.name for step in await service.steps.list_all()}
+        return TaskTypeListResponse(
+            items=[
+                _to_response(
+                    item, step_names.get(item.step_id) if item.step_id is not None else None
+                )
+                for item in items
+            ],
+            total=len(items),
+        ).model_dump()
+
+    # Spec 098, regra 9: só a chamada SEM filtro é cacheada — é a que todo formulário de
+    # tarefa faz, e é uma chave por escritório. Cachear a filtrada multiplicaria o espaço
+    # de chaves pelo produto dos filtros possíveis, com taxa de acerto perto de zero.
+    if step_id is not None or status_ is not None or q:
+        return TaskTypeListResponse.model_validate(await montar())
+    return cast(
+        TaskTypeListResponse,
+        await cached_json(
+            redis,
+            catalog_cache_key(current_user.tenant_id),
+            montar,
+            decode=TaskTypeListResponse.model_validate,
+        ),
     )
 
 
@@ -79,15 +102,17 @@ async def create_task_type(
     payload: TaskTypeCreateRequest,
     current_user: User = Depends(require_role(UserRole.GESTOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> TaskTypeResponse:
     # Regra 1: só GESTOR escreve no catálogo — Administrador e Colaborador só leem.
-    service = TaskTypeService(session=session, tenant_id=current_user.tenant_id)
+    service = TaskTypeService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     try:
         task_type = await service.create(payload)
     except TaskTypeNameAlreadyExistsError as exc:
         raise HTTPException(status_code=409, detail="Já existe um tipo com esse nome.") from exc
     except StepNotFoundError as exc:
         raise HTTPException(status_code=422, detail="Fase não encontrada.") from exc
+    await service.invalidate_catalog()
     step = (
         await service.steps.get_by_step_id(task_type.step_id)
         if task_type.step_id is not None
@@ -111,14 +136,16 @@ async def transfer_task_types(
     payload: TaskTypeTransferRequest,
     current_user: User = Depends(require_role(UserRole.GESTOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> dict[str, int]:
-    service = TaskTypeService(session=session, tenant_id=current_user.tenant_id)
+    service = TaskTypeService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     try:
         transferred = await service.transfer(from_id=payload.from_id, to_id=payload.to_id)
     except InvalidTransferError as exc:
         raise HTTPException(
             status_code=422, detail="from_id/to_id inválidos — precisam ser tipos distintos."
         ) from exc
+    await service.invalidate_catalog()
     return {"transferred_count": transferred}
 
 
@@ -128,8 +155,9 @@ async def update_task_type(
     payload: TaskTypeUpdateRequest,
     current_user: User = Depends(require_role(UserRole.GESTOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> TaskTypeResponse:
-    service = TaskTypeService(session=session, tenant_id=current_user.tenant_id)
+    service = TaskTypeService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     task_type = await get_or_404(lambda: service.get(task_type_id), _NOT_FOUND_DETAIL)
     try:
         updated = await service.update(task_type, payload)
@@ -141,6 +169,7 @@ async def update_task_type(
         raise HTTPException(status_code=409, detail="Já existe um tipo com esse nome.") from exc
     except StepNotFoundError as exc:
         raise HTTPException(status_code=422, detail="Fase não encontrada.") from exc
+    await service.invalidate_catalog()
     step = (
         await service.steps.get_by_step_id(updated.step_id) if updated.step_id is not None else None
     )
@@ -152,8 +181,9 @@ async def delete_task_type(
     task_type_id: uuid.UUID,
     current_user: User = Depends(require_role(UserRole.GESTOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> None:
-    service = TaskTypeService(session=session, tenant_id=current_user.tenant_id)
+    service = TaskTypeService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     task_type = await get_or_404(lambda: service.get(task_type_id), _NOT_FOUND_DETAIL)
     try:
         await service.delete(task_type)
@@ -166,3 +196,4 @@ async def delete_task_type(
             status_code=409,
             detail="Tipo de tarefa em uso — transfira as tarefas antes de excluir.",
         ) from exc
+    await service.invalidate_catalog()

@@ -3,6 +3,7 @@ from collections.abc import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import Cache, invalidate, tenant_key
 from app.core.transfer import validated_transfer
 from app.domain.stages.repository import StepRepository
 from app.domain.task_types.exceptions import (
@@ -17,12 +18,24 @@ from app.domain.task_types.schemas import TaskTypeCreateRequest, TaskTypeUpdateR
 from app.domain.task_types.score import suggest_reward
 
 
+def catalog_cache_key(tenant_id: uuid.UUID) -> str:
+    """Chave do catálogo completo do escritório (spec 098, regra 9)."""
+    return tenant_key("task_types:catalog", tenant_id)
+
+
 class TaskTypeService:
-    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+    def __init__(
+        self, session: AsyncSession, tenant_id: uuid.UUID, *, cache: Cache | None = None
+    ) -> None:
         self.session = session
         self.tenant_id = tenant_id
         self.types = TaskTypeRepository(session)
         self.steps = StepRepository(session)
+        # Spec 098, regra 9: escrita no catálogo derruba o cache da listagem.
+        self.cache = cache
+
+    async def invalidate_catalog(self) -> None:
+        await invalidate(self.cache, catalog_cache_key(self.tenant_id))
 
     async def list_types(
         self, *, step_id: int | None, is_active: bool | None, query: str | None

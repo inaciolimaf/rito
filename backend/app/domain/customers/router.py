@@ -4,9 +4,10 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_file_storage, get_messaging_channels
+from app.core.deps import get_file_storage, get_messaging_channels, get_redis
 from app.core.http import get_or_404
 from app.core.image_processing import InvalidImageError
 from app.core.permissions import UserRole, require_role
@@ -91,10 +92,12 @@ async def create_customer(
     payload: CustomerCreateRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
     storage: FileStorage = Depends(get_file_storage),
     channels: Mapping[str, MessagingChannel] = Depends(get_messaging_channels),
 ) -> CustomerResponse:
-    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    # Spec 098, regra 9: a escrita derruba o cache do dashboard.
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     try:
         customer = await service.create(payload)
     except CustomerIdentificationAlreadyExistsError as exc:
@@ -172,8 +175,9 @@ async def list_customers(
 async def get_customer_stats(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> CustomerStatsResponse:
-    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     return await service.get_stats()
 
 
@@ -252,9 +256,11 @@ async def update_customer(
     payload: CustomerUpdateRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
     storage: FileStorage = Depends(get_file_storage),
 ) -> CustomerResponse:
-    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    # Spec 098, regra 9: a escrita derruba o cache do dashboard.
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     customer = await get_or_404(lambda: service.get(customer_id), "Contato não encontrado.")
 
     try:
@@ -271,8 +277,10 @@ async def archive_customer(
     customer_id: uuid.UUID,
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> None:
-    service = CustomerService(session=session, tenant_id=current_user.tenant_id)
+    # Spec 098, regra 9: a escrita derruba o cache do dashboard.
+    service = CustomerService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     customer = await get_or_404(lambda: service.get(customer_id), "Contato não encontrado.")
     await service.archive(customer)
 

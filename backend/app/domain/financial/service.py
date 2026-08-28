@@ -6,6 +6,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import RecurrencePeriod, RecurrenceWeek, next_occurrence, shift_month
+from app.core.repository import decode_cursor, encode_cursor
 from app.core.transfer import validated_transfer
 from app.domain.customers.repository import CustomerRepository
 from app.domain.financial.exceptions import (
@@ -346,8 +347,21 @@ class TransactionService:
         due_to: date | None,
         q: str | None,
         internal: str | None = None,
-    ) -> list[TransactionRow]:
-        return list(
+        cursor: str | None = None,
+        limit: int = 50,
+    ) -> tuple[list[TransactionRow], str | None]:
+        """Página e cursor da próxima (spec 098, regra 3).
+
+        O total do filtro NÃO sai daqui: ele viaja com os somatórios do rodapé
+        (`totals`), que já varrem exatamente o mesmo conjunto de linhas. Contá-lo numa
+        query própria seria percorrer a mesma faixa duas vezes — e é o que estourava o
+        orçamento de 3 queries da listagem.
+        """
+        decodificado: tuple[date, uuid.UUID] | None = None
+        if cursor:
+            valor, cursor_id = decode_cursor(cursor)
+            decodificado = (date.fromisoformat(valor), cursor_id)
+        itens = list(
             await self.transactions.list_filtered(
                 kind=kind,
                 customer_id=customer_id,
@@ -357,8 +371,15 @@ class TransactionService:
                 due_to=due_to,
                 q=q,
                 internal=internal,
+                cursor=decodificado,
+                limit=limit,
             )
         )
+        proximo = None
+        if len(itens) == limit:
+            ultimo = itens[-1].transaction
+            proximo = encode_cursor(ultimo.due_date.isoformat(), ultimo.id)
+        return itens, proximo
 
     async def totals(
         self,

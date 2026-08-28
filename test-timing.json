@@ -1,7 +1,7 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 287,
-  "last_measured_at": "2026-08-27",
+  "last_measured_wall_clock_seconds": 290,
+  "last_measured_at": "2026-08-28",
   "specs": {
     "001": {
       "wall_clock_seconds": 2,
@@ -334,6 +334,10 @@
     "097": {
       "wall_clock_seconds": 287,
       "notes": "1409 backend (1384 da 096 + 29 novos, menos 4 do test_health.py absorvido: 7 unitários da redação (senha/token/chave, Bearer, CPF/CNPJ/e-mail/telefone com e sem pontuação, UUID que NÃO é CPF, chave sensível e lista) e 22 de integração (os 8 campos de correlação no log, X-Request-Id de volta no header, tenant e usuário autenticados, nada sensível sobrevivendo ao formatter, stack no erro e não na requisição, span de banco pendurado no da requisição, spans externo e de LLM, span em erro exportado fora da amostra, request_id + traceparent atravessando a fila, sinais do Celery ligados, as 8 famílias do /metrics, rótulo por template e não por caminho, queries por request, /health sem tocar dependência, /health/ready com storage, Redis fora, Postgres fora, teto de 2 s por sonda, token do /metrics, nível por variável, log só para stdout, tokens e custo de LLM)) + 279 frontend (a 097 não tem front-end) + 10 e2e. O middleware virou ASGI puro: BaseHTTPMiddleware roda a aplicação em outra task e o contexto escrito pela rota não voltava. Cap do pytest subiu de 2 para 3 workers — a constante vinha da 035, quando o backend levava ~85 s; hoje ele é o poste mais alto (293 s de baseline neste host com 2 workers, 287 s com 3)."
+    },
+    "098": {
+      "wall_clock_seconds": 290,
+      "notes": "1439 backend (1409 da 097 + 31 novos, menos 1 movido para o noturno: 13 de orçamento de queries parametrizados por endpoint, 7 meta de invariante (FK sem índice, OFFSET, SELECT *, o contador do orçamento e o preâmbulo de RLS), 11 de cache (chave por tenant, segunda leitura sem recalcular, evento derrubando, Redis fora do ar degradando sem derrubar, dashboard e catálogo servidos do cache, escrita invalidando, listagem filtrada sem cache, isolamento entre escritórios)) + 286 frontend (279 da 097 + 4 de virtualização e 3 do bundle inicial) + 10 e2e. O `test_p95_abaixo_de_200ms_com_volume` da 096 virou @nightly: é latência com volume, e a regra 10 da 098 põe esses no noturno — no PR ele media contenção de CPU entre as três suítes, não regressão. Suíte noturna nova (`make test-nightly`): semeia 1,95 milhão de linhas, mede p95 de 7 telas e limpa com VACUUM."
     }
   }
 }

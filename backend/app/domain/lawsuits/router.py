@@ -717,13 +717,15 @@ async def get_timeline(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TimelineResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
-    detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    # Spec 098, regra 1: a timeline não mostra grupo nem fase — carregar o detalhe
+    # completo só para checar existência custava uma query jogada fora.
+    lawsuit = await get_or_404(lambda: service.get_lawsuit(lawsuit_id), _NOT_FOUND_DETAIL)
     # Regra 2: toggles combináveis; `kinds=` vazio (nenhum marcado) → timeline vazia,
     # nunca a lista completa. Omitir o parâmetro traz todos os tipos.
     kind_list = TIMELINE_KINDS if kinds is None else [k for k in kinds.split(",") if k]
     movements = MovementsService(session, current_user.tenant_id)
     page = await movements.list_timeline(
-        detail.lawsuit.id, kinds=kind_list, cursor=cursor, limit=min(limit, 100)
+        lawsuit.id, kinds=kind_list, cursor=cursor, limit=min(limit, 100)
     )
     return TimelineResponse(
         items=[

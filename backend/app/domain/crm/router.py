@@ -61,11 +61,12 @@ async def get_board(
     limit_per_column: int = Query(default=BOARD_DEFAULT_LIMIT_PER_COLUMN, ge=1, le=200),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> BoardResponse:
     """Spec 051, regra 1: as 9 fases, sempre todas, mesmo vazias."""
     can_see_value = current_user.financial_access != FinancialAccess.NONE
     steps = await StepRepository(session).list_all()
-    service = BoardService(session=session, tenant_id=current_user.tenant_id)
+    service = BoardService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     board = await service.get_board(
         filters=filters_from_query(filters), limit_per_column=limit_per_column
     )
@@ -94,10 +95,11 @@ async def get_board_column(
     limit: int = Query(default=BOARD_DEFAULT_LIMIT_PER_COLUMN, ge=1, le=200),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> BoardColumnPageResponse:
     """Spec 051, regra 7: paginação por scroll de UMA coluna."""
     can_see_value = current_user.financial_access != FinancialAccess.NONE
-    service = BoardService(session=session, tenant_id=current_user.tenant_id)
+    service = BoardService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     page = await service.get_board_column(
         filters=filters_from_query(filters), step_id=step_id, cursor=cursor, limit=limit
     )
@@ -113,11 +115,12 @@ async def get_stats(
     filters: LawsuitFiltersQuery = Depends(),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    redis: Redis = Depends(get_redis),
 ) -> CrmStatsResponse:
     """§5: cards de topo do CRM — mesmos filtros do board (regra 8, spec 051)."""
     can_see_value = current_user.financial_access != FinancialAccess.NONE
     steps = await StepRepository(session).list_all()
-    service = BoardService(session=session, tenant_id=current_user.tenant_id)
+    service = BoardService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     stats = await service.get_stats(filters=filters_from_query(filters))
     by_step = {row.step_id: row for row in stats.by_step}
     return CrmStatsResponse(

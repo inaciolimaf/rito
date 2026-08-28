@@ -179,21 +179,24 @@ class CustomerRepository(BaseRepository[Customer]):
         stmt = select(Customer).where(*filters).order_by(Customer.name)
         return (await self.session.scalars(stmt)).all()
 
-    async def count_active(self) -> int:
-        return (
-            await self.session.execute(
-                select(func.count()).select_from(Customer).where(Customer.is_archived.is_(False))
-            )
-        ).scalar_one()
+    async def dashboard_counts(
+        self, *, this_month: tuple[date, date], last_month: tuple[date, date]
+    ) -> tuple[int, int, int]:
+        """Os três contadores do dashboard numa varredura só (spec 098, regra 1).
 
-    async def count_created_between(self, start: date, end: date) -> int:
-        return (
-            await self.session.execute(
-                select(func.count())
-                .select_from(Customer)
-                .where(*datetime_range(Customer.created_at, start, end))
-            )
-        ).scalar_one()
+        Eram três `SELECT count(*)` sobre a MESMA tabela, com a mesma cláusula de RLS,
+        diferindo só no predicado — três planos, três varreduras. `count(*) FILTER
+        (WHERE ...)` calcula os três num passe. É a diferença entre 7 e 5 queries no
+        dashboard de contatos, e num escritório com 100 mil contatos é a diferença
+        entre três varreduras e uma.
+        """
+        stmt = select(
+            func.count().filter(Customer.is_archived.is_(False)),
+            func.count().filter(*datetime_range(Customer.created_at, *this_month)),
+            func.count().filter(*datetime_range(Customer.created_at, *last_month)),
+        ).select_from(Customer)
+        row = (await self.session.execute(stmt)).one()
+        return int(row[0]), int(row[1]), int(row[2])
 
     async def top_origins(self, limit: int = _TOP_N) -> list[tuple[str, int]]:
         stmt = (

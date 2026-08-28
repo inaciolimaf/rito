@@ -9,6 +9,7 @@ from sqlalchemy import Select, and_, func, literal, or_, select, union_all
 from sqlalchemy.sql.selectable import Subquery
 
 from app.core.repository import BaseRepository
+from app.domain.action_groups.models import ActionGroup, LawsuitType
 from app.domain.customers.models import Customer
 from app.domain.lawsuits.models import (
     Lawsuit,
@@ -21,6 +22,7 @@ from app.domain.lawsuits.models import (
     WorkflowApplication,
     WorkflowSuppression,
 )
+from app.domain.stages.models import Stage, Step
 from app.domain.users.models import User
 
 # Regra 5 (spec 047): a partir daqui um processo sai sozinho da fila — sem coluna de
@@ -61,8 +63,51 @@ def decode_timeline_cursor(cursor: str) -> tuple[datetime, str, uuid.UUID]:
     return datetime.fromisoformat(occurred_at), kind, uuid.UUID(id_str)
 
 
+@dataclass
+class DerivedRefs:
+    """Grupo de ação e fase de um processo — os dois campos que a resposta de detalhe
+    carrega e que não moram na tabela `lawsuits`."""
+
+    action_group_id: uuid.UUID
+    action_group_name: str
+    step_id: int
+    step_name: str
+
+
 class LawsuitRepository(BaseRepository[Lawsuit]):
     model = Lawsuit
+
+    async def get_derived_refs(self, lawsuit: Lawsuit) -> DerivedRefs | None:
+        """Spec 098, regra 6: os dois saltos numa query só.
+
+        Antes eram quatro `session.get()` em sequência — tipo de ação, grupo, etapa,
+        fase — e eles apareciam em TODA rota que carrega um processo, inclusive na
+        timeline, que nem usa os campos derivados. Quatro round-trips ao banco por
+        requisição, sempre pelas mesmas chaves primárias: é exatamente o N+1 que a
+        regra 6 proíbe, só que escrito à mão em vez de emitido por lazy load.
+
+        Não usa `joinedload` porque este domínio não declara `relationship()` — o acesso
+        a dado é explícito por repositório. O JOIN explícito é a tradução direta.
+        """
+        stmt = (
+            select(
+                ActionGroup.id,
+                ActionGroup.name,
+                Step.id,
+                Step.name,
+            )
+            .select_from(LawsuitType)
+            .join(ActionGroup, ActionGroup.id == LawsuitType.action_group_id)
+            .join(Stage, Stage.id == lawsuit.stage_id)
+            .join(Step, Step.id == Stage.step_id)
+            .where(LawsuitType.id == lawsuit.lawsuit_type_id)
+        )
+        row = (await self.session.execute(stmt)).first()
+        if row is None:
+            return None
+        return DerivedRefs(
+            action_group_id=row[0], action_group_name=row[1], step_id=row[2], step_name=row[3]
+        )
 
     async def find_by_process_number_digits(self, digits: str) -> Sequence[Lawsuit]:
         """Casamento por número (spec 045, regra 9): compara só dígitos — o processo
@@ -222,9 +267,11 @@ class LawsuitMovementRepository(BaseRepository[LawsuitMovement]):
             return [], 0
 
         timeline = sources
-        total = await self.session.scalar(select(func.count()).select_from(timeline))
-
-        stmt = select(timeline)
+        # Spec 098, regra 1: o total vem por função de janela na MESMA query da página,
+        # em vez de um `SELECT count(*)` separado. A contagem já era um `count` sobre o
+        # mesmo UNION ALL — computá-la duas vezes custava dois planos idênticos, e o
+        # orçamento de 3 queries da timeline não cabia com ela de fora.
+        stmt = select(timeline, func.count().over().label("total"))
         if cursor is not None:
             cursor_at, cursor_kind, cursor_id = cursor
             # Ordem mista (DESC, ASC, ASC) não cabe numa comparação de tupla só —
@@ -247,6 +294,9 @@ class LawsuitMovementRepository(BaseRepository[LawsuitMovement]):
             limit
         )
         rows = (await self.session.execute(stmt)).all()
+        # Sem linhas na página não há janela para contar. `total = 0` é o valor certo:
+        # a única forma de a página vir vazia é não haver o que paginar.
+        total = rows[0].total if rows else 0
         items = [
             TimelineRow(
                 kind=row.kind,
@@ -260,7 +310,7 @@ class LawsuitMovementRepository(BaseRepository[LawsuitMovement]):
             )
             for row in rows
         ]
-        return items, total or 0
+        return items, total
 
 
 class LawsuitSubjectRepository(BaseRepository[LawsuitSubject]):

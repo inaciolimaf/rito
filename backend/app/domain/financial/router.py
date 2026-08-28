@@ -110,6 +110,9 @@ from app.domain.users.models import User
 from app.integrations.storage.base import FileStorage
 from app.workers.aggregates import schedule_aggregate_refresh
 
+# Spec 098, regra 3: a listagem de lançamentos pagina como todas as outras.
+_DEFAULT_PAGE_SIZE = 50
+
 router = APIRouter(tags=["financial"])
 
 
@@ -569,12 +572,17 @@ async def list_transactions(
     due_to: date | None = Query(default=None),
     q: str | None = Query(default=None),
     internal: Literal["true", "false", "all"] = Query(default="all"),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=100),
     current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TransactionListResponse:
     service = TransactionService(session=session, tenant_id=current_user.tenant_id)
     internal_filter = None if internal == "all" else internal
-    rows = await service.list_transactions(
+    # Spec 098, regra 3: a rota devolvia TODOS os lançamentos do escritório, sem limite
+    # nenhum. O contrato de listagem do CLAUDE.md §6 já previa o `next_cursor` — o
+    # schema tinha o campo desde a 056, sempre nulo.
+    rows, next_cursor = await service.list_transactions(
         kind=kind,
         customer_id=customer_id,
         lawsuit_id=lawsuit_id,
@@ -583,6 +591,8 @@ async def list_transactions(
         due_to=due_to,
         q=q,
         internal=internal_filter,
+        cursor=cursor,
+        limit=limit,
     )
     totals = await service.totals(
         kind=kind,
@@ -596,7 +606,9 @@ async def list_transactions(
     )
     return TransactionListResponse(
         items=[_transaction_to_response(row) for row in rows],
-        total=len(rows),
+        next_cursor=next_cursor,
+        # O total do FILTRO (não o da página) vem junto dos somatórios do rodapé.
+        total=totals.count,
         totals=TransactionTotalsResponse(
             total=totals.total, balance=totals.balance, expected=totals.expected
         ),

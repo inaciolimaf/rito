@@ -341,21 +341,49 @@ class LawsuitListingRepository:
         cursor: tuple[datetime, uuid.UUID] | None = None,
         limit: int = 20,
     ) -> tuple[Sequence[LawsuitListRow], int]:
-        """Keyset por `created_at` (regra 11) — 2 statements (contagem + página)."""
+        """Keyset por `created_at` (regra 11).
+
+        Duas statements, mas não as de antes: a primeira escolhe os ids da página e traz
+        o total do filtro por janela; a segunda resolve os rótulos das 20 linhas
+        escolhidas. Ver o comentário do JOIN diferido abaixo.
+        """
         conditions = _build_conditions(filters)
         parties = self._parties_subquery()
 
-        count_stmt = (
-            select(func.count())
+        # Spec 098, regra 1 — JOIN DIFERIDO. Escolher a página e resolver os rótulos na
+        # MESMA query obriga o Postgres a materializar o conjunto filtrado inteiro antes
+        # de ordenar: com 100 mil processos ele lia os 100 mil para devolver 20, em
+        # 640 ms. Aqui a página sai primeiro, só de `lawsuits` (o `ORDER BY created_at`
+        # com `LIMIT` vira leitura de índice), e os quatro JOINs de rótulo caem sobre as
+        # 20 linhas escolhidas.
+        sort_column = Lawsuit.created_at
+        # O total do filtro sai por função de janela na PRÓPRIA query da página: é o
+        # mesmo conjunto de linhas, e um `SELECT count(*)` separado percorreria a mesma
+        # faixa duas vezes. Os dois JOINs continuam porque os filtros podem referenciar
+        # etapa e tipo de ação — e são tabelas de dezenas de linhas.
+        pagina_stmt = (
+            select(Lawsuit.id, sort_column, func.count().over().label("total"))
             .select_from(Lawsuit)
             .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
             .join(Stage, Stage.id == Lawsuit.stage_id)
         )
         for condition in conditions:
-            count_stmt = count_stmt.where(condition)
-        total = (await self.session.execute(count_stmt)).scalar_one()
+            pagina_stmt = pagina_stmt.where(condition)
+        pagina_stmt = paginate_keyset(
+            pagina_stmt,
+            sort_column=sort_column,
+            id_column=Lawsuit.id,
+            descending=descending,
+            cursor=cursor,
+            limit=limit,
+        )
+        linhas_da_pagina = (await self.session.execute(pagina_stmt)).all()
+        # Página vazia é filtro sem resultado — a janela não existe e zero é o total.
+        total = int(linhas_da_pagina[0].total) if linhas_da_pagina else 0
+        ids_da_pagina = [linha[0] for linha in linhas_da_pagina]
+        if not ids_da_pagina:
+            return [], total
 
-        sort_column = Lawsuit.created_at
         stmt = (
             select(
                 Lawsuit,
@@ -370,17 +398,13 @@ class LawsuitListingRepository:
             .join(ActionGroup, ActionGroup.id == LawsuitType.action_group_id)
             .join(Stage, Stage.id == Lawsuit.stage_id)
             .outerjoin(parties, parties.c.lawsuit_id == Lawsuit.id)
+            .where(Lawsuit.id.in_(ids_da_pagina))
         )
-        for condition in conditions:
-            stmt = stmt.where(condition)
-        stmt = paginate_keyset(
-            stmt,
-            sort_column=sort_column,
-            id_column=Lawsuit.id,
-            descending=descending,
-            cursor=cursor,
-            limit=limit,
-        )
+        # A ordenação precisa ser repetida: `IN` não preserva ordem nenhuma, e a página
+        # sairia embaralhada em relação ao cursor que a produziu.
+        ordem = sort_column.desc() if descending else sort_column.asc()
+        desempate = Lawsuit.id.desc() if descending else Lawsuit.id.asc()
+        stmt = stmt.order_by(ordem, desempate)
 
         rows = (await self.session.execute(stmt)).all()
         items = [
@@ -457,8 +481,8 @@ class LawsuitListingRepository:
         self, *, filters: LawsuitFilters, limit_per_column: int = BOARD_DEFAULT_LIMIT_PER_COLUMN
     ) -> dict[int, list[BoardCardRow]]:
         """Board Kanban (spec 051, regras 1/3/7): até `limit_per_column` cards por fase,
-        1 statement — a fase (`step_id`) vem via ranking numa subquery de ids (regra do
-        orçamento §8: `board_counts` + este método = 2 statements no total)."""
+        A fase (`step_id`) vem de um ranking por janela, materializado antes do JOIN
+        (spec 098, regra 1 — ver comentário abaixo)."""
         conditions = _build_conditions(filters)
         rank_subq = (
             select(
@@ -476,7 +500,15 @@ class LawsuitListingRepository:
         for condition in conditions:
             rank_subq = rank_subq.where(condition)
         ranked = rank_subq.subquery()
-        ranked_ids = select(ranked.c.id).where(ranked.c.rn <= limit_per_column)
+        # Spec 098, regra 1: o ranking é MATERIALIZADO antes do JOIN. Como subconsulta de
+        # `IN (...)`, a janela `row_number() OVER (PARTITION BY step_id)` — que precisa
+        # ordenar o conjunto filtrado inteiro — era avaliada dentro da query de cards, e
+        # o planejador a executava junto do JOIN de rótulos sobre 100 mil linhas. Rodando
+        # antes, ela sai uma vez e o JOIN recebe algumas dezenas de ids literais.
+        ids_query = select(ranked.c.id).where(ranked.c.rn <= limit_per_column)
+        ranked_ids = list((await self.session.scalars(ids_query)).all())
+        if not ranked_ids:
+            return {}
 
         stmt = self._board_select(conditions).where(Lawsuit.id.in_(ranked_ids))
         stmt = stmt.order_by(Stage.step_id, Lawsuit.stage_entered_at.desc(), Lawsuit.id)

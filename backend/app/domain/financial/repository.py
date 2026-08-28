@@ -9,6 +9,7 @@ from sqlalchemy import ColumnElement, Row, Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.core.listing import paginate_keyset
 from app.core.repository import BaseRepository
 from app.domain.customers.models import Customer
 from app.domain.financial.models import (
@@ -163,6 +164,10 @@ class TransactionTotals:
     total: Decimal
     balance: Decimal
     expected: Decimal
+    # Spec 098, regra 1: quantas linhas o filtro casa. Vem da mesma varredura dos
+    # somatórios — a listagem pagina desde a 098 e `len(itens)` passou a ser o tamanho
+    # da página, não o do filtro.
+    count: int = 0
 
 
 class TransactionRepository(BaseRepository[Transaction]):
@@ -258,7 +263,16 @@ class TransactionRepository(BaseRepository[Transaction]):
         due_to: date | None = None,
         q: str | None = None,
         internal: str | None = None,
+        cursor: tuple[date, uuid.UUID] | None = None,
+        limit: int = 50,
     ) -> Sequence[TransactionRow]:
+        """Spec 098, regra 3: keyset por `(due_date, id)`.
+
+        Até aqui esta listagem não paginava de forma nenhuma — devolvia TODOS os
+        lançamentos do escritório, cada um com seis JOINs, e o `total` era o
+        `len()` da lista inteira. Com 200 mil lançamentos a rota levava 14 segundos, e o
+        `next_cursor: None` do schema estava lá desde a 056 esperando por isto.
+        """
         conditions = self._filter_conditions(
             kind=kind,
             customer_id=customer_id,
@@ -269,10 +283,13 @@ class TransactionRepository(BaseRepository[Transaction]):
             q=q,
             internal=internal,
         )
-        stmt = (
-            self._select_with_names()
-            .where(*conditions)
-            .order_by(Transaction.due_date.desc(), Transaction.id)
+        stmt = paginate_keyset(
+            self._select_with_names().where(*conditions),
+            sort_column=Transaction.due_date,
+            id_column=Transaction.id,
+            descending=True,
+            cursor=cursor,
+            limit=limit,
         )
         rows = (await self.session.execute(stmt)).all()
         return [self._row_to_transaction_row(row) for row in rows]
@@ -309,10 +326,17 @@ class TransactionRepository(BaseRepository[Transaction]):
             func.coalesce(func.sum(Transaction.amount).filter(is_receita), 0)
             - func.coalesce(func.sum(Transaction.amount).filter(is_despesa), 0),
             func.coalesce(func.sum(Transaction.amount).filter(is_open), 0),
+            # Spec 098, regra 1: a CONTAGEM do filtro vem junto dos somatórios, na mesma
+            # varredura. Uma query separada só para contar percorreria exatamente as
+            # mesmas linhas de novo — e estourava o orçamento de 3 da listagem.
+            func.count(),
         ).where(*conditions)
-        total, balance, expected = (await self.session.execute(stmt)).one()
+        total, balance, expected, quantidade = (await self.session.execute(stmt)).one()
         return TransactionTotals(
-            total=Decimal(total), balance=Decimal(balance), expected=Decimal(expected)
+            total=Decimal(total),
+            balance=Decimal(balance),
+            expected=Decimal(expected),
+            count=int(quantidade),
         )
 
     async def lawsuit_financial_totals(self, lawsuit_id: uuid.UUID) -> LawsuitFinancialTotals:

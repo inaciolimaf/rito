@@ -8,12 +8,14 @@ Serviço próprio, fora de `LawsuitService` — mesmo padrão de `PartiesService
 mão — quem mantém é a trigger `trg_lawsuits_stage_entered_at` (migration 051).
 """
 
+import dataclasses
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import Cache, cached_json, invalidate, tenant_key
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.automations.engine import AutomationEngine
 from app.domain.automations.models import TriggerKind
@@ -51,10 +53,29 @@ class BoardColumnPage:
     total: int
 
 
+def board_counts_cache_key(tenant_id: uuid.UUID) -> str:
+    return tenant_key("crm:board_counts", tenant_id)
+
+
+def _sem_filtro(filters: LawsuitFilters) -> bool:
+    """Board padrão: nenhum filtro ativo. `dataclasses.asdict` não serve porque
+    `LawsuitFilters` guarda listas; comparar campo a campo com o vazio é o que diz se
+    esta é a visão que todo mundo abre."""
+    vazio = LawsuitFilters()
+    return all(
+        getattr(filters, campo.name) == getattr(vazio, campo.name)
+        for campo in dataclasses.fields(filters)
+    )
+
+
 class BoardService:
-    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+    def __init__(
+        self, session: AsyncSession, tenant_id: uuid.UUID, *, cache: Cache | None = None
+    ) -> None:
         self.session = session
         self.tenant_id = tenant_id
+        # Spec 098, regra 9: o contador por fase é agregado de dashboard — cache de 5 min.
+        self.cache = cache
         self.listing = LawsuitListingRepository(session)
         self.lawsuits = LawsuitRepository(session)
         self.stages = StageRepository(session)
@@ -66,7 +87,23 @@ class BoardService:
         """Regra 1: as 9 fases, sempre todas — `counts_by_step`/`cards_by_step` só têm
         chave pra fase com processo; o chamador (schema/frontend) completa com zero/
         lista vazia as que faltam, sem uma 3ª query."""
-        counts = await self.listing.board_counts(filters=filters)
+        # Spec 098, regra 9: só a visão SEM filtro é cacheada — é a que o CRM abre por
+        # padrão, e é uma chave por escritório. Com filtro, o espaço de chaves seria o
+        # produto de todos os filtros possíveis (ver `core/cache.py`).
+        if _sem_filtro(filters):
+            counts = {
+                int(chave): valor
+                for chave, valor in (
+                    await cached_json(
+                        self.cache,
+                        board_counts_cache_key(self.tenant_id),
+                        lambda: self.listing.board_counts(filters=filters),
+                        decode=dict,
+                    )
+                ).items()
+            }
+        else:
+            counts = await self.listing.board_counts(filters=filters)
         cards = await self.listing.board(filters=filters, limit_per_column=limit_per_column)
         total = sum(counts.values())
         return BoardData(
@@ -126,6 +163,12 @@ class BoardService:
             await self.change_stage(lawsuit, to_stage_id=stage_id, changed_by=actor.id)
         return len(lawsuits)
 
+    async def _invalidate_board_counts(self) -> None:
+        """Regra 9: mover processo de etapa muda o contador da coluna. Sem isto, o
+        card sai de uma coluna e o número da outra fica velho por cinco minutos — que
+        é exatamente o tipo de incoerência que faz o usuário desconfiar da tela."""
+        await invalidate(self.cache, board_counts_cache_key(self.tenant_id))
+
     async def change_stage(
         self, lawsuit: Lawsuit, *, to_stage_id: uuid.UUID, changed_by: uuid.UUID
     ) -> None:
@@ -168,3 +211,4 @@ class BoardService:
             subject_type="lawsuit",
             subject_id=lawsuit.id,
         )
+        await self._invalidate_board_counts()

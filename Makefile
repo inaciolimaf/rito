@@ -1,4 +1,4 @@
-.PHONY: up down migrate seed dev test test-backend test-frontend test-e2e lint
+.PHONY: up down migrate seed dev test test-backend test-frontend test-e2e test-nightly seed-volume drop-volume lint
 
 up:
 	docker compose up -d --wait
@@ -36,6 +36,24 @@ test-frontend:
 
 test-e2e:
 	cd e2e && npm test
+
+# Spec 098, regra 10: perfilamento com volume real. Fora do CI de PR — o seed são
+# 1,95 milhão de linhas e o orçamento do PR é de 300 s para a suíte inteira.
+#
+# O alvo SEMEIA, MEDE e LIMPA. As três coisas juntas de propósito: 1,95 milhão de linhas
+# esquecidas no `rito_test` mudam o tamanho das tabelas que a suíte de PR compartilha, e
+# o teste de p95 da busca (spec 096, com 20 mil contatos próprios) passou a falhar por
+# causa disso. Volume de perfilamento é estado de uma execução, não do banco.
+seed-volume:
+	cd backend && uv run python scripts/volume_seed.py
+
+drop-volume:
+	cd backend && uv run python scripts/volume_seed.py --drop
+
+test-nightly: seed-volume
+	@( cd backend && uv run pytest -m nightly -p no:randomly \
+		$(if $(PYTEST_ALLOW_HOSTS),--allow-hosts=$(PYTEST_ALLOW_HOSTS)) ); \
+		status=$$?; $(MAKE) drop-volume; exit $$status
 
 lint:
 	cd backend && uv run ruff check . && uv run black --check . && uv run mypy .

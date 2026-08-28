@@ -18,10 +18,11 @@ leitura.
 
 import time
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import Select, desc, func, literal, literal_column, or_, select
+from sqlalchemy import Select, delete, desc, func, literal, literal_column, or_, select
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -130,13 +131,13 @@ class SearchService:
             ordem = desc(func.ts_rank(vetor, tsquery))
 
         stmt: Select[Any] = (
-            select(Customer, exato.label("exato"))
+            select(Customer, exato.label("exato"), _total_da_faceta())
             .where(condicao, Customer.is_archived.is_(False))
             .order_by(desc(literal_column("exato")), ordem, desc(Customer.created_at))
             .limit(limit)
         )
         linhas = (await self.session.execute(stmt)).all()
-        total = await self._count(Customer, condicao, Customer.is_archived.is_(False))
+        total = _total_de(linhas)
         return FacetResult(
             items=[
                 SearchHit(
@@ -162,24 +163,37 @@ class SearchService:
             consulta = to_tsquery_input(parsed.raw)
             vetor = literal_column("lawsuits.search_vector", type_=TSVECTOR)
             tsquery = func.to_tsquery("portuguese", func.rito_unaccent(consulta))
-            condicao = or_(vetor.op("@@")(tsquery), Lawsuit.folder.ilike(f"%{parsed.raw}%"))
+            # Spec 098, regra 1: UNIÃO, não `OR`.
+            #
+            # `WHERE search_vector @@ ... OR folder ILIKE ...` obriga o Postgres a Seq
+            # Scan: são dois índices diferentes (GIN de texto e GIN trigrama) e ele não
+            # combina índices distintos dentro de um `OR` — medido em 187 ms varrendo
+            # 101.504 processos para devolver zero. Como união de dois `SELECT id`, cada
+            # ramo usa o seu índice e o custo cai para o número de linhas que de fato
+            # casam.
+            por_texto = select(Lawsuit.id).where(vetor.op("@@")(tsquery))
+            por_pasta = select(Lawsuit.id).where(Lawsuit.folder.ilike(f"%{parsed.raw}%"))
+            condicao = Lawsuit.id.in_(por_texto.union(por_pasta).subquery().select())
             ordem = desc(func.ts_rank(vetor, tsquery))
 
         stmt = (
-            select(Lawsuit).where(condicao).order_by(ordem, desc(Lawsuit.created_at)).limit(limit)
+            select(Lawsuit, _total_da_faceta())
+            .where(condicao)
+            .order_by(ordem, desc(Lawsuit.created_at))
+            .limit(limit)
         )
-        linhas = list((await self.session.scalars(stmt)).all())
+        linhas = (await self.session.execute(stmt)).all()
         return FacetResult(
             items=[
                 SearchHit(
-                    id=item.id,
-                    label=item.process_number or item.folder or "Processo sem número",
-                    sublabel=item.county or item.folder,
-                    extra={"folder": item.folder},
+                    id=row[0].id,
+                    label=row[0].process_number or row[0].folder or "Processo sem número",
+                    sublabel=row[0].county or row[0].folder,
+                    extra={"folder": row[0].folder},
                 )
-                for item in linhas
+                for row in linhas
             ],
-            total=await self._count(Lawsuit, condicao),
+            total=_total_de(linhas),
         )
 
     async def _tasks(self, parsed: ParsedQuery, user: User, limit: int) -> FacetResult:
@@ -198,7 +212,7 @@ class SearchService:
         )
         condicao = or_(Post.comments.ilike(padrao), Post.location.ilike(padrao))
         stmt = (
-            select(Post, TaskType.name)
+            select(Post, TaskType.name, _total_da_faceta())
             .join(TaskType, TaskType.id == Post.task_type_id)
             .where(condicao, envolvido)
             .order_by(desc(Post.created_at))
@@ -215,14 +229,8 @@ class SearchService:
                 )
                 for row in linhas
             ],
-            total=await self._count(Post, condicao, envolvido),
+            total=_total_de(linhas),
         )
-
-    async def _count(self, model: Any, *conditions: Any) -> int:
-        stmt = select(func.count()).select_from(model)
-        for condicao in conditions:
-            stmt = stmt.where(condicao)
-        return int((await self.session.execute(stmt)).scalar_one())
 
     # ---------------------------------------------------------------- histórico
 
@@ -267,20 +275,45 @@ class SearchService:
         return registro
 
     async def _trim_history(self, user_id: uuid.UUID) -> None:
-        """Regra 9: 20 por usuário. Histórico é atalho, não arquivo."""
-        stmt = (
+        """Regra 9 da 096: 20 por usuário. Histórico é atalho, não arquivo.
+
+        Spec 098, regra 3: era um `OFFSET 20` para listar os excedentes e um `DELETE`
+        para apagá-los. Virou uma query só — "apague o que não está entre os 20 mais
+        recentes" — com `LIMIT` no lugar do `OFFSET`. O ganho aqui não é volume (são 20
+        linhas), é não deixar um `OFFSET` no código para servir de exemplo ao próximo
+        que precisar paginar.
+        """
+        manter = (
             select(SearchHistory.id)
             .where(SearchHistory.user_id == user_id)
             .order_by(desc(SearchHistory.created_at))
-            .offset(MAX_HISTORY)
+            .limit(MAX_HISTORY)
+            .scalar_subquery()
         )
-        excedentes = list((await self.session.scalars(stmt)).all())
-        if not excedentes:
-            return
-        from sqlalchemy import delete
-
-        await self.session.execute(delete(SearchHistory).where(SearchHistory.id.in_(excedentes)))
+        await self.session.execute(
+            delete(SearchHistory).where(
+                SearchHistory.user_id == user_id,
+                SearchHistory.id.not_in(manter),
+            )
+        )
 
 
 def _elapsed(comeco: float) -> int:
     return int((time.perf_counter() - comeco) * 1000)
+
+
+def _total_da_faceta() -> Any:
+    """Total de resultados da faceta, por função de janela (spec 098, regra 1).
+
+    Cada faceta fazia duas queries — a página e um `SELECT count(*)` com os mesmos
+    predicados. Três facetas, seis queries, mais a autenticação: a busca global custava
+    7 contra um orçamento de 4. A janela é avaliada DEPOIS do `WHERE` e ANTES do
+    `LIMIT`, então o número é o mesmo que o `count` separado produzia — com um plano em
+    vez de dois.
+    """
+    return func.count().over().label("total")
+
+
+def _total_de(linhas: Sequence[Any]) -> int:
+    """Sem linhas não há janela para ler, e zero é o total correto."""
+    return int(linhas[0].total) if linhas else 0

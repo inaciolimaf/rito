@@ -50,7 +50,10 @@ class LawsuitFinancialsInput(BaseModel):
 )
 async def search_transactions(ctx: ToolContext, params: SearchTransactionsInput) -> dict[str, Any]:
     service = TransactionService(session=ctx.session, tenant_id=ctx.tenant_id)
-    rows = await service.list_transactions(
+    # Spec 098, regra 3: a listagem pagina. A ferramenta pede uma página do tamanho do
+    # limite que ela mesma aplicaria — antes ela recebia a base inteira do escritório
+    # para descartar tudo menos as primeiras linhas.
+    rows, _cursor = await service.list_transactions(
         kind=params.kind,
         customer_id=params.customer_id,
         lawsuit_id=params.lawsuit_id,
@@ -58,6 +61,7 @@ async def search_transactions(ctx: ToolContext, params: SearchTransactionsInput)
         due_from=params.due_from,
         due_to=params.due_to,
         q=params.query,
+        limit=params.limit + 1,
     )
     items, truncated = truncate_rows(rows, params.limit)
     return {

@@ -1,9 +1,10 @@
 import uuid
 from datetime import UTC, date, datetime, timedelta
-from typing import Literal
+from typing import Any, Literal, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import Cache, cached_json, invalidate, tenant_key
 from app.core.image_processing import extension_for, process_image
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsError
@@ -40,11 +41,20 @@ _PF_ONLY_FIELDS = (
 )
 
 
+def stats_cache_key(tenant_id: uuid.UUID) -> str:
+    return tenant_key("customers:stats", tenant_id)
+
+
 class CustomerService:
-    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+    def __init__(
+        self, session: AsyncSession, tenant_id: uuid.UUID, *, cache: Cache | None = None
+    ) -> None:
         self.session = session
         self.tenant_id = tenant_id
         self.customers = CustomerRepository(session)
+        # Spec 098, regra 9: o cache do dashboard. Opcional para o service continuar
+        # utilizável sem Redis (worker, script, teste do cálculo puro).
+        self.cache = cache
 
     async def get(self, customer_id: uuid.UUID) -> Customer | None:
         return await self.customers.get_by_id(customer_id)
@@ -64,7 +74,9 @@ class CustomerService:
                 data[field] = None
 
         customer = Customer(tenant_id=self.tenant_id, **data)
-        return await self.customers.create(customer)
+        criado = await self.customers.create(customer)
+        await self._invalidate_stats()
+        return criado
 
     async def update(self, customer: Customer, payload: CustomerUpdateRequest) -> Customer:
         if payload.identification and payload.identification != customer.identification:
@@ -79,11 +91,21 @@ class CustomerService:
 
         for field, value in data.items():
             setattr(customer, field, value)
+        await self._invalidate_stats()
         return customer
 
     async def archive(self, customer: Customer) -> None:
         # Regra 5: exclusão é soft — contato com processo vinculado nunca é apagado de fato.
         customer.is_archived = True
+        await self._invalidate_stats()
+
+    async def _invalidate_stats(self) -> None:
+        """Regra 9: o evento derruba o cache; o TTL é só o teto do erro.
+
+        Sem isto, cadastrar um contato e voltar ao dashboard mostraria o número velho
+        por até cinco minutos — que o usuário lê como bug, não como cache.
+        """
+        await invalidate(self.cache, stats_cache_key(self.tenant_id))
 
     async def upload_photo(
         self, customer: Customer, content: bytes, content_type: str, storage: FileStorage
@@ -141,15 +163,34 @@ class CustomerService:
         return list(await self.customers.get_birthdays(scope=scope))
 
     async def get_stats(self) -> CustomerStatsResponse:
+        """Dashboard de contatos com cache de 5 minutos (spec 098, regra 9).
+
+        São seis agregações sobre a base inteira de contatos; num escritório com 100 mil
+        deles, calcular tudo a cada abertura da tela é trabalho jogado fora — os números
+        mudam quando alguém cadastra alguém, não a cada segundo.
+        """
+        # O `cast` é o ponto onde o JSON arbitrário do cache vira tipo: `decode` já
+        # validou com o próprio schema, mas `cached_json` não tem como prometer isso na
+        # assinatura sem um genérico que engessaria todo chamador.
+        return cast(
+            CustomerStatsResponse,
+            await cached_json(
+                self.cache,
+                stats_cache_key(self.tenant_id),
+                self._compute_stats,
+                decode=CustomerStatsResponse.model_validate,
+            ),
+        )
+
+    async def _compute_stats(self) -> dict[str, Any]:
         today = date.today()
         this_month_start = today.replace(day=1)
         last_month_end = this_month_start - timedelta(days=1)
         last_month_start = last_month_end.replace(day=1)
 
-        total = await self.customers.count_active()
-        this_month_count = await self.customers.count_created_between(this_month_start, today)
-        last_month_count = await self.customers.count_created_between(
-            last_month_start, last_month_end
+        total, this_month_count, last_month_count = await self.customers.dashboard_counts(
+            this_month=(this_month_start, today),
+            last_month=(last_month_start, last_month_end),
         )
         if last_month_count > 0:
             variation = (this_month_count - last_month_count) / last_month_count * 100
@@ -170,7 +211,7 @@ class CustomerService:
             top_occupations=[
                 CountedItem(name=name, count=count) for name, count in top_occupations
             ],
-        )
+        ).model_dump()
 
     async def export(self, *, format_: Literal["xlsx", "pdf"], filters: CustomerFilters) -> bytes:
         # Regra 7: respeita os filtros ativos, não a página visível; teto de 50.000 linhas.

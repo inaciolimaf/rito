@@ -98,9 +98,15 @@ testpaths = ["tests"]
 # (não é "rede externa"); LLM/DJEN/DataJud (specs 041+) terão fixture gravada, nunca --allow-hosts.
 # --allow-hosts pode ser sobrescrito na linha de comando (scripts/run-tests.sh via
 # $PYTEST_ALLOW_HOSTS) para ambientes onde Postgres/Redis não estão em localhost.
-addopts = "--disable-socket --allow-hosts=127.0.0.1,::1,localhost"
+# `-m "not nightly"`: regra 10 da 098 — o perfilamento com volume tem alvo próprio
+# (`make test-nightly`) e não pode entrar no orçamento de 300 s do CI de PR.
+addopts = "--disable-socket --allow-hosts=127.0.0.1,::1,localhost -m 'not nightly'"
 markers = [
     "slow: teste que passa de 1s — precisa de comentário explicando por quê; máx. 5 no projeto (spec 009, regra 6)",
+    # Spec 098, regra 10: perfilamento com volume real (100 mil processos, 1 milhão de
+    # movimentações) não cabe nos 300 s do CI de PR. Roda no noturno, contra um banco
+    # semeado por `python -m app.core.volume_seed`.
+    "nightly: perfilamento com volume — excluído do CI de PR, roda no noturno",
 ]
 
 [build-system]

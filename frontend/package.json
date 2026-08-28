@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint . && tsc -b --noEmit && prettier --check ."
+    "lint": "eslint . && tsc -b --noEmit && prettier --check .",
+    "bundle:check": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

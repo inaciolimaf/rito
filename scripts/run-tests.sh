@@ -9,20 +9,27 @@ set -uo pipefail
 # rodar as suítes de verdade (spec 009, plano de testes).
 run_backend() {
 	cd backend
+	# Numa máquina limpa (Docker nativo, shell sem TEST_* exportado) o `set -u` do topo
+	# derrubava a suíte inteira com "unbound variable" antes de rodar um único teste: o
+	# `.env` da raiz é lido pelo pydantic-settings dentro do processo, nunca pelo shell.
+	# O default é o MESMO de tests/conftest.py::pytest_configure — banco de TESTE em
+	# localhost, nunca o de dev. Quem exporta TEST_MIGRATIONS_DATABASE_URL (CI, host
+	# remoto) continua mandando.
+	local migrations_url="${TEST_MIGRATIONS_DATABASE_URL:-${MIGRATIONS_DATABASE_URL:-postgresql+asyncpg://rito:rito@localhost:5432/rito_test}}"
 	# Migration aplicada uma vez por invocação da suíte, antes dos workers do -n auto
 	# subirem — spec 009 regra 3 ("template database criada uma vez por sessão").
 	# Tem que migrar o banco de TESTE (rito_test via TEST_MIGRATIONS_DATABASE_URL), não o
 	# de dev — tests/conftest.py::pytest_configure só troca MIGRATIONS_DATABASE_URL dentro
 	# do processo do pytest; este `alembic upgrade head` roda antes, como subprocesso
 	# separado, e herdaria a URL de dev sem este override explícito.
-	MIGRATIONS_DATABASE_URL="${TEST_MIGRATIONS_DATABASE_URL:-$MIGRATIONS_DATABASE_URL}" \
+	MIGRATIONS_DATABASE_URL="$migrations_url" \
 		uv run alembic upgrade head
 	# Limpa o acúmulo de tenants de runs anteriores (spec 032): make_user COMITA tenant +
 	# usuário por teste e nada limpava — em agosto/2026 o rito_test tinha 9.317 tenants e
 	# 1,16 milhão de task_types (seed da 031: 152 por tenant), e a suíte inteira pagava
 	# IO/vacuum disso. Os testes criam tudo que precisam via fixtures; os catálogos
 	# globais (courts, steps, occupations, cidades) ficam — não têm FK para tenants.
-	MIGRATIONS_DATABASE_URL="${TEST_MIGRATIONS_DATABASE_URL:-$MIGRATIONS_DATABASE_URL}" \
+	MIGRATIONS_DATABASE_URL="$migrations_url" \
 		uv run python - <<'PYCLEAN'
 import asyncio
 import os

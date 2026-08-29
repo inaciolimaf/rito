@@ -1,7 +1,7 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 288,
-  "last_measured_at": "2026-08-28",
+  "last_measured_wall_clock_seconds": 154,
+  "last_measured_at": "2026-08-29",
   "specs": {
     "001": {
       "wall_clock_seconds": 2,

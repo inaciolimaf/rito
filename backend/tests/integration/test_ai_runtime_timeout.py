@@ -145,6 +145,7 @@ async def _steps(
 # ------------------------------------------------------------------------- runtime
 
 
+@pytest.mark.commits
 async def test_timeout_dentro_de_query_grava_o_passo_de_erro(
     make_user: Callable[..., Awaitable[SeededUser]],
     app_session_factory: async_sessionmaker[AsyncSession],
@@ -177,6 +178,7 @@ async def test_timeout_dentro_de_query_grava_o_passo_de_erro(
         assert "excedeu" in (final.error or "")
 
 
+@pytest.mark.commits
 async def test_o_registro_fora_de_banda_nao_vaza_para_outro_tenant(
     make_user: Callable[..., Awaitable[SeededUser]],
     app_session_factory: async_sessionmaker[AsyncSession],
@@ -199,6 +201,7 @@ async def test_o_registro_fora_de_banda_nao_vaza_para_outro_tenant(
 # ---------------------------------------------------------------------------- HTTP
 
 
+@pytest.mark.commits
 async def test_autorun_devolve_503_e_o_thread_sobrevive_com_o_erro(
     client: AsyncClient,
     make_user: Callable[..., Awaitable[SeededUser]],
@@ -231,6 +234,7 @@ async def test_autorun_devolve_503_e_o_thread_sobrevive_com_o_erro(
     assert [item["kind"] for item in passos.json()["items"]] == ["error"]
 
 
+@pytest.mark.commits
 async def test_sse_conta_a_falha_ao_cliente_em_vez_de_cortar_a_conexao(
     client: AsyncClient,
     make_user: Callable[..., Awaitable[SeededUser]],

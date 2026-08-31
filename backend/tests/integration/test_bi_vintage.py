@@ -165,6 +165,7 @@ async def test_acordo_no_denominador_fora_do_numerador(
     assert group["success_rate"] == pytest.approx(33.3)
 
 
+@pytest.mark.commits
 async def test_safra_agrupa_por_ano_de_closure_date(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -184,6 +185,7 @@ async def test_safra_agrupa_por_ano_de_closure_date(
     assert "480 min" in result["staleness_hint"]
 
 
+@pytest.mark.commits
 async def test_tabela_de_safra_com_os_oito_campos(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -248,6 +250,7 @@ async def test_menos_de_10_concluidos_aviso_de_amostra(
     assert big["small_sample"] is False
 
 
+@pytest.mark.commits
 async def test_ciclo_medio_so_entre_arquivados(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -268,6 +271,7 @@ async def test_ciclo_medio_so_entre_arquivados(
     assert row["avg_cycle_days"] == pytest.approx(40.0)
 
 
+@pytest.mark.commits
 async def test_safra_sem_fechamento_nao_aparece(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -281,6 +285,7 @@ async def test_safra_sem_fechamento_nao_aparece(
     assert [row["vintage_year"] for row in result["years"]] == [2024]
 
 
+@pytest.mark.commits
 async def test_variacao_acima_de_10pp_entre_safras_e_destacada(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -310,6 +315,7 @@ async def test_variacao_acima_de_10pp_entre_safras_e_destacada(
     assert year_2025["highlighted"] is False
 
 
+@pytest.mark.commits
 async def test_zero_concluidos_taxa_traco(client: AsyncClient, factory: LawsuitFactory) -> None:
     """Regra 11: divisão por zero → null (a UI exibe "—"), nunca 0% ou NaN — na safra
     sem nenhum concluído e no período sem concluídos."""

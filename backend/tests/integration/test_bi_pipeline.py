@@ -160,6 +160,7 @@ async def _stage_in_step(client: AsyncClient, headers: dict[str, str], step_id: 
     return await _create_stage(client, headers, step_id)
 
 
+@pytest.mark.commits
 async def test_seis_indicadores_com_seed_deterministico(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -265,6 +266,7 @@ async def test_fechamentos_com_variacao_e_serie_de_seis_meses(
     assert by_month[_months_back(5).isoformat()] == 0
 
 
+@pytest.mark.commits
 async def test_conversao_por_grupo(client: AsyncClient, factory: LawsuitFactory) -> None:
     """Regra 7: taxa = fechados ÷ oportunidades da coorte, por grupo de ação."""
     factory_group_id = await _factory_group_id(client, factory)
@@ -337,6 +339,7 @@ async def test_grupo_sem_movimento_aparece_zerado(
     assert empty["conversion_rate"] is None
 
 
+@pytest.mark.commits
 async def test_grafico_vem_da_view_e_relatorio_e_tempo_real(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -360,6 +363,7 @@ async def test_grafico_vem_da_view_e_relatorio_e_tempo_real(
     assert total_opportunities == 1
 
 
+@pytest.mark.commits
 async def test_refresh_da_view_atualiza_os_numeros(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:

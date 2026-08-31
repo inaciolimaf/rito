@@ -96,6 +96,7 @@ async def _upload(
     )
 
 
+@pytest.mark.commits
 async def test_criar_comentario_e_listar_thread_em_ordem_crescente(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -269,6 +270,7 @@ async def test_edicao_apos_15_minutos_so_administrador(
     assert own_edit.status_code == 200
 
 
+@pytest.mark.commits
 async def test_exclusao_soft_preserva_a_thread(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:

@@ -1,7 +1,7 @@
 # 105 — Template database e ROLLBACK por teste
 
 **Fase:** 10 · **Tipo:** refatoração · **Orçamento:** −80 s (alvo: wall-clock ≤ 200 s)
-**Depende de:** 003, 009, 032 · **Status:** ⬜ pendente
+**Depende de:** 003, 009, 032 · **Status:** ✅ concluída
 
 ---
 
@@ -131,23 +131,119 @@ Nada.
 
 ## 9. Descobertas
 
-Preencher durante a implementação.
+### A ordem do corte estava invertida: A antes de B, não depois
+
+A Nota de execução mandava fazer **B+C+D primeiro** e A depois, com o argumento de que a
+transação é o que devolve tempo e o template só acelera o boot. Implementado nessa ordem,
+**a suíte não termina**: com todos os workers no mesmo banco, a transação por teste vive o
+teste inteiro, e transações longas de workers diferentes se travam em `REFRESH
+MATERIALIZED VIEW` e em DDL. Medido em `pg_stat_activity`: dois workers em
+`active | Lock | relation`, parados para sempre.
+
+Banco por worker (A) não é otimização de boot — é o que devolve a independência que a
+transação longa tira. As duas partes são uma coisa só, e a spec as separou por engano.
+
+### O `DROP TABLE` da tabela de sonda travava contra a própria transação do teste
+
+Mesmo com banco por worker, `tenant_probe_table` não terminava: o teardown dropava a
+tabela por uma conexão de admin enquanto a transação do teste — que ainda não tinha sido
+desfeita, porque fixtures são finalizadas em ordem inversa e a sessão é montada antes —
+segurava `AccessShareLock` sobre ela. O `DROP` saiu: quem limpa agora é o banco do worker,
+recriado a partir do template a cada sessão, o que também leva o que um teste interrompido
+no meio tenha deixado. Some junto a razão de o nome carregar um sufixo `uuid4`.
+
+### O gate de orçamento de queries ia ficar verde medindo zero
+
+`tests/perf.py` escuta `app.state.engine`. Trocando só o `session_factory`, as requisições
+passariam a sair de outro engine e o listener contaria **zero query** — o gate do
+CLAUDE.md §11 continuaria verde para sempre, sem nunca mais olhar para nada. Por isso a
+troca é de `engine` **e** `session_factory` juntos (`use_test_session`), e por isso o
+engine do teste recebe a mesma instrumentação de métricas e tracing que o `lifespan`
+aplica ao da aplicação.
+
+Os savepoints também entram na contagem, e não são trabalho do endpoint: viraram
+`e_plumbing()` em `tests/perf.py`, ao lado do preâmbulo de RLS. De quebra, os **seis**
+lugares que repetiam `if "set_config" not in statement` à mão passaram a chamar o mesmo
+predicado (regra dos 3 usos, CLAUDE.md §6, com folga).
+
+### `now()` congela, e `SET LOCAL` deixa de ser por transação
+
+Duas mudanças de semântica que a spec não previa, as duas inevitáveis:
+
+- **`now()` no Postgres é o instante da TRANSAÇÃO.** Com o teste inteiro numa transação,
+  todas as linhas nascem com o mesmo `created_at`, e ordenação por `created_at, id` vira
+  sorteio (o `id` é `uuid4`). Pegou dois testes de comentário — e é a explicação de por que
+  um deles falhava só às vezes.
+- **`SET LOCAL app.tenant_id` vale até o fim da transação**, que agora é o teste. Os dois
+  testes da 003 que cobram exatamente isso (`sem contexto não vê linha`, `contexto não
+  vaza entre transações`) não têm como valer aqui — foram para `@pytest.mark.commits`, onde
+  a transação volta a ser de verdade. `test_isolation_matrix.py` (spec 080), que é o teste
+  de política de RLS, passou **sem edição**, como a regra 6 exigia.
+
+### 19 arquivos com `@pytest.mark.commits`, não 4
+
+A regra 8 previa quatro arquivos. São **19 arquivos e 69 testes** (4,4% da suíte), e a
+diferença não é desleixo — a regra 8 partiu do princípio errado, o de que só os testes de
+semântica transacional precisariam de commit. Quem precisa é quem observa **o que só
+existe depois do commit**:
+
+| Família | Arquivos | Por quê |
+|---|---|---|
+| Visão materializada | `test_taskscore`, `test_bi_*` (4), `test_financial_dashboard`, `test_lawsuit_stats`, `test_reports_agility`, `test_reports_access_logs` | `REFRESH MATERIALIZED VIEW` roda em outra conexão e só enxerga dado comitado |
+| Plano de execução | `test_inbox_perf` | `EXPLAIN` com dado real, por conexão de superusuário |
+| Cache | `test_performance_cache` | compara ida ao banco entre duas requisições |
+| Semântica de transação | `test_rls` (2), `test_ai_runtime_timeout` (4, spec 103), `test_http_client`, `test_ai_actions`, `test_ai_layer`, `test_search` | o que se testa É o commit, o rollback ou a sessão que sobrevive a ele |
+| Relógio | `test_post_comments` (2), `test_crm_kanban` (1) | `now()` congelado, ver acima |
+
+O teto ficou no medido e é cobrado por `tests/meta/test_isolamento_transacional.py`: subir
+é decisão de spec, não acidente. Sem esse teto, marcar o teste novo como `commits` seria a
+saída mais barata para qualquer falha, e em vinte specs metade da suíte estaria comitando
+de novo — que é literalmente como a dívida original nasceu.
+
+### O número: o backend caiu 12%, e o poste mais alto mudou de lugar
+
+Como na 104, a linha de base da spec não reproduz. Ela cita 288 s de wall-clock; hoje são
+**124 s**, e o alvo (≤ 200 s) já estava cumprido antes de qualquer linha mudar.
+
+O que dá para medir com honestidade é a **suíte de backend isolada**, na mesma máquina,
+antes e depois:
+
+| | antes | depois |
+|---|---|---|
+| `pytest -n 3` | 92–97 s (5 execuções) | **82 s** (3 execuções) |
+| `make test` (wall-clock) | 123–132 s | 124–125 s |
+| tenants no banco de teste ao fim | crescia toda execução (1.126 acumulados, 9.317 no pico de agosto) | **0**, medido em duas execuções seguidas |
+
+O wall-clock não se mexeu porque o backend deixou de ser o poste mais alto: as três suítes
+rodam concorrentes e agora quem manda são os **124 s do Vitest**. Ganhar mais tempo de
+`make test` é trabalho no front-end, não no backend — e isso é uma informação que não
+existia antes desta spec.
+
+### O `TRUNCATE` saiu, e com ele 65 linhas
+
+`scripts/run-tests.sh` tinha 60 linhas de Python embutido em shell que davam `TRUNCATE
+tenants CASCADE` e, antes disso, salvavam e repunham à mão os catálogos globais que o
+CASCADE levaria junto (descobertos por consulta ao `information_schema`). Nada disso tem
+função agora: o `rito_test` virou o template, nenhum teste escreve nele, e o banco de cada
+worker é descartado na execução seguinte.
 
 ## 10. Definição de pronto
 
-- [ ] Template database criada uma vez por sessão; um banco por worker
-- [ ] Fixture transacional com `ROLLBACK` no teardown
-- [ ] `client` na mesma sessão da fixture
-- [ ] `make_user` sem commit
-- [ ] Bloco de `TRUNCATE` removido do `scripts/run-tests.sh`
-- [ ] `@pytest.mark.commits` em no máximo 4 arquivos, com meta-teste que trava o número
-- [ ] `test_isolation_matrix.py` passa sem edição
-- [ ] Nenhum arquivo de `app/` tocado
-- [ ] `make test` verde; wall-clock medido e registrado em `test-timing.json` e em §9
-- [ ] Duas execuções seguidas não acumulam tenants
-- [ ] `make lint` verde — repositório inteiro
-- [ ] `ROADMAP.md` com a linha da 105 em ✅
-- [ ] Commit `refactor(105): template database e rollback por teste`
+- [x] Template database criada uma vez por sessão; um banco por worker
+- [x] Fixture transacional com `ROLLBACK` no teardown
+- [x] `client` (e `rbac_client`) na mesma sessão da fixture
+- [x] `make_user` sem commit — sem editar `make_user`: mudou o que a fábrica faz, não o
+      contrato dela
+- [x] Bloco de `TRUNCATE` removido do `scripts/run-tests.sh` (−65 linhas)
+- [x] `@pytest.mark.commits` com meta-teste que trava o número — **19 arquivos e 69
+      testes**, não 4; a divergência e o motivo estão em §9
+- [x] `test_isolation_matrix.py` passa sem edição
+- [x] Nenhum arquivo de `app/` tocado
+- [x] `make test` verde; wall-clock medido e registrado em `test-timing.json` e em §9
+- [x] Duas execuções seguidas não acumulam tenants (0 antes, 0 depois)
+- [x] `make lint` verde — repositório inteiro
+- [x] `ROADMAP.md` com a linha da 105 em ✅
+- [x] Commit `refactor(105): template database e rollback por teste`
 
 ---
 

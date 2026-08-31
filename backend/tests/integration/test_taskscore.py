@@ -113,6 +113,7 @@ async def _me(
     return response.json()["summary"]  # type: ignore[no-any-return]
 
 
+@pytest.mark.commits
 async def test_pontos_somam_por_mes(client: AsyncClient, factory: LawsuitFactory) -> None:
     gestor = factory.gestor
     first = await _setup_post(client, factory, [str(gestor.user_id)], reward=8)
@@ -126,6 +127,7 @@ async def test_pontos_somam_por_mes(client: AsyncClient, factory: LawsuitFactory
     assert summary["tasks_completed"] == 2
 
 
+@pytest.mark.commits
 async def test_retroativa_credita_no_mes_da_data_informada(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -139,6 +141,7 @@ async def test_retroativa_credita_no_mes_da_data_informada(
     assert (await _me(client, factory.headers, period=_last_month()))["points"] == 8
 
 
+@pytest.mark.commits
 async def test_mudar_catalogo_nao_reescreve_historico(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -170,6 +173,7 @@ async def test_mudar_catalogo_nao_reescreve_historico(
     assert (await _me(client, factory.headers))["points"] == 8
 
 
+@pytest.mark.commits
 async def test_quatro_criterios_de_ordenacao(
     client: AsyncClient, factory: LawsuitFactory, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
@@ -208,6 +212,7 @@ async def test_quatro_criterios_de_ordenacao(
     assert await ranking("engagement") == [a, b, c]
 
 
+@pytest.mark.commits
 async def test_eltv_soma_todos_os_meses(client: AsyncClient, factory: LawsuitFactory) -> None:
     # Regra 5: ELTV soma desde a criação do usuário — mês passado + mês corrente.
     gestor = factory.gestor
@@ -238,6 +243,7 @@ async def test_colaborador_nao_ve_ranking(
     assert response.status_code == 403
 
 
+@pytest.mark.commits
 async def test_sem_prazo_fatal_nao_conta_atraso(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -253,6 +259,7 @@ async def test_sem_prazo_fatal_nao_conta_atraso(
     assert summary["late"] == 0
 
 
+@pytest.mark.commits
 async def test_view_e_estatica_ate_o_refresh(client: AsyncClient, factory: LawsuitFactory) -> None:
     # Regra 9: a view é materializada — a conclusão só aparece depois do refresh
     # (em produção: beat de 15 min ou o agendamento imediato do complete).
@@ -295,6 +302,7 @@ async def test_inativo_some_do_mes_corrente_mas_fica_no_historico(
     assert str(marcado.user_id) in await ids(_last_month())
 
 
+@pytest.mark.commits
 async def test_tenant_a_nao_vaza_para_tenant_b(
     client: AsyncClient,
     factory: LawsuitFactory,
@@ -336,6 +344,7 @@ async def test_meta_de_fechamento_alimenta_widget_da_028(
     assert goal == {"target": 5, "achieved": 1, "pct": 20.0}
 
 
+@pytest.mark.commits
 async def test_meta_de_pontos_por_usuario(
     client: AsyncClient, factory: LawsuitFactory, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
@@ -366,6 +375,7 @@ async def test_meta_de_pontos_por_usuario(
     assert summary["goal_pct"] == 80.0
 
 
+@pytest.mark.commits
 async def test_grafico_mes_atual_anterior_e_meta(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:

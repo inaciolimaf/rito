@@ -24,71 +24,17 @@ run_backend() {
 	# separado, e herdaria a URL de dev sem este override explícito.
 	MIGRATIONS_DATABASE_URL="$migrations_url" \
 		uv run alembic upgrade head
-	# Limpa o acúmulo de tenants de runs anteriores (spec 032): make_user COMITA tenant +
-	# usuário por teste e nada limpava — em agosto/2026 o rito_test tinha 9.317 tenants e
-	# 1,16 milhão de task_types (seed da 031: 152 por tenant), e a suíte inteira pagava
-	# IO/vacuum disso. Os testes criam tudo que precisam via fixtures; os catálogos
-	# globais (courts, steps, occupations, cidades) ficam — não têm FK para tenants.
-	MIGRATIONS_DATABASE_URL="$migrations_url" \
-		uv run python - <<'PYCLEAN'
-import asyncio
-import os
-
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
-
-
-async def main() -> None:
-    engine = create_async_engine(os.environ['MIGRATIONS_DATABASE_URL'])
-    async with engine.begin() as conn:
-        # TRUNCATE ... CASCADE esvazia a tabela REFERENCIADORA INTEIRA, não só as linhas
-        # do tenant. Onde `tenant_id` é anulável (o NULO significa "catálogo global"), isso
-        # apaga o que a migration semeou uma única vez — e a migration não semeia de novo,
-        # porque já está aplicada. Descoberto na spec 097: os 19 agentes de sistema da 087
-        # sumiram do rito_test e 12 testes da 087 passaram a falhar em toda execução
-        # SEGUINTE a um `make test`. A lista é descoberta pelo catálogo, não escrita à mão,
-        # para continuar correta quando aparecer a próxima tabela desse tipo.
-        globais = (
-            await conn.execute(
-                text(
-                    """
-                    SELECT c.table_name
-                    FROM information_schema.columns c
-                    JOIN pg_constraint k
-                      ON k.conrelid = (quote_ident(c.table_name))::regclass
-                     AND k.confrelid = 'tenants'::regclass
-                     AND k.contype = 'f'
-                    WHERE c.table_schema = 'public'
-                      AND c.column_name = 'tenant_id'
-                      AND c.is_nullable = 'YES'
-                    GROUP BY 1
-                    """
-                )
-            )
-        ).scalars().all()
-        for tabela in globais:
-            await conn.execute(text(f'DROP TABLE IF EXISTS _globais_{tabela}'))
-            await conn.execute(
-                text(f'CREATE TABLE _globais_{tabela} AS '
-                     f'SELECT * FROM {tabela} WHERE tenant_id IS NULL')
-            )
-
-        await conn.execute(text('TRUNCATE tenants CASCADE'))
-
-        for tabela in globais:
-            await conn.execute(text(f'INSERT INTO {tabela} SELECT * FROM _globais_{tabela}'))
-            await conn.execute(text(f'DROP TABLE _globais_{tabela}'))
-
-        # integration_health (spec 049) não tem tenant_id — nunca é limpa pelo CASCADE
-        # acima. Sem isso, rows que vazam de um pytest standalone (sem passar por este
-        # script) se acumulam entre execuções e derrubam os testes de 'N verificações
-        # seguidas' da 049/050 (achado ao fechar a spec 051).
-        await conn.execute(text('TRUNCATE integration_health'))
-    await engine.dispose()
-
-
-asyncio.run(main())
-PYCLEAN
+	# Spec 105: aqui havia 60 linhas de Python embutido que davam `TRUNCATE tenants
+	# CASCADE` uma vez por execução e, antes disso, salvavam e repunham à mão os catálogos
+	# globais que o CASCADE levaria junto (o `information_schema` descobria quais eram).
+	# Existiam porque cada teste comitava: em agosto/2026 o `rito_test` tinha 9.317 tenants
+	# e 1,16 milhão de `task_types`, e a suíte inteira pagava o IO disso.
+	#
+	# Agora o `rito_test` é o TEMPLATE: nenhum teste escreve nele. Cada worker roda contra
+	# uma cópia própria (`rito_test_gwN`), criada por `CREATE DATABASE ... TEMPLATE` no
+	# `pytest_configure` e descartada na execução seguinte, e cada teste roda numa
+	# transação que sofre ROLLBACK. Não há mais acúmulo para limpar — e limpeza que existe
+	# sem ter o que limpar é a próxima a esconder um bug.
 	# As 3 suítes rodam CONCORRENTES (CLAUDE.md §3): pytest -n auto (todos os cores) +
 	# vitest threads + playwright/uvicorn/vite disputavam 4 cores e o wall-clock
 	# oscilava 114→135 s em agosto/2026 (spec 035). Cap em 2 workers por padrão dá ar

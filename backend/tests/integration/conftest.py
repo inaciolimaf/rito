@@ -12,6 +12,7 @@ from app.core.rls import enable_rls_statements, set_tenant_context
 from app.core.security import hash_password
 from app.core.tokens import create_access_token
 from app.domain.users.models import FinancialAccess, User, UserRole
+from tests.conftest import use_test_session
 
 # admin_engine / app_session_factory viraram fixtures compartilhadas em tests/conftest.py
 # (spec 009) — tests/meta/ também precisa delas e um conftest de subpasta não é visível
@@ -29,6 +30,13 @@ async def tenant_probe_table(admin_engine: AsyncEngine, worker_id: str) -> Async
     entre execuções/latências diferentes. Um sufixo uuid4 elimina a colisão de vez.
     """
     table_name = f"tenant_probe_{worker_id}_{uuid.uuid4().hex[:8]}"
+    # Spec 105: o `DROP` no teardown deixou de existir. A transação do teste ainda está
+    # aberta quando as fixtures são finalizadas (é ela que dá o `ROLLBACK`), e ela
+    # segura `AccessShareLock` na tabela de sonda que o teste acabou de ler — o `DROP`
+    # numa conexão de admin esperava por esse lock para sempre, e a suíte não terminava.
+    # Quem limpa agora é o banco do worker, recriado a partir do template a cada sessão
+    # de pytest: mais forte que o `DROP`, porque também leva o que um teste que quebrou
+    # no meio tenha deixado.
     ddl = (
         f"CREATE TABLE IF NOT EXISTS {table_name} ("
         "id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), "
@@ -45,9 +53,6 @@ async def tenant_probe_table(admin_engine: AsyncEngine, worker_id: str) -> Async
         )
 
     yield table_name
-
-    async with admin_engine.begin() as conn:
-        await conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
 
 
 @dataclass
@@ -124,7 +129,9 @@ def make_user(
 
 
 @pytest.fixture
-async def rbac_client() -> AsyncGenerator[AsyncClient]:
+async def rbac_client(
+    app_engine: AsyncEngine, app_session_factory: async_sessionmaker[AsyncSession]
+) -> AsyncGenerator[AsyncClient]:
     """App FastAPI separado só com rotas de exemplo para exercitar require_role/require_financial.
 
     Não há endpoint de domínio protegido ainda (as specs de negócio começam na 011) — este é
@@ -165,7 +172,12 @@ async def rbac_client() -> AsyncGenerator[AsyncClient]:
 
     test_app.include_router(router, prefix="/api/v1")
 
-    async with test_app.router.lifespan_context(test_app):
+    # Spec 105, regra 5: app descartável, mesma sessão do teste — senão o usuário criado
+    # pelo `make_user` (que agora não comita) não existe para este app.
+    async with (
+        test_app.router.lifespan_context(test_app),
+        use_test_session(test_app, app_engine, app_session_factory),
+    ):
         transport = ASGITransport(app=test_app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             yield ac

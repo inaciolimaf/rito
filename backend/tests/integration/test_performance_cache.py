@@ -106,6 +106,7 @@ async def test_cache_fora_do_ar_degrada_mas_nao_derruba() -> None:
     assert calculos == 1
 
 
+@pytest.mark.commits
 async def test_dashboard_de_contatos_nao_vai_ao_banco_na_segunda_leitura(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
@@ -138,6 +139,7 @@ async def test_cadastrar_contato_derruba_o_dashboard(
     assert depois == antes + 1
 
 
+@pytest.mark.commits
 async def test_catalogo_de_tarefas_e_cacheado_e_derrubado_ao_escrever(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
@@ -160,6 +162,7 @@ async def test_catalogo_de_tarefas_e_cacheado_e_derrubado_ao_escrever(
     assert depois.json()["total"] == primeira.json()["total"] + 1
 
 
+@pytest.mark.commits
 @pytest.mark.parametrize("filtro", ["?q=peticao", "?status=active", "?step_id=1"])
 async def test_catalogo_filtrado_nao_usa_cache(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]], filtro: str

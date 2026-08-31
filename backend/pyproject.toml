@@ -100,6 +100,14 @@ disallow_untyped_decorators = false
 module = ["num2words", "num2words.*"]
 ignore_missing_imports = true
 
+# asyncpg não tem stubs nem py.typed. O único lugar que o importa cru é
+# `tests/conftest.py`, no SQL de manutenção da spec 105 (`CREATE DATABASE ... TEMPLATE`,
+# que não roda dentro de transação e por isso não pode ir pelo engine do SQLAlchemy).
+# Todo o resto do projeto fala com o asyncpg pelo SQLAlchemy, que é tipado.
+[[tool.mypy.overrides]]
+module = ["asyncpg", "asyncpg.*"]
+ignore_missing_imports = true
+
 # xhtml2pdf (spec 067, geração de PDF) idem — sem stubs; isolado em `pdf.py`.
 [[tool.mypy.overrides]]
 module = ["xhtml2pdf", "xhtml2pdf.*"]
@@ -121,6 +129,12 @@ markers = [
     # movimentações) não cabe nos 300 s do CI de PR. Roda no noturno, contra um banco
     # semeado por `python -m app.core.volume_seed`.
     "nightly: perfilamento com volume — excluído do CI de PR, roda no noturno",
+    # Spec 105, regra 8: o teste roda com commit de verdade, fora da transação que a
+    # `app_session_factory` abre e desfaz. Só para quem observa o que SÓ existe depois
+    # do commit — visão materializada, plano de execução, semântica de transação — e
+    # cada uso é justificado no arquivo. `tests/meta/test_isolamento_transacional.py`
+    # trava a contagem.
+    "commits: precisa de commit real — sessão fora da transação de teste (spec 105)",
 ]
 
 [build-system]

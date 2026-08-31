@@ -27,7 +27,24 @@ from sqlalchemy import event
 # (spec 003) — plumbing de sessão, não acesso a dado. Contá-lo faria o orçamento medir a
 # quantidade de sessões abertas em vez do trabalho do endpoint, e mudaria junto com uma
 # refatoração que não tocasse em query nenhuma.
-_PREAMBULO = re.compile(r"^\s*SELECT\s+set_config\(", re.IGNORECASE)
+# Idem para o `SAVEPOINT`/`RELEASE`/`ROLLBACK TO` que a spec 105 introduziu: dentro da
+# suíte, a transação de quem chamou é a do TESTE, e cada sessão da aplicação entra nela
+# por savepoint. São instruções de isolamento de teste, não trabalho do endpoint — em
+# produção elas não existem, e contá-las mediria a fixture em vez da rota.
+_PREAMBULO = re.compile(
+    r"^\s*(?:SELECT\s+set_config\(|SAVEPOINT\b|RELEASE\s+SAVEPOINT\b|ROLLBACK\s+TO\b)",
+    re.IGNORECASE,
+)
+
+
+def e_plumbing(statement: str) -> bool:
+    """`True` para instrução de infraestrutura de sessão, que nenhum orçamento conta.
+
+    Seis testes repetiam `if "set_config" not in statement` à mão (regra dos 3 usos do
+    CLAUDE.md §6, com folga) e nenhum deles sabia dos savepoints da 105 — por isso o
+    predicado passou a morar aqui, uma vez só.
+    """
+    return bool(_PREAMBULO.match(statement))
 
 
 @dataclass
@@ -54,7 +71,7 @@ async def count_queries(app: FastAPI) -> AsyncIterator[QueryLog]:
     log = QueryLog()
 
     def _registrar(conn, cursor, statement, parameters, context, executemany) -> None:  # type: ignore[no-untyped-def]  # noqa: ANN001, E501 — assinatura fixada pelo evento do SQLAlchemy
-        if not _PREAMBULO.match(statement):
+        if not e_plumbing(statement):
             log.statements.append(statement)
 
     engine = app.state.engine.sync_engine

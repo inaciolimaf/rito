@@ -18,6 +18,7 @@ from tests.integration.test_lawsuits import (
     _create_lawsuit_type,
     _create_stage,
 )
+from tests.perf import e_plumbing
 
 _BASE_TIME = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
 
@@ -338,7 +339,7 @@ async def test_timeline_dentro_do_budget_de_queries(
         ) -> None:
             # set_config é o contexto de tenant (spec 003), não faz parte do budget —
             # a regra 8 mede a agregação em si: get do processo + página + contagem.
-            if "set_config" not in statement:
+            if not e_plumbing(statement):
                 statements.append(statement)
 
         # Simula exatamente o que o endpoint faz: get do processo + página + count.

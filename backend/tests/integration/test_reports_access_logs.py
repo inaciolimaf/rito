@@ -158,6 +158,7 @@ async def test_ligado_registra_no_login_nao_no_refresh(
     assert logs_after_refresh.json()["total"] == 1
 
 
+@pytest.mark.commits
 async def test_primeiro_e_ultimo_acesso_do_dia(
     client: AsyncClient,
     factory: LawsuitFactory,
@@ -183,6 +184,7 @@ async def test_primeiro_e_ultimo_acesso_do_dia(
     assert cell["first_access"] < cell["last_access"]
 
 
+@pytest.mark.commits
 async def test_desvio_positivo_e_negativo(
     client: AsyncClient,
     factory: LawsuitFactory,
@@ -219,6 +221,7 @@ async def test_desvio_positivo_e_negativo(
     assert early_cell["deviation_minutes"] == -15
 
 
+@pytest.mark.commits
 async def test_sem_jornada_sem_comparacao(
     client: AsyncClient,
     factory: LawsuitFactory,
@@ -296,6 +299,7 @@ async def test_proprio_ve_alheio_nao_admin_ve(
     assert admin_view.status_code == 200
 
 
+@pytest.mark.commits
 async def test_expurgo_apos_12_meses(
     client: AsyncClient,
     factory: LawsuitFactory,

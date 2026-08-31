@@ -201,6 +201,7 @@ async def _add_revenue(
     assert response.status_code == 201, response.text
 
 
+@pytest.mark.commits
 async def test_media_de_honorarios_por_processo(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -217,6 +218,7 @@ async def test_media_de_honorarios_por_processo(
     assert "480 min" in result["staleness_hint"]
 
 
+@pytest.mark.commits
 async def test_media_mensal_penaliza_processo_longo_e_barato(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -252,6 +254,7 @@ async def test_media_mensal_penaliza_processo_longo_e_barato(
     assert result["cycles"]["full_cycle_days"] == pytest.approx(197.5)
 
 
+@pytest.mark.commits
 async def test_tempo_perdido_soma_so_os_sem_receita(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -298,6 +301,7 @@ async def test_tempo_perdido_soma_so_os_sem_receita(
     assert result["lost_months"] == pytest.approx(5.0)
 
 
+@pytest.mark.commits
 async def test_revenue_ignora_nao_pago_e_interno(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -353,6 +357,7 @@ async def test_revenue_ignora_nao_pago_e_interno(
     assert result["lost_months"] == pytest.approx(2.0)
 
 
+@pytest.mark.commits
 async def test_filtro_por_resultado_recalcula(client: AsyncClient, factory: LawsuitFactory) -> None:
     """Regra 7: o filtro por resultado recalcula tudo — contagem, média de honorários
     e os ciclos mudam junto com o recorte."""
@@ -381,6 +386,7 @@ async def test_filtro_por_resultado_recalcula(client: AsyncClient, factory: Laws
     assert vazio["cycles"]["prospecting_days"] is None
 
 
+@pytest.mark.commits
 async def test_rentabilidade_por_tipo(client: AsyncClient, factory: LawsuitFactory) -> None:
     """Regra 8: rentabilidade mensal por tipo = média de (`fees_value` ÷ meses de
     duração) dos processos daquele tipo; o filtro por tipo devolve só ele."""
@@ -413,6 +419,7 @@ async def test_rentabilidade_por_tipo(client: AsyncClient, factory: LawsuitFacto
     assert [row["lawsuit_type_id"] for row in filtrado["types"]] == [other_type_id]
 
 
+@pytest.mark.commits
 async def test_menos_de_5_processos_aviso_de_amostra(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -435,6 +442,7 @@ async def test_menos_de_5_processos_aviso_de_amostra(
     assert by_id[other_type_id]["small_sample"] is False
 
 
+@pytest.mark.commits
 async def test_ciclos_por_grupo_lado_a_lado(client: AsyncClient, factory: LawsuitFactory) -> None:
     """Regra 10: o gráfico por grupo mostra os 4 ciclos lado a lado — e a média
     ignora nulos (regra 2 no SQL: quem não tem trânsito não entra na produção)."""

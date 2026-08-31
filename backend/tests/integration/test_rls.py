@@ -99,6 +99,7 @@ async def test_update_and_delete_do_not_cross_tenant(
         assert result.scalar_one() == "linha-b-protegida"
 
 
+@pytest.mark.commits
 async def test_query_without_tenant_context_returns_zero_rows(
     app_session_factory: SessionFactory, tenant_probe_table: str
 ) -> None:
@@ -114,6 +115,7 @@ async def test_query_without_tenant_context_returns_zero_rows(
         assert rows == []
 
 
+@pytest.mark.commits
 async def test_tenant_context_does_not_leak_between_transactions(
     app_session_factory: SessionFactory, tenant_probe_table: str
 ) -> None:

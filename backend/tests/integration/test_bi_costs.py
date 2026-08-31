@@ -198,6 +198,7 @@ async def _complete_task(
     assert response.status_code == 200, response.json()
 
 
+@pytest.mark.commits
 async def test_cac_e_marketing_dividido_por_clientes_novos(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -224,6 +225,7 @@ async def test_cac_e_marketing_dividido_por_clientes_novos(
     assert result["cac"] == pytest.approx(200.00)
 
 
+@pytest.mark.commits
 async def test_custo_por_ponto_e_custo_fixo_dividido_por_pontos(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -251,6 +253,7 @@ async def test_custo_por_ponto_e_custo_fixo_dividido_por_pontos(
     assert result["cost_per_point"] == pytest.approx(62.50)
 
 
+@pytest.mark.commits
 async def test_custo_fixo_soma_apenas_grupos_2_3_5_7(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -326,6 +329,7 @@ async def test_custo_direto_por_lawsuit_id(client: AsyncClient, factory: Lawsuit
     assert by_id[lawsuit_b]["direct_cost"] == pytest.approx(0.00)
 
 
+@pytest.mark.commits
 async def test_custo_alocado_soma_direto_mais_rateio(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -393,6 +397,7 @@ async def test_processo_em_andamento_entra_no_calculo(
     assert item["allocated_cost"] == pytest.approx(50.00)
 
 
+@pytest.mark.commits
 async def test_mes_sem_pontos_custo_por_ponto_nulo(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -428,6 +433,7 @@ async def test_mes_sem_custo_cac_nulo(client: AsyncClient, factory: LawsuitFacto
     assert result["cac"] is None
 
 
+@pytest.mark.commits
 async def test_interno_e_transferencia_fora_do_custo(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:

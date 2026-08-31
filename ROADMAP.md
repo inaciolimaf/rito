@@ -475,9 +475,11 @@ Toda contagem abaixo foi medida no commit `44469bd`, sobre `ruff check .` (o esc
 **Aceite:** `import app.main` abaixo de 9 s; meta-teste por AST impede a reincidência; wall-clock não sobe. **t:** +0 s (12 testes de AST, 0,03 s). **Deps:** 011, 041, 065, 066, 067, 088
 Achado fora de escopo: o teste do editor de modelos (front-end) estoura o `testTimeout` do Vitest em host frio e passa em 325 ms depois — dívida 28, alvo 110.
 
-### ⬜ 105 — Template database e ROLLBACK por teste
-Implementa o que o `CLAUDE.md` §3 e a spec 009 declaram e que não existe no código: template DB por sessão, banco por worker, transação por teste com rollback no teardown. Some a causa dos 9.317 tenants acumulados no `rito_test`.
-**Aceite:** wall-clock ≤ 200 s; duas execuções seguidas não acumulam tenants; `test_isolation_matrix.py` passa sem edição. **t:** −80 s. **Deps:** 003, 009, 032
+### ✅ 105 — Template database e ROLLBACK por teste
+O que o `CLAUDE.md` §3 e a spec 009 declaravam e não existia no código: o `rito_test` virou **template** (migrado uma vez, ninguém escreve nele), cada worker roda numa cópia própria criada por `CREATE DATABASE ... TEMPLATE` (0,13 s contra 2 s de migration), e cada teste roda numa transação desfeita no teardown — as sessões entram nela por `SAVEPOINT`, então nenhum teste precisou ser editado para parar de comitar.
+**A ordem do corte da spec estava invertida:** com B+C+D sem A, a suíte **não termina** — transação longa por teste, todos os workers no mesmo banco, e dois deles travados em `REFRESH MATERIALIZED VIEW`. Banco por worker não acelera o boot, devolve a independência que a transação longa tira.
+**Aceite:** wall-clock ≤ 200 s; duas execuções seguidas não acumulam tenants; `test_isolation_matrix.py` passa sem edição. **t:** −11 s no backend. **Deps:** 003, 009, 032
+Backend de 92–97 s para **82 s**; tenants acumulados de 1.126 para **0**; −65 linhas de `TRUNCATE`/preservação de catálogo no `run-tests.sh`. O wall-clock não mudou (124 s) porque o backend deixou de ser o poste mais alto — agora são os 124 s do Vitest, e ganhar mais tempo é trabalho de front-end. `@pytest.mark.commits` ficou em 19 arquivos/69 testes (a spec previa 4), com teto travado por meta-teste: quem observa visão materializada, plano de execução, cache ou o próprio commit precisa de commit.
 
 ### ⬜ 106 — Gate de complexidade ciclomática (C901, máx. 6)
 Liga `C90` com `max-complexity = 6` e resolve as 41 funções acima do teto — de `_build_conditions` (23) para baixo.

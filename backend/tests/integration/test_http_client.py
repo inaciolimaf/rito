@@ -93,6 +93,7 @@ async def test_rate_limit_e_compartilhado_entre_dois_clients(redis: Redis) -> No
         await redis.delete(f"http_rate:{host}")
 
 
+@pytest.mark.commits
 async def test_falha_e_sempre_gravada_em_external_requests(
     app_session_factory: SessionFactory, admin_engine: AsyncEngine
 ) -> None:

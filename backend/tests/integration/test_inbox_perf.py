@@ -183,6 +183,7 @@ async def perf_seed() -> AsyncGenerator[PerfSeed]:
     await admin_engine.dispose()
 
 
+@pytest.mark.commits
 async def test_counts_das_6_secoes_em_uma_query_rapida(
     perf_seed: PerfSeed, app_session_factory: async_sessionmaker[AsyncSession]
 ) -> None:
@@ -202,6 +203,7 @@ async def test_counts_das_6_secoes_em_uma_query_rapida(
     assert sum(counts.values()) == _PENDING_PER_USER
 
 
+@pytest.mark.commits
 async def test_pagina_de_secao_rapida_e_indice_parcial_em_uso(
     perf_seed: PerfSeed, app_session_factory: async_sessionmaker[AsyncSession]
 ) -> None:

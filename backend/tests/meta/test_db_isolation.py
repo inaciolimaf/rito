@@ -1,6 +1,11 @@
-"""Regra 3 da spec 009: a migration roda uma vez (via scripts/run-tests.sh, antes dos
-workers do -n auto subirem) — o banco de teste já deve estar na head quando os testes
-começam, e workers concorrentes não devem tentar migrar de novo."""
+"""Regra 3 da spec 009: a migration roda uma vez, antes dos workers subirem — o banco de
+teste já deve estar na head quando os testes começam, e workers concorrentes não devem
+tentar migrar de novo.
+
+Spec 105: quem migra passou a ser o `pytest_configure`, e o que ele migra é o TEMPLATE.
+O `admin_engine` daqui aponta para o banco deste worker, que é uma cópia do template —
+se ele está na head, o template estava. O outro lado (o template não ter tenant nenhum)
+é cobrado por `test_isolamento_transacional.py`."""
 
 from pathlib import Path
 
@@ -31,6 +36,7 @@ async def test_banco_de_teste_ja_esta_na_head_antes_do_teste_rodar(
         current = result.scalar_one()
 
     assert current == expected_head, (
-        f"rito_test está em {current!r}, esperado {expected_head!r} — a migration não "
+        f"o banco deste worker está em {current!r}, esperado {expected_head!r} — a "
+        "migration não "
         "rodou (ou não rodou até o fim) antes da suíte começar."
     )

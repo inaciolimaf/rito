@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import _create_stage
 from tests.integration.test_lawsuits_listing import LawsuitFactory, _make_factory
+from tests.perf import e_plumbing
 
 _NOW = datetime.now(UTC)
 _THIS_MONTH = _NOW.date().replace(day=1)
@@ -68,6 +69,7 @@ async def _seed_dashboard(factory: LawsuitFactory) -> None:
     await factory.backdate_created(arquivado, datetime.combine(_TWO_MONTHS_AGO, _NOW.time()))
 
 
+@pytest.mark.commits
 async def test_stats_com_seed_deterministico(client: AsyncClient, factory: LawsuitFactory) -> None:
     await _seed_dashboard(factory)
     response = await client.get("/api/v1/lawsuits/stats", headers=factory.headers)
@@ -164,6 +166,7 @@ async def test_cache_invalida_ao_fechar_processo(
     assert segundo.json()["closed_this_month"]["value"] == 1
 
 
+@pytest.mark.commits
 async def test_cache_evita_recomputo(client: AsyncClient, factory: LawsuitFactory) -> None:
     """Segunda leitura no mesmo (tenant, mês) vem do cache — verificável pelo próprio
     contrato: o valor gravado é o JSON completo da resposta."""
@@ -189,7 +192,7 @@ async def test_cache_evita_recomputo(client: AsyncClient, factory: LawsuitFactor
 
         @event.listens_for(bind, "before_cursor_execute", named=True)
         def count_statements(conn: object, cursor: object, statement: str, **kw: object) -> None:
-            if "set_config" not in statement:
+            if not e_plumbing(statement):
                 statements.append(statement)
 
         async with session.begin():
@@ -202,6 +205,7 @@ async def test_cache_evita_recomputo(client: AsyncClient, factory: LawsuitFactor
     assert statements == []
 
 
+@pytest.mark.commits
 async def test_stats_dentro_do_budget_de_queries(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -219,7 +223,7 @@ async def test_stats_dentro_do_budget_de_queries(
 
         @event.listens_for(bind, "before_cursor_execute", named=True)
         def count_statements(conn: object, cursor: object, statement: str, **kw: object) -> None:
-            if "set_config" not in statement:
+            if not e_plumbing(statement):
                 statements.append(statement)
 
         async with session.begin():

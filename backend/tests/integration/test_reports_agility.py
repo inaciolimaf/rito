@@ -66,6 +66,7 @@ async def _agility(
     return response.json()  # type: ignore[no-any-return]
 
 
+@pytest.mark.commits
 async def test_em_dia_atraso_e_pendente_com_seed(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -91,6 +92,7 @@ async def test_em_dia_atraso_e_pendente_com_seed(
     assert result["pending"] == 1
 
 
+@pytest.mark.commits
 async def test_sem_prazo_fatal_conta_como_em_dia(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
@@ -107,6 +109,7 @@ async def test_sem_prazo_fatal_conta_como_em_dia(
     assert result["late"] == 0
 
 
+@pytest.mark.commits
 async def test_medias_de_cumprimento_e_atraso(client: AsyncClient, factory: LawsuitFactory) -> None:
     gestor = factory.gestor
     today = _NOW.date()
@@ -129,6 +132,7 @@ async def test_medias_de_cumprimento_e_atraso(client: AsyncClient, factory: Laws
     assert result["avg_days_to_complete"] is not None
 
 
+@pytest.mark.commits
 async def test_privada_agrega_sem_expor_conteudo(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:

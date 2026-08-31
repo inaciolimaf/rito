@@ -18,6 +18,7 @@ from tests.integration.test_lawsuits import (
     _create_lawsuit_type,
     _create_stage,
 )
+from tests.perf import e_plumbing
 
 _NOW = datetime.now(UTC)
 _THIS_MONTH = _NOW.date().replace(day=1)
@@ -321,7 +322,7 @@ async def test_listagem_dentro_do_budget_de_queries(
 
         @event.listens_for(bind, "before_cursor_execute", named=True)
         def count_statements(conn: object, cursor: object, statement: str, **kw: object) -> None:
-            if "set_config" not in statement:
+            if not e_plumbing(statement):
                 statements.append(statement)
 
         service = LawsuitService(session=session, tenant_id=factory.gestor.tenant_id)

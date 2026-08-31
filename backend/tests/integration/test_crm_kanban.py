@@ -4,6 +4,7 @@ paginação por coluna e o orçamento de queries do board."""
 import uuid
 from collections.abc import Awaitable, Callable
 
+import pytest
 from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -16,6 +17,7 @@ from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import _auth_header, _create_lawsuit, _create_stage
 from tests.integration.test_lawsuits_listing import LawsuitFactory
 from tests.integration.test_lawsuits_listing import factory as factory  # noqa: F401 (fixture)
+from tests.perf import e_plumbing
 
 _MARKETING_STEP_ID = 1
 _NEGOTIATION_STEP_ID = 2
@@ -103,6 +105,7 @@ async def test_mover_para_primeira_etapa_da_fase(factory: LawsuitFactory) -> Non
     assert move.json()["lawsuit"]["stage_id"] == first_stage
 
 
+@pytest.mark.commits
 async def test_trigger_atualiza_stage_entered_at(factory: LawsuitFactory) -> None:
     lawsuit_id = await factory.create("Processo Trigger")
     before = await _get_lawsuit(factory, lawsuit_id)
@@ -252,6 +255,7 @@ async def test_paginacao_por_coluna(factory: LawsuitFactory) -> None:
     assert seen_ids == set(ids)
 
 
+@pytest.mark.commits
 async def test_board_fica_dentro_do_orcamento_de_queries(factory: LawsuitFactory) -> None:
     await factory.create("Budget Kanban 1")
     await factory.create("Budget Kanban 2")
@@ -262,7 +266,7 @@ async def test_board_fica_dentro_do_orcamento_de_queries(factory: LawsuitFactory
 
         @event.listens_for(bind, "before_cursor_execute", named=True)
         def count_statements(conn: object, cursor: object, statement: str, **kw: object) -> None:
-            if "set_config" not in statement:
+            if not e_plumbing(statement):
                 statements.append(statement)
 
         service = BoardService(session=session, tenant_id=factory.gestor.tenant_id)

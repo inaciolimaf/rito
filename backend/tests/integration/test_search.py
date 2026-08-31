@@ -288,6 +288,7 @@ async def test_clique_registra_no_historico(
     assert registros[0].clicked_id == alvo
 
 
+@pytest.mark.commits
 async def test_historico_limitado_a_vinte(
     client: AsyncClient,
     make_user: Callable[..., Awaitable[SeededUser]],

@@ -243,6 +243,7 @@ async def test_custo_calculado_pelo_catalogo_quando_o_gateway_nao_manda(
     assert (await _usages(app_session_factory, outro.tenant_id))[0].cost_usd is None
 
 
+@pytest.mark.commits
 async def test_prompt_nao_e_persistido_sem_opt_in(
     make_user: Callable[..., Awaitable[SeededUser]],
     app_session_factory: async_sessionmaker[AsyncSession],

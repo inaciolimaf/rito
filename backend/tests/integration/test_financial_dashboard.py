@@ -17,6 +17,7 @@ from app.domain.financial.dashboard import get_dashboard_stats
 from app.workers.financial_dashboard import refresh_account_daily_balances
 from tests.integration.conftest import SeededUser
 from tests.integration.test_transactions import _fixtures, _make_gestor_full, _receita_payload
+from tests.perf import e_plumbing
 
 
 def _despesa_payload(
@@ -251,6 +252,7 @@ async def test_atrasados_excluem_interno(
     assert body["overdue"] == 150
 
 
+@pytest.mark.commits
 async def test_saldo_por_conta_bate_com_a_view(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
@@ -278,6 +280,7 @@ async def test_saldo_por_conta_bate_com_a_view(
     assert row["is_invoice"] is False
 
 
+@pytest.mark.commits
 async def test_view_e_estatica_ate_o_refresh(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
@@ -332,6 +335,7 @@ async def test_cartao_mostra_fatura_nao_saldo(
     assert row["balance"] == 220
 
 
+@pytest.mark.commits
 async def test_tenant_a_nao_ve_saldo_de_tenant_b(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
@@ -360,6 +364,7 @@ async def test_tenant_a_nao_ve_saldo_de_tenant_b(
     assert row_a["balance"] == 500
 
 
+@pytest.mark.commits
 async def test_dashboard_dentro_do_budget_de_queries(
     client: AsyncClient,
     make_user: Callable[..., Awaitable[SeededUser]],
@@ -395,7 +400,7 @@ async def test_dashboard_dentro_do_budget_de_queries(
 
         @event.listens_for(bind, "before_cursor_execute", named=True)
         def count_statements(conn: object, cursor: object, statement: str, **kw: object) -> None:
-            if "set_config" not in statement:
+            if not e_plumbing(statement):
                 statements.append(statement)
 
         async with session.begin():
@@ -503,6 +508,7 @@ async def test_fluxo_de_caixa_projeta_saldo_dia_a_dia(
     assert invalid_range.status_code == 422
 
 
+@pytest.mark.commits
 async def test_saldo_da_view_bate_com_soma_direta_no_mesmo_dataset(
     client: AsyncClient,
     make_user: Callable[..., Awaitable[SeededUser]],

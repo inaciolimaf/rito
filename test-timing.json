@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 132,
+  "last_measured_wall_clock_seconds": 124,
   "last_measured_at": "2026-08-31",
   "specs": {
     "001": {
@@ -354,6 +354,10 @@
     "104": {
       "wall_clock_seconds": 132,
       "notes": "1552 backend (1540 da 103 + 12 meta de AST: seis bibliotecas pesadas fora do topo e as mesmas seis ainda importadas dentro de alguma função — o segundo teste pega o import apagado por engano, que passaria no primeiro) + 304 frontend + 10 e2e. Refatoração: nenhum teste anterior editado. A linha de base da spec (import app.main a 13,1 s) não reproduziu — hoje custava 1,79 s quente, então o aceite de 'abaixo de 9 s' já estava cumprido antes da mudança. O número que discrimina é a fatia das seis bibliotecas: 437 ms (24%) que saem inteiros, 1,79 s -> 1,35 s quente e 6,62 s -> 3,65 s com bytecode frio. Wall-clock na faixa de ruído do host (123-132 s em cinco execuções hoje); os 12 testes novos custam 0,03 s."
+    },
+    "105": {
+      "wall_clock_seconds": 124,
+      "notes": "1556 backend (1552 da 104 + 4 meta de isolamento transacional: teto do @pytest.mark.commits em 19 arquivos/69 testes, nenhum engine próprio fora do conftest, o que o teste escreve some no teardown, e o template na head sem tenant) + 304 frontend + 10 e2e. Refatoração de infraestrutura de teste: nenhum arquivo de app/ tocado. A suíte de backend caiu de 92-97 s para 82 s e o banco de teste parou de acumular (1.126 tenants -> 0 em duas execuções seguidas). O wall-clock ficou em 124 s porque o backend deixou de ser o poste mais alto: as tres suites rodam concorrentes e agora quem manda sao os 124 s do Vitest. A ordem de corte da spec estava invertida — sem banco por worker, a transacao longa por teste trava os workers em REFRESH MATERIALIZED VIEW e a suite nao termina."
     }
   },
   "specs_concluidas": 100

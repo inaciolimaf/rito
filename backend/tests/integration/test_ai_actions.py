@@ -354,6 +354,7 @@ async def test_preview_mostra_o_diff_da_atualizacao(
     assert "name" not in preview["changes"]
 
 
+@pytest.mark.commits
 async def test_ai_audit_log_recusa_update_e_delete(
     scene: Scene,
     app_session_factory: async_sessionmaker[AsyncSession],

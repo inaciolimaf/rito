@@ -556,9 +556,7 @@ class BiCostsService:
         infinito (regra 8)."""
         row = await self.repo.monthly_allocation(period=period)
         marketing = float(row.marketing_cost) if row is not None else 0.0
-        new_customers = await self.repo.new_customers(
-            month_start=period, month_end=month_end(period.year, period.month)
-        )
+        new_customers = await self.repo.new_customers(month_start=period)
         # Marketing zerado não é CAC zero: é "não houve investimento no período".
         cac = safe_ratio(marketing, new_customers) if marketing > 0 else None
         return CacResponse(

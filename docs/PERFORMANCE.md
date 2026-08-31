@@ -71,7 +71,7 @@ interessa neles é a comparação antes/depois e quais telas ainda não cabem.
 | Dashboard de contatos | 500 ms | — | ✅ |
 | Quadro do CRM | 400 ms | 578 ms | ⚠️ 548 ms |
 
-Cinco das oito metas passam. As três marcadas com ⚠️ melhoraram entre 2× e 34×, mas
+Quatro das sete metas passam. As três marcadas com ⚠️ melhoraram entre 2× e 34×, mas
 ainda não cabem **neste host**. O gate noturno fica vermelho de propósito: é o sinal de
 que sobrou trabalho, e apagá-lo mexendo na meta seria trocar o problema por uma mentira
 mais confortável. O que resta nas três é o mesmo custo — ordenar ou agregar dezenas de

@@ -5,8 +5,10 @@ import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
-import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
+import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
+import { TransferBeforeDeleteDialog } from "@/components/domain/TransferBeforeDeleteDialog";
 import { useCrudResource } from "@/components/domain/useCrudResource";
+import { useTransferBeforeDelete } from "@/components/domain/useTransferBeforeDelete";
 import { useFilters } from "@/components/domain/useFilters";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +16,7 @@ import {
   createCustomerOrigin,
   deleteCustomerOrigin,
   listCustomerOrigins,
+  transferCustomerOrigins,
   updateCustomerOrigin,
   type CustomerOriginData,
 } from "@/features/customer-origins/api";
@@ -62,7 +65,6 @@ export function CustomerOriginsListPage(): JSX.Element {
     openCreateModal,
     openEditModal,
     handleSubmit,
-    handleConfirmDelete,
   } = useCrudResource<CustomerOriginData, CustomerOriginFormValues>({
     queryKey: ["customer-origins"],
     create: createCustomerOrigin,
@@ -70,6 +72,20 @@ export function CustomerOriginsListPage(): JSX.Element {
       updateCustomerOrigin(origin.id, { ...values, is_active: origin.is_active }),
     remove: (origin) => deleteCustomerOrigin(origin.id),
   });
+
+  // Spec 101, regras 3-4: origem com contato vinculado devolve 409.
+  const transferFlow = useTransferBeforeDelete<CustomerOriginData>({
+    queryKey: ["customer-origins"],
+    remove: (origin) => deleteCustomerOrigin(origin.id),
+    transfer: async (origin, destinationId) => {
+      await transferCustomerOrigins(origin.id, destinationId);
+    },
+    alsoInvalidate: [["customers"]],
+  });
+
+  const transferOptions: EntityOption[] = (data?.items ?? [])
+    .filter((origin) => origin.id !== transferFlow.pendingTransfer?.id)
+    .map((origin) => ({ id: origin.id, label: origin.name }));
 
   const columns: DataTableColumn<CustomerOriginData>[] = [
     { id: "name", header: "Origem", cell: (row) => row.name },
@@ -152,8 +168,29 @@ export function CustomerOriginsListPage(): JSX.Element {
         description={`"${pendingDelete?.name ?? ""}" será excluída.`}
         confirmLabel="Excluir"
         destructive
-        onConfirm={handleConfirmDelete}
+        onConfirm={async () => {
+          const alvo = pendingDelete;
+          if (!alvo) return;
+          setPendingDelete(null);
+          await transferFlow.requestDelete(alvo);
+        }}
       />
+
+      <TransferBeforeDeleteDialog
+        open={transferFlow.dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) transferFlow.closeDialog();
+        }}
+        title="Transferir contatos antes de excluir"
+        description={`"${transferFlow.pendingTransfer?.name ?? ""}" tem contatos vinculados (regra 3). Escolha a origem de destino — todos migram para lá antes da exclusão.`}
+        options={transferOptions}
+        onTransfer={transferFlow.transferAndDelete}
+      />
+      {transferFlow.transferError && (
+        <p role="alert" className="text-sm text-danger">
+          {transferFlow.transferError.message}
+        </p>
+      )}
     </div>
   );
 }

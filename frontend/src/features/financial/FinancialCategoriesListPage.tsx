@@ -5,8 +5,10 @@ import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
-import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
+import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
+import { TransferBeforeDeleteDialog } from "@/components/domain/TransferBeforeDeleteDialog";
 import { useCrudResource } from "@/components/domain/useCrudResource";
+import { useTransferBeforeDelete } from "@/components/domain/useTransferBeforeDelete";
 import { useFilters } from "@/components/domain/useFilters";
 import { CategoryForm } from "@/features/financial/CategoryForm";
 import { DreGroupBadge } from "@/features/financial/DreGroupBadge";
@@ -15,6 +17,7 @@ import {
   deleteFinancialCategory,
   listDreGroups,
   listFinancialCategories,
+  transferFinancialCategories,
   updateFinancialCategory,
   type EntryType,
   type FinancialCategoryData,
@@ -79,7 +82,6 @@ export function FinancialCategoriesListPage(): JSX.Element {
     openCreateModal,
     openEditModal,
     handleSubmit,
-    handleConfirmDelete,
   } = useCrudResource<FinancialCategoryData, FinancialCategoryFormValues>({
     queryKey: ["financial-categories"],
     create: (values) =>
@@ -92,6 +94,20 @@ export function FinancialCategoriesListPage(): JSX.Element {
       }),
     remove: (category) => deleteFinancialCategory(category.id),
   });
+
+  // Spec 101, regras 7-8: categoria com lançamento vinculado devolve 409.
+  const transferFlow = useTransferBeforeDelete<FinancialCategoryData>({
+    queryKey: ["financial-categories"],
+    remove: (category) => deleteFinancialCategory(category.id),
+    transfer: async (category, destinationId) => {
+      await transferFinancialCategories(category.id, destinationId);
+    },
+    alsoInvalidate: [["transactions"]],
+  });
+
+  const transferOptions: EntityOption[] = categories
+    .filter((category) => category.id !== transferFlow.pendingTransfer?.id)
+    .map((category) => ({ id: category.id, label: category.name }));
 
   const columns: DataTableColumn<FinancialCategoryData>[] = [
     { id: "name", header: "Nome", cell: (row) => row.name },
@@ -184,8 +200,29 @@ export function FinancialCategoriesListPage(): JSX.Element {
         description={`"${pendingDelete?.name ?? ""}" será excluída.`}
         confirmLabel="Excluir"
         destructive
-        onConfirm={handleConfirmDelete}
+        onConfirm={async () => {
+          const alvo = pendingDelete;
+          if (!alvo) return;
+          setPendingDelete(null);
+          await transferFlow.requestDelete(alvo);
+        }}
       />
+
+      <TransferBeforeDeleteDialog
+        open={transferFlow.dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) transferFlow.closeDialog();
+        }}
+        title="Transferir lançamentos antes de excluir"
+        description={`"${transferFlow.pendingTransfer?.name ?? ""}" tem lançamentos vinculados (regra 7). Escolha a categoria de destino — todos migram para lá antes da exclusão.`}
+        options={transferOptions}
+        onTransfer={transferFlow.transferAndDelete}
+      />
+      {transferFlow.transferError && (
+        <p role="alert" className="text-sm text-danger">
+          {transferFlow.transferError.message}
+        </p>
+      )}
     </div>
   );
 }

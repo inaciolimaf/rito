@@ -279,3 +279,104 @@ def test_cabecalho_de_cada_spec_concorda_com_o_roadmap() -> None:
 
     assert divergentes == [], "spec e roadmap discordam:\n  " + "\n  ".join(divergentes)
     assert duplicadas == [], "mais de um arquivo para o mesmo número:\n  " + "\n  ".join(duplicadas)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Spec 101 — os meta-testes que impedem o 14º item de nascer
+#
+# Corrigir 13 stubs é trabalho de um ciclo; impedir que o 14º apareça é o que evita a
+# spec 201. Cada teste abaixo fecha uma das formas pelas quais a dívida escapou de 100
+# specs de revisão.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ROADMAP = RAIZ / "ROADMAP.md"
+DIVIDA = RAIZ / "docs" / "DIVIDA-TECNICA.md"
+
+# "chega na spec 022", "chegam na spec 056", "só chega na 017", "até a spec 032",
+# "spec 015 (Descobertas)" — as cinco formas que os cinco stubs usaram para dizer
+# "a dependência ainda não existe".
+_ADIAMENTO = re.compile(
+    r"(?:chega(?:m)? na spec (\d{3})"
+    r"|só chega na (\d{3})"
+    r"|até a spec (\d{3})"
+    r"|spec (\d{3}) \(Descobertas\))",
+    re.IGNORECASE,
+)
+
+
+def _specs_concluidas() -> set[str]:
+    """Números marcados com ✅ no ROADMAP — as specs que já entregaram."""
+    texto = ROADMAP.read_text(encoding="utf-8")
+    return set(re.findall(r"###\s*✅\s*(\d{3})", texto))
+
+
+def test_nenhum_comentario_adia_para_spec_ja_concluida() -> None:
+    """A assinatura EXATA dos cinco stubs da spec 101: um comentário dizendo "nada
+    referencia isto ainda, chega na spec NNN" sobre uma dependência que existe há
+    dezenas de specs.
+
+    Sozinho, este teste teria pegado as etapas, as origens, as categorias, as contas e a
+    dívida nº 13 — sem ninguém precisar reler 100 specs.
+
+    Quando a dependência chega, ou o código é implementado, ou o comentário passa a
+    apontar para uma dívida numerada. O que não pode é continuar dizendo que a spec
+    ainda não passou quando ela já passou.
+    """
+    concluidas = _specs_concluidas()
+    assert concluidas, "ROADMAP sem nenhuma spec ✅ — regex de leitura quebrou"
+
+    ofensores: list[str] = []
+    for caminho in arquivos(APP, ".py"):
+        for numero_linha, linha in enumerate(
+            caminho.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            for grupos in _ADIAMENTO.findall(linha):
+                alvo = next(filter(None, grupos), None)
+                if alvo in concluidas:
+                    ofensores.append(
+                        f"{caminho.relative_to(APP)}:{numero_linha} adia para a spec "
+                        f"{alvo}, que já está ✅: {linha.strip()}"
+                    )
+
+    assert not ofensores, "comentário de produção adiando para spec já concluída:\n" + "\n".join(
+        ofensores
+    )
+
+
+def test_toda_divida_aberta_tem_numero_e_alvo_no_futuro() -> None:
+    """Regra 24 da spec 101. O `DIVIDA-TECNICA.md` abre dizendo que "se uma spec-alvo já
+    passou e o item continua aqui, a próxima refatoração decide" — isso é uma regra, e
+    regra sem teste é intenção.
+
+    Duas formas de escapar, as duas fechadas aqui:
+    - **sem número:** foi como a dívida do SAVEPOINT sobreviveu à 100, cuja tabela de
+      fechamento contava itens numerados;
+    - **alvo vencido:** o item continua aberto apontando para uma spec que já entregou.
+    """
+    texto = DIVIDA.read_text(encoding="utf-8")
+    concluidas = _specs_concluidas()
+
+    problemas: list[str] = []
+
+    # Todo título de item é `## <n>. <titulo>`; item resolvido vem com ~~tachado~~ ou
+    # com "RESOLVIDO" no próprio título.
+    for titulo in re.findall(r"^## (.+)$", texto, re.MULTILINE):
+        if titulo.startswith(("Estado no fechamento", "Dívida técnica")):
+            continue
+        if "RESOLVIDO" in titulo or titulo.startswith("~~"):
+            continue
+        if not re.match(r"^\d+\.\s", titulo):
+            problemas.append(f"item sem número: {titulo!r}")
+
+    # Spec-alvo de item ainda aberto não pode ser uma spec já entregue.
+    for bloco in re.split(r"^## ", texto, flags=re.MULTILINE)[1:]:
+        cabecalho = bloco.splitlines()[0]
+        if "RESOLVIDO" in bloco.split("\n\n")[0] or cabecalho.startswith("~~"):
+            continue
+        for alvo in re.findall(r"\*\*Spec-alvo:\*\*\s*(\d{3})", bloco):
+            if alvo in concluidas:
+                problemas.append(
+                    f"item {cabecalho.split('.')[0]!r} aberto com spec-alvo {alvo}, já ✅"
+                )
+
+    assert not problemas, "DIVIDA-TECNICA.md fora da própria regra:\n" + "\n".join(problemas)

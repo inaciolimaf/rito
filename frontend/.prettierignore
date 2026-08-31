@@ -3,3 +3,8 @@ dist
 build
 .vite
 *.tsbuildinfo
+
+# Gerado por backend/scripts/dump_enums.py (spec 101, dívida nº 15). O formato é
+# responsabilidade do gerador, e tests/meta/test_enum_mirror.py compara byte a byte —
+# deixar o prettier reescrever quebraria o teste a cada `npm run lint`.
+src/lib/domainEnums.generated.ts

@@ -1,7 +1,7 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from app.core.repository import BaseRepository
 from app.domain.stages.models import Stage, Step
@@ -62,3 +62,24 @@ class StageRepository(BaseRepository[Stage]):
 
     async def get_many_by_id(self, stage_ids: list[uuid.UUID]) -> Sequence[Stage]:
         return (await self.session.scalars(select(Stage).where(Stage.id.in_(stage_ids)))).all()
+
+    async def usage_count(self, stage_id: uuid.UUID) -> int:
+        """Quantos processos estão na etapa (spec 101, regra 1). `lawsuits.stage_id` é FK
+        NOT NULL desde a 022 — não existe processo "sem etapa" para onde escorregar."""
+        from app.domain.lawsuits.models import Lawsuit
+
+        stmt = select(func.count()).select_from(Lawsuit).where(Lawsuit.stage_id == stage_id)
+        return int((await self.session.execute(stmt)).scalar_one())
+
+    async def reassign(self, *, from_id: uuid.UUID, to_id: uuid.UUID) -> int:
+        """Transferência em lote (spec 101, regra 2) — UPDATE único nos processos, mesmo
+        formato de TaskTypeRepository.reassign (031)."""
+        from app.domain.lawsuits.models import Lawsuit
+
+        result = await self.session.execute(
+            update(Lawsuit)
+            .where(Lawsuit.stage_id == from_id)
+            .values(stage_id=to_id)
+            .execution_options(synchronize_session=False)
+        )
+        return int(result.rowcount)  # type: ignore[attr-defined]  # SQLAlchemy tipa `rowcount` só em `CursorResult`; um UPDATE sempre devolve um.

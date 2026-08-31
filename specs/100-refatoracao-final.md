@@ -158,7 +158,7 @@ justificativa escrita, que é o que separa os dois usos.
 ## 9. O que fica aberto, nomeado
 
 Sete itens de dívida permanecem, todos funcionais, nenhum de segurança, cada um com spec
-alvo re-atribuída para 101+ em `docs/DIVIDA-TECNICA.md`. E três das oito metas de p95 da
+alvo re-atribuída para 101+ em `docs/DIVIDA-TECNICA.md`. E três das sete metas de p95 da
 098 não cabem no host de perfilagem — melhoraram entre 2× e 34×, e o gate noturno fica
 vermelho de propósito, porque apagá-lo mexendo na meta trocaria o problema por uma
 mentira mais confortável.

@@ -64,9 +64,9 @@ class ReorderStagesRequest(BaseModel):
 
 
 class TransferStagesRequest(BaseModel):
-    """`from_id`/`to_id` são ids de `stages` (regra 4) — nada referencia `stage_id` ainda
-    (spec 015, Descobertas: `lawsuits` só chega na spec 022), então a migração hoje não move
-    nenhum dado real; o contrato fica pronto para quando houver o que mover."""
+    """`from_id`/`to_id` são ids de `stages` (regra 4). A reatribuição é real desde a
+    spec 101 (regra 2): move `lawsuits.stage_id` e devolve a contagem em
+    `transferred_count`."""
 
     from_id: uuid.UUID
     to_id: uuid.UUID

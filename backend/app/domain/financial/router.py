@@ -28,13 +28,17 @@ from app.domain.financial.dashboard import (
     get_dashboard_stats,
 )
 from app.domain.financial.exceptions import (
+    BankAccountInUseError,
     BankAccountNameAlreadyExistsError,
+    CostCenterInUseError,
     CostCenterNameAlreadyExistsError,
     DefaultAccountNeedsReplacementError,
     DefaultCategoryNotDeletableError,
     DefaultCostCenterNotDeletableError,
     DreGroupNotFoundError,
+    FinancialCategoryInUseError,
     FinancialCategoryNameAlreadyExistsError,
+    InitialAmountLockedError,
     InstitutionNotFoundError,
     PaidTransactionCannotBecomeInternalError,
     PaidTransactionNotDeletableError,
@@ -292,6 +296,11 @@ async def delete_financial_category(
             status_code=409,
             detail="Categoria padrão não pode ser excluída — inative-a em vez disso.",
         ) from exc
+    except FinancialCategoryInUseError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Categoria tem lançamentos vinculados — transfira-os antes de excluir.",
+        ) from exc
 
 
 @router.post("/financial-categories/transfer")
@@ -376,6 +385,11 @@ async def delete_cost_center(
         raise HTTPException(
             status_code=409,
             detail="O centro de custo GERAL não pode ser excluído — inative-o em vez disso.",
+        ) from exc
+    except CostCenterInUseError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Centro de custo tem lançamentos vinculados — transfira-os antes de excluir.",
         ) from exc
 
 
@@ -486,6 +500,11 @@ async def update_bank_account(
             status_code=409,
             detail="Eleja outra conta padrão antes de inativar esta.",
         ) from exc
+    except InitialAmountLockedError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Saldo inicial não pode mudar depois do primeiro lançamento da conta.",
+        ) from exc
     return _account_to_response(updated, institution_name)
 
 
@@ -497,7 +516,13 @@ async def delete_bank_account(
 ) -> None:
     service = BankAccountService(session=session, tenant_id=current_user.tenant_id)
     account, _ = await get_or_404(lambda: service.get(account_id), "Conta não encontrada.")
-    await service.delete(account)
+    try:
+        await service.delete(account)
+    except BankAccountInUseError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Conta tem lançamentos vinculados e não pode ser excluída.",
+        ) from exc
 
 
 @router.post("/bank-accounts/{account_id}/set-default")

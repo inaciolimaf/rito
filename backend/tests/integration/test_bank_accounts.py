@@ -3,14 +3,15 @@ ciclo/vencimento do cartão, unicidade da conta padrão (aplicação + banco), i
 padrão sem substituta e isolamento por tenant.
 
 Regras 3/4/6/9 (saldo real, fatura, "conta em uso" e imutabilidade do saldo inicial)
-dependem de lançamentos, que a spec 056 introduziu — mas o retrofit dessas regras foi
-deliberadamente deixado fora do escopo da 056 (ver Descobertas da 056 e
-`docs/DIVIDA-TECNICA.md`). Os testes abaixo cobrem o comportamento ATUAL (documentado,
-não um bug): saldo = initial_amount, exclusão livre, initial_amount editável.
+dependiam de lançamentos e ficaram como stub até a spec 101, que fez o retrofit e
+fechou a dívida nº 20 — daqui em diante o saldo é o saldo, conta com lançamento não é
+excluível e `initial_amount` trava depois do 1º lançamento (regras 9-12 da 101).
 """
 
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import date
+from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
@@ -51,6 +52,110 @@ async def _create_account(
     assert response.status_code == 201, response.text
     result: dict[str, object] = response.json()
     return result
+
+
+async def _create_category(client: AsyncClient, headers: dict[str, str], *, type_: str) -> str:
+    response = await client.post(
+        "/api/v1/financial-categories",
+        json={
+            "name": f"Categoria {uuid.uuid4().hex[:8]}",
+            "type": type_,
+            "dre_group_id": 1 if type_ == "RECEITA" else 6,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    result: str = response.json()["id"]
+    return result
+
+
+async def _create_cost_center(client: AsyncClient, headers: dict[str, str]) -> str:
+    response = await client.post(
+        "/api/v1/cost-centers", json={"name": f"Centro {uuid.uuid4().hex[:8]}"}, headers=headers
+    )
+    assert response.status_code == 201, response.text
+    result: str = response.json()["id"]
+    return result
+
+
+async def _create_movement(
+    client: AsyncClient,
+    headers: dict[str, str],
+    *,
+    kind: str,
+    account_id: str,
+    amount: str,
+    pay: bool = False,
+    due_date: str | None = None,
+    **extra: object,
+) -> str:
+    """Lançamento vinculado à conta. `pay=True` dá baixa hoje — só o pago entra no saldo
+    (regra 9 da 101)."""
+    payload: dict[str, object] = {
+        "kind": kind,
+        "debit_account_id": account_id,
+        "category_id": await _create_category(client, headers, type_=kind),
+        "cost_center_id": await _create_cost_center(client, headers),
+        "amount": amount,
+        "due_date": due_date or date.today().isoformat(),
+    }
+    payload.update(extra)
+    response = await client.post("/api/v1/transactions", json=payload, headers=headers)
+    assert response.status_code == 201, response.text
+    transaction_id: str = response.json()["id"]
+
+    if pay:
+        paid = await client.post(
+            f"/api/v1/transactions/{transaction_id}/pay",
+            json={"payment_date": date.today().isoformat()},
+            headers=headers,
+        )
+        assert paid.status_code == 200, paid.text
+    return transaction_id
+
+
+async def _create_receita(
+    client: AsyncClient,
+    headers: dict[str, str],
+    *,
+    account_id: str,
+    amount: str,
+    pay: bool = False,
+    due_date: str | None = None,
+    **extra: object,
+) -> str:
+    return await _create_movement(
+        client,
+        headers,
+        kind="RECEITA",
+        account_id=account_id,
+        amount=amount,
+        pay=pay,
+        due_date=due_date,
+        **extra,
+    )
+
+
+async def _create_despesa(
+    client: AsyncClient,
+    headers: dict[str, str],
+    *,
+    account_id: str,
+    amount: str,
+    pay: bool = False,
+    due_date: str | None = None,
+    **extra: object,
+) -> str:
+    return await _create_movement(
+        client,
+        headers,
+        kind="DESPESA",
+        account_id=account_id,
+        amount=amount,
+        pay=pay,
+        due_date=due_date,
+        **extra,
+    )
 
 
 async def test_crud_dos_5_tipos(
@@ -185,16 +290,115 @@ async def test_inativar_padrao_sem_substituta_retorna_409(
     assert response.status_code == 409
 
 
-async def test_excluir_nao_bloqueia_ainda(
+async def test_excluir_conta_sem_lancamento_continua_204(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
-    """Regra 6 existe no contrato, mas nada referencia bank_accounts ainda —
-    lançamentos chegam na spec 056 (Descobertas). Excluir hoje é incondicional."""
+    """Spec 101, regra 11: a guarda não muda o caminho feliz."""
     _gestor, headers = await _make_gestor_full(make_user)
     account = await _create_account(client, headers)
 
     response = await client.delete(f"/api/v1/bank-accounts/{account['id']}", headers=headers)
     assert response.status_code == 204
+
+
+async def test_excluir_conta_com_lancamento_retorna_409(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 11 — antes desta spec o DELETE violava a FK e virava 500."""
+    _gestor, headers = await _make_gestor_full(make_user)
+    account = await _create_account(client, headers)
+    await _create_receita(client, headers, account_id=str(account["id"]), amount="10.00")
+
+    response = await client.delete(f"/api/v1/bank-accounts/{account['id']}", headers=headers)
+
+    assert response.status_code == 409
+    assert "lançamento" in response.json()["detail"].lower()
+
+
+async def test_saldo_inicial_trava_depois_do_primeiro_lancamento(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 12: mudar o saldo inicial reescreveria retroativamente todo saldo
+    já calculado. Reenviar o MESMO valor continua passando — um PUT que não mexe no
+    campo não é uma mudança."""
+    _gestor, headers = await _make_gestor_full(make_user)
+    account = await _create_account(client, headers, initial_amount="100.00")
+    account_id = str(account["id"])
+
+    # Sem lançamento ainda: editar é livre.
+    livre = await client.put(
+        f"/api/v1/bank-accounts/{account_id}",
+        json={"kind": "CORRENTE", "name": str(account["name"]), "initial_amount": "250.00"},
+        headers=headers,
+    )
+    assert livre.status_code == 200
+
+    await _create_receita(client, headers, account_id=account_id, amount="10.00")
+
+    travado = await client.put(
+        f"/api/v1/bank-accounts/{account_id}",
+        json={"kind": "CORRENTE", "name": str(account["name"]), "initial_amount": "999.00"},
+        headers=headers,
+    )
+    assert travado.status_code == 409
+
+    mesmo_valor = await client.put(
+        f"/api/v1/bank-accounts/{account_id}",
+        json={"kind": "CORRENTE", "name": str(account["name"]), "initial_amount": "250.00"},
+        headers=headers,
+    )
+    assert mesmo_valor.status_code == 200
+
+
+async def test_saldo_soma_pagos_e_ignora_aberto_e_interno(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 9: saldo = inicial + entradas pagas − saídas pagas, com
+    `is_internal` de fora (regra 1 da 058) e o que não foi pago também."""
+    _gestor, headers = await _make_gestor_full(make_user)
+    account = await _create_account(client, headers, initial_amount="100.00")
+    account_id = str(account["id"])
+
+    await _create_receita(client, headers, account_id=account_id, amount="50.00", pay=True)
+    await _create_despesa(client, headers, account_id=account_id, amount="20.00", pay=True)
+    # Em aberto: não entra no saldo.
+    await _create_receita(client, headers, account_id=account_id, amount="777.00")
+    # Interno e pago: também não entra (regra 1 da spec 058).
+    await _create_receita(
+        client, headers, account_id=account_id, amount="888.00", pay=True, is_internal=True
+    )
+
+    response = await client.get(f"/api/v1/bank-accounts/{account_id}/balance", headers=headers)
+
+    assert response.status_code == 200
+    assert Decimal(response.json()["balance"]) == Decimal("130.00")
+
+
+async def test_saldo_de_cartao_de_credito_devolve_a_fatura_do_ciclo(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 10: cartão não tem saldo, tem fatura do ciclo corrente — a mesma
+    conta que `/bank-accounts/balances` já marcava com `is_invoice`."""
+    _gestor, headers = await _make_gestor_full(make_user)
+    hoje = date.today()
+    account = await _create_account(
+        client,
+        headers,
+        kind="CARTAO_CREDITO",
+        initial_amount="0",
+        cycle_day=1,
+        due_day=10,
+    )
+    account_id = str(account["id"])
+    # Despesa vencendo hoje cai no ciclo corrente (cycle_day=1), paga ou não.
+    await _create_despesa(
+        client, headers, account_id=account_id, amount="70.00", due_date=hoje.isoformat()
+    )
+
+    response = await client.get(f"/api/v1/bank-accounts/{account_id}/balance", headers=headers)
+
+    assert response.status_code == 200
+    assert Decimal(response.json()["balance"]) == Decimal("70.00")
 
 
 async def test_saldo_devolve_o_saldo_inicial_por_enquanto(

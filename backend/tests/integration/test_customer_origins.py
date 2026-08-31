@@ -68,12 +68,21 @@ async def test_nome_duplicado_ignorando_acento_retorna_409(
     assert response.status_code == 409
 
 
-async def test_excluir_nao_bloqueia_ainda(
+async def _create_customer(client: AsyncClient, headers: dict[str, str], origin_id: str) -> str:
+    response = await client.post(
+        "/api/v1/customers",
+        json={"type": "PF", "name": f"Cliente {uuid.uuid4().hex[:8]}", "origin_id": origin_id},
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    result: str = response.json()["id"]
+    return result
+
+
+async def test_excluir_origem_sem_contato_continua_204(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
-    """Regra 2 existe no contrato (endpoint de transferência), mas nada referencia
-    `origin_id` ainda — `customers` só chega na spec 017 (Descobertas). Excluir hoje é
-    incondicional."""
+    """Spec 101, regra 3: a guarda não muda o caminho feliz."""
     gestor = await make_user(role=UserRole.GESTOR)
     headers = _auth_header(gestor)
     origin_id = await _create_origin(client, headers, "Origem Solta")
@@ -81,6 +90,50 @@ async def test_excluir_nao_bloqueia_ainda(
     response = await client.delete(f"/api/v1/customer-origins/{origin_id}", headers=headers)
 
     assert response.status_code == 204
+
+
+async def test_excluir_origem_em_uso_retorna_409_e_nao_apaga(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 3 — fecha a dívida nº 13. Antes desta spec o DELETE violava a FK
+    `customers.origin_id` e virava 500."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem Ocupada")
+    await _create_customer(client, headers, origin_id)
+
+    response = await client.delete(f"/api/v1/customer-origins/{origin_id}", headers=headers)
+
+    assert response.status_code == 409
+    assert "transfira" in response.json()["detail"].lower()
+    listing = await client.get("/api/v1/customer-origins", headers=headers)
+    assert origin_id in [item["id"] for item in listing.json()["items"]]
+
+
+async def test_transferencia_reatribui_contatos_e_libera_a_exclusao(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 4: `transferred_count` deixa de ser o 0 fixo do stub."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origem = await _create_origin(client, headers, "Origem Ocupada")
+    destino = await _create_origin(client, headers, "Destino")
+    customer_id = await _create_customer(client, headers, origem)
+
+    transfer = await client.post(
+        "/api/v1/customer-origins/transfer",
+        json={"from_id": origem, "to_id": destino},
+        headers=headers,
+    )
+
+    assert transfer.status_code == 200
+    assert transfer.json()["transferred_count"] == 1
+
+    moved = await client.get(f"/api/v1/customers/{customer_id}", headers=headers)
+    assert moved.json()["origin_id"] == destino
+
+    liberada = await client.delete(f"/api/v1/customer-origins/{origem}", headers=headers)
+    assert liberada.status_code == 204
 
 
 async def test_transferencia_com_ids_validos_retorna_200(

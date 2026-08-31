@@ -445,12 +445,17 @@ Pente fino geral: SOLID, duplicação, cobertura, tipos, orçamento de teste, d�
 
 O roadmap das 100 virou histórico. Daqui em diante a fila é esta, no mesmo ciclo (CLAUDE.md §12).
 
-### ⬜ 101 — Correção dos stubs desbloqueados e da dívida nomeada
-Cinco stubs cuja dependência já chegou (etapas, origens, contatos com processo ativo, categorias/centros, contas), as dívidas 11/12/13/20, a rota `/settings`, o e-mail transacional, o `SAVEPOINT` do runtime de IA e o acerto do `DIVIDA-TECNICA.md`.
-**Aceite:** excluir em uso devolve 409 e não 500; saldo bancário é o saldo; três meta-testes impedem a reincidência. **t:** 12 s. **Deps:** 015, 016, 019, 022, 023, 054, 055, 056, 058, 082, 090
+### ✅ 101 — Correção dos stubs desbloqueados e da dívida nomeada (Blocos A + E)
+O corte previsto na Nota de execução da spec foi aplicado: treze itens em cinco blocos não fecham num ciclo. Entregues os **cinco stubs** cuja dependência já tinha chegado (etapas, origens, contatos com processo ativo, categorias/centros, contas) e o **acerto do registro**. Fecha as dívidas 13, 15, 16 e 20; numera a do `SAVEPOINT` como 21 e registra as novas 22-25.
+**Aceite:** excluir em uso devolve 409 e não 500; saldo bancário é o saldo; `has_active_lawsuit` filtra de verdade; dois meta-testes impedem a reincidência (o terceiro depende de `/settings`, na 102). **t:** ~11 s. **Deps:** 015, 016, 019, 022, 023, 054, 055, 056, 058
 
-### ⬜ 102–103 — reservadas
-Plano de corte da 101, caso o ciclo dela não feche (ver `specs/101-*.md`, Nota de execução).
+### ⬜ 102 — Taxonomias sem acento e navegação que existe (Blocos B + C da 101)
+Índice único normalizado em `squads` com migration de dado (dívida 11), busca `q` sem acento nas 5 taxonomias (dívida 12), a rota `/settings` (dívida 24), a tela `/accept-invite` (dívida 9) e o e-mail transacional dos três fluxos de autenticação.
+**Aceite:** "Timé A" colide com "TIME A"; `/settings` abre; meta-teste deriva as rotas de `NAV_ITEMS` em vez de copiá-las; convite não devolve token no corpo. **t:** 6 s. **Deps:** 101
+
+### ⬜ 103 — `SAVEPOINT` no avanço do nó (Bloco D da 101)
+A dívida nº 21: `asyncio.wait_for` cancela no meio de uma query e deixa a sessão inutilizável, então o próprio `_fail()` que registraria o timeout falha com `PendingRollbackError`.
+**Aceite:** timeout dentro de query grava o passo de erro e o thread termina em `ERROR`; os testes da 082 passam sem edição. **t:** 1 s. **Deps:** 082, 090, 101
 
 ---
 

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.transfer import validated_transfer
 from app.domain.stages.exceptions import (
     InvalidReorderError,
+    StageInUseError,
     StageNameAlreadyExistsError,
     StepNotFoundError,
     SuggestedWorkflowNotFoundError,
@@ -88,8 +89,9 @@ class StageService:
         return stage, step_name
 
     async def delete(self, stage: Stage) -> None:
-        # Nada referencia stage_id ainda (lawsuits/processos chega na spec 022) — sem
-        # guarda de "em uso" por enquanto (spec 015, Descobertas).
+        # Regra 1 da 101: etapa com processo vinculado exige transferência antes.
+        if await self.stages.usage_count(stage.id) > 0:
+            raise StageInUseError
         await self.stages.delete(stage)
 
     async def reorder(self, stage_ids: list[uuid.UUID]) -> None:
@@ -105,11 +107,9 @@ class StageService:
             by_id[stage_id].position = index
 
     async def transfer(self, *, from_id: uuid.UUID, to_id: uuid.UUID) -> int:
-        # Regra 4: "excluir etapa em uso exige transferência". Nada referencia stage_id
-        # ainda (spec 015, Descobertas) — a validação é real, a migração de dados é um
-        # no-op até a spec 022 (lawsuits.stage_id) existir.
+        # Regra 2 da 101: reatribui os processos de verdade e devolve a contagem real.
         async def reassign() -> int:
-            return 0
+            return await self.stages.reassign(from_id=from_id, to_id=to_id)
 
         return await validated_transfer(
             from_id=from_id, to_id=to_id, get_by_id=self.stages.get_by_id, reassign=reassign

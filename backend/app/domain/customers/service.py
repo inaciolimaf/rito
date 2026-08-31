@@ -188,7 +188,12 @@ class CustomerService:
         last_month_end = this_month_start - timedelta(days=1)
         last_month_start = last_month_end.replace(day=1)
 
-        total, this_month_count, last_month_count = await self.customers.dashboard_counts(
+        (
+            total,
+            this_month_count,
+            last_month_count,
+            with_active_lawsuit,
+        ) = await self.customers.dashboard_counts(
             this_month=(this_month_start, today),
             last_month=(last_month_start, last_month_end),
         )
@@ -204,8 +209,9 @@ class CustomerService:
         return CustomerStatsResponse(
             total=total,
             variation_vs_last_month=round(variation, 2),
-            with_active_lawsuit=0,
-            without_active_lawsuit=total,
+            with_active_lawsuit=with_active_lawsuit,
+            # Derivado, nunca contado de novo: regra 6 exige que os dois somem `total`.
+            without_active_lawsuit=total - with_active_lawsuit,
             top_origins=[CountedItem(name=name, count=count) for name, count in top_origins],
             age_ranges=[CountedItem(name=name, count=count) for name, count in age_ranges],
             top_occupations=[

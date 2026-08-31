@@ -29,6 +29,48 @@ async def _create_stage(
     return result
 
 
+async def _create_lawsuit_on_stage(
+    client: AsyncClient, headers: dict[str, str], seeded: SeededUser, stage_id: str
+) -> dict[str, object]:
+    """Processo mínimo válido (spec 023: exige ao menos uma parte) parado na etapa dada."""
+    suffix = uuid.uuid4().hex[:8]
+    group = await client.post(
+        "/api/v1/action-groups", json={"name": f"Grupo {suffix}"}, headers=headers
+    )
+    assert group.status_code == 201
+    lawsuit_type = await client.post(
+        "/api/v1/lawsuit-types",
+        json={"name": f"Tipo {suffix}", "action_group_id": group.json()["id"]},
+        headers=headers,
+    )
+    assert lawsuit_type.status_code == 201
+
+    origin = await client.post(
+        "/api/v1/customer-origins", json={"name": f"Origem {suffix}"}, headers=headers
+    )
+    assert origin.status_code == 201
+    customer = await client.post(
+        "/api/v1/customers",
+        json={"type": "PF", "name": f"Cliente {suffix}", "origin_id": origin.json()["id"]},
+        headers=headers,
+    )
+    assert customer.status_code == 201
+
+    response = await client.post(
+        "/api/v1/lawsuits",
+        json={
+            "user_id": str(seeded.user_id),
+            "lawsuit_type_id": lawsuit_type.json()["id"],
+            "stage_id": stage_id,
+            "parties": [{"customer_id": customer.json()["id"], "pole": "ATIVO", "is_client": True}],
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    result: dict[str, object] = response.json()
+    return result
+
+
 async def test_fases_sao_somente_leitura_405(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
@@ -209,12 +251,11 @@ async def test_estagnacao_com_dias_e_aceita(
     assert response.json()["stagnant_days"] == 15
 
 
-async def test_excluir_etapa_nao_bloqueia_ainda(
+async def test_excluir_etapa_sem_processo_continua_204(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
-    """Regra 4 existe no contrato (endpoint de transferência), mas nada referencia
-    `stage_id` ainda — `lawsuits` só chega na spec 022 (Descobertas). Excluir hoje é
-    incondicional."""
+    """Spec 101, regra 1: a guarda de "em uso" não muda o caminho feliz — etapa que
+    ninguém referencia continua sendo excluída sem cerimônia."""
     gestor = await make_user(role=UserRole.GESTOR)
     headers = _auth_header(gestor)
     stage_id = await _create_stage(client, headers, "Etapa Solta")
@@ -222,6 +263,52 @@ async def test_excluir_etapa_nao_bloqueia_ainda(
     response = await client.delete(f"/api/v1/stages/{stage_id}", headers=headers)
 
     assert response.status_code == 204
+
+
+async def test_excluir_etapa_em_uso_retorna_409_e_nao_apaga(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 1. Antes desta spec o DELETE ia ao banco e o Postgres devolvia 500
+    pela violação da FK `lawsuits.stage_id`."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    stage_id = await _create_stage(client, headers, "Etapa Ocupada")
+    await _create_lawsuit_on_stage(client, headers, gestor, stage_id)
+
+    response = await client.delete(f"/api/v1/stages/{stage_id}", headers=headers)
+
+    assert response.status_code == 409
+    assert "transfira" in response.json()["detail"].lower()
+    # A etapa continua lá — 409 não apaga nada pela metade. (Não há GET por id em
+    # /stages; a listagem é o jeito de conferir.)
+    listing = await client.get("/api/v1/stages", headers=headers)
+    assert stage_id in [item["id"] for item in listing.json()["items"]]
+
+
+async def test_transferencia_reatribui_processos_e_libera_a_exclusao(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 2: `transferred_count` deixa de ser o 0 fixo do stub, e depois da
+    transferência a exclusão que dava 409 passa."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origem = await _create_stage(client, headers, "Origem Ocupada")
+    destino = await _create_stage(client, headers, "Destino")
+    lawsuit = await _create_lawsuit_on_stage(client, headers, gestor, origem)
+
+    transfer = await client.post(
+        "/api/v1/stages/transfer",
+        json={"from_id": origem, "to_id": destino},
+        headers=headers,
+    )
+
+    assert transfer.status_code == 200
+    assert transfer.json()["transferred_count"] == 1
+
+    moved = await client.get(f"/api/v1/lawsuits/{lawsuit['id']}", headers=headers)
+    assert moved.json()["stage_id"] == destino
+
+    assert (await client.delete(f"/api/v1/stages/{origem}", headers=headers)).status_code == 204
 
 
 async def test_reordenacao_persiste_e_e_transacional(

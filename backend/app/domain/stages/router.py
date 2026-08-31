@@ -10,6 +10,7 @@ from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.stages.exceptions import (
     InvalidReorderError,
+    StageInUseError,
     StageNameAlreadyExistsError,
     StepNotFoundError,
     SuggestedWorkflowNotFoundError,
@@ -130,7 +131,13 @@ async def delete_stage(
 ) -> None:
     service = StageService(session=session, tenant_id=current_user.tenant_id)
     stage, _ = await get_or_404(lambda: service.get(stage_id), "Etapa não encontrada.")
-    await service.delete(stage)
+    try:
+        await service.delete(stage)
+    except StageInUseError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Etapa tem processos vinculados — transfira-os antes de excluir.",
+        ) from exc
 
 
 @stages_router.post("/reorder")

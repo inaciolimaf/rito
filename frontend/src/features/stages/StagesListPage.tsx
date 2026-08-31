@@ -6,8 +6,10 @@ import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
-import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
+import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
+import { TransferBeforeDeleteDialog } from "@/components/domain/TransferBeforeDeleteDialog";
 import { useCrudResource } from "@/components/domain/useCrudResource";
+import { useTransferBeforeDelete } from "@/components/domain/useTransferBeforeDelete";
 import { useFilters } from "@/components/domain/useFilters";
 import {
   createStage,
@@ -15,6 +17,7 @@ import {
   listStages,
   listSteps,
   reorderStages,
+  transferStages,
   updateStage,
   type StageData,
 } from "@/features/stages/api";
@@ -93,7 +96,6 @@ export function StagesListPage(): JSX.Element {
     openCreateModal,
     openEditModal,
     handleSubmit,
-    handleConfirmDelete,
   } = useCrudResource<StageData, StageFormValues>({
     queryKey: ["stages"],
     create: (values) => createStage(toStagePayload(values)),
@@ -101,6 +103,21 @@ export function StagesListPage(): JSX.Element {
       updateStage(stage.id, { ...toStagePayload(values), is_active: stage.is_active }),
     remove: (stage) => deleteStage(stage.id),
   });
+
+  // Spec 101, regras 1-2: etapa com processo vinculado devolve 409 — a tela oferece a
+  // transferência em vez de mostrar o erro cru.
+  const transferFlow = useTransferBeforeDelete<StageData>({
+    queryKey: ["stages"],
+    remove: (stage) => deleteStage(stage.id),
+    transfer: async (stage, destinationId) => {
+      await transferStages(stage.id, destinationId);
+    },
+    alsoInvalidate: [["lawsuits"]],
+  });
+
+  const transferOptions: EntityOption[] = stages
+    .filter((stage) => stage.id !== transferFlow.pendingTransfer?.id)
+    .map((stage) => ({ id: stage.id, label: stage.name }));
 
   async function handleReorder(orderedIds: string[]): Promise<void> {
     await reorderStages(orderedIds);
@@ -202,8 +219,29 @@ export function StagesListPage(): JSX.Element {
         description={`"${pendingDelete?.name ?? ""}" será excluída.`}
         confirmLabel="Excluir"
         destructive
-        onConfirm={handleConfirmDelete}
+        onConfirm={async () => {
+          const alvo = pendingDelete;
+          if (!alvo) return;
+          setPendingDelete(null);
+          await transferFlow.requestDelete(alvo);
+        }}
       />
+
+      <TransferBeforeDeleteDialog
+        open={transferFlow.dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) transferFlow.closeDialog();
+        }}
+        title="Transferir processos antes de excluir"
+        description={`"${transferFlow.pendingTransfer?.name ?? ""}" tem processos vinculados (regra 1). Escolha a etapa de destino — todos migram para lá antes da exclusão.`}
+        options={transferOptions}
+        onTransfer={transferFlow.transferAndDelete}
+      />
+      {transferFlow.transferError && (
+        <p role="alert" className="text-sm text-danger">
+          {transferFlow.transferError.message}
+        </p>
+      )}
     </div>
   );
 }

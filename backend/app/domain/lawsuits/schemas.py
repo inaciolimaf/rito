@@ -134,8 +134,8 @@ class LawsuitResponse(BaseModel):
 
 class FinancialSummaryResponse(BaseModel):
     """Resumo financeiro do processo (spec 024 §5). Os agregados de lançamentos
-    (`received`, `to_receive`, `expenses`, `net_result`) ficam zerados até a spec 056
-    introduzir a tabela financeira."""
+    (`received`, `to_receive`, `expenses`, `net_result`) são calculados sobre
+    `transactions` desde a spec 056."""
 
     case_value: JsonDecimal | None
     fees_value: JsonDecimal | None

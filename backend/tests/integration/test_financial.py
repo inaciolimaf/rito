@@ -278,3 +278,139 @@ async def test_tenant_a_nao_ve_categoria_nem_centro_de_tenant_b(
         headers=headers_b,
     )
     assert update_attempt.status_code == 404
+
+
+async def _make_full(
+    make_user: Callable[..., Awaitable[SeededUser]],
+) -> tuple[SeededUser, dict[str, str]]:
+    gestor = await make_user(role=UserRole.GESTOR, financial_access=FinancialAccess.FULL)
+    return gestor, _auth_header(gestor)
+
+
+async def _create_category(client: AsyncClient, headers: dict[str, str], *, type_: str) -> str:
+    response = await client.post(
+        "/api/v1/financial-categories",
+        json={
+            "name": f"Categoria {uuid.uuid4().hex[:8]}",
+            "type": type_,
+            "dre_group_id": 1 if type_ == "RECEITA" else 6,
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    result: str = response.json()["id"]
+    return result
+
+
+async def _create_cost_center(client: AsyncClient, headers: dict[str, str]) -> str:
+    response = await client.post(
+        "/api/v1/cost-centers", json={"name": f"Centro {uuid.uuid4().hex[:8]}"}, headers=headers
+    )
+    assert response.status_code == 201, response.text
+    result: str = response.json()["id"]
+    return result
+
+
+async def _create_transaction(
+    client: AsyncClient, headers: dict[str, str], *, category_id: str, cost_center_id: str
+) -> str:
+    account = await client.post(
+        "/api/v1/bank-accounts",
+        json={"kind": "CORRENTE", "name": f"Conta {uuid.uuid4().hex[:8]}", "initial_amount": "0"},
+        headers=headers,
+    )
+    assert account.status_code == 201, account.text
+    response = await client.post(
+        "/api/v1/transactions",
+        json={
+            "kind": "RECEITA",
+            "debit_account_id": account.json()["id"],
+            "category_id": category_id,
+            "cost_center_id": cost_center_id,
+            "amount": "42.00",
+            "due_date": "2026-08-20",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    result: str = response.json()["id"]
+    return result
+
+
+async def _transaction_row(
+    client: AsyncClient, headers: dict[str, str], transaction_id: str
+) -> dict[str, object]:
+    """Não há GET /transactions/{id} — a listagem é o único jeito de reler um lançamento."""
+    response = await client.get("/api/v1/transactions", headers=headers)
+    assert response.status_code == 200, response.text
+    return next(item for item in response.json()["items"] if item["id"] == transaction_id)
+
+
+async def _category_of(client: AsyncClient, headers: dict[str, str], transaction_id: str) -> object:
+    return (await _transaction_row(client, headers, transaction_id))["category_id"]
+
+
+async def _cost_center_of(
+    client: AsyncClient, headers: dict[str, str], transaction_id: str
+) -> object:
+    return (await _transaction_row(client, headers, transaction_id))["cost_center_id"]
+
+
+async def test_excluir_categoria_em_uso_retorna_409_e_transferencia_libera(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regras 7-8 (metade da dívida nº 20). Antes desta spec o DELETE violava a
+    FK `transactions.category_id` e o transfer devolvia sempre 0."""
+    _gestor, headers = await _make_full(make_user)
+    origem = await _create_category(client, headers, type_="RECEITA")
+    destino = await _create_category(client, headers, type_="RECEITA")
+    cost_center_id = await _create_cost_center(client, headers)
+    transaction_id = await _create_transaction(
+        client, headers, category_id=origem, cost_center_id=cost_center_id
+    )
+
+    bloqueada = await client.delete(f"/api/v1/financial-categories/{origem}", headers=headers)
+    assert bloqueada.status_code == 409
+    assert "transfira" in bloqueada.json()["detail"].lower()
+
+    transfer = await client.post(
+        "/api/v1/financial-categories/transfer",
+        json={"from_id": origem, "to_id": destino},
+        headers=headers,
+    )
+    assert transfer.status_code == 200
+    assert transfer.json()["transferred_count"] == 1
+
+    assert await _category_of(client, headers, transaction_id) == destino
+
+    liberada = await client.delete(f"/api/v1/financial-categories/{origem}", headers=headers)
+    assert liberada.status_code == 204
+
+
+async def test_excluir_centro_de_custo_em_uso_retorna_409_e_transferencia_libera(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regras 7-8 sobre `transactions.cost_center_id`."""
+    _gestor, headers = await _make_full(make_user)
+    origem = await _create_cost_center(client, headers)
+    destino = await _create_cost_center(client, headers)
+    category_id = await _create_category(client, headers, type_="RECEITA")
+    transaction_id = await _create_transaction(
+        client, headers, category_id=category_id, cost_center_id=origem
+    )
+
+    bloqueado = await client.delete(f"/api/v1/cost-centers/{origem}", headers=headers)
+    assert bloqueado.status_code == 409
+
+    transfer = await client.post(
+        "/api/v1/cost-centers/transfer",
+        json={"from_id": origem, "to_id": destino},
+        headers=headers,
+    )
+    assert transfer.status_code == 200
+    assert transfer.json()["transferred_count"] == 1
+
+    assert await _cost_center_of(client, headers, transaction_id) == destino
+
+    liberado = await client.delete(f"/api/v1/cost-centers/{origem}", headers=headers)
+    assert liberado.status_code == 204

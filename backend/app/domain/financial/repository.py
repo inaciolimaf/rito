@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ColumnElement, Row, Select, func, select
+from sqlalchemy import ColumnElement, Row, Select, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -139,6 +139,67 @@ class BankAccountRepository(BaseRepository[BankAccount]):
             )
         )
         return result.first()
+
+    async def usage_count(self, account_id: uuid.UUID) -> int:
+        """Quantos lançamentos tocam a conta (spec 101, regras 11-12). Conta os dois
+        lados: `debit_account_id` (lançamento comum ou origem de transferência) e
+        `credit_account_id` (destino da transferência).
+
+        `is_internal` NÃO é filtrado aqui, ao contrário do saldo: um lançamento interno
+        continua sendo uma FK viva para a conta — apagar a conta violaria a constraint do
+        mesmo jeito. A regra 9 ignora o interno para CALCULAR dinheiro; a regra 11
+        pergunta se existe referência.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(Transaction)
+            .where(
+                or_(
+                    Transaction.debit_account_id == account_id,
+                    Transaction.credit_account_id == account_id,
+                )
+            )
+        )
+        return int((await self.session.execute(stmt)).scalar_one())
+
+    async def live_balance_delta(self, account_id: uuid.UUID, *, at: date) -> Decimal:
+        """Saldo movimentado da conta até `at`, calculado AO VIVO (spec 101, regra 9).
+
+        Mesma semântica da matview `account_daily_balances` (059) — pagos por
+        `payment_date`, `NOT is_internal`, transferência somando no destino e subtraindo
+        na origem — mas sem depender do refresh do worker. A view existe para o dashboard
+        pagar uma varredura só por TODAS as contas; aqui é uma conta e uma data
+        arbitrária, onde a view não serve: ela é cumulativa até o último refresh, e o
+        endpoint promete o saldo de agora.
+
+        Não inclui `initial_amount` — o saldo final é `initial_amount + delta`, igual à
+        view (que o deixa de fora de propósito, para não invalidar a cada edição do
+        saldo inicial).
+        """
+        paid_and_real = (
+            Transaction.payment_date.is_not(None),
+            Transaction.payment_date <= at,
+            Transaction.is_internal.is_(False),
+        )
+        debit_side = select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Transaction.kind == TransactionKind.RECEITA, Transaction.amount),
+                        else_=-Transaction.amount,
+                    )
+                ),
+                0,
+            )
+        ).where(*paid_and_real, Transaction.debit_account_id == account_id)
+        credit_side = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+            *paid_and_real,
+            Transaction.kind == TransactionKind.TRANSFERENCIA,
+            Transaction.credit_account_id == account_id,
+        )
+        out = Decimal((await self.session.execute(debit_side)).scalar_one())
+        into = Decimal((await self.session.execute(credit_side)).scalar_one())
+        return out + into
 
 
 @dataclass

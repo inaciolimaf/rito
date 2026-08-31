@@ -7,16 +7,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import RecurrencePeriod, RecurrenceWeek, next_occurrence, shift_month
 from app.core.repository import decode_cursor, encode_cursor
-from app.core.transfer import validated_transfer
+from app.core.transfer import count_references, reassign_references, validated_transfer
 from app.domain.customers.repository import CustomerRepository
 from app.domain.financial.exceptions import (
+    BankAccountInUseError,
     BankAccountNameAlreadyExistsError,
+    CostCenterInUseError,
     CostCenterNameAlreadyExistsError,
     DefaultAccountNeedsReplacementError,
     DefaultCategoryNotDeletableError,
     DefaultCostCenterNotDeletableError,
     DreGroupNotFoundError,
+    FinancialCategoryInUseError,
     FinancialCategoryNameAlreadyExistsError,
+    InitialAmountLockedError,
     InstitutionNotFoundError,
     PaidTransactionCannotBecomeInternalError,
     PaidTransactionNotDeletableError,
@@ -135,15 +139,19 @@ class FinancialCategoryService:
         # Regra 3: categoria semeada não sai do banco — só inativa (via PUT).
         if category.is_default:
             raise DefaultCategoryNotDeletableError
+        # Regra 7 (101): categoria com lançamento exige transferência antes.
+        if await count_references(
+            self.session, column=Transaction.category_id, target_id=category.id
+        ):
+            raise FinancialCategoryInUseError
         await self.categories.delete(category)
 
     async def transfer(self, *, from_id: uuid.UUID, to_id: uuid.UUID) -> int:
-        # Regra 4: "excluir categoria em uso exige transferência". A validação é real; a
-        # reatribuição é um no-op documentado — nada referencia financial_categories
-        # ainda (lançamentos chegam na spec 056), mesmo padrão de customer_origins (016)/
-        # stages (015)/action_groups (014).
+        # Regra 8 (101): reatribui os lançamentos de verdade.
         async def reassign() -> int:
-            return 0
+            return await reassign_references(
+                self.session, column=Transaction.category_id, from_id=from_id, to_id=to_id
+            )
 
         return await validated_transfer(
             from_id=from_id, to_id=to_id, get_by_id=self.categories.get_by_id, reassign=reassign
@@ -190,13 +198,19 @@ class CostCenterService:
         # Regra 8: o centro GERAL (semeado) nunca é excluível — só inativa.
         if cost_center.is_default:
             raise DefaultCostCenterNotDeletableError
+        # Regra 7 (101): centro com lançamento exige transferência antes.
+        if await count_references(
+            self.session, column=Transaction.cost_center_id, target_id=cost_center.id
+        ):
+            raise CostCenterInUseError
         await self.cost_centers.delete(cost_center)
 
     async def transfer(self, *, from_id: uuid.UUID, to_id: uuid.UUID) -> int:
-        # Mesmo no-op documentado de FinancialCategoryService.transfer acima — nada
-        # referencia cost_centers ainda (contas/lançamentos chegam nas specs 055/056).
+        # Regra 8 (101): reatribui os lançamentos de verdade.
         async def reassign() -> int:
-            return 0
+            return await reassign_references(
+                self.session, column=Transaction.cost_center_id, from_id=from_id, to_id=to_id
+            )
 
         return await validated_transfer(
             from_id=from_id,
@@ -281,8 +295,13 @@ class BankAccountService:
         account.account_number = payload.account_number
         account.cycle_day = payload.cycle_day
         account.due_day = payload.due_day
-        # Regra 9: imutável depois do 1º lançamento — sem lançamentos ainda (spec 056),
-        # não há o que guardar; livre por enquanto (ver Descobertas).
+        # Regra 12 (101): `initial_amount` é imutável depois do 1º lançamento — todo
+        # saldo já calculado sobre a conta seria reescrito retroativamente. Mesmo valor
+        # continua passando (um PUT que não mexe no campo não é uma mudança).
+        if payload.initial_amount != account.initial_amount and await self.accounts.usage_count(
+            account.id
+        ):
+            raise InitialAmountLockedError
         account.initial_amount = payload.initial_amount
         account.is_active = payload.is_active
         return account, institution_name
@@ -301,15 +320,28 @@ class BankAccountService:
         return account
 
     async def delete(self, account: BankAccount) -> None:
-        # Regra 6: "conta com lançamento não pode ser excluída" — sem lançamentos
-        # ainda (spec 056), nada bloqueia a exclusão por enquanto (ver Descobertas).
+        # Regra 11 (101): conta com lançamento não é excluível.
+        if await self.accounts.usage_count(account.id):
+            raise BankAccountInUseError
         await self.accounts.delete(account)
 
     async def get_balance(self, account: BankAccount, *, at: date | None) -> Decimal:
-        # Regras 3/4: saldo = initial_amount + entradas - saídas / fatura = soma do
-        # ciclo — ambas dependem de lançamentos (spec 056). Por enquanto devolve só o
-        # saldo inicial, mesmo pra CARTAO_CREDITO (ver Descobertas).
-        return account.initial_amount
+        """Regras 9-10 (101). Fecha a dívida nº 20: até aqui devolvia só o saldo inicial.
+
+        Cartão de crédito não tem "saldo" — tem fatura do ciclo corrente (regra 10),
+        exatamente o que `/bank-accounts/balances` já marca com `is_invoice`. A conta
+        do ciclo é a de `FinancialDashboardRepository.card_invoice` (059), reaproveitada
+        em vez de reescrita.
+        """
+        as_of = at or date.today()
+        if account.kind == AccountKind.CARTAO_CREDITO:
+            from app.domain.financial.dashboard import FinancialDashboardRepository
+
+            return await FinancialDashboardRepository(self.session).card_invoice(
+                account, today=as_of
+            )
+        delta = await self.accounts.live_balance_delta(account.id, at=as_of)
+        return account.initial_amount + delta
 
     async def _unset_current_default(self, *, except_id: uuid.UUID | None = None) -> None:
         current = await self.accounts.get_default()

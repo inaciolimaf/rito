@@ -18,6 +18,35 @@ A auditoria final percorreu os 20 itens. O que mudou:
 | 4, 5, 9, 10 | Reclassificados como **produto**, não dívida técnica: são telas que ninguém especificou, não código mal feito. Entram como spec 101+ se alguém quiser as telas. |
 | 11, 12, 13, 15, 16, 18, 20 | **Permanecem abertos**, com a spec-alvo re-atribuída para 101+. Nenhum é risco de segurança nem de perda de dado. |
 
+## Estado no fechamento da spec 101
+
+A 101 corrigiu os cinco stubs cuja dependência já tinha chegado e acertou o registro. O que
+mudou:
+
+| Item | Estado depois da 101 |
+|---|---|
+| 13, 20 | **Resolvidos** na 101 (Bloco A): guarda de "em uso" com 409, transferências reais e saldo bancário de verdade. |
+| 15 | **Resolvido** na 101: a contagem que a própria dívida pedia deu **16** enums cruzando a fronteira (gatilho era 4). `scripts/dump_enums.py` + `tests/meta/test_enum_mirror.py`. |
+| 16 | **Fechada com o número medido** (237 linhas), sem re-atribuição: a métrica estava mal formulada, não havia trabalho pendente. |
+| 4, 5 | Seções atualizadas para refletir a reclassificação como **produto** que a 100 já tinha decidido na tabela acima, mas nunca aplicado ao texto. |
+| 14, 17 | Seções marcadas como **resolvidas na 098** — a tabela da 100 já dizia isso; o texto não. |
+| 18 | **Re-atribuída** para a 122: o alvo 086 virou *IA de intimações* e nunca tocou em prazo. |
+| 21 | A dívida do `SAVEPOINT`, que passou 18 specs **sem número** — foi assim que escapou da contagem da 100. Alvo: 103. |
+| 22, 23, 24, 25 | **Novos**: três itens que a 101 corrigiu ou mapeou e que nunca estiveram neste documento, mais o achado do meta-teste (`last_assigned_at`). |
+| 11, 12 | Continuam abertos, alvo **102** (Bloco B do plano de corte). |
+
+### Os três handoffs que se perderam entre specs
+
+Registrados aqui porque nenhum deles estava em lugar nenhum — não são dívida de código, são
+combinações feitas numa spec e esquecidas na seguinte. É a mesma classe de falha dos cinco
+stubs, num nível acima:
+
+| Handoff | O que foi combinado | O que aconteceu |
+|---|---|---|
+| 038 → 086 | Cálculo de prazo fatal (dívida 18) | A 086 foi escrita como *IA de intimações*. O prazo nunca teve dono. Re-atribuído à 122. |
+| 079 → 080 | View de inbox unificada dos parceiros | A 080 fechou sem o item e ninguém registrou. É decisão de escopo com custo real, não correção — entra como linha rastreada, não como trabalho (101 §3). |
+| 085 → 090 | Jornada e2e 11/25 do copiloto | Idem: a 090 fechou sem a jornada. O teto de 25 jornadas (CLAUDE.md §3) segue com folga; a jornada entra quando alguém decidir gastá-la. |
+
 Nenhum item aberto é de segurança. O roadmap de 100 specs fecha com sete pendências
 funcionais conhecidas, nomeadas e classificadas — que é o oposto de fechar com zero
 pendências não medidas.
@@ -58,16 +87,16 @@ de integração porque forçá-lo exigiria violar a FK de propósito.
 `ondelete` da FK (ex.: soft-delete em vez de CASCADE), o que tornaria o branch alcançável
 de verdade.
 
-## 4. `LoginPage` pede o UUID cru do tenant, não um identificador amigável
+## 4. ~~`LoginPage` pede o UUID cru do tenant~~ — RECLASSIFICADO como produto na spec 100
 
 Não existe endpoint público que resolva um "código do escritório"/subdomínio para o UUID
 de tenant — o contrato de `/auth/login` (spec 004) não carrega esse identificador no corpo,
 só o header `X-Tenant-Id`. UX correta e honesta para o estado atual do backend, mas ruim
 para um produto real.
 
-**Spec-alvo:** 011 (Escritório/account) — já registrado como descoberta da spec 006.
+**Spec-alvo:** nenhuma. Reclassificado no fechamento da 100: é tela que ninguém especificou, não código mal feito. Volta a ter alvo no dia em que virar produto.
 
-## 5. Estado "offline" do frontend não implementado
+## 5. ~~Estado "offline" do frontend~~ — RECLASSIFICADO como produto na spec 100
 
 A spec 006 lista "offline" como um dos estados de UI, mas não há regra de negócio nem
 teste correspondente na seção 8 dela — não há detecção de `navigator.onLine`/banner de
@@ -164,8 +193,7 @@ existente depende da busca NÃO encontrar uma variante acentuada), e a extraçã
 (mesmo padrão de `app/domain/customers/repository.py`) nas 5 de uma vez, com teste
 dedicado por entidade.
 
-## 13. `CustomerOriginService.transfer`/`delete` continuam sem lógica real, mesmo com
-    `customers.origin_id` já existindo desde a spec 017
+## 13. ~~`CustomerOriginService.transfer`/`delete` sem lógica real~~ — RESOLVIDO na spec 101
 
 Documentado como no-op nas Descobertas da spec 016 ("nada referencia `origin_id` ainda —
 `customers` só chega na spec 017"). A spec 017 chegou, `customers.origin_id` é uma FK real
@@ -181,12 +209,12 @@ desde o início porque `lawsuit_types` e `action_groups` nasceram juntos) e
 `StageService.transfer` (spec 015, no-op igual a este, mas ainda genuinamente bloqueado —
 `lawsuits.stage_id` só chega na spec 022).
 
-**Spec-alvo:** a spec que criar o consumidor real de `origin_id` além de `customers` (já
-existe) — ou uma spec de correção dedicada, já que a dependência que faltava (017) já
-chegou. Renomear/atualizar o comentário e o teste
-`test_excluir_nao_bloqueia_ainda`/`test_transferencia_com_ids_validos_retorna_200` junto.
+**Resolvido na 101** (regras 3-4, Bloco A): `delete()` levanta `CustomerOriginInUseError`
+→ 409 e `transfer()` reatribui `customers.origin_id` de verdade, devolvendo a contagem real.
+`test_excluir_nao_bloqueia_ainda` foi reescrito nos dois testes que provam o comportamento
+novo (sem contato → 204; com contato → 409, e transferir libera).
 
-## 14. EXPLAIN das visões precisa ser revalidado com volume real
+## 14. ~~EXPLAIN das visões precisa ser revalidado com volume real~~ — RESOLVIDO na spec 098
 
 A checklist da spec 030 pedia `EXPLAIN ANALYZE` nas 12 visões "sem seq scan em tabela
 grande". Rodado na 030 (registro em `docs/DECISOES.md`): o banco de dev tem dezenas de
@@ -194,8 +222,7 @@ linhas — seq scan é o plano ótimo nesse volume, mesmo com `enable_seqscan=of
 exercício não prova nada sobre o comportamento em produção. Os índices das colunas de
 predicado existem e foram conferidos em `pg_indexes`.
 
-**Spec-alvo:** 098 (performance) — gerar massa sintética (10⁵+ processos por tenant) e
-repetir o `EXPLAIN ANALYZE` das 12 visões + stats (028) + agrupamento por pasta (029).
+**Resolvido na 098:** `make test-nightly` semeia 1,95 milhão de linhas e repete o `EXPLAIN ANALYZE` fora do orçamento de 300 s do PR. Achou o que o banco de dev escondia: a listagem de lançamentos sem paginação, 94 FKs sem índice e o `OR` que virava Seq Scan.
 
 ## 15. Enums do banco espelhados à mão em TS
 
@@ -208,16 +235,37 @@ continua pendente — o volume atual (3 enums) não justificou a infra nesta ref
 **Spec-alvo:** quando o 4º enum de domínio cruzar a fronteira da API (regra dos 3 usos)
 — provavelmente status de tarefa (032) ou tipo de lançamento (054+).
 
-## 16. "Uma listagem nova custa < 80 linhas" só é demonstrável na spec 036
+## 16. ~~"Uma listagem nova custa < 80 linhas"~~ — FECHADA na spec 101, com o número medido
 
 O DoD da 030 pedia a demonstração com a listagem de tarefas — mas tarefas só ganham
 modelo na 032 e listagem na 036, e o ciclo não adianta trabalho de spec futura. A infra
 (`core/listing.py`, `core/export.py`, `useListPage`, `ListPageLayout`) está pronta;
 a conta de linhas fica para a 036 fechar.
 
-**Spec-alvo:** 036 (caixa de entrada) — medir e registrar no test-timing da spec.
+**Fechada na 101 (regra 23), com a medição em vez da promessa.** Listagem medida: times
+(`frontend/src/features/squads/`), a mais recente tocada por esta leva.
 
-## 17. Wall-clock do `make test` à beira do teto (119/120 s)
+| Arquivo | Linhas |
+|---|---:|
+| `SquadsListPage.tsx` | 165 |
+| `api.ts` | 59 |
+| `schema.ts` | 13 |
+| **Total da listagem** | **237** |
+
+O número **não** confirma a meta de 80 linhas — confirma que a meta estava mal formulada.
+As 165 linhas da página não são scaffolding: `DataTable`, `FormModal`, `ConfirmDialog` e
+`useCrudResource` já absorvem paginação, ordenação, modal, submit e erro, e o que sobra é
+domínio (colunas de times, avatares com teto de 3, o form de membros). Uma listagem nova
+custa pouco porque não reescreve infra, não porque cabe em 80 linhas — e contar linhas de
+página nunca ia medir isso.
+
+A dívida fecha com o número medido, como a regra 23 manda, e **sem** re-atribuição: não há
+trabalho pendente, há uma métrica aposentada. O que sustenta a propriedade de verdade é o
+teto de duplicação da spec 119.
+
+**Spec-alvo original:** 036 (caixa de entrada) — medir e registrar no test-timing da spec.
+
+## 17. ~~Wall-clock do `make test` à beira do teto~~ — RESOLVIDO na spec 098
 
 A suíte backend saltou de ~74 s (spec 029) para ~110 s entre as specs 031–032, com a
 latência dobrada e espalhada por TODOS os testes (sem outlier no --durations) — assinatura
@@ -226,7 +274,7 @@ rito_test (TRUNCATE antes do pytest, spec 032) removeu o acúmulo, mas a margem 
 ~1 s. Sintomas correlatos: flake de `StateCitySelect.test.tsx` sob carga (waitFor de 1 s
 estoura a 1,9 s; isolado leva 0,24 s).
 
-**Spec-alvo:** 040 (refatoração de Tarefas) — medir de novo e, se continuar >90 s:
+**Spec-alvo original:** 040 (refatoração de Tarefas) — medir de novo e, se continuar >90 s:
 aumentar o waitFor do teste flake e reavaliar o boot do app por teste — ATUALIZAÇÃO
 (033): escopo de sessão/módulo NÃO funciona (pytest-asyncio loop_scope deixa conexões
 asyncpg presas a loops diferentes; 151 testes quebraram na tentativa, revertida). O
@@ -275,8 +323,13 @@ escopo da 045. O campo fica `NULL`, indistinguível na UI de "usuário não defi
 campo quando `task_type_name === "Intimações Judiciais"` e `deadline_date` é nulo —
 resolve a ambiguidade visual sem inventar um cálculo que não existe.
 
-**Spec-alvo:** 086 (prazo processual) — implementar o cálculo de verdade e então trocar
-"Prazo não calculado" por `deadline_date` preenchido no momento do roteamento.
+**Spec-alvo:** 122 (prazo processual — spec própria, ainda a escrever). **Re-atribuída na
+101:** o alvo anterior era a 086, que foi escrita como *IA de intimações* e nunca tocou em
+prazo — o handoff 038→086 se perdeu na renomeação da spec, e o item ficou apontando para
+uma spec concluída que não o resolveu. Contagem de dias úteis por classe/assunto do CNJ é
+um problema em si, não um stub esquecido: a 101 renomeia o destinatário (Bloco E) e
+deliberadamente **não** implementa (§3, Fora de escopo). Entra junto o seed de feriados de
+2031 em diante (spec 038).
 
 ## 19. Fixtures HTTP do DJEN/DataJud têm dado real de pessoa identificável
 
@@ -321,7 +374,7 @@ Duas coisas que só apareceram fazendo:
 `tests/meta/test_final_audit.py::test_nenhuma_fixture_tem_cpf_ou_cnpj_de_pessoa_real`
 impede a volta: qualquer CPF ou CNPJ que não seja o sintético de teste falha o CI.
 
-## 20. `transactions` (spec 056) não retroalimenta as regras "em uso" de contas/categorias/centros de custo
+## 20. ~~`transactions` não retroalimenta as regras "em uso" de contas/categorias/centros~~ — RESOLVIDO na spec 101
 
 A spec 056 criou a tabela `transactions`, que é exatamente o dado que faltava para as
 regras já documentadas como pendentes nas specs 054/055:
@@ -346,7 +399,15 @@ misturar as duas coisas no mesmo ciclo violaria o escopo declarado da 056
 ser esboçada durante a 056 e foi removida de propósito por ser código sem uso
 enquanto o retrofit não é feito de verdade.
 
-**Spec-alvo:** próxima spec de refatoração (070) — implementar as 6 regras acima
+**Resolvido na 101** (regras 7-12, Bloco A): as 6 regras existem e têm teste. O saldo é
+`initial_amount` + pagos (`NOT is_internal`, regra 1 da 058), cartão devolve a fatura do
+ciclo reaproveitando `card_invoice` (059), exclusão em uso devolve 409 nos três domínios,
+`initial_amount` trava depois do 1º lançamento e as transferências reatribuem de verdade.
+O `account_is_referenced()`/`category_is_referenced()` que a 056 removeu por ser código sem
+uso voltou como `count_references`/`reassign_references` em `app/core/transfer.py` — uma vez
+só, compartilhado pelos quatro domínios (regra dos 3 usos, CLAUDE.md §6).
+
+**Spec-alvo original:** próxima spec de refatoração (070) — implementar as 6 regras acima
 (3/4/6/9 de contas, 4/6 de categorias e centros), com teste que primeiro cria um
 lançamento e SÓ DEPOIS confirma que saldo/exclusão/imutabilidade mudam de
 comportamento (os testes atuais de 054/055 continuam cobrindo o caminho "sem
@@ -361,7 +422,7 @@ retrofit.
 
 ---
 
-## Cancelamento no meio do nó derruba a sessão (spec 082 + 090)
+## 21. Cancelamento no meio do nó derruba a sessão (spec 082 + 090)
 
 **Descoberto em:** spec 092, no teste de contrato dos grafos (`test_graph_contract.py`).
 
@@ -392,4 +453,65 @@ utilizável e o registro da falha sobreviva. Não foi feito em 091–093 porque 
 semântica de checkpoint do runtime da 082 e merece o seu próprio ciclo, com os testes de
 082 rodando junto.
 
-**Spec-alvo:** 100 (refatoração final).
+**Spec-alvo:** 103 (Bloco D do plano de corte da 101).
+
+**Numerada na 101 (Bloco E).** Este item passou 18 specs sem número, e foi exatamente
+assim que escapou do fechamento da 100: a tabela de encerramento daquela spec contava
+itens **numerados**, e um item sem número não aparece numa contagem de itens numerados.
+O meta-teste `test_toda_divida_aberta_tem_numero_e_alvo_no_futuro` existe por causa dele.
+
+
+## 22. ~~`StageService.transfer`/`delete` sem lógica real~~ — RESOLVIDO na spec 101
+
+Gêmeo exato do item 13, e **nunca esteve neste documento**: o próprio item 13 citava o caso
+das etapas e o classificava como "ainda genuinamente bloqueado — `lawsuits.stage_id` só
+chega na spec 022". A 022 chegou 78 specs antes da 101, e a classificação nunca foi
+revisitada. Enquanto isso, excluir uma etapa em uso estourava `IntegrityError` não tratado
+→ 500.
+
+Registrado aqui porque o valor do registro não é listar o que está aberto — é impedir que
+um item saia da lista por engano. É o buraco que o meta-teste
+`test_nenhum_comentario_adia_para_spec_ja_concluida` fecha na origem.
+
+**Resolvido na 101** (regras 1-2, Bloco A).
+
+## 23. ~~Contatos com processo ativo: filtro e contadores eram stub~~ — RESOLVIDO na spec 101
+
+Também **nunca esteve neste documento**. `GET /customers?has_active_lawsuit=true` casava
+com `Customer.id == uuid.uuid4()` — uma condição escrita para nunca ser verdadeira — e os
+contadores `with_active_lawsuit`/`without_active_lawsuit` do dashboard eram as constantes
+`0` e `total`. `lawsuit_parties` existe desde a spec 023.
+
+O dashboard publicava um número constante como se fosse medição. Nenhum teste falhava,
+porque os testes existentes verificavam o stub.
+
+**Resolvido na 101** (regras 5-6, Bloco A).
+
+## 24. Rota `/settings` não existe — o item "Configurações" da sidebar cai no NotFoundPage
+
+`navItems.ts` aponta para `/settings` desde a spec 008. A rota nunca foi declarada em
+`App.tsx`: clicar em "Configurações" leva ao `NotFoundPage`.
+
+Sobreviveu 92 specs porque as duas coisas que deveriam ter pego olhavam para o lado errado:
+`Sidebar.test.tsx` percorre `NAV_ITEMS` só para conferir que o link **renderiza**, e a
+jornada e2e "navegar por todos os módulos" itera uma **cópia manual** da lista, que omite
+justamente Financeiro, Configurações e Conta e assinatura.
+
+**Spec-alvo:** 102 (Bloco C do plano de corte da 101) — criar o hub de configurações, a
+tela `/accept-invite` (item 9) e o meta-teste que deriva as rotas de `NAV_ITEMS` em vez de
+copiá-las.
+
+## 25. `TaskTypeResponse.last_assigned_at` é sempre `None`
+
+`app/domain/task_types/router.py:52` devolve `last_assigned_at=None` fixo. A regra 9 da
+spec 031 descreve o campo como "derivado, nunca armazenado" — derivado de `posts`, que
+existem desde a spec 032. O cálculo nunca foi escrito.
+
+Encontrado na 101 pelo meta-teste `test_nenhum_comentario_adia_para_spec_ja_concluida`
+(o comentário no schema dizia "None até a spec 032"), e deliberadamente **não** resolvido:
+não é um dos cinco stubs do escopo da 101 (§3 — "fora de escopo é vinculante"). O achado
+vale como prova de que o meta-teste funciona em caso que ninguém tinha mapeado.
+
+**Spec-alvo:** 123 — calcular sobre `posts` ou remover o campo do contrato. Devolver um
+campo sempre nulo é pior que não ter o campo: o front não distingue "nunca atribuído" de
+"não calculado".

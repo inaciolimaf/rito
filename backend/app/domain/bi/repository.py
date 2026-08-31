@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import CTE, ColumnElement, Date, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dates import next_month_start
 from app.domain.action_groups.models import ActionGroup, LawsuitType
 from app.domain.bi.models import (
     ConversionGroupRow,
@@ -608,11 +609,27 @@ class BiCostsRepository:
 
     # ---- tempo real ---------------------------------------------------------------
 
-    async def new_customers(self, *, month_start: date, month_end: date) -> int:
-        """Regra 1 (denominador do CAC): clientes criados no mês."""
+    async def new_customers(self, *, month_start: date) -> int:
+        """Regra 1 (denominador do CAC): clientes criados no mês.
+
+        O limite superior é o dia 1 do mês SEGUINTE, calculado aqui dentro. Antes o
+        chamador passava `month_end` (que é o ÚLTIMO DIA do mês, não o primeiro do
+        seguinte) e a comparação era `<`: como `created_at` é timestamp, `< 2026-08-31`
+        significa "antes da meia-noite do dia 31" e o último dia inteiro do mês ficava
+        de fora do denominador do CAC — todo mês, o ano todo.
+
+        O bug só aparecia quando a suíte rodava NO último dia do mês (o cliente criado
+        pelo teste caía justamente no dia descartado), e foi assim que ele apareceu:
+        `make test` em 31/08/2026. Corrigido fora do escopo da spec 101 porque era ele
+        que segurava o gate — mesmo precedente da 075 §9.10.
+
+        Não é um `<=`: com timestamp, `<= 2026-08-31` continuaria cortando as 23h59 do
+        dia. Quem compara data-a-data (`Lawsuit.closure_date`, `bi_pipeline_monthly.month`)
+        segue usando `month_end` inclusivo, o que está certo para aqueles casos.
+        """
         stmt = select(func.count()).where(
             Customer.created_at >= month_start,
-            Customer.created_at < month_end,
+            Customer.created_at < next_month_start(month_start),
         )
         return int(await self.session.scalar(stmt) or 0)
 

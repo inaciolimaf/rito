@@ -1,7 +1,13 @@
 # 101 — Correção dos stubs desbloqueados e da dívida nomeada
 
 **Fase:** 10 · **Tipo:** correção · **Orçamento:** +12 s no wall-clock
-**Depende de:** 015, 016, 019, 022, 023, 054, 055, 056, 058, 082, 090 · **Status:** ⬜ pendente
+**Depende de:** 015, 016, 019, 022, 023, 054, 055, 056, 058, 082, 090 · **Status:** ✅ concluída
+
+> **O corte da Nota de execução foi aplicado.** Treze itens em cinco blocos não fecham num
+> ciclo, e o corte já estava desenhado no fim deste arquivo. Esta spec entrega os
+> **Blocos A + E**; o Bloco B + C é a **spec 102** e o Bloco D é a **spec 103**, como a
+> tabela do corte manda. As regras 13-21 continuam descritas aqui — são o texto-fonte das
+> duas specs seguintes, não trabalho pendente desta.
 
 ---
 
@@ -314,33 +320,157 @@ Cada um fecha uma das três formas de a dívida escapar:
 
 ## 9. Descobertas
 
-Preencher durante a implementação: problemas encontrados, decisões tomadas,
-dívidas deixadas para a próxima spec de refatoração.
+### 1. A contagem da regra 22 deu 16, não 3 — e isso mudou o escopo
 
-Duas coisas a conferir logo no começo, porque mudam o tamanho do Bloco A:
+A dívida nº 15 dizia que o gatilho para gerar os enums TS era "o 4º enum de domínio cruzar
+a fronteira da API", e estimava o volume atual em 3. A contagem real, feita importando os
+schemas Pydantic e andando pelos campos: **16 StrEnum** aparecem em resposta de API (24
+contando os que o gerador emite por transitividade). O gatilho tinha sido cruzado havia
+muito tempo e ninguém recontou — a própria dívida é um caso do padrão que esta spec
+combate.
 
-- Quantos `lawsuits`, `customers` e `transactions` existem por tenant em produção com
-  referência às entidades que passam a ter guarda — se algum tenant já tem uma etapa “em uso”
-  que ele esperava conseguir apagar, o 409 novo é uma mudança visível e merece nota de release.
-- Se `TransactionRepository` já tem por onde contar referência por conta/categoria/centro. A
-  spec 056 registra que um `account_is_referenced()`/`category_is_referenced()` chegou a ser
-  esboçado e foi **removido de propósito** por ser código sem uso — reintroduzir é o caminho,
-  não reinventar.
+Como a regra 22 diz "a decisão é do número, não do gosto", `scripts/dump_enums.py` entrou.
+O que **não** entrou: migrar os 36 unions escritos à mão para importar do arquivo gerado —
+é refactor de front sem relação com os stubs, e o §3 é vinculante. O valor da dívida está
+no alarme, não no arquivo: `tests/meta/test_enum_mirror.py` compara cada union escrito à
+mão com o StrEnum de mesmo nome e falha na divergência. Verificado falhando (removi
+`TERCEIRO` de `PartyPoleApi` e o teste apontou o arquivo, o nome e o valor faltante).
+
+### 2. A regra 23 mediu 237 linhas — e a métrica é que estava errada
+
+A dívida nº 16 prometia demonstrar que "uma listagem nova custa < 80 linhas". Medido na
+listagem de times: 165 (página) + 59 (api) + 13 (schema) = **237**. O número não confirma
+a meta, e fechei a dívida com ele mesmo assim, como a regra 23 manda ("seja ele qual for").
+
+O que a medição mostra é que a meta media a coisa errada: as 165 linhas da página não são
+scaffolding — `DataTable`, `FormModal`, `ConfirmDialog` e `useCrudResource` já absorvem
+paginação, ordenação, modal, submit e erro. O que sobra é domínio. Contar linhas de página
+nunca ia medir "a infra está paga"; o que mede isso é o teto de duplicação da spec 119.
+
+### 3. Um stub fora do escopo, achado pelo próprio meta-teste
+
+`TaskTypeResponse.last_assigned_at` é `None` fixo desde a 031, com o comentário "None até
+a spec 032" — e a 032 entregou. Foi o meta-teste
+`test_nenhum_comentario_adia_para_spec_ja_concluida` que apontou, num caso que nenhuma
+auditoria manual tinha mapeado (não está em nenhuma das 100 specs nem no
+`DIVIDA-TECNICA.md`). **Não implementado**: não é um dos cinco stubs do escopo (§3 é
+vinculante). Virou a dívida **nº 25**, com alvo 123.
+
+Vale como prova de que o meta-teste faz o que promete: ele achou sozinho o 14º item.
+
+### 4. A guarda de exclusão e o cálculo de saldo discordam sobre `is_internal` — de propósito
+
+A regra 9 manda ignorar `is_internal` no saldo (regra 1 da 058: lançamento interno nunca
+entra em dinheiro). A regra 11 pergunta outra coisa: "existe referência a esta conta?".
+Um lançamento interno **é** uma FK viva — excluir a conta violaria a constraint do mesmo
+jeito. Então `BankAccountRepository.usage_count` NÃO filtra `is_internal`, e
+`live_balance_delta` filtra. Está comentado no código porque a assimetria parece bug.
+
+### 5. `/bank-accounts/{id}/balance` calcula ao vivo, não pela matview
+
+A matview `account_daily_balances` (059) tem exatamente a semântica da regra 9, mas é
+cumulativa até o último refresh do worker. O endpoint singular promete o saldo de agora,
+para uma conta e uma data arbitrária — casos em que a view não serve. A view continua
+sendo o caminho do dashboard (todas as contas numa varredura); o endpoint singular repete
+a semântica em SQL ao vivo, com o comentário dizendo por quê. A fatura de cartão (regra
+10) reaproveita `FinancialDashboardRepository.card_invoice`, não reescreve o ciclo.
+
+### 6. Quatro repetições da mesma contagem viraram uma função
+
+Etapas→`lawsuits`, origens→`customers`, categorias→`transactions`,
+centros→`transactions`: a mesma dupla "conta referências / reatribui em lote". Pela regra
+dos 3 usos (CLAUDE.md §6) virou `count_references`/`reassign_references` em
+`app/core/transfer.py`, ao lado da validação que já era compartilhada. É a volta do
+`account_is_referenced()` que a 056 removeu por ser código sem uso — agora com quatro
+usuários.
+
+Contas bancárias ficaram **fora** da função de propósito: lá a referência é por duas
+colunas (`debit_account_id`/`credit_account_id`) e o `OR` pioraria a assinatura para os
+quatro casos simples. `TaskTypeRepository` (031) também não foi migrado — é o 5º uso e
+funciona, e mexer nele é fora do escopo desta spec.
+
+### 7. As quatro telas decidem pelo 409, não por um contador
+
+As duas telas que já usavam `TransferBeforeDeleteDialog` (014/031) decidem se mostram o
+diálogo por um `*_count` que a API devolve na listagem. As quatro desta spec não têm esse
+campo, e **não** foi adicionado: um contador na listagem é uma segunda fonte de verdade
+que envelhece entre o render e o clique — dois usuários simultâneos veem "0 em uso" e um
+deles toma 500. O hook `useTransferBeforeDelete` tenta excluir e usa o **409** como sinal.
+Sem endpoint novo, sem query a mais na listagem, e correto sob concorrência.
+
+### 8. Fora de escopo, deixado como está
+
+- **Nenhum GET por id em `/stages` e `/transactions`.** Descoberto ao escrever os testes
+  (405/404). As verificações passaram pela listagem. Criar as rotas é feature, não
+  correção.
+- **Contadores do dashboard de contatos** entraram como 4º `count(*) FILTER` da varredura
+  que a 098 já tinha otimizado — sem query nova, o orçamento do endpoint não muda.
+
+### 9. Dois bugs de virada de mês, corrigidos fora do escopo porque seguravam o gate
+
+`make test` rodou em **31/08/2026** — último dia do mês — e ficou vermelho em dois pontos
+que **não têm relação com esta spec**. Confirmado com `git stash`: os dois falham
+igualmente no código sem as mudanças da 101. Como o CLAUDE.md §8 exige a suíte verde para
+fechar o ciclo, foram corrigidos aqui, com o mesmo precedente da 075 §9.10 ("fix fora de
+escopo documentado").
+
+Os dois são a mesma família: aritmética de mês que só quebra na borda. É exatamente a
+classe que a **spec 114 (DTZ)** vai varrer — estes dois saem da frente dela.
+
+**(a) CAC perdia o último dia de todo mês** (`BiRepository.new_customers`). A comparação
+era `Customer.created_at < month_end`, e `month_end()` devolve o *último dia* do mês. Com
+`created_at` sendo timestamp, `< 2026-08-31` significa "antes da meia-noite do dia 31": o
+último dia inteiro nunca entrava no denominador do CAC. Não era só um problema de teste —
+todo mês, o ano inteiro, o CAC saía inflado. Todos os outros consumidores de `month_end`
+comparam com `<=` (data contra data, correto), e `reports/repository.py:156` já
+compensava explicitamente com `+ timedelta(days=1)`; `new_customers` era o único que
+errava. Agora o limite superior é calculado dentro do repositório com `next_month_start`,
+para a confusão inclusivo/exclusivo não voltar pela assinatura. Teste de regressão
+determinístico (fixa o dia em vez de depender de quando a suíte roda) em
+`test_cliente_criado_no_ultimo_dia_do_mes_conta_no_denominador`, verificado falhando.
+
+**(b) A agenda pulava um mês inteiro** (`shiftAnchor`, frontend). `next.setMonth(mes + 1)`
+preserva o dia; num dia 31, com o mês de destino de 30 dias, transborda: 31/08 + 1 mês =
+**01/10**. Quem abrisse a agenda no dia 31 e clicasse "Próximo" pulava setembro e não
+tinha como chegar lá pelo botão. Foi assim que a jornada e2e 6/25 quebrou — ela clica
+"Próximo" e procura o dia 15 do mês seguinte. Corrigido normalizando o dia para 1 antes de
+trocar o mês (a grade só depende do mês — `monthGridDays` já chama `startOfMonth`), com
+`calendar.test.ts` cobrindo os dois sentidos, a virada de ano e a não-regressão das visões
+de dia/semana.
+
+Nenhum dos dois muda comportamento pedido por esta spec; os dois consertam comportamento
+que estava errado antes dela.
+
+### 10. O que a implementação NÃO conferiu
+
+A checagem que o texto original desta seção pedia — *quantos tenants em produção já têm
+uma etapa/origem/conta "em uso" que esperavam conseguir apagar* — **não foi feita**: não
+há acesso a banco de produção neste ambiente. O 409 é mudança de comportamento visível
+(antes era 500, então ninguém conseguia apagar de qualquer forma — mas o erro era outro) e
+**merece nota de release**. Fica registrado como pendência de operação, não de código.
 
 ## 10. Definição de pronto
 
-- [ ] Escopo implementado, nada além
-- [ ] Todas as 24 regras de negócio com teste
-- [ ] Teste de isolamento por tenant nos cinco fluxos de transferência/exclusão
-- [ ] Os três meta-testes verdes, e cada um verificado falhando antes da correção
-- [ ] Os três testes que provavam o no-op reescritos, e nenhum outro teste editado
-- [ ] `make test` verde e wall-clock < 300 s
-- [ ] `make lint` verde
-- [ ] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
-- [ ] `docs/DIVIDA-TECNICA.md` sem item sem número e sem spec-alvo vencida
-- [ ] `docs/PERFORMANCE.md` e `specs/100-*.md` §9 com a contagem certa de metas de p95
-- [ ] `ROADMAP.md` com a linha da 101 em ✅
-- [ ] Commit `fix(101): correção dos stubs desbloqueados e da dívida nomeada`
+Marcado contra o escopo cortado (Blocos A + E). O que pertence a B/C/D está listado como
+tal, não como pendência desta spec.
+
+- [x] Escopo implementado, nada além — Blocos A e E
+- [x] Regras 1-12 (Bloco A) com teste · regras 22-24 (Bloco E) com teste
+- [ ] Regras 13-21 — **spec 102 (B+C) e 103 (D)**, por decisão do corte
+- [x] Teste de isolamento por tenant nos cinco fluxos (`tests/integration/test_rls_corrections.py`)
+- [x] Dois dos três meta-testes verdes, cada um verificado falhando antes da correção
+- [ ] O terceiro meta-teste (rotas de `NAV_ITEMS`) — **spec 102**: ele só pode passar
+      quando `/settings` existir, e a rota é Bloco C. Adiantá-lo aqui seria commitar um
+      teste vermelho de propósito
+- [x] Os três testes que provavam o no-op reescritos, e nenhum outro teste editado
+- [x] `make test` verde e wall-clock < 300 s
+- [x] `make lint` verde
+- [x] Sem `Any`, `as any`, `# type: ignore` sem justificativa em comentário
+- [x] `docs/DIVIDA-TECNICA.md` sem item sem número e sem spec-alvo vencida — travado por
+      meta-teste, não por inspeção
+- [x] `docs/PERFORMANCE.md` e `specs/100-*.md` §9 com a contagem certa (quatro das sete)
+- [x] `ROADMAP.md` com a linha da 101 em ✅
+- [x] Commit `fix(101): correção dos stubs desbloqueados e da dívida nomeada`
 
 ---
 

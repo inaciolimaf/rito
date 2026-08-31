@@ -8,7 +8,10 @@ from app.core.exceptions import InvalidTransferError
 from app.core.http import get_or_404, parse_active_status
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
-from app.domain.customer_origins.exceptions import CustomerOriginNameAlreadyExistsError
+from app.domain.customer_origins.exceptions import (
+    CustomerOriginInUseError,
+    CustomerOriginNameAlreadyExistsError,
+)
 from app.domain.customer_origins.models import CustomerOrigin
 from app.domain.customer_origins.schemas import (
     CustomerOriginCreateRequest,
@@ -84,7 +87,13 @@ async def delete_customer_origin(
 ) -> None:
     service = CustomerOriginService(session=session, tenant_id=current_user.tenant_id)
     origin = await get_or_404(lambda: service.get(origin_id), _NOT_FOUND_DETAIL)
-    await service.delete(origin)
+    try:
+        await service.delete(origin)
+    except CustomerOriginInUseError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Origem tem contatos vinculados — transfira-os antes de excluir.",
+        ) from exc
 
 
 @router.post("/transfer")

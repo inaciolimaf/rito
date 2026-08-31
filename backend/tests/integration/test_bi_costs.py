@@ -10,15 +10,18 @@ rateio e clientes novos são tempo real. Cada teste trabalha num tenant próprio
 """
 
 import uuid
+from calendar import monthrange
 from collections.abc import Awaitable, Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import TypedDict
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
+from app.core.rls import set_tenant_context
 from app.domain.users.models import FinancialAccess, UserRole
 from app.workers.bi_costs import refresh_bi_costs
 from tests.integration.conftest import SeededUser, auth_header
@@ -531,3 +534,36 @@ async def test_tenant_a_nao_ve_custos_de_tenant_b(
     costs_b = await _costs(client, factory_b.headers)
     assert costs_b["items"] == []
     assert costs_b["total_allocated"] == 0
+
+
+async def test_cliente_criado_no_ultimo_dia_do_mes_conta_no_denominador(
+    client: AsyncClient,
+    factory: LawsuitFactory,
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Regra 1, limite superior da janela.
+
+    `new_customers` comparava `created_at < month_end`, e `month_end` é o ÚLTIMO DIA do
+    mês — como `created_at` é timestamp, `< 2026-08-31` quer dizer "antes da meia-noite
+    do dia 31" e o último dia inteiro sumia do denominador do CAC, todo mês.
+
+    O bug só se manifestava quando a suíte rodava NO último dia do mês (foi assim que
+    apareceu, em 31/08/2026: os dois testes de CAC acima passaram a devolver 0 clientes
+    novos). Este teste fixa o dia de propósito, para não depender de quando roda.
+    """
+    customer_id = await _create_customer(
+        client, factory.headers, f"Cliente Virada {uuid.uuid4().hex[:8]}"
+    )
+    hoje = datetime.now(UTC).date()
+    ultimo_dia = date(hoje.year, hoje.month, monthrange(hoje.year, hoje.month)[1])
+    # 23h do último dia: o instante que a comparação antiga descartava.
+    async with app_session_factory() as session, session.begin():
+        await set_tenant_context(session, factory.gestor.tenant_id)
+        await session.execute(
+            text("UPDATE customers SET created_at = :quando WHERE id = :id"),
+            {"quando": datetime.combine(ultimo_dia, time(23, 0), tzinfo=UTC), "id": customer_id},
+        )
+
+    result = await _cac(client, factory.headers, f"{hoje:%Y-%m}")
+
+    assert result["new_customers"] == 1

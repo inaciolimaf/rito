@@ -102,6 +102,13 @@ export function viewRange(view: ScheduleView, anchor: Date): { from: string; to:
 export function shiftAnchor(view: ScheduleView, anchor: Date, direction: 1 | -1): Date {
   const next = new Date(anchor);
   if (view === "month") {
+    // Dia 1 ANTES de trocar o mês. `setMonth()` preserva o dia, e num dia 31 isso
+    // transborda quando o mês de destino é mais curto: 31/08 + 1 mês vira 01/10 — o
+    // usuário clica "Próximo" no dia 31 e setembro inteiro é pulado. Vale para todo
+    // 31 seguido de mês de 30 dias (e para 29/30/31 de janeiro → fevereiro).
+    // A grade do mês só depende do MÊS da âncora (`monthGridDays` chama
+    // `startOfMonth`), então normalizar o dia aqui não muda mais nada.
+    next.setDate(1);
     next.setMonth(next.getMonth() + direction);
   } else {
     next.setDate(next.getDate() + direction * (view === "week" ? 7 : 1));

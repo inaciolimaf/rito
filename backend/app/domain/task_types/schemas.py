@@ -59,7 +59,9 @@ class TaskTypeResponse(BaseModel):
     show_in_schedule: bool
     is_system: bool
     is_active: bool
-    # Regra 9: derivada, nunca armazenada — None até a spec 032 (tarefas não existem).
+    # Regra 9: derivada, nunca armazenada. Continua sempre None: o cálculo sobre
+    # `posts` nunca foi feito, mesmo com tarefas existindo desde a 032 — dívida nº 25,
+    # nomeada na spec 101 e fora do escopo dela (§3).
     last_assigned_at: datetime | None
     created_at: datetime
 

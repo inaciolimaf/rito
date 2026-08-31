@@ -475,3 +475,129 @@ async def test_get_customer_id_aleatorio_nao_confunde_com_stats(
     response = await client.get(f"/api/v1/customers/{uuid.uuid4()}", headers=_auth_header(gestor))
 
     assert response.status_code == 404
+
+
+async def _create_lawsuit_for(
+    client: AsyncClient,
+    headers: dict[str, str],
+    seeded: SeededUser,
+    customer_id: str,
+    *,
+    archived: bool = False,
+) -> str:
+    """Processo com o contato como parte (spec 023). `archived=True` cobre o complemento
+    da regra 5: processo arquivado não conta como ativo."""
+    suffix = uuid.uuid4().hex[:8]
+    group = await client.post(
+        "/api/v1/action-groups", json={"name": f"Grupo {suffix}"}, headers=headers
+    )
+    assert group.status_code == 201
+    lawsuit_type = await client.post(
+        "/api/v1/lawsuit-types",
+        json={"name": f"Tipo {suffix}", "action_group_id": group.json()["id"]},
+        headers=headers,
+    )
+    assert lawsuit_type.status_code == 201
+    stage = await client.post(
+        "/api/v1/stages", json={"name": f"Etapa {suffix}", "step_id": 1}, headers=headers
+    )
+    assert stage.status_code == 201
+
+    response = await client.post(
+        "/api/v1/lawsuits",
+        json={
+            "user_id": str(seeded.user_id),
+            "lawsuit_type_id": lawsuit_type.json()["id"],
+            "stage_id": stage.json()["id"],
+            "parties": [{"customer_id": customer_id, "pole": "ATIVO", "is_client": True}],
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201, response.text
+    lawsuit_id: str = response.json()["id"]
+
+    if archived:
+        # Não há rota /archive: o DELETE do processo é soft delete e é ele quem liga
+        # `is_archived` (spec 028, regra 7 — router.py:681).
+        archive = await client.delete(f"/api/v1/lawsuits/{lawsuit_id}", headers=headers)
+        assert archive.status_code == 204, archive.text
+    return lawsuit_id
+
+
+async def test_filtro_de_processo_ativo_e_seu_complemento(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 5. Antes desta spec `has_active_lawsuit=true` casava com
+    `Customer.id == uuid4()` — ou seja, nunca achava nada."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, f"Origem {uuid.uuid4().hex[:8]}")
+    com_ativo = await _create_customer(client, headers, origin_id, name="Com Processo Ativo")
+    so_arquivado = await _create_customer(client, headers, origin_id, name="So Arquivado")
+    sem_processo = await _create_customer(client, headers, origin_id, name="Sem Processo")
+    await _create_lawsuit_for(client, headers, gestor, com_ativo)
+    await _create_lawsuit_for(client, headers, gestor, so_arquivado, archived=True)
+
+    com = await client.get(
+        "/api/v1/customers", params={"has_active_lawsuit": True}, headers=headers
+    )
+    ids_com = [item["id"] for item in com.json()["items"]]
+    assert ids_com == [com_ativo]
+
+    sem = await client.get(
+        "/api/v1/customers", params={"has_active_lawsuit": False}, headers=headers
+    )
+    ids_sem = [item["id"] for item in sem.json()["items"]]
+    assert set(ids_sem) == {so_arquivado, sem_processo}
+
+    # Omitido não filtra — os três aparecem.
+    todos = await client.get("/api/v1/customers", headers=headers)
+    assert {item["id"] for item in todos.json()["items"]} == {
+        com_ativo,
+        so_arquivado,
+        sem_processo,
+    }
+
+
+async def test_contato_com_dois_processos_ativos_aparece_uma_vez(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 5: a condição é EXISTS, não JOIN — dois processos ativos não
+    duplicam a linha nem inflam `total`."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, f"Origem {uuid.uuid4().hex[:8]}")
+    customer_id = await _create_customer(client, headers, origin_id, name="Dois Processos")
+    await _create_lawsuit_for(client, headers, gestor, customer_id)
+    await _create_lawsuit_for(client, headers, gestor, customer_id)
+
+    response = await client.get(
+        "/api/v1/customers", params={"has_active_lawsuit": True}, headers=headers
+    )
+
+    assert [item["id"] for item in response.json()["items"]] == [customer_id]
+    assert response.json()["total"] == 1
+
+
+async def test_contadores_de_processo_ativo_somam_o_total(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 101, regra 6: os contadores do dashboard deixam de ser a constante 0/total e
+    batem com a contagem do filtro da regra 5 sobre a mesma base."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, f"Origem {uuid.uuid4().hex[:8]}")
+    com_ativo = await _create_customer(client, headers, origin_id, name="Com Ativo")
+    await _create_customer(client, headers, origin_id, name="Sem Ativo")
+    await _create_lawsuit_for(client, headers, gestor, com_ativo)
+
+    stats = (await client.get("/api/v1/customers/stats", headers=headers)).json()
+
+    assert stats["with_active_lawsuit"] == 1
+    assert stats["without_active_lawsuit"] == 1
+    assert stats["with_active_lawsuit"] + stats["without_active_lawsuit"] == stats["total"]
+
+    filtrados = await client.get(
+        "/api/v1/customers", params={"has_active_lawsuit": True}, headers=headers
+    )
+    assert filtrados.json()["total"] == stats["with_active_lawsuit"]

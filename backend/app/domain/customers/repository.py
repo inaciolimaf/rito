@@ -41,6 +41,25 @@ class MaritalStatusRepository(BaseRepository[MaritalStatus]):
         return result.all()
 
 
+def _has_active_lawsuit_clause(active: bool) -> ColumnElement[bool]:
+    """Spec 101, regras 5-6. Importado aqui dentro do módulo (não do domínio de processos)
+    porque a condição é sobre `customers` — quem consulta é a listagem de contatos.
+
+    `is_client` NÃO entra: a regra 5 fala em "ser parte", e parte contrária de um processo
+    em curso também é um contato com processo ativo.
+    """
+    from app.domain.lawsuits.models import Lawsuit, LawsuitParty
+
+    exists = (
+        select(literal(1))
+        .select_from(LawsuitParty)
+        .join(Lawsuit, Lawsuit.id == LawsuitParty.lawsuit_id)
+        .where(LawsuitParty.customer_id == Customer.id, Lawsuit.is_archived.is_(False))
+        .exists()
+    )
+    return exists if active else ~exists
+
+
 class CustomerRepository(BaseRepository[Customer]):
     model = Customer
 
@@ -97,11 +116,11 @@ class CustomerRepository(BaseRepository[Customer]):
         if origin_id is not None:
             filters.append(Customer.origin_id == origin_id)
         filters += datetime_range(Customer.created_at, created_from, created_to)
-        if has_active_lawsuit:
-            # Regra fora de alcance ainda: `lawsuits`/`lawsuit_customer` só chegam na spec
-            # 022 (Descobertas) — nenhum contato tem processo ativo hoje, então pedir
-            # has_active_lawsuit=true nunca encontra nada.
-            filters.append(Customer.id == uuid.uuid4())
+        if has_active_lawsuit is not None:
+            # Spec 101, regra 5: "processo ativo" é ser parte (`lawsuit_parties`) de ao
+            # menos um processo não arquivado. EXISTS correlacionado, não JOIN — um
+            # contato com três processos ativos não pode aparecer três vezes na listagem.
+            filters.append(_has_active_lawsuit_clause(has_active_lawsuit))
         if birthdays == "day":
             today = date.today()
             filters.append(func.date_part("month", Customer.birthdate) == today.month)
@@ -181,22 +200,28 @@ class CustomerRepository(BaseRepository[Customer]):
 
     async def dashboard_counts(
         self, *, this_month: tuple[date, date], last_month: tuple[date, date]
-    ) -> tuple[int, int, int]:
-        """Os três contadores do dashboard numa varredura só (spec 098, regra 1).
+    ) -> tuple[int, int, int, int]:
+        """Os contadores do dashboard numa varredura só (spec 098, regra 1).
 
         Eram três `SELECT count(*)` sobre a MESMA tabela, com a mesma cláusula de RLS,
         diferindo só no predicado — três planos, três varreduras. `count(*) FILTER
         (WHERE ...)` calcula os três num passe. É a diferença entre 7 e 5 queries no
         dashboard de contatos, e num escritório com 100 mil contatos é a diferença
         entre três varreduras e uma.
+
+        Spec 101, regra 6: `with_active_lawsuit` entra como QUARTO filtro da mesma
+        varredura, não como query nova — o orçamento de queries do endpoint (§11 do
+        CLAUDE.md) não muda por causa dele. `without_active_lawsuit` é derivado no
+        serviço (`total - with`), garantindo que os dois somem `total` por construção.
         """
         stmt = select(
             func.count().filter(Customer.is_archived.is_(False)),
             func.count().filter(*datetime_range(Customer.created_at, *this_month)),
             func.count().filter(*datetime_range(Customer.created_at, *last_month)),
+            func.count().filter(Customer.is_archived.is_(False), _has_active_lawsuit_clause(True)),
         ).select_from(Customer)
         row = (await self.session.execute(stmt)).one()
-        return int(row[0]), int(row[1]), int(row[2])
+        return int(row[0]), int(row[1]), int(row[2]), int(row[3])
 
     async def top_origins(self, limit: int = _TOP_N) -> list[tuple[str, int]]:
         stmt = (

@@ -3,7 +3,10 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.transfer import validated_transfer
-from app.domain.customer_origins.exceptions import CustomerOriginNameAlreadyExistsError
+from app.domain.customer_origins.exceptions import (
+    CustomerOriginInUseError,
+    CustomerOriginNameAlreadyExistsError,
+)
 from app.domain.customer_origins.models import CustomerOrigin
 from app.domain.customer_origins.repository import CustomerOriginRepository
 from app.domain.customer_origins.schemas import (
@@ -45,18 +48,16 @@ class CustomerOriginService:
         return origin
 
     async def delete(self, origin: CustomerOrigin) -> None:
-        # Nada referencia origin_id ainda (customers chega na spec 017) — sem guarda de
-        # "em uso" por enquanto (spec 016, Descobertas).
+        # Regra 3 da 101: origem com contato vinculado exige transferência antes.
+        if await self.origins.usage_count(origin.id) > 0:
+            raise CustomerOriginInUseError
         await self.origins.delete(origin)
 
     async def transfer(self, *, from_id: uuid.UUID, to_id: uuid.UUID) -> int:
-        # Regra 2: "excluir origem em uso exige transferência". A validação é real; a
-        # migração de dados continua um no-op — customers.origin_id existe desde a spec
-        # 017, mas implementar a reatribuição real muda comportamento observável (deixa de
-        # ser sempre 0), o que uma spec de refatoração não pode fazer (CLAUDE.md §8;
-        # docs/DIVIDA-TECNICA.md #13).
+        # Regra 4 da 101: reatribui os contatos de verdade e devolve a contagem real
+        # (fecha a dívida nº 13).
         async def reassign() -> int:
-            return 0
+            return await self.origins.reassign(from_id=from_id, to_id=to_id)
 
         return await validated_transfer(
             from_id=from_id, to_id=to_id, get_by_id=self.origins.get_by_id, reassign=reassign

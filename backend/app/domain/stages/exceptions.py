@@ -21,3 +21,11 @@ class SuggestedWorkflowNotFoundError(Exception):
     do tenant."""
 
     pass
+
+
+class StageInUseError(Exception):
+    """Regra 1 da spec 101: etapa referenciada por algum processo exige transferência
+    antes de excluir. A dependência (`lawsuits.stage_id`, FK NOT NULL) existe desde a
+    spec 022 — a guarda ficou como stub até aqui."""
+
+    pass

@@ -8,13 +8,16 @@ import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { FormModal } from "@/components/domain/FormModal";
-import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
+import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
+import { TransferBeforeDeleteDialog } from "@/components/domain/TransferBeforeDeleteDialog";
 import { useCrudResource } from "@/components/domain/useCrudResource";
+import { useTransferBeforeDelete } from "@/components/domain/useTransferBeforeDelete";
 import { useFilters } from "@/components/domain/useFilters";
 import {
   createCostCenter,
   deleteCostCenter,
   listCostCenters,
+  transferCostCenters,
   updateCostCenter,
   type CostCenterData,
 } from "@/features/financial/api";
@@ -80,7 +83,6 @@ export function CostCentersListPage(): JSX.Element {
     openCreateModal,
     openEditModal,
     handleSubmit,
-    handleConfirmDelete,
   } = useCrudResource<CostCenterData, CostCenterFormValues>({
     queryKey: ["cost-centers"],
     create: createCostCenter,
@@ -88,6 +90,20 @@ export function CostCentersListPage(): JSX.Element {
       updateCostCenter(costCenter.id, { ...values, is_active: costCenter.is_active }),
     remove: (costCenter) => deleteCostCenter(costCenter.id),
   });
+
+  // Spec 101, regras 7-8: centro com lançamento vinculado devolve 409.
+  const transferFlow = useTransferBeforeDelete<CostCenterData>({
+    queryKey: ["cost-centers"],
+    remove: (costCenter) => deleteCostCenter(costCenter.id),
+    transfer: async (costCenter, destinationId) => {
+      await transferCostCenters(costCenter.id, destinationId);
+    },
+    alsoInvalidate: [["transactions"]],
+  });
+
+  const transferOptions: EntityOption[] = costCenters
+    .filter((costCenter) => costCenter.id !== transferFlow.pendingTransfer?.id)
+    .map((costCenter) => ({ id: costCenter.id, label: costCenter.name }));
 
   const columns: DataTableColumn<CostCenterData>[] = [
     { id: "name", header: "Nome", cell: (row) => row.name },
@@ -164,8 +180,29 @@ export function CostCentersListPage(): JSX.Element {
         description={`"${pendingDelete?.name ?? ""}" será excluído.`}
         confirmLabel="Excluir"
         destructive
-        onConfirm={handleConfirmDelete}
+        onConfirm={async () => {
+          const alvo = pendingDelete;
+          if (!alvo) return;
+          setPendingDelete(null);
+          await transferFlow.requestDelete(alvo);
+        }}
       />
+
+      <TransferBeforeDeleteDialog
+        open={transferFlow.dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) transferFlow.closeDialog();
+        }}
+        title="Transferir lançamentos antes de excluir"
+        description={`"${transferFlow.pendingTransfer?.name ?? ""}" tem lançamentos vinculados (regra 7). Escolha o centro de destino — todos migram para lá antes da exclusão.`}
+        options={transferOptions}
+        onTransfer={transferFlow.transferAndDelete}
+      />
+      {transferFlow.transferError && (
+        <p role="alert" className="text-sm text-danger">
+          {transferFlow.transferError.message}
+        </p>
+      )}
     </div>
   );
 }

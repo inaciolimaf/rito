@@ -27,10 +27,9 @@ class CustomerOriginListResponse(BaseModel):
 
 
 class TransferCustomerOriginsRequest(BaseModel):
-    """`from_id`/`to_id` são ids de `customer_origins` (regra 2). Nada referencia
-    `origin_id` ainda (spec 016, Descobertas: `customers` só chega na spec 017), então a
-    migração hoje não move nenhum dado real; o contrato fica pronto para quando houver o que
-    mover."""
+    """`from_id`/`to_id` são ids de `customer_origins` (regra 2). A reatribuição é real
+    desde a spec 101 (regra 4): move `customers.origin_id` e devolve a contagem em
+    `transferred_count`."""
 
     from_id: uuid.UUID
     to_id: uuid.UUID

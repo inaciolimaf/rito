@@ -71,7 +71,8 @@ class LawsuitDetail:
 
 @dataclass
 class FinancialSummary:
-    """Resumo financeiro (spec 024 §5). Agregados de lançamentos zerados até a spec 056."""
+    """Resumo financeiro (spec 024 §5). Os agregados vêm de `transactions` desde a
+    spec 056 — ver `LawsuitService.financial_summary`."""
 
     case_value: Decimal | None
     fees_value: Decimal | None

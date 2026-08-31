@@ -72,3 +72,22 @@ class PaidTransactionCannotBecomeInternalError(Exception):
     """Regra 4 (spec 058): converter lançamento efetivo PAGO em interno exige estornar
     antes — o histórico de caixa não pode "desaparecer" silenciosamente virando registro
     de controle."""
+
+
+class FinancialCategoryInUseError(Exception):
+    """Regra 7 (spec 101): categoria com lançamento vinculado exige transferência antes
+    de excluir. `transactions.category_id` existe desde a spec 056 — metade da dívida 20."""
+
+
+class CostCenterInUseError(Exception):
+    """Regra 7 (spec 101): centro de custo com lançamento vinculado exige transferência
+    antes de excluir."""
+
+
+class BankAccountInUseError(Exception):
+    """Regra 11 (spec 101): conta com lançamento não é excluível."""
+
+
+class InitialAmountLockedError(Exception):
+    """Regra 12 (spec 101): `initial_amount` é imutável depois do 1º lançamento — mudá-lo
+    reescreveria retroativamente todo saldo já calculado sobre a conta."""

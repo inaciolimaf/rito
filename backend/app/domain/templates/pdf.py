@@ -5,8 +5,6 @@ rótulo de destaque no topo, não uma sobreposição diagonal (mesma seção).""
 
 from io import BytesIO
 
-from xhtml2pdf import pisa
-
 
 class PdfRenderError(Exception):
     pass
@@ -15,6 +13,10 @@ class PdfRenderError(Exception):
 def render_pdf(
     *, header_content: str, content: str, footer_content: str, watermark_text: str | None
 ) -> bytes:
+    # Spec 104: `xhtml2pdf` custa 209 ms de import e só quem gera PDF paga — não todo
+    # worker de teste que importa `app.main` para servir uma rota de listagem.
+    from xhtml2pdf import pisa
+
     watermark_html = (
         f'<p style="color:#b91c1c;font-weight:bold;border:1px solid #b91c1c;'
         f'padding:4px;display:inline-block;">{watermark_text}</p>'

@@ -11,9 +11,6 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from io import BytesIO
 
-from fpdf import FPDF
-from openpyxl import Workbook
-
 
 @dataclass(frozen=True)
 class ExportColumn[T]:
@@ -33,6 +30,9 @@ class TableExport[T]:
         return [[column.value(item) for column in self.columns] for item in items]
 
     def xlsx(self, items: Iterable[T]) -> bytes:
+        # Spec 104: 36 ms de import que só o export de planilha usa.
+        from openpyxl import Workbook
+
         workbook = Workbook()
         sheet = workbook.active
         assert sheet is not None
@@ -46,6 +46,9 @@ class TableExport[T]:
         return buffer.getvalue()
 
     def pdf(self, items: Iterable[T]) -> bytes:
+        # Spec 104: 117 ms de import que só o export em PDF usa.
+        from fpdf import FPDF
+
         pdf = FPDF(orientation="L")
         pdf.add_page()
         pdf.set_font("Helvetica", size=10)

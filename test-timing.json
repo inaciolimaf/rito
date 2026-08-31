@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 129,
+  "last_measured_wall_clock_seconds": 132,
   "last_measured_at": "2026-08-31",
   "specs": {
     "001": {
@@ -350,6 +350,10 @@
     "103": {
       "wall_clock_seconds": 129,
       "notes": "1540 backend (1535 da 102 + 5 novos, todos em test_ai_runtime_timeout.py: timeout dentro de query gravando o passo de erro e terminando o thread em ERROR, o registro fora de banda respeitando o RLS, autorun devolvendo 503 com o thread sobrevivendo ao rollback, o SSE contando a falha em vez de cortar a conexão, e a conversa nova do copiloto comitada antes de rodar) + 304 frontend (a 103 não tem front-end) + 10 e2e. Os 21 testes da 082 e o contrato de grafos da 090 passaram sem edição — só o comentário que explicava o contorno do node_timeout_s=1.0 foi atualizado. O arquivo novo custa 3,7 s isolado (1,2 s são o lifespan do cliente HTTP) e ~2 s no wall-clock, que o paralelismo absorve: 129 s de 300 s."
+    },
+    "104": {
+      "wall_clock_seconds": 132,
+      "notes": "1552 backend (1540 da 103 + 12 meta de AST: seis bibliotecas pesadas fora do topo e as mesmas seis ainda importadas dentro de alguma função — o segundo teste pega o import apagado por engano, que passaria no primeiro) + 304 frontend + 10 e2e. Refatoração: nenhum teste anterior editado. A linha de base da spec (import app.main a 13,1 s) não reproduziu — hoje custava 1,79 s quente, então o aceite de 'abaixo de 9 s' já estava cumprido antes da mudança. O número que discrimina é a fatia das seis bibliotecas: 437 ms (24%) que saem inteiros, 1,79 s -> 1,35 s quente e 6,62 s -> 3,65 s com bytecode frio. Wall-clock na faixa de ruído do host (123-132 s em cinco execuções hoje); os 12 testes novos custam 0,03 s."
     }
   },
   "specs_concluidas": 100

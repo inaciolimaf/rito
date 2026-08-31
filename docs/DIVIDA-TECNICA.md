@@ -638,3 +638,27 @@ e o teste de cancelamento da 082 depende disso), então precisa dos testes da 08
 junto e de um ciclo próprio.
 
 **Spec-alvo:** 125 — commit por passo no runtime de agentes.
+
+
+## 28. `TemplateEditor.test.tsx` é intermitente e faz o gate mentir
+
+Achado no ciclo da spec 104, que não toca uma linha de front-end. O teste
+`frontend/src/features/templates/TemplateEditor.test.tsx` ("aplica negrito pela toolbar")
+falhou **quatro execuções seguidas** por estourar o `testTimeout` padrão do Vitest (5 s) e
+em seguida passou em **325 ms**, com o mesmo código e a mesma máquina. A diferença é
+aquecimento: o primeiro `render` do tiptap num host frio (transform, JIT, cache do Vite)
+passa dos 5 s; morno, ele custa centésimos.
+
+O que o torna dívida e não só chateação: as três suítes têm um **gate de wall-clock**
+(CLAUDE.md §3, §11), e um teste que falha por lentidão de aquecimento faz o gate mentir
+nos dois sentidos — reprova um PR correto num host frio, e ninguém aprende nada quando
+passa. A regra "nunca `sleep` em teste, use espera por condição" já está sendo seguida
+aqui (`waitFor` com teto próprio de 3 s); o que estoura é o teto do teste inteiro, que
+inclui a montagem.
+
+**Correção provável:** separar a montagem do editor da interação (montar num
+`beforeEach`, ou aquecer o módulo uma vez por arquivo) para que o teto de 5 s meça o que
+o teste quer medir. Subir o `testTimeout` do arquivo é o contorno preguiçoso: esconde o
+sintoma e o próximo host mais frio o traz de volta.
+
+**Spec-alvo:** 110 — a refatoração cujo objeto é exatamente gate que deixou de morder.

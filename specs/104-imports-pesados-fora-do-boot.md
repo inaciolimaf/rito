@@ -1,7 +1,7 @@
 # 104 — Imports pesados fora do caminho de import
 
 **Fase:** 10 · **Tipo:** refatoração · **Orçamento:** −0 s (alvo: reduzir; não pode subir)
-**Depende de:** 011, 041, 065, 066, 067, 088 · **Status:** ⬜ pendente
+**Depende de:** 011, 041, 065, 066, 067, 088 · **Status:** ✅ concluída
 
 ---
 
@@ -102,17 +102,78 @@ Alvo: `import app.main` **abaixo de 9 s** (hoje 13,1 s). O wall-clock de `make t
 
 ## 9. Descobertas
 
-Preencher durante a implementação.
+### A linha de base da spec não reproduz — e o critério de aceite não discrimina
+
+Os números do §2 foram medidos em 28/08/2026, no commit `44469bd`. Refeitos hoje, na
+mesma máquina em que a suíte roda, com bytecode quente:
+
+| Medida | Spec (28/08) | Antes (hoje) | Depois |
+|---|---|---|---|
+| `import app.main` | 13,1 s | **1,79 s** | **1,35 s** |
+| `pytest --collect-only` | 17,5 s | **1,73 s** | 1,73 s |
+
+Ou seja: o alvo declarado ("abaixo de 9 s") já estava cumprido **antes** de qualquer
+linha mudar. Um critério que passa sem o trabalho não mede o trabalho, e registrar isso
+importa mais do que marcar o item como atingido.
+
+A explicação mais provável do 13,1 s é bytecode frio: repetindo a medição com
+`PYTHONPYCACHEPREFIX` apontando para um diretório vazio (todo `.pyc` recompilado), este
+host dá **6,62 s antes** e **3,65 s depois** — mesma ordem de grandeza, e a diferença
+restante é máquina. É essa a medida que corresponde ao caso real que a spec queria
+atacar: o worker que sobe pela primeira vez.
+
+### O número que discrimina: a fatia das cinco bibliotecas
+
+Medido com `-X importtime` sobre `import app.main`, custo cumulativo de cada uma:
+
+| Biblioteca | Antes | Depois |
+|---|---|---|
+| `xhtml2pdf.pisa` | 209 ms | — |
+| `fpdf` | 117 ms | — |
+| `openpyxl` | 36 ms | — |
+| `boto3` | 33 ms | — |
+| `sqlglot` | 32 ms | — |
+| `num2words` | 10 ms | — |
+| **total** | **437 ms (24% de 1,79 s)** | **0 — nenhuma aparece na árvore** |
+
+Os 437 ms batem com a queda medida de 1,79 s → 1,35 s. É esse o resultado da spec, e é
+ele que o meta-teste protege — por estrutura, não por tempo (regra 5).
+
+### `botocore` ficou no topo, de propósito
+
+`s3.py` importa `boto3` dentro do `__init__`, mas `Config` e `ClientError` continuam no
+topo: são tipos usados na assinatura e no `except`, o `botocore` é dependência direta do
+`boto3` (vem junto quando ele é de fato usado) e custa pouco perto dos 33 ms do cliente.
+Mover os três teria sido cargo cult.
+
+### `PLC0415` (regra 6) ainda não morde
+
+O `select` do ruff hoje é `["E", "F", "I", "UP", "B", "SIM"]` — a família `PL` inteira
+está fora, então nenhum dos cinco módulos precisa de exceção agora. A lista de exceção
+que a regra 6 descreve é trabalho de **quem ligar `PL`** (106, 109, 111, 112 ou 116), e
+o meta-teste desta spec é o que vai denunciar se alguém "resolver" o conflito devolvendo
+os imports para o topo.
+
+### O teste do editor de modelos é intermitente (fora de escopo)
+
+Durante o ciclo, `frontend/src/features/templates/TemplateEditor.test.tsx` falhou quatro
+vezes seguidas por estourar o `testTimeout` padrão do Vitest (5 s) e depois passou em
+325 ms, sem nenhuma mudança no front-end (esta spec não toca uma linha dele). É custo de
+aquecimento de transform/tiptap ultrapassando o teto no primeiro `render` de um host
+frio. Nada a ver com imports do backend, mas é um teste que faz o gate mentir nos dois
+sentidos — virou a **dívida nº 28**, alvo 110, que é a spec cujo objeto é justamente
+gate que deixou de morder.
 
 ## 10. Definição de pronto
 
-- [ ] Os cinco imports movidos, nenhum sexto tocado
-- [ ] `sql_guard.py` com `from __future__ import annotations` + `TYPE_CHECKING`
-- [ ] Meta-teste em `tests/meta/test_imports_pesados.py`, verde
-- [ ] `import app.main` medido antes/depois e registrado em §9
-- [ ] Nenhum teste anterior editado
-- [ ] `make test` verde e wall-clock dentro do orçamento (CLAUDE.md §3)
-- [ ] `make lint` verde — repositório inteiro, não só os arquivos tocados
-- [ ] Sem `Any`, `as any` ou `# type: ignore` novo
-- [ ] `ROADMAP.md` com a linha da 104 em ✅
-- [ ] Commit `refactor(104): imports pesados fora do boot`
+- [x] Os cinco imports movidos (seis bibliotecas), nenhum sétimo tocado
+- [x] `sql_guard.py` com `from __future__ import annotations` + `TYPE_CHECKING`
+- [x] Meta-teste em `tests/meta/test_imports_pesados.py`, verde — e verificado contra a
+      versão anterior de cada um dos cinco arquivos, onde acusa as seis bibliotecas
+- [x] `import app.main` medido antes/depois, quente e frio, registrado em §9
+- [x] Nenhum teste anterior editado
+- [x] `make test` verde e wall-clock dentro do orçamento (132 s de 300 s)
+- [x] `make lint` verde — repositório inteiro, não só os arquivos tocados
+- [x] Sem `Any`, `as any` ou `# type: ignore` novo
+- [x] `ROADMAP.md` com a linha da 104 em ✅
+- [x] Commit `refactor(104): imports pesados fora do boot`

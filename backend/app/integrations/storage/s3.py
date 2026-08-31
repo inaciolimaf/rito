@@ -1,6 +1,5 @@
 import asyncio
 
-import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
@@ -25,6 +24,11 @@ class S3FileStorage:
         bucket: str,
         region: str,
     ) -> None:
+        # Spec 104: 33 ms de import que só quem constrói o cliente paga. O
+        # `botocore` continua no topo — é o que tipa `Config`/`ClientError`, e vem
+        # junto do boto3 de qualquer jeito quando ele é de fato usado.
+        import boto3
+
         self._bucket = bucket
         self._client = boto3.client(
             "s3",

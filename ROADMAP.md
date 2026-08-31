@@ -469,9 +469,11 @@ outras ligam, uma a uma, os gates que o `CLAUDE.md` pede mas nenhuma ferramenta 
 Toda contagem abaixo foi medida no commit `44469bd`, sobre `ruff check .` (o escopo real do
 `make lint`), não sobre `app/` isolado.
 
-### ⬜ 104 — Imports pesados fora do caminho de import
-`xhtml2pdf`, `fpdf`, `openpyxl`, `boto3`, `sqlglot` e `num2words` saem do topo dos cinco módulos que os usam. Hoje `import app.main` custa 13,1 s e cada worker do `-n 3` paga esse custo antes do primeiro assert.
-**Aceite:** `import app.main` abaixo de 9 s; meta-teste por AST impede a reincidência; wall-clock não sobe. **t:** −0 s. **Deps:** 011, 041, 065, 066, 067, 088
+### ✅ 104 — Imports pesados fora do caminho de import
+`xhtml2pdf`, `fpdf`, `openpyxl`, `boto3`, `sqlglot` e `num2words` saíram do topo dos cinco módulos que os usam; `sql_guard.py` levou `from __future__ import annotations` + `TYPE_CHECKING` porque `exp.Expression` aparece em assinatura.
+**A linha de base de 13,1 s não reproduziu**: refeita hoje, `import app.main` custava **1,79 s** quente, então o aceite ("abaixo de 9 s") já estava cumprido antes de qualquer linha mudar — e critério que passa sem o trabalho não mede o trabalho. O número que discrimina é a fatia das seis bibliotecas: **437 ms, 24% do import**, que sai inteira (1,79 s → 1,35 s quente; 6,62 s → 3,65 s com bytecode frio, que é o caso do worker que sobe pela primeira vez).
+**Aceite:** `import app.main` abaixo de 9 s; meta-teste por AST impede a reincidência; wall-clock não sobe. **t:** +0 s (12 testes de AST, 0,03 s). **Deps:** 011, 041, 065, 066, 067, 088
+Achado fora de escopo: o teste do editor de modelos (front-end) estoura o `testTimeout` do Vitest em host frio e passa em 325 ms depois — dívida 28, alvo 110.
 
 ### ⬜ 105 — Template database e ROLLBACK por teste
 Implementa o que o `CLAUDE.md` §3 e a spec 009 declaram e que não existe no código: template DB por sessão, banco por worker, transação por teste com rollback no teardown. Some a causa dos 9.317 tenants acumulados no `rito_test`.

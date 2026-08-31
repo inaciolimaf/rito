@@ -11,8 +11,6 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from num2words import num2words
-
 from app.domain.account.models import Account
 from app.domain.customers.models import Customer
 from app.domain.lawsuits.cnj import CNJValidationError, format_cnj, parse_cnj
@@ -44,6 +42,9 @@ def format_date_br(value: date) -> str:
 def format_date_extenso(value: date) -> str:
     """Regra 5: "20 de agosto de 2026" → "vinte de agosto de dois mil e vinte e
     seis" — dia 1 usa "primeiro" (convenção jurídica), não "um"."""
+    # Spec 104: só as duas funções "por extenso" precisam do num2words.
+    from num2words import num2words
+
     day_words = "primeiro" if value.day == 1 else str(num2words(value.day, lang="pt_BR"))
     month_name = _MONTH_NAMES_PT[value.month - 1]
     year_words = str(num2words(value.year, lang="pt_BR"))
@@ -58,6 +59,8 @@ def format_money_br(value: Decimal) -> str:
 def format_money_extenso(value: Decimal) -> str:
     """Regra 6: por extenso, com "reais"/"centavos" — `num2words` já devolve isso
     pronto para `lang='pt_BR', to='currency'`."""
+    from num2words import num2words  # spec 104
+
     return str(num2words(float(value), lang="pt_BR", to="currency"))
 
 

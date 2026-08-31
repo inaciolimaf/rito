@@ -7,12 +7,21 @@ service, porque é propriedade da conexão, não do texto.
 
 A análise é sobre a **árvore sintática**, nunca sobre a string: procurar "DROP" com
 regex é uma promessa que qualquer comentário, alias ou string literal quebra.
+
+Spec 104: o `sqlglot` custa 32 ms de import e só o text-to-SQL da 089 o usa. Ele sai do
+topo — mas `exp.Expression` aparece em **assinatura**, e sem
+`from __future__ import annotations` o Python resolveria esse nome em tempo de import.
+Daí a combinação padrão: futuro + `TYPE_CHECKING` para o que é só tipo, import dentro da
+função para o que é execução.
 """
 
-from dataclasses import dataclass
+from __future__ import annotations
 
-import sqlglot
-from sqlglot import exp
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlglot import exp
 
 DIALECT = "postgres"
 # Regra 5 da spec: teto de linhas, injetado quando o modelo esquece.
@@ -71,6 +80,8 @@ def _relations(tree: exp.Expression) -> list[str]:
     proibida) não precisar de código próprio: uma tabela escondida três níveis abaixo
     aparece aqui do mesmo jeito.
     """
+    from sqlglot import exp
+
     nomes = []
     for table in tree.find_all(exp.Table):
         nome = table.name.lower()
@@ -81,6 +92,9 @@ def _relations(tree: exp.Expression) -> list[str]:
 
 def check_sql(raw_sql: str, *, has_financial_access: bool) -> CheckedSql:
     """Valida e devolve o SQL pronto para execução, ou levanta `SqlRejected`."""
+    import sqlglot
+    from sqlglot import exp
+
     texto = (raw_sql or "").strip().rstrip(";").strip()
     if not texto:
         raise SqlRejected("A IA não gerou nenhuma consulta.")
@@ -144,6 +158,8 @@ def check_sql(raw_sql: str, *, has_financial_access: bool) -> CheckedSql:
 def _with_limit(tree: exp.Expression) -> str:
     """Regra 5: teto de linhas sempre presente — injetado se faltar, reduzido se
     exagerado. Um `LIMIT 100000` gerado sem malícia derruba a tela do mesmo jeito."""
+    from sqlglot import exp
+
     if not isinstance(tree, exp.Select | exp.Union | exp.Subquery):  # pragma: no cover
         # `check_sql` já garantiu o tipo antes de chegar aqui; a checagem existe para o
         # mypy e para o dia em que alguém chamar esta função de outro lugar.

@@ -9,13 +9,13 @@ import json
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.graphs.base import GraphDeps, GraphResult
 from app.ai.graphs.registry import UnknownGraphError
-from app.ai.runtime import GraphRuntime, StepEvent
+from app.ai.runtime import GraphRuntime, RuntimeSessionLostError, StepEvent
 from app.ai.tools.base import ToolContext, tool_specs
 from app.ai.tools.runner import ToolRunner
 from app.core.permissions import UserRole, require_role
@@ -36,6 +36,7 @@ from app.domain.ai.threads import (
     AiThreadService,
     ThreadForbiddenError,
     ThreadNotResumableError,
+    create_durable_thread,
 )
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.users.models import User
@@ -45,6 +46,16 @@ router = APIRouter(prefix="/ai/threads", tags=["ai"])
 
 _FORBIDDEN_DETAIL = "Esta conversa é de outro usuário."
 _DEFAULT_PAGE_SIZE = 20
+# Spec 103: o passo de erro já está gravado quando esta mensagem aparece. O que morreu
+# foi a transação da requisição, e ela morreu de verdade — 503, não 200 mentindo.
+_SESSION_LOST_DETAIL = (
+    "A execução do agente foi interrompida por tempo esgotado e esta requisição não pôde "
+    "continuar. O erro ficou registrado na conversa."
+)
+
+
+def _session_lost() -> HTTPException:
+    return HTTPException(status_code=503, detail=_SESSION_LOST_DETAIL)
 
 
 def _to_thread_response(thread: AiThread) -> ThreadResponse:
@@ -116,27 +127,58 @@ def _build_service(
 @router.post("", status_code=201)
 async def create_thread(
     payload: ThreadCreateRequest,
+    request: Request,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     provider: LLMProvider = Depends(get_llm_provider),
 ) -> ThreadResponse:
     service = _build_service(session, current_user, provider)
     try:
-        thread = await service.create(
-            user=current_user,
-            graph_name=payload.graph_name,
-            title=payload.title,
-            context=payload.context,
-        )
+        thread = await _create(request, payload, current_user, service, session)
     except UnknownGraphError as exc:
         raise HTTPException(status_code=422, detail="Agente desconhecido.") from exc
     if payload.autorun:
         runner = _build_service(session, current_user, provider, thread)
-        await runner.run(thread, payload.input)
+        try:
+            await runner.run(thread, payload.input)
+        except RuntimeSessionLostError as exc:
+            raise _session_lost() from exc
     else:
         # Sem autorun o input fica guardado para o SSE executar depois.
         thread.state = {"input": payload.input, "scratch": {}, "messages": []}
     return _to_thread_response(thread)
+
+
+async def _create(
+    request: Request,
+    payload: ThreadCreateRequest,
+    user: User,
+    service: AiThreadService,
+    session: AsyncSession,
+) -> AiThread:
+    """Com `autorun`, o thread nasce numa transação própria que já commitou (spec 103):
+    é o que permite o registro da falha ser escrito por outra conexão se o timeout
+    cortar dentro de uma query. Sem `autorun` nada roda agora, e a criação segue na
+    transação da requisição, como sempre foi."""
+    if not payload.autorun:
+        return await service.create(
+            user=user,
+            graph_name=payload.graph_name,
+            title=payload.title,
+            context=payload.context,
+        )
+    thread_id = await create_durable_thread(
+        request.app.state.session_factory,
+        user=user,
+        tenant_id=user.tenant_id,
+        graph_name=payload.graph_name,
+        title=payload.title,
+        context=payload.context,
+    )
+    thread = await session.get(AiThread, thread_id)
+    if thread is None:  # pragma: no cover — acabou de ser comitado nesta requisição
+        raise HTTPException(status_code=500, detail="A conversa criada não foi encontrada.")
+    return thread
 
 
 @router.get("")
@@ -202,6 +244,8 @@ async def resume_thread(
         raise HTTPException(
             status_code=409, detail="Esta conversa não está aguardando confirmação."
         ) from exc
+    except RuntimeSessionLostError as exc:
+        raise _session_lost() from exc
     return _to_thread_response(thread)
 
 
@@ -260,20 +304,27 @@ async def stream_thread(
 
     async def generate() -> Any:
         if thread.status == "pending":
-            async for event in service.stream(thread, None):
-                if isinstance(event, StepEvent):
-                    yield _sse(
-                        "step",
-                        {
-                            "step": event.step,
-                            "node": event.node,
-                            "kind": event.kind,
-                            "output": event.output,
-                            "duration_ms": event.duration_ms,
-                        },
-                    )
-                elif isinstance(event, GraphResult):
-                    yield _sse(_result_event(event), _result_payload(event))
+            try:
+                async for event in service.stream(thread, None):
+                    if isinstance(event, StepEvent):
+                        yield _sse(
+                            "step",
+                            {
+                                "step": event.step,
+                                "node": event.node,
+                                "kind": event.kind,
+                                "output": event.output,
+                                "duration_ms": event.duration_ms,
+                            },
+                        )
+                    elif isinstance(event, GraphResult):
+                        yield _sse(_result_event(event), _result_payload(event))
+            except RuntimeSessionLostError:
+                # O status já está gravado (spec 103). Aqui não cabe 503: a resposta
+                # começou. Cabe contar ao cliente e devolver a conexão ao pool — quem
+                # abriu a transação está esperando este rollback para fechar limpo.
+                yield _sse("error", {"status": "error", "error": _SESSION_LOST_DETAIL})
+                await session.rollback()
             return
         for step in await service.list_steps(thread):
             yield _sse(

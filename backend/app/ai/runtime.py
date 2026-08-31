@@ -20,10 +20,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.ai.graphs.base import PENDING_ACTION_KEY, GraphDeps, GraphResult, PendingAction
 from app.ai.graphs.registry import get_graph
+from app.core.rls import set_tenant_context
 from app.domain.ai.models import AiCheckpoint, AiStep, AiThread, ThreadStatus
 
 logger = logging.getLogger("rito.ai.runtime")
@@ -47,6 +50,15 @@ class StepLimitError(Exception):
 
 class ThreadCancelledError(Exception):
     """Cancelado pelo usuário entre um nó e outro (regra 6)."""
+
+
+class RuntimeSessionLostError(Exception):
+    """A sessão de quem chamou não sobreviveu ao corte do timeout (spec 103, dívida 21).
+
+    Levantada **depois** de o passo de erro já ter sido gravado, por uma conexão
+    própria: o que se perdeu foi a transação da requisição, não o registro. Quem chamou
+    traduz isto em 503 — e o `rollback` de quem abriu a transação devolve a conexão.
+    """
 
 
 @dataclass(frozen=True)
@@ -302,16 +314,103 @@ class GraphRuntime:
             # No estouro de passos o contador já subiu ao tentar o passo proibido —
             # contar de novo faria o thread parecer ter dado um passo a mais do que deu.
             thread.step_count += 1
-        await self._record_step(
-            thread, node=node, kind="error", output=None, duration_ms=0, state=state, error=message
-        )
         thread.status = ThreadStatus.ERROR.value
         thread.error = message
         thread.finished_at = datetime.now(UTC)
         thread.state = state
-        await self.session.flush()
+        # Lidos ANTES da escrita: uma escrita que falha expira o objeto, e a partir daí
+        # ler `thread.id` dispara um carregamento preguiçoso na sessão que já morreu.
+        thread_id, step = thread.id, thread.step_count
+        try:
+            await self._record_step(
+                thread,
+                node=node,
+                kind="error",
+                output=None,
+                duration_ms=0,
+                state=state,
+                error=message,
+            )
+        except SQLAlchemyError as write_error:
+            # Spec 103: a sessão de quem chamou pode estar morta JUSTAMENTE por causa
+            # da falha que se está tentando registrar — o `wait_for` do timeout corta
+            # onde a corrotina estiver, e cortar uma query em voo invalida a CONEXÃO,
+            # não só a transação. O registro então vai por uma conexão própria, e a
+            # requisição morre em 503 em vez de morrer calada.
+            await self._record_failure_out_of_band(
+                thread_id, step, node=node, message=message, state=state
+            )
+            raise RuntimeSessionLostError(message) from write_error
         del exc
         return GraphResult(status="error", error=message)
+
+    async def _record_failure_out_of_band(
+        self,
+        thread_id: uuid.UUID,
+        step: int,
+        *,
+        node: str,
+        message: str,
+        state: dict[str, Any],
+    ) -> None:
+        """O passo de erro numa sessão que o runtime abre, usa e fecha.
+
+        Não é o caminho normal — é o caminho de quando o normal não existe mais. Por
+        isso escreve por `update()` em vez de mexer no objeto `thread`, que pertence à
+        sessão morta, e commita sozinho: o registro da falha não pode depender do
+        commit de uma transação que já não vai acontecer.
+
+        Só alcança thread **já comitado** — linha não comitada não existe para outra
+        conexão. É por isso que quem cria e roda no mesmo request cria de forma durável
+        antes (`create_durable_thread`, `app/domain/ai/threads.py`).
+        """
+        bind = self.session.bind
+        if not isinstance(bind, AsyncEngine):  # pragma: no cover — só em teste com bind exótico
+            logger.error("Sem engine para registrar a falha fora de banda: %s", message)
+            return
+        snapshot = truncate_payload(state) or {}
+        try:
+            async with AsyncSession(bind) as book, book.begin():
+                await set_tenant_context(book, self.tenant_id)
+                book.add(
+                    AiStep(
+                        tenant_id=self.tenant_id,
+                        thread_id=thread_id,
+                        step=step,
+                        node=node,
+                        kind="error",
+                        input=truncate_payload(state.get("input")),
+                        output=None,
+                        duration_ms=0,
+                        error=message,
+                    )
+                )
+                book.add(
+                    AiCheckpoint(
+                        tenant_id=self.tenant_id,
+                        thread_id=thread_id,
+                        step=step,
+                        node=node,
+                        state=snapshot,
+                    )
+                )
+                await book.execute(
+                    update(AiThread)
+                    .where(AiThread.id == thread_id)
+                    .values(
+                        status=ThreadStatus.ERROR.value,
+                        error=message,
+                        finished_at=datetime.now(UTC),
+                        step_count=step,
+                        state=snapshot,
+                        pending_action=None,
+                        waiting_since=None,
+                    )
+                )
+        except SQLAlchemyError:
+            # Registrar a falha falhou. Não há terceira sessão para tentar de novo — o
+            # que sobra é o log, alto, com o motivo original junto.
+            logger.exception("Falha ao registrar fora de banda o erro do thread %s", thread_id)
 
     async def _refuse(self, thread: AiThread, human_input: dict[str, Any] | None) -> GraphResult:
         reason = (human_input or {}).get("reason") or "Recusado pelo usuário."
@@ -342,6 +441,7 @@ __all__ = [
     "GraphRuntime",
     "NodeTimeoutError",
     "PendingAction",
+    "RuntimeSessionLostError",
     "StepEvent",
     "StepLimitError",
     "ThreadCancelledError",

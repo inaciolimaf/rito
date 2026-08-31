@@ -9,12 +9,13 @@ from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.ai.graphs.base import GraphResult
 from app.ai.graphs.registry import UnknownGraphError, get_graph
 from app.ai.runtime import GraphRuntime, StepEvent
 from app.core.http import get_or_404
+from app.core.rls import set_tenant_context
 from app.domain.ai.models import AiStep, AiThread, ThreadStatus
 from app.domain.ai.repository import AiStepRepository, AiThreadRepository
 from app.domain.users.models import User, UserRole
@@ -141,6 +142,37 @@ class AiThreadService:
         return len(expired)
 
 
+async def create_durable_thread(
+    session_factory: async_sessionmaker[AsyncSession],
+    *,
+    user: User,
+    tenant_id: uuid.UUID,
+    graph_name: str,
+    title: str | None,
+    context: dict[str, Any] | None,
+) -> uuid.UUID:
+    """Cria o thread numa transação própria, que commita antes de ele rodar.
+
+    Spec 103. Criar e executar na MESMA transação é o que tornava a dívida 21
+    irrecuperável: se o timeout corta dentro de uma query, o registro da falha só pode
+    ser escrito por outra conexão — e outra conexão não enxerga uma linha que ainda não
+    foi comitada. Um thread que vai rodar existe antes de rodar; é isso, e só isso, que
+    esta função garante.
+
+    O efeito colateral é desejado: se o resto da requisição falhar, o thread continua
+    lá, com o motivo. Antes, a execução sumia junto com a linha e o usuário ficava sem
+    nada para olhar.
+    """
+    async with session_factory() as own, own.begin():
+        await set_tenant_context(own, tenant_id)
+        service = AiThreadService(own, tenant_id)
+        thread = await service.create(
+            user=user, graph_name=graph_name, title=title, context=context
+        )
+        await own.flush()
+        return thread.id
+
+
 __all__ = [
     "THREAD_RETENTION_DAYS",
     "WAITING_EXPIRY_HOURS",
@@ -148,4 +180,5 @@ __all__ = [
     "ThreadForbiddenError",
     "ThreadNotResumableError",
     "UnknownGraphError",
+    "create_durable_thread",
 ]

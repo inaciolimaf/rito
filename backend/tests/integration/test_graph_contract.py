@@ -184,9 +184,11 @@ async def test_todo_grafo_respeita_o_timeout_de_no(
     user = await make_user()
 
     # 1 s, e não 50 ms: antes de chegar ao provider o nó faz duas consultas (a
-    # configuração da feature e o teto de gasto da 090). Com um timeout curto demais o
-    # corte cai DENTRO de uma query, e cancelar uma query em andamento deixa a sessão
-    # inutilizável — ver docs/DIVIDA-TECNICA.md, "cancelamento no meio do nó".
+    # configuração da feature e o teto de gasto da 090), e o que este teste quer provar é
+    # o corte na chamada ao MODELO. Com um timeout curto demais o corte cai dentro de uma
+    # query, que desde a 103 é um caminho diferente e testado no seu próprio arquivo
+    # (`test_ai_runtime_timeout.py`): lá a sessão morre e o registro da falha vai fora de
+    # banda; aqui o que se cobra é que todo grafo registrado respeite o teto de tempo.
     resultado = await _drive(
         app_session_factory, user, graph_name, SlowProvider(), node_timeout_s=1.0
     )

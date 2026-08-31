@@ -454,10 +454,11 @@ O corte previsto na Nota de execução da spec foi aplicado: treze itens em cinc
 **Aceite:** "Timé A" colide com "TIME A"; `/settings` abre; meta-teste deriva as rotas de `NAV_ITEMS` em vez de copiá-las; convite não devolve token no corpo. **t:** 6 s. **Deps:** 101
 Fecha as dívidas 9, 10, 11, 12 e 24. O meta-teste de rotas achou um segundo item quebrado no mesmo ciclo (`/posts`, "Atividades") — sem tela, virou a dívida 26 com redirect como contorno.
 
-### ⬜ 103 — Timeout de nó sem corromper a sessão (Bloco D da 101)
-A dívida nº 21: `asyncio.wait_for` cancela no meio de uma query e deixa a sessão inutilizável, então o próprio `_fail()` que registraria o timeout falha com `PendingRollbackError`.
-**Tentada e reaberta.** O remédio anotado na dívida (`SAVEPOINT` no avanço do nó, como 084/092) foi implementado e **medido não resolvendo**: o cancelamento invalida a CONEXÃO, não só a transação, então `ROLLBACK TO SAVEPOINT` roda sem erro e a sessão continua inutilizável. Só um rollback completo reconecta — e o runtime não pode dá-lo, porque quem abre a transação é a rota (`get_session_for_current_user`), e no `autorun` o thread é criado na mesma transação que o rollback apagaria. O escopo real é uma decisão sobre quem é dono da transação no runtime (mover o timeout para a fronteira de I/O, sessão própria de bookkeeping, ou commit por passo). Beco sem saída mapeado em `docs/DIVIDA-TECNICA.md` #21.
-**Aceite:** timeout dentro de query grava o passo de erro e o thread termina em `ERROR`; os testes da 082 passam sem edição. **t:** 1 s. **Deps:** 082, 090, 101
+### ✅ 103 — Timeout de nó sem corromper a sessão (Bloco D da 101)
+A dívida nº 21: `asyncio.wait_for` cancela no meio de uma query e deixa a sessão inutilizável, então o próprio `_fail()` que registraria o timeout falhava com `PendingRollbackError`.
+Resolvida pelo **segundo** caminho da lista que o beco sem saída deixou mapeado — sessão própria para o registro da falha —, e não pelo primeiro: o `wait_for` genérico não podia sair, porque o `test_hangs` da 082 é um nó que trava sem tocar em banco nem em modelo. Junto veio a decisão que faltava sobre quem é dono da transação: **quem vai rodar existe antes de rodar**, então `autorun` e conversa nova do copiloto criam o thread numa transação própria já comitada (uma conexão nova não enxerga linha não comitada). A requisição morre — a conexão morreu de verdade —, mas morre em 503 dizendo o quê, com o registro já durável.
+**Aceite:** timeout dentro de query grava o passo de erro e o thread termina em `ERROR`; os testes da 082 passam sem edição. **t:** 2 s. **Deps:** 082, 090, 101
+Fecha a dívida 21. O resíduo — os passos anteriores ao timeout somem no rollback da requisição — vira a dívida 27, com o "commit por passo" como correção e a 125 como alvo.
 
 ---
 

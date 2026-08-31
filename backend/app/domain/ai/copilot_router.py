@@ -11,11 +11,12 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.runtime import RuntimeSessionLostError
 from app.core.permissions import UserRole, require_role
 from app.domain.ai.copilot import (
     MAX_MESSAGES_PER_THREAD,
@@ -37,6 +38,11 @@ _FORBIDDEN = "Esta conversa é de outro usuário."
 _LIMIT_DETAIL = (
     f"Esta conversa chegou a {MAX_MESSAGES_PER_THREAD} mensagens. "
     "Comece uma nova para o assistente continuar com contexto limpo."
+)
+# Spec 103: a conversa já registrou o erro; o que não sobreviveu foi a transação.
+_SESSION_LOST_DETAIL = (
+    "O assistente foi interrompido por tempo esgotado e esta requisição não pôde "
+    "continuar. O erro ficou registrado na conversa."
 )
 
 
@@ -90,8 +96,21 @@ class SuggestionsResponse(BaseModel):
     items: list[str]
 
 
-def _service(session: AsyncSession, user: User, provider: LLMProvider) -> CopilotService:
-    return CopilotService(session=session, tenant_id=user.tenant_id, provider=provider)
+def _service(
+    session: AsyncSession,
+    user: User,
+    provider: LLMProvider,
+    request: Request | None = None,
+) -> CopilotService:
+    """`request` só é passado por quem EXECUTA um turno: é dele que sai a fábrica de
+    sessão que cria a conversa nova de forma durável (spec 103). Listar, ler e apagar
+    não criam nada e não precisam."""
+    return CopilotService(
+        session=session,
+        tenant_id=user.tenant_id,
+        provider=provider,
+        thread_sessions=None if request is None else request.app.state.session_factory,
+    )
 
 
 def _to_thread(thread: AiThread) -> ThreadSummaryResponse:
@@ -114,6 +133,10 @@ def _to_message(message: AiMessage) -> MessageItemResponse:
         action_id=message.action_id,
         created_at=message.created_at,
     )
+
+
+def _sse(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
 
 def _unavailable(exc: Exception) -> HTTPException:
@@ -187,11 +210,12 @@ async def delete_thread(
 @router.post("/message")
 async def send_message(
     payload: MessageRequest,
+    request: Request,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     provider: LLMProvider = Depends(get_llm_provider),
 ) -> MessageResponse:
-    service = _service(session, current_user, provider)
+    service = _service(session, current_user, provider, request)
     try:
         thread, state = await service.start_turn(
             user=current_user,
@@ -207,7 +231,10 @@ async def send_message(
     except ThreadLimitReachedError as exc:
         raise HTTPException(status_code=409, detail=_LIMIT_DETAIL) from exc
 
-    turn = await service.run_turn(user=current_user, thread=thread, state=state)
+    try:
+        turn = await service.run_turn(user=current_user, thread=thread, state=state)
+    except RuntimeSessionLostError as exc:
+        raise HTTPException(status_code=503, detail=_SESSION_LOST_DETAIL) from exc
     return MessageResponse(
         thread_id=thread.id,
         title=thread.title,
@@ -242,7 +269,16 @@ async def stream_message(
         raise HTTPException(status_code=409, detail=_LIMIT_DETAIL) from exc
 
     async def generate() -> Any:
-        async for event, data in service.stream_turn(user=current_user, thread=thread, state=state):
-            yield f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+        try:
+            async for event, data in service.stream_turn(
+                user=current_user, thread=thread, state=state
+            ):
+                yield _sse(event, data)
+        except RuntimeSessionLostError:
+            # A resposta já começou: não dá para virar 503. O turno vai como `error` e
+            # a conexão volta ao pool pelo rollback (spec 103).
+            yield _sse("error", {"message": _SESSION_LOST_DETAIL})
+            yield _sse("done", {"thread_id": str(thread.id), "status": "error"})
+            await session.rollback()
 
     return StreamingResponse(generate(), media_type=SSE_MEDIA_TYPE)

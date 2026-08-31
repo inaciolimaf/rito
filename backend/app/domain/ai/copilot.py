@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.ai.graphs.base import GraphDeps, GraphResult
 from app.ai.runtime import GraphRuntime, StepEvent
@@ -26,7 +26,7 @@ from app.core.repository import BaseRepository
 from app.domain.ai.exceptions import FeatureDisabledError
 from app.domain.ai.models import AiMessage, AiThread, ThreadStatus
 from app.domain.ai.service import AiConfigService, AiRunner
-from app.domain.ai.threads import AiThreadService
+from app.domain.ai.threads import AiThreadService, create_durable_thread
 from app.domain.users.models import User
 from app.integrations.openrouter.types import LLMNotConfiguredError, LLMProvider
 
@@ -109,10 +109,20 @@ class AiMessageRepository(BaseRepository[AiMessage]):
 
 
 class CopilotService:
-    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID, provider: LLMProvider) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        tenant_id: uuid.UUID,
+        provider: LLMProvider,
+        *,
+        thread_sessions: async_sessionmaker[AsyncSession] | None = None,
+    ) -> None:
         self.session = session
         self.tenant_id = tenant_id
         self.provider = provider
+        # Spec 103: fábrica de sessão para criar o thread de forma durável ANTES de ele
+        # rodar. Nula onde nada roda (listar, ler, apagar) — só quem executa precisa.
+        self.thread_sessions = thread_sessions
         self.messages = AiMessageRepository(session)
         self.threads = AiThreadService(session, tenant_id)
         self.config = AiConfigService(session, tenant_id)
@@ -279,12 +289,26 @@ class CopilotService:
                 thread.model = model
             thread.archived_at = None
             return thread
-        thread = await self.threads.create(
-            user=user,
-            graph_name=COPILOT_GRAPH,
-            title=_title_from(message),  # regra 6
-            context=context or {},
-        )
+        if self.thread_sessions is None:
+            thread = await self.threads.create(
+                user=user,
+                graph_name=COPILOT_GRAPH,
+                title=_title_from(message),  # regra 6
+                context=context or {},
+            )
+        else:
+            # Spec 103: a conversa nova é comitada antes do turno rodar. Sem isso, um
+            # timeout dentro de uma query não teria onde gravar o passo de erro — a
+            # linha do thread ainda não existiria para a conexão que faz o registro.
+            thread_id = await create_durable_thread(
+                self.thread_sessions,
+                user=user,
+                tenant_id=self.tenant_id,
+                graph_name=COPILOT_GRAPH,
+                title=_title_from(message),  # regra 6
+                context=context or {},
+            )
+            thread = await self.threads.get_for(thread_id, user)
         thread.model = model
         return thread
 

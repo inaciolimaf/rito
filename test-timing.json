@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 156,
+  "last_measured_wall_clock_seconds": 129,
   "last_measured_at": "2026-08-31",
   "specs": {
     "001": {
@@ -346,6 +346,10 @@
     "100": {
       "wall_clock_seconds": 288,
       "notes": "1496 backend (1477 da 099 + 19 meta da auditoria final: type: ignore com justificativa, as any no frontend, TODO/FIXME órfão, sleep em teste, teste pulado, teto de 25 jornadas e2e, toda rota declarando permissão, os 10 documentos obrigatórios CPF/CNPJ real em fixture e coerência entre o cabeçalho de cada spec e o ROADMAP) + 286 frontend + 10 e2e. Dezoito itens da checklist da spec viraram teste — auditoria feita à mão vale pelo dia em que foi feita. Resolvidos: PII real nas fixtures (55 nomes e um CPF completo, dívida nº 19 aberta desde a 050), 26 `type: ignore` removidos por uma exceção declarada onde a causa mora, dois workers tipados de verdade, e uma vulnerabilidade alta do npm. Auditoria de dependência virou passo de todo PR."
+    },
+    "103": {
+      "wall_clock_seconds": 129,
+      "notes": "1540 backend (1535 da 102 + 5 novos, todos em test_ai_runtime_timeout.py: timeout dentro de query gravando o passo de erro e terminando o thread em ERROR, o registro fora de banda respeitando o RLS, autorun devolvendo 503 com o thread sobrevivendo ao rollback, o SSE contando a falha em vez de cortar a conexão, e a conversa nova do copiloto comitada antes de rodar) + 304 frontend (a 103 não tem front-end) + 10 e2e. Os 21 testes da 082 e o contrato de grafos da 090 passaram sem edição — só o comentário que explicava o contorno do node_timeout_s=1.0 foi atualizado. O arquivo novo custa 3,7 s isolado (1,2 s são o lifespan do cliente HTTP) e ~2 s no wall-clock, que o paralelismo absorve: 129 s de 300 s."
     }
   },
   "specs_concluidas": 100

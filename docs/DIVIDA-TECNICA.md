@@ -430,7 +430,7 @@ retrofit.
 
 ---
 
-## 21. Cancelamento no meio do nó derruba a sessão (spec 082 + 090)
+## 21. ~~Cancelamento no meio do nó derruba a sessão~~ — RESOLVIDO na spec 103
 
 **Descoberto em:** spec 092, no teste de contrato dos grafos (`test_graph_contract.py`).
 
@@ -498,10 +498,38 @@ dela rodando junto — é o ciclo próprio que a dívida sempre pediu, agora com
 saída já mapeado.
 
 **Reprodução guardada:** um nó que faz `SELECT pg_sleep(3)` na sessão do runtime, com
-`node_timeout_s=0.3`, levanta `PendingRollbackError` dentro do `_fail` — é o teste a
-escrever quando a decisão acima for tomada.
+`node_timeout_s=0.3`, levanta `PendingRollbackError` dentro do `_fail`.
 
-**Spec-alvo:** 103 (Bloco D do plano de corte da 101) — **ainda aberta**: a tentativa de aplicar o remédio anotado mostrou que ele não resolve, e o escopo real é maior. Ver acima.
+### Resolvido na spec 103 — o segundo caminho da lista acima
+
+A reprodução guardada virou teste (`tests/integration/test_ai_runtime_timeout.py`), e a
+decisão sobre quem é dono da transação foi tomada assim:
+
+1. **O registro da falha tem sessão própria.** `GraphRuntime._fail` tenta escrever pela
+   sessão de quem chamou, como sempre; se essa escrita levantar `SQLAlchemyError` — o
+   sintoma de a conexão ter morrido —, o passo de erro, o checkpoint e o `status = error`
+   vão por uma `AsyncSession` que o runtime abre, usa, **comita** e fecha. Sozinha, essa
+   escrita não depende de um commit que já não vai acontecer.
+2. **Quem vai rodar existe antes de rodar.** Uma conexão nova não enxerga linha não
+   comitada, então o `POST /ai/threads?autorun=true` e a conversa nova do copiloto
+   passaram a criar o thread numa transação própria (`create_durable_thread`), que
+   commita antes de a execução começar. Era este o caso que a análise acima classificou
+   como o pior.
+3. **A requisição morre, e diz que morreu.** O runtime levanta `RuntimeSessionLostError`
+   em vez de devolver um `GraphResult` como se nada tivesse acontecido: a transação da
+   requisição morreu de verdade e ninguém além de quem a abriu pode dar o `rollback`. As
+   rotas traduzem em **503**; no SSE, onde a resposta já começou, vira um evento `error`
+   seguido do `rollback` explícito de quem abriu a transação.
+
+O caminho 1 da lista de preferências (mover o timeout para a fronteira de I/O) **não** foi
+escolhido: o `test_hangs` da 082 é um nó que trava sem tocar em banco nem em modelo, e sem
+o `wait_for` genérico ele voltaria a pendurar a execução para sempre. O watchdog continua
+onde estava; o que mudou é que o registro da falha não depende mais da vítima dele.
+
+O resíduo — os passos anteriores ao timeout somem no `rollback` da requisição — está
+numerado como o item **27**, e é ele que o "commit por passo" da lista acima resolve.
+
+**Spec-alvo:** 103 (Bloco D do plano de corte da 101) — entregue.
 
 **Numerada na 101 (Bloco E).** Este item passou 18 specs sem número, e foi exatamente
 assim que escapou do fechamento da 100: a tabela de encerramento daquela spec contava
@@ -584,3 +612,29 @@ que a própria spec 110 registra).
 
 **Spec-alvo:** 124 — a listagem de atividades como tela própria, reaproveitando
 `DataTable`/`FilterBar`/`useListPage`. Enquanto ela não existir, o redirect fica.
+
+
+## 27. Passo já registrado some quando o timeout mata a sessão da requisição
+
+Resíduo declarado da spec 103. Com o registro fora de banda, uma execução que estoura o
+tempo dentro de uma query grava o passo de erro e termina em `error` — mas os passos
+**anteriores**, que foram escritos na transação da requisição, vão embora com o `rollback`
+que essa transação leva.
+
+O efeito visível é um buraco na numeração: `ai_steps` fica com um único passo de erro
+numerado 3, e os passos 1 e 2 não existem. Quem audita vê o fim sem o meio.
+
+Não é perda de dado do escritório (nada do domínio é escrito por esses passos, que são o
+registro da própria execução), e é estritamente melhor que o estado anterior à 103, em que
+não sobrava nem o passo de erro. Mas é uma meia-verdade guardada no banco, e o
+`ai_checkpoints` existe justamente para "retomar de onde parou": um checkpoint que só vale
+se a requisição inteira der certo não é um checkpoint.
+
+**Correção:** commit por passo — o terceiro caminho da lista do item 21. O `_record_step`
+deixa de escrever na transação de quem chamou e passa a ter a mesma sessão própria que o
+registro da falha já tem, comitando a cada nó. É mudança de semântica de transação do
+runtime da 082 (o `_ensure_not_cancelled` lê o status do thread pela sessão da requisição,
+e o teste de cancelamento da 082 depende disso), então precisa dos testes da 082 rodando
+junto e de um ciclo próprio.
+
+**Spec-alvo:** 125 — commit por passo no runtime de agentes.

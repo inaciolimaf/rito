@@ -454,8 +454,9 @@ O corte previsto na Nota de execução da spec foi aplicado: treze itens em cinc
 **Aceite:** "Timé A" colide com "TIME A"; `/settings` abre; meta-teste deriva as rotas de `NAV_ITEMS` em vez de copiá-las; convite não devolve token no corpo. **t:** 6 s. **Deps:** 101
 Fecha as dívidas 9, 10, 11, 12 e 24. O meta-teste de rotas achou um segundo item quebrado no mesmo ciclo (`/posts`, "Atividades") — sem tela, virou a dívida 26 com redirect como contorno.
 
-### ⬜ 103 — `SAVEPOINT` no avanço do nó (Bloco D da 101)
+### ⬜ 103 — Timeout de nó sem corromper a sessão (Bloco D da 101)
 A dívida nº 21: `asyncio.wait_for` cancela no meio de uma query e deixa a sessão inutilizável, então o próprio `_fail()` que registraria o timeout falha com `PendingRollbackError`.
+**Tentada e reaberta.** O remédio anotado na dívida (`SAVEPOINT` no avanço do nó, como 084/092) foi implementado e **medido não resolvendo**: o cancelamento invalida a CONEXÃO, não só a transação, então `ROLLBACK TO SAVEPOINT` roda sem erro e a sessão continua inutilizável. Só um rollback completo reconecta — e o runtime não pode dá-lo, porque quem abre a transação é a rota (`get_session_for_current_user`), e no `autorun` o thread é criado na mesma transação que o rollback apagaria. O escopo real é uma decisão sobre quem é dono da transação no runtime (mover o timeout para a fronteira de I/O, sessão própria de bookkeeping, ou commit por passo). Beco sem saída mapeado em `docs/DIVIDA-TECNICA.md` #21.
 **Aceite:** timeout dentro de query grava o passo de erro e o thread termina em `ERROR`; os testes da 082 passam sem edição. **t:** 1 s. **Deps:** 082, 090, 101
 
 ---

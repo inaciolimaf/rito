@@ -454,14 +454,54 @@ dezenas de segundos, então o caso é raro — mas raro não é nunca, e é o ti
 aparece no dia em que o banco está lento, que é justamente o dia em que os timeouts
 disparam.
 
-**Correção de verdade:** envolver o avanço do nó num `SAVEPOINT`
+**Correção proposta (INVALIDADA — ver abaixo):** envolver o avanço do nó num `SAVEPOINT`
 (`session.begin_nested()`), como já fazem `AiActionService.approve` (084) e
 `AutomationEngine.advance` (092), para que o rollback do cancelamento devolva a sessão
-utilizável e o registro da falha sobreviva. Não foi feito em 091–093 porque mexe na
-semântica de checkpoint do runtime da 082 e merece o seu próprio ciclo, com os testes de
-082 rodando junto.
+utilizável e o registro da falha sobreviva.
 
-**Spec-alvo:** 103 (Bloco D do plano de corte da 101).
+### O SAVEPOINT não resolve — medido na tentativa da spec 103
+
+A spec 103 foi aberta para aplicar exatamente esse remédio, e ele **não funciona**. Três
+medições, nesta ordem:
+
+1. **`ROLLBACK TO SAVEPOINT` roda sem erro e não adianta.** Quando o `asyncio.wait_for`
+   cancela com uma query em voo, o asyncpg invalida a **conexão**, não só a transação. O
+   rollback do savepoint retorna OK e a próxima instrução na mesma sessão ainda levanta
+   `PendingRollbackError: Can't reconnect until invalid transaction is rolled back`. O
+   savepoint resolve a falha que nasce NO BANCO (constraint, FK) — que é o caso de 084 e
+   092 — e esta não é dessa família.
+
+2. **Só um `session.rollback()` completo reconecta** — e ele leva junto tudo o que a
+   transação escreveu, inclusive os passos já registrados da execução.
+
+3. **O runtime não pode dar esse rollback.** Quem abre a transação é o chamador:
+   `get_session_for_current_user` faz `async with session_factory() as session,
+   session.begin()`, e a rota inteira roda dentro dela. Um `rollback()` de dentro do
+   runtime quebra o contexto de quem chamou
+   (`InvalidRequestError: Can't operate on closed transaction inside context manager`).
+   Pior no `POST /ai/threads` com `autorun=true`, onde o thread é **criado e executado na
+   mesma transação**: o rollback apagaria a própria linha que o `_fail` precisa atualizar.
+
+**O que a correção de verdade exige.** Não é uma linha; é uma decisão sobre quem é dono da
+transação no runtime. Os caminhos viáveis, em ordem de preferência:
+
+- **Mover o timeout para a fronteira de I/O que é segura de cancelar** — a chamada HTTP ao
+  modelo, dentro do `AiRunner` — em vez do avanço do nó, que pode estar segurando uma
+  conexão do banco. Isso honra a regra 6 da 082 ("cancelamento entre nós") de verdade, em
+  vez de prometê-la e violá-la com `wait_for`.
+- **Sessão própria para a escrita de bookkeeping** (passos, status), independente da
+  transação da requisição, para que o registro da falha nunca dependa da sessão envenenada.
+- **Commit por passo**, que também resolveria a perda do histórico do item 2.
+
+Qualquer um dos três muda a semântica de transação do runtime da 082 e precisa dos testes
+dela rodando junto — é o ciclo próprio que a dívida sempre pediu, agora com o beco sem
+saída já mapeado.
+
+**Reprodução guardada:** um nó que faz `SELECT pg_sleep(3)` na sessão do runtime, com
+`node_timeout_s=0.3`, levanta `PendingRollbackError` dentro do `_fail` — é o teste a
+escrever quando a decisão acima for tomada.
+
+**Spec-alvo:** 103 (Bloco D do plano de corte da 101) — **ainda aberta**: a tentativa de aplicar o remédio anotado mostrou que ele não resolve, e o escopo real é maior. Ver acima.
 
 **Numerada na 101 (Bloco E).** Este item passou 18 specs sem número, e foi exatamente
 assim que escapou do fechamento da 100: a tabela de encerramento daquela spec contava

@@ -4,10 +4,16 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_file_storage, get_session, get_tenant_id
+from app.core.deps import (
+    get_file_storage,
+    get_session,
+    get_tenant_id,
+    get_transactional_email,
+)
 from app.core.http import get_or_404, parse_active_status
 from app.core.image_processing import InvalidImageError
 from app.core.permissions import FinancialAccess, UserRole, require_role
+from app.core.transactional_email import TransactionalEmailSender
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.auth.exceptions import WeakPasswordError
 from app.domain.users.exceptions import (
@@ -113,16 +119,23 @@ async def invite_user(
     payload: InviteUserRequest,
     current_user: User = Depends(require_role(UserRole.GESTOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    email_sender: TransactionalEmailSender = Depends(get_transactional_email),
 ) -> InviteUserResponse:
     service = UserService(session=session, tenant_id=current_user.tenant_id)
     try:
-        invitation, _raw_token = await service.invite(actor=current_user, payload=payload)
+        invitation, raw_token = await service.invite(actor=current_user, payload=payload)
     except EmailAlreadyRegisteredError as exc:
         raise HTTPException(
             status_code=409, detail="E-mail já cadastrado neste escritório."
         ) from exc
-    # _raw_token: sem infra de e-mail ainda (mesma situação do forgot-password, spec 004) —
-    # quem envia o convite de verdade obtém o token chamando o service direto, não pela API.
+    # Regra 19 (spec 102): o link vai por e-mail. A resposta nunca teve o token (bom), mas
+    # antes disso ninguém o enviava — o convite simplesmente não chegava a lugar nenhum.
+    await email_sender.send_user_invite(
+        to=str(invitation.email),
+        token=raw_token,
+        invited_by=current_user.name,
+        tenant_id=str(current_user.tenant_id),
+    )
     return InviteUserResponse(
         id=invitation.id,
         email=str(invitation.email),

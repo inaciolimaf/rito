@@ -77,6 +77,12 @@ const NotificationSettingsPage = lazy(async () => ({
   default: (await import("@/features/notifications/NotificationSettingsPage"))
     .NotificationSettingsPage,
 }));
+const AcceptInvitePage = lazy(async () => ({
+  default: (await import("@/features/invites/AcceptInvitePage")).AcceptInvitePage,
+}));
+const SettingsHubPage = lazy(async () => ({
+  default: (await import("@/features/settings/SettingsHubPage")).SettingsHubPage,
+}));
 const PartnersPage = lazy(async () => ({
   default: (await import("@/features/partners/PartnersPage")).PartnersPage,
 }));
@@ -143,6 +149,8 @@ export function App(): JSX.Element {
               <Suspense fallback={<CarregandoRota />}>
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
+                  {/* Público: quem aceita o convite ainda não tem conta (spec 102). */}
+                  <Route path="/accept-invite" element={<AcceptInvitePage />} />
                   {import.meta.env.DEV && (
                     <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
                   )}
@@ -151,6 +159,8 @@ export function App(): JSX.Element {
                       <Route path="/" element={<Navigate to="/home" replace />} />
                       <Route path="/home" element={<InboxPage />} />
                       <Route path="/subscription/account" element={<AccountPage />} />
+
+                      <Route path="/settings" element={<SettingsHubPage />} />
                       <Route path="/settings/users" element={<UsersSettingsPage />} />
                       <Route path="/settings/users/:id" element={<UserDetailPage />} />
                       <Route path="/settings/action-groups" element={<ActionGroupsListPage />} />
@@ -179,6 +189,13 @@ export function App(): JSX.Element {
                       <Route path="/customers" element={<CustomerListPage />} />
                       <Route path="/lawsuits" element={<LawsuitsPage />} />
                       <Route path="/lawsuits/:id" element={<LawsuitDetailPage />} />
+                      {/* "Atividades" aponta para /posts desde a spec 008 e a rota nunca
+                          existiu — o item do menu caía no NotFoundPage, achado pelo
+                          meta-teste da spec 102. A LISTAGEM de atividades é tela que
+                          ninguém especificou (dívida nº 26); até ela existir, o item leva
+                          ao painel de tarefas em vez de a lugar nenhum. Mesmo padrão do
+                          atalho /goals logo acima. */}
+                      <Route path="/posts" element={<Navigate to="/home" replace />} />
                       <Route path="/posts/:id" element={<PostDetailPage />} />
                       <Route path="/schedules" element={<CalendarPage />} />
                       <Route path="/publications" element={<PublicationListPage />} />

@@ -16,7 +16,9 @@ function parseBrl(text: string): number {
   return Number(normalized);
 }
 
-test("jornada 9/25: financeiro — criar receita → baixar → ver no dashboard", async ({ page }) => {
+test("jornada 9/25: financeiro — criar receita → baixar → ver no dashboard", async ({
+  page,
+}) => {
   const suffix = Date.now();
   const categoryName = `Categoria E2E ${suffix}`;
   const costCenterName = `Centro E2E ${suffix}`;
@@ -32,7 +34,10 @@ test("jornada 9/25: financeiro — criar receita → baixar → ver no dashboard
   });
   expect(loginResponse.ok()).toBeTruthy();
   const { access_token: accessToken } = await loginResponse.json();
-  const headers = { "X-Tenant-Id": TENANT_ID, Authorization: `Bearer ${accessToken}` };
+  const headers = {
+    "X-Tenant-Id": TENANT_ID,
+    Authorization: `Bearer ${accessToken}`,
+  };
 
   const category = await (
     await api.post("/api/v1/financial-categories", {
@@ -42,7 +47,10 @@ test("jornada 9/25: financeiro — criar receita → baixar → ver no dashboard
   ).json();
   expect(category.id).toBeTruthy();
   const costCenter = await (
-    await api.post("/api/v1/cost-centers", { headers, data: { name: costCenterName } })
+    await api.post("/api/v1/cost-centers", {
+      headers,
+      data: { name: costCenterName },
+    })
   ).json();
   expect(costCenter.id).toBeTruthy();
   const account = await (
@@ -68,8 +76,12 @@ test("jornada 9/25: financeiro — criar receita → baixar → ver no dashboard
   await expect(page).toHaveURL(/\/transactions/);
 
   const dashboard = page.getByRole("region", { name: "Painel financeiro" });
-  const receitaCard = dashboard.getByText("Receita", { exact: true }).locator("..");
-  const receitaBefore = parseBrl((await receitaCard.locator(".text-2xl").innerText()) ?? "0");
+  const receitaCard = dashboard
+    .getByText("Receita", { exact: true })
+    .locator("..");
+  const receitaBefore = parseBrl(
+    (await receitaCard.locator(".text-2xl").innerText()) ?? "0",
+  );
 
   await page.getByRole("button", { name: "Novo lançamento" }).click();
   const dialog = page.getByRole("dialog");
@@ -84,7 +96,9 @@ test("jornada 9/25: financeiro — criar receita → baixar → ver no dashboard
   await page.getByRole("option", { name: costCenterName }).click();
 
   await dialog.getByLabel("Valor").fill("350,00");
-  await dialog.getByLabel("Vencimento").fill(new Date().toISOString().slice(0, 10));
+  await dialog
+    .getByLabel("Vencimento")
+    .fill(new Date().toISOString().slice(0, 10));
 
   await dialog.getByRole("button", { name: "Salvar" }).click();
   await expect(dialog).toBeHidden();
@@ -92,7 +106,10 @@ test("jornada 9/25: financeiro — criar receita → baixar → ver no dashboard
   // ---- baixar o lançamento recém-criado
   const row = page.getByRole("row", { name: categoryName });
   await row.getByRole("button", { name: "Baixar" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Confirmar" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Confirmar" })
+    .click();
   await expect(page.getByRole("dialog")).toBeHidden();
   await expect(row.getByText(/Pago em/)).toBeVisible();
 
@@ -101,7 +118,9 @@ test("jornada 9/25: financeiro — criar receita → baixar → ver no dashboard
   // jornada. O card "Saldo" depende da view materializada (regra 6/11), que só um
   // worker fora do escopo do e2e atualiza — não verificado aqui.
   await expect(async () => {
-    const receitaAfter = parseBrl((await receitaCard.locator(".text-2xl").innerText()) ?? "0");
+    const receitaAfter = parseBrl(
+      (await receitaCard.locator(".text-2xl").innerText()) ?? "0",
+    );
     expect(receitaAfter).toBe(receitaBefore + 350);
   }).toPass({ timeout: 5_000 });
 });

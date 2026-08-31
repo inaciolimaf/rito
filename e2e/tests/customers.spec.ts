@@ -4,7 +4,9 @@ const TENANT_ID = "00000000-0000-0000-0000-0000000000e2";
 const EMAIL = "e2e@rito.app";
 const PASSWORD = "SenhaE2E123!";
 
-test("jornada 3/25: contato — criar → filtrar → editar → arquivar", async ({ page }) => {
+test("jornada 3/25: contato — criar → filtrar → editar → arquivar", async ({
+  page,
+}) => {
   const name = `Contato E2E ${Date.now()}`;
   const updatedName = `${name} (editado)`;
 

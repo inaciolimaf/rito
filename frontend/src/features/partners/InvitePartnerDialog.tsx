@@ -88,10 +88,12 @@ export function InvitePartnerDialog({
                 ? "Convite enviado. A parceria fica pendente até o outro escritório aceitar."
                 : "Esse e-mail ainda não tem conta no Rito — enviamos um convite de cadastro. A parceria fica pendente."}
             </p>
-            <div className="space-y-1">
-              <Label htmlFor="invite-token">Código do convite</Label>
-              <Input id="invite-token" readOnly value={result.token} />
-            </div>
+            {/* Spec 102, regra 19: o código não é mais exibido aqui. Ele vai por e-mail
+                para quem foi convidado — mostrar o segredo para quem CRIOU o convite é o
+                contorno de não haver envio, não o contrato. */}
+            <p className="text-sm text-secondary">
+              O link de aceite foi enviado para o e-mail informado.
+            </p>
             <div className="flex justify-end">
               <Button type="button" onClick={() => onOpenChange(false)}>
                 Fechar

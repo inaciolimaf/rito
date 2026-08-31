@@ -5,6 +5,7 @@ from typing import cast
 from sqlalchemy import ColumnElement, CursorResult, func, select, update
 from sqlalchemy.orm import InstrumentedAttribute
 
+from app.core.listing import unaccented_contains
 from app.core.repository import BaseRepository
 from app.domain.action_groups.models import ActionGroup, LawsuitType
 
@@ -30,7 +31,7 @@ class ActionGroupRepository(BaseRepository[ActionGroup]):
         if is_active is not None:
             stmt = stmt.where(ActionGroup.is_active.is_(is_active))
         if query:
-            stmt = stmt.where(ActionGroup.name.ilike(f"%{query}%"))
+            stmt = stmt.where(unaccented_contains(ActionGroup.name, query))
         return (await self.session.scalars(stmt)).all()
 
     async def count_lawsuit_types(self, group_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, int]:
@@ -72,7 +73,7 @@ class LawsuitTypeRepository(BaseRepository[LawsuitType]):
         if is_active is not None:
             stmt = stmt.where(LawsuitType.is_active.is_(is_active))
         if query:
-            stmt = stmt.where(LawsuitType.name.ilike(f"%{query}%"))
+            stmt = stmt.where(unaccented_contains(LawsuitType.name, query))
         return (await self.session.scalars(stmt)).all()
 
     async def reassign_group(self, *, from_group_id: uuid.UUID, to_group_id: uuid.UUID) -> int:

@@ -100,6 +100,11 @@ class Settings(BaseSettings):
 
     # CSV de origens permitidas (CORS) — o frontend roda em porta diferente do backend em dev.
     cors_allowed_origins: str = "http://localhost:5173"
+    # Spec 102: a URL pública do front, usada para montar os links dos e-mails
+    # transacionais (recuperação de senha e convites). Separada de
+    # `cors_allowed_origins` de propósito — aquilo é uma LISTA de origens aceitas, e um
+    # link precisa de uma só, escolhida. Sem isto, o default vale para dev.
+    app_base_url: str = "http://localhost:5173"
 
 
 @lru_cache

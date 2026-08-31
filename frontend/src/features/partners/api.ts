@@ -23,7 +23,7 @@ export interface PartnershipData {
 export interface PartnershipInviteResult {
   partnership: PartnershipData;
   account_exists: boolean;
-  token: string;
+  // Sem `token`: desde a spec 102 o link vai por e-mail, não na resposta HTTP.
 }
 
 export interface SharedLawsuitData {

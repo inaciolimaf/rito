@@ -449,9 +449,10 @@ O roadmap das 100 virou histórico. Daqui em diante a fila é esta, no mesmo cic
 O corte previsto na Nota de execução da spec foi aplicado: treze itens em cinco blocos não fecham num ciclo. Entregues os **cinco stubs** cuja dependência já tinha chegado (etapas, origens, contatos com processo ativo, categorias/centros, contas) e o **acerto do registro**. Fecha as dívidas 13, 15, 16 e 20; numera a do `SAVEPOINT` como 21 e registra as novas 22-25.
 **Aceite:** excluir em uso devolve 409 e não 500; saldo bancário é o saldo; `has_active_lawsuit` filtra de verdade; dois meta-testes impedem a reincidência (o terceiro depende de `/settings`, na 102). **t:** ~11 s. **Deps:** 015, 016, 019, 022, 023, 054, 055, 056, 058
 
-### ⬜ 102 — Taxonomias sem acento e navegação que existe (Blocos B + C da 101)
+### ✅ 102 — Taxonomias sem acento e navegação que existe (Blocos B + C da 101)
 Índice único normalizado em `squads` com migration de dado (dívida 11), busca `q` sem acento nas 5 taxonomias (dívida 12), a rota `/settings` (dívida 24), a tela `/accept-invite` (dívida 9) e o e-mail transacional dos três fluxos de autenticação.
 **Aceite:** "Timé A" colide com "TIME A"; `/settings` abre; meta-teste deriva as rotas de `NAV_ITEMS` em vez de copiá-las; convite não devolve token no corpo. **t:** 6 s. **Deps:** 101
+Fecha as dívidas 9, 10, 11, 12 e 24. O meta-teste de rotas achou um segundo item quebrado no mesmo ciclo (`/posts`, "Atividades") — sem tela, virou a dívida 26 com redirect como contorno.
 
 ### ⬜ 103 — `SAVEPOINT` no avanço do nó (Bloco D da 101)
 A dívida nº 21: `asyncio.wait_for` cancela no meio de uma query e deixa a sessão inutilizável, então o próprio `_fail()` que registraria o timeout falha com `PendingRollbackError`.

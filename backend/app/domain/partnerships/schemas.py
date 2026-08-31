@@ -38,7 +38,8 @@ class PartnershipInviteResponse(BaseModel):
     # Regra 2: e-mail sem conta no Rito recebe convite de CADASTRO — a UI avisa que a
     # parceria só fica ativa depois que o escritório convidado criar a conta.
     account_exists: bool
-    token: str
+    # Sem `token`: desde a spec 102 (regra 19) o link vai por e-mail. Ver o comentário
+    # em `invite_partner`.
 
 
 class ShareLawsuitRequest(BaseModel):

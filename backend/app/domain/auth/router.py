@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_redis, get_session, get_tenant_id
+from app.core.deps import get_redis, get_session, get_tenant_id, get_transactional_email
 from app.core.permissions import capabilities_for
+from app.core.transactional_email import TransactionalEmailSender
 from app.domain.auth.deps import get_current_user
 from app.domain.auth.exceptions import (
     InvalidCredentialsError,
@@ -102,9 +103,17 @@ async def forgot_password(
     tenant_id: uuid.UUID = Depends(get_tenant_id),
     session: AsyncSession = Depends(get_session),
     redis: Redis = Depends(get_redis),
+    email_sender: TransactionalEmailSender = Depends(get_transactional_email),
 ) -> None:
     service = AuthService(session=session, redis=redis, tenant_id=tenant_id)
-    await service.forgot_password(payload.email)
+    token = await service.forgot_password(payload.email)
+    # Regra 18: o e-mail sai, mas a resposta é 202 vazia com ou sem usuário encontrado —
+    # `token is None` significa "e-mail não cadastrado" e NÃO pode virar 404, senão a
+    # rota vira um oráculo de quais e-mails existem (regra da spec 004, preservada).
+    if token is not None:
+        await email_sender.send_password_reset(
+            to=payload.email, token=token, tenant_id=str(tenant_id)
+        )
 
 
 @router.post("/reset-password", status_code=204)

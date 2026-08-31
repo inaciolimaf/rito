@@ -380,3 +380,36 @@ def test_toda_divida_aberta_tem_numero_e_alvo_no_futuro() -> None:
                 )
 
     assert not problemas, "DIVIDA-TECNICA.md fora da própria regra:\n" + "\n".join(problemas)
+
+
+def test_toda_rota_do_menu_lateral_existe_em_app_tsx() -> None:
+    """Regra 17 da spec 101/102: todo `path` de `NAV_ITEMS` resolve para uma rota
+    declarada em `App.tsx`.
+
+    O `/settings` sobreviveu 92 specs apontando para lugar nenhum — clicar em
+    "Configurações" caía no `NotFoundPage`. As duas coisas que deveriam ter pego
+    olhavam para o lado errado: `Sidebar.test.tsx` percorre `NAV_ITEMS` só para conferir
+    que o link RENDERIZA (um link para uma rota inexistente renderiza igualzinho), e a
+    jornada e2e "navegar por todos os módulos" iterava uma cópia manual da lista, que
+    omitia justamente Financeiro, Configurações e Conta e assinatura.
+
+    Aqui o cruzamento é entre as duas fontes reais: o menu e o roteador.
+    """
+    nav = (FRONT / "components" / "shell" / "navItems.ts").read_text(encoding="utf-8")
+    app_tsx = (FRONT / "App.tsx").read_text(encoding="utf-8")
+
+    caminhos_do_menu = re.findall(r'path:\s*"([^"]+)"', nav)
+    assert caminhos_do_menu, "navItems.ts sem nenhum path — regex de leitura quebrou"
+
+    rotas = set(re.findall(r'<Route\s+path="([^"]+)"', app_tsx))
+    # `<Route path="/x" element={...}>` pode estar quebrado em várias linhas pelo
+    # prettier; a segunda forma pega esses.
+    rotas |= set(re.findall(r'path="([^"]+)"', app_tsx))
+    assert rotas, "App.tsx sem nenhuma rota — regex de leitura quebrou"
+
+    faltando = [caminho for caminho in caminhos_do_menu if caminho not in rotas]
+
+    assert not faltando, (
+        "item do menu aponta para rota que não existe em App.tsx (cai no NotFoundPage): "
+        f"{faltando}"
+    )

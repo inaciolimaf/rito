@@ -24,7 +24,10 @@ function countJourneysIn(dir: string): { file: string; count: number }[] {
     } else if (entry.name.endsWith(".spec.ts")) {
       const text = readFileSync(fullPath, "utf-8");
       const matches = text.match(TEST_CALL_PATTERN);
-      results.push({ file: path.relative(TESTS_DIR, fullPath), count: matches?.length ?? 0 });
+      results.push({
+        file: path.relative(TESTS_DIR, fullPath),
+        count: matches?.length ?? 0,
+      });
     }
   }
   return results;

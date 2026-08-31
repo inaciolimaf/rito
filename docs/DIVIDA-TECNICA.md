@@ -136,7 +136,7 @@ determinístico o suficiente para um teste confiável.
 **Spec-alvo:** nenhuma — aceito, mesma categoria do item 6 (código correto, caminho de
 erro só exercitável por condição de corrida real).
 
-## 9. Sem página de "aceitar convite" no frontend
+## 9. ~~Sem página de "aceitar convite" no frontend~~ — RESOLVIDO na spec 102
 
 `POST /api/v1/invitations/accept` existe e está testado (spec 012), mas a seção 6
 ("Front-end") da spec só lista `/settings/users` e `/settings/users/:id` — nenhuma rota
@@ -148,7 +148,7 @@ também não existe — sem infra de e-mail, ver regras 1-2) não tem para onde 
 de senha) — as duas coisas (enviar o e-mail e ter uma página que recebe o clique)
 precisam nascer juntas.
 
-## 10. `/settings/users` não tem link de navegação — só acessível por URL direta
+## 10. ~~`/settings/users` sem link de navegação~~ — RESOLVIDO na spec 102
 
 `/settings` continua sendo o placeholder genérico (nenhuma spec ainda construiu uma
 "home" de Configurações com sub-navegação, diferente de "Conta e assinatura" na 011, que
@@ -159,7 +159,11 @@ tinha um único sub-item e pôde redirecionar direto). `/settings/users` e
 roadmap) — ela precisa linkar para `/settings/users` e para os módulos de configuração
 das specs 013+.
 
-## 11. `squads` é a única das 5 taxonomias simples (013-019) com nome único sensível a
+## 11. ~~`squads` com nome único sensível a caixa/acento~~ — RESOLVIDO na spec 102
+
+Texto original:
+
+### `squads` é a única das 5 taxonomias simples (013-019) com nome único sensível a
     maiúsculas/acento
 
 `uq_squads_tenant_name` (spec 013) é `UNIQUE(tenant_id, name)` puro — as outras 4
@@ -174,7 +178,11 @@ passariam a colidir com 409) — proibido em spec de refatoração (CLAUDE.md §
 spec que mexer no CRUD de times, com uma migration de dado (decidir o que fazer com times
 duplicados que já existem) além do índice.
 
-## 12. Busca textual das 5 taxonomias simples (013-019) não ignora acento, diferente de
+## 12. ~~Busca textual das 5 taxonomias não ignora acento~~ — RESOLVIDO na spec 102
+
+Texto original:
+
+### Busca textual das 5 taxonomias simples (013-019) não ignora acento, diferente de
     `customers` (019)
 
 `CustomerOriginRepository.list_filtered`, `ActionGroupRepository.list_filtered`,
@@ -487,7 +495,7 @@ porque os testes existentes verificavam o stub.
 
 **Resolvido na 101** (regras 5-6, Bloco A).
 
-## 24. Rota `/settings` não existe — o item "Configurações" da sidebar cai no NotFoundPage
+## 24. ~~Rota `/settings` não existe~~ — RESOLVIDO na spec 102
 
 `navItems.ts` aponta para `/settings` desde a spec 008. A rota nunca foi declarada em
 `App.tsx`: clicar em "Configurações" leva ao `NotFoundPage`.
@@ -515,3 +523,24 @@ vale como prova de que o meta-teste funciona em caso que ninguém tinha mapeado.
 **Spec-alvo:** 123 — calcular sobre `posts` ou remover o campo do contrato. Devolver um
 campo sempre nulo é pior que não ter o campo: o front não distingue "nunca atribuído" de
 "não calculado".
+
+
+## 26. "Atividades" não tem tela de listagem
+
+`navItems.ts` aponta "Atividades" para `/posts` desde a spec 008, e a rota nunca existiu —
+o item caía no `NotFoundPage`, exatamente como o `/settings` (item 24). Achado pelo
+meta-teste `test_toda_rota_do_menu_lateral_existe_em_app_tsx` **no mesmo ciclo em que ele
+foi escrito**, num caso que nenhuma das 100 specs tinha mapeado.
+
+Diferente do 24, aqui não faltava só a rota: a **tela** não existe. Só há
+`PostDetailPage` (`/posts/:id`); a listagem de atividades — com filtros, seleção em massa
+e export, como as outras listagens do CLAUDE.md §6 — nunca foi especificada.
+
+**Contorno na 102:** `/posts` redireciona para `/home` (o painel de tarefas), mesmo padrão
+do atalho `/goals` da spec 028. O usuário deixa de cair num 404 e vai para o lugar mais
+próximo do que pediu. O que **não** foi feito, de propósito, é silenciar o meta-teste com
+uma lista de exceções: um gate que aceita exceção por arquivo deixa de morder (é o alerta
+que a própria spec 110 registra).
+
+**Spec-alvo:** 124 — a listagem de atividades como tela própria, reaproveitando
+`DataTable`/`FilterBar`/`useListPage`. Enquanto ela não existir, o redirect fica.

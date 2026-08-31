@@ -18,10 +18,16 @@ test("jornada 5/25: criar tarefa → aparece na caixa de entrada → concluir em
   });
   expect(loginResponse.ok()).toBeTruthy();
   const { access_token: accessToken } = await loginResponse.json();
-  const headers = { "X-Tenant-Id": TENANT_ID, Authorization: `Bearer ${accessToken}` };
+  const headers = {
+    "X-Tenant-Id": TENANT_ID,
+    Authorization: `Bearer ${accessToken}`,
+  };
 
   const group = await (
-    await api.post("/api/v1/action-groups", { headers, data: { name: `Grupo E2E ${suffix}` } })
+    await api.post("/api/v1/action-groups", {
+      headers,
+      data: { name: `Grupo E2E ${suffix}` },
+    })
   ).json();
   const lawsuitType = await (
     await api.post("/api/v1/lawsuit-types", {
@@ -30,13 +36,22 @@ test("jornada 5/25: criar tarefa → aparece na caixa de entrada → concluir em
     })
   ).json();
   const stage = await (
-    await api.post("/api/v1/stages", { headers, data: { name: `Etapa E2E ${suffix}`, step_id: 1 } })
+    await api.post("/api/v1/stages", {
+      headers,
+      data: { name: `Etapa E2E ${suffix}`, step_id: 1 },
+    })
   ).json();
-  const origins = await (await api.get("/api/v1/customer-origins", { headers })).json();
+  const origins = await (
+    await api.get("/api/v1/customer-origins", { headers })
+  ).json();
   const customer = await (
     await api.post("/api/v1/customers", {
       headers,
-      data: { type: "PF", name: `Cliente E2E ${suffix}`, origin_id: origins.items[0].id },
+      data: {
+        type: "PF",
+        name: `Cliente E2E ${suffix}`,
+        origin_id: origins.items[0].id,
+      },
     })
   ).json();
   const me = await (await api.get("/api/v1/auth/me", { headers })).json();
@@ -53,7 +68,10 @@ test("jornada 5/25: criar tarefa → aparece na caixa de entrada → concluir em
   ).json();
   const taskTypeName = `Tarefa E2E ${suffix}`;
   const taskType = await (
-    await api.post("/api/v1/task-types", { headers, data: { name: taskTypeName, reward: 5 } })
+    await api.post("/api/v1/task-types", {
+      headers,
+      data: { name: taskTypeName, reward: 5 },
+    })
   ).json();
   const post = await (
     await api.post("/api/v1/posts", {

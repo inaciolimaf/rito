@@ -19,10 +19,16 @@ test("jornada 4/25: processo — criar → filtrar por visão → abrir timeline
   });
   expect(loginResponse.ok()).toBeTruthy();
   const { access_token: accessToken } = await loginResponse.json();
-  const headers = { "X-Tenant-Id": TENANT_ID, Authorization: `Bearer ${accessToken}` };
+  const headers = {
+    "X-Tenant-Id": TENANT_ID,
+    Authorization: `Bearer ${accessToken}`,
+  };
 
   const group = await (
-    await api.post("/api/v1/action-groups", { headers, data: { name: `Grupo E2E ${suffix}` } })
+    await api.post("/api/v1/action-groups", {
+      headers,
+      data: { name: `Grupo E2E ${suffix}` },
+    })
   ).json();
   await api.post("/api/v1/lawsuit-types", {
     headers,
@@ -58,11 +64,17 @@ test("jornada 4/25: processo — criar → filtrar por visão → abrir timeline
   await dialog.getByLabel("Responsável").fill("Usuário E2E");
   await page.getByRole("option", { name: "Usuário E2E" }).click();
 
-  await dialog.getByLabel("Grupo de ação").selectOption({ label: `Grupo E2E ${suffix}` });
-  await dialog.getByLabel("Tipo de ação").selectOption({ label: `Tipo E2E ${suffix}` });
+  await dialog
+    .getByLabel("Grupo de ação")
+    .selectOption({ label: `Grupo E2E ${suffix}` });
+  await dialog
+    .getByLabel("Tipo de ação")
+    .selectOption({ label: `Tipo E2E ${suffix}` });
 
   await dialog.getByLabel("Fase").selectOption({ label: "Marketing" });
-  await dialog.getByLabel("Etapa").selectOption({ label: `Etapa E2E ${suffix}` });
+  await dialog
+    .getByLabel("Etapa")
+    .selectOption({ label: `Etapa E2E ${suffix}` });
 
   await dialog.getByLabel("Adicionar partes envolvidas").fill(customerName);
   await page.getByRole("option", { name: customerName }).click();
@@ -78,5 +90,7 @@ test("jornada 4/25: processo — criar → filtrar por visão → abrir timeline
   // ---- abrir o detalhe: a timeline é a tela principal
   await page.getByRole("button", { name: "Abrir" }).first().click();
   await expect(page).toHaveURL(/\/lawsuits\/[0-9a-f-]{36}/);
-  await expect(page.getByRole("button", { name: "Nova movimentação" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Nova movimentação" }),
+  ).toBeVisible();
 });

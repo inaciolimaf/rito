@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping
 from datetime import date, datetime, time
 from typing import Any
 
-from sqlalchemy import ColumnElement, DateTime, Select, literal, tuple_
+from sqlalchemy import ColumnElement, DateTime, Select, func, literal, tuple_
 from sqlalchemy.orm import InstrumentedAttribute
 
 Predicate = ColumnElement[bool]
@@ -41,6 +41,23 @@ def date_range(column: Column, start: date | None, end: date | None) -> list[Pre
     if end is not None:
         conditions.append(column <= end)
     return conditions
+
+
+def unaccented_contains(column: Column, query: str) -> Predicate:
+    """Busca parcial que ignora acento E caixa — "etica" acha "Ética" e vice-versa.
+
+    Extraído na spec 102 (dívida nº 12): as 5 taxonomias simples (013-019) filtravam com
+    `name.ilike("%q%")` puro, que ignora caixa mas não acento, enquanto
+    `CustomerRepository.list_filtered` já fazia a busca sem acento desde a 019 — quem
+    procurava "etica" na lista de etapas não achava "Ética", e quem procurava "Ética" na
+    de contatos achava. Duas buscas com a mesma cara e resultados diferentes.
+
+    `unaccent` (não `immutable_unaccent`): o wrapper IMMUTABLE existe para expressão de
+    ÍNDICE (migrations 014/102). Num predicado de WHERE a função normal serve, e é a que
+    o resto do código já usa em filtro.
+    """
+    padrao = func.concat("%", func.unaccent(func.lower(literal(query))), "%")
+    return func.unaccent(func.lower(column)).ilike(padrao)
 
 
 def paginate_keyset[StmtT: Select[Any]](

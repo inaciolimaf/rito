@@ -3,6 +3,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import func, select, update
 
+from app.core.listing import unaccented_contains
 from app.core.repository import BaseRepository
 from app.domain.customer_origins.models import CustomerOrigin
 
@@ -25,7 +26,7 @@ class CustomerOriginRepository(BaseRepository[CustomerOrigin]):
         if is_active is not None:
             stmt = stmt.where(CustomerOrigin.is_active.is_(is_active))
         if query:
-            stmt = stmt.where(CustomerOrigin.name.ilike(f"%{query}%"))
+            stmt = stmt.where(unaccented_contains(CustomerOrigin.name, query))
         return (await self.session.scalars(stmt)).all()
 
     async def usage_count(self, origin_id: uuid.UUID) -> int:

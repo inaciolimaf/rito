@@ -6,7 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_transactional_email
 from app.core.permissions import UserRole, require_role
+from app.core.transactional_email import TransactionalEmailSender
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.partnerships.exceptions import (
     InvalidInviteError,
@@ -245,6 +247,7 @@ async def invite_partner(
     payload: PartnershipInviteRequest,
     current_user: User = Depends(require_role(UserRole.GESTOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    email_sender: TransactionalEmailSender = Depends(get_transactional_email),
 ) -> PartnershipInviteResponse:
     service = _service(session, current_user)
     try:
@@ -255,13 +258,19 @@ async def invite_partner(
         raise HTTPException(
             status_code=409, detail="Já existe convite ou parceria para este e-mail."
         ) from exc
-    # `token` na resposta pelo mesmo motivo do convite de usuário (spec 012): sem infra
-    # de e-mail, quem convida repassa o link. `account_exists` distingue os dois convites
-    # da regra 2 (parceria x cadastro).
+    # Regra 19 (spec 102): o token vai por e-mail e NÃO volta no corpo. Devolvê-lo era o
+    # contorno de não haver envio (spec 079) — um segredo de uso único não deve trafegar
+    # para quem pediu a criação, e sim para quem vai usá-lo. `account_exists` continua,
+    # que é o que distingue os dois convites da regra 2 (parceria x cadastro).
+    nomes = await service.partnerships.tenant_names({current_user.tenant_id})
+    await email_sender.send_partnership_invite(
+        to=str(payload.email),
+        token=token,
+        office_name=nomes.get(current_user.tenant_id, "um escritório"),
+    )
     return PartnershipInviteResponse(
         partnership=_to_partnership_response(view),
         account_exists=account_exists,
-        token=token,
     )
 
 

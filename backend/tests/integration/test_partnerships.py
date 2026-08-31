@@ -17,6 +17,7 @@ from httpx import AsyncClient
 
 from app.domain.users.models import FinancialAccess, UserRole
 from tests.integration.conftest import SeededUser
+from tests.integration.email_capture import capture_emails
 from tests.integration.test_lawsuits import (
     _auth_header,
     _create_customer,
@@ -39,11 +40,21 @@ class Scenario:
 
 
 async def _invite(client: AsyncClient, headers: dict[str, str], email: str) -> dict[str, Any]:
-    response = await client.post(
-        "/api/v1/partnerships/invite", json={"email": email}, headers=headers
-    )
-    assert response.status_code == 201, response.text
-    return dict(response.json())
+    """Convida e devolve a resposta com o `token` reposto a partir do E-MAIL.
+
+    Desde a spec 102 (regra 19) o token não volta no corpo da resposta — ele vai no link
+    do e-mail. O helper captura o envio e recoloca o token no dicionário para os testes
+    seguirem lendo `invite["token"]`, agora pelo caminho por onde ele realmente passa.
+    """
+    with capture_emails() as canal:
+        response = await client.post(
+            "/api/v1/partnerships/invite", json={"email": email}, headers=headers
+        )
+        assert response.status_code == 201, response.text
+        corpo = dict(response.json())
+        assert "token" not in corpo, "regra 19: o token não pode voltar na resposta HTTP"
+        corpo["token"] = canal.token_para(email)
+    return corpo
 
 
 async def _setup(

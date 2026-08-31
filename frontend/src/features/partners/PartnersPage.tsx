@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { DataTable } from "@/components/domain/DataTable";
@@ -50,7 +51,12 @@ export function PartnersPage(): JSX.Element {
   const queryClient = useQueryClient();
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [pendingEnd, setPendingEnd] = React.useState<PartnershipData | null>(null);
-  const [token, setToken] = React.useState("");
+  // Spec 102: o e-mail de convite de parceria aponta para /partners?invite=<token>.
+  // Aceitar exige um GESTOR autenticado (o backend passa por require_role), então o
+  // link não pode ser a tela pré-login de /accept-invite — ele chega aqui já logado e o
+  // campo vem preenchido, em vez de exigir copiar e colar do e-mail.
+  const [searchParams] = useSearchParams();
+  const [token, setToken] = React.useState(() => searchParams.get("invite") ?? "");
   const [acceptError, setAcceptError] = React.useState<string | null>(null);
 
   const { data: summary } = useQuery({

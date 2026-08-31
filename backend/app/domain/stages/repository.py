@@ -3,6 +3,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import func, select, update
 
+from app.core.listing import unaccented_contains
 from app.core.repository import BaseRepository
 from app.domain.stages.models import Stage, Step
 
@@ -57,7 +58,7 @@ class StageRepository(BaseRepository[Stage]):
         if is_active is not None:
             stmt = stmt.where(Stage.is_active.is_(is_active))
         if query:
-            stmt = stmt.where(Stage.name.ilike(f"%{query}%"))
+            stmt = stmt.where(unaccented_contains(Stage.name, query))
         return (await self.session.scalars(stmt)).all()
 
     async def get_many_by_id(self, stage_ids: list[uuid.UUID]) -> Sequence[Stage]:

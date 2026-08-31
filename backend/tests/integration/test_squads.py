@@ -267,3 +267,47 @@ async def test_listagem_filtra_por_status(
     ids = {item["id"] for item in response.json()["items"]}
     assert squad_id in ids
     assert all(not item["is_active"] for item in response.json()["items"])
+
+
+async def test_nome_de_time_colide_ignorando_caixa_e_acento(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 102, regra 13 (dívida nº 11). `squads` era a única das 5 taxonomias em que
+    "Time A", "TIME A" e "Timé A" conviviam."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    criado = await client.post("/api/v1/squads", json={"name": "Time Ética"}, headers=headers)
+    assert criado.status_code == 201, criado.text
+
+    for colidente in ("TIME ÉTICA", "time etica", "Timé Etica"):
+        resposta = await client.post("/api/v1/squads", json={"name": colidente}, headers=headers)
+        assert resposta.status_code == 409, f"{colidente!r} deveria colidir: {resposta.text}"
+
+    # Nome de fato diferente continua passando.
+    outro = await client.post("/api/v1/squads", json={"name": "Time Cível"}, headers=headers)
+    assert outro.status_code == 201, outro.text
+
+
+async def test_renomear_time_para_nome_colidente_retorna_409(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 102, regra 13 no PUT — o mesmo nome dele próprio continua passando."""
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    primeiro = await client.post("/api/v1/squads", json={"name": "Trabalhista"}, headers=headers)
+    segundo = await client.post("/api/v1/squads", json={"name": "Previdenciário"}, headers=headers)
+    assert primeiro.status_code == 201 and segundo.status_code == 201
+
+    colisao = await client.put(
+        f"/api/v1/squads/{segundo.json()['id']}",
+        json={"name": "TRABALHISTA", "is_active": True, "member_ids": []},
+        headers=headers,
+    )
+    assert colisao.status_code == 409
+
+    proprio = await client.put(
+        f"/api/v1/squads/{segundo.json()['id']}",
+        json={"name": "Previdenciário", "is_active": True, "member_ids": []},
+        headers=headers,
+    )
+    assert proprio.status_code == 200

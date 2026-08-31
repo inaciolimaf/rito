@@ -13,7 +13,10 @@ class Squad(TenantMixin, Base):
     (032, fora de escopo aqui)."""
 
     __tablename__ = "squads"
-    __table_args__ = (UniqueConstraint("tenant_id", "name", name="uq_squads_tenant_name"),)
+    # A unicidade de nome é um ÍNDICE FUNCIONAL sobre immutable_unaccent(lower(name))
+    # (migration 102, dívida nº 11) — expressão não é declarável em __table_args__,
+    # igual às outras quatro taxonomias (014/015/016). Por isso não há
+    # UniqueConstraint aqui: a regra vive no banco, não no modelo.
 
     name: Mapped[str]
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))

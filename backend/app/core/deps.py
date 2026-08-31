@@ -6,7 +6,9 @@ from fastapi import Depends, Header, HTTPException, Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.rls import set_tenant_context
+from app.core.transactional_email import TransactionalEmailSender
 from app.integrations.messaging.base import MessagingChannel
 from app.integrations.messaging.document_email import DocumentMailer
 from app.integrations.ocr.base import OcrProvider
@@ -61,3 +63,10 @@ async def get_messaging_channels(request: Request) -> Mapping[str, MessagingChan
 
 async def get_document_mailer(request: Request) -> DocumentMailer:
     return cast(DocumentMailer, request.app.state.document_mailer)
+
+
+async def get_transactional_email(request: Request) -> TransactionalEmailSender:
+    """Spec 102: o remetente dos e-mails dos 3 fluxos de autenticação. Monta em cima do
+    canal EMAIL já registrado — mesmas credenciais SMTP, nenhuma configuração nova."""
+    channels = cast(Mapping[str, MessagingChannel], request.app.state.messaging_channels)
+    return TransactionalEmailSender(channel=channels["EMAIL"], base_url=get_settings().app_base_url)

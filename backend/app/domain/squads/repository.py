@@ -1,8 +1,9 @@
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 
+from app.core.listing import unaccented_contains
 from app.core.repository import BaseRepository, build_sorted_keyset_query
 from app.domain.squads.models import Squad, SquadMember
 from app.domain.users.models import User
@@ -12,7 +13,17 @@ class SquadRepository(BaseRepository[Squad]):
     model = Squad
 
     async def get_by_name(self, name: str) -> Squad | None:
-        result = await self.session.scalars(select(Squad).where(Squad.name == name))
+        """Comparação normalizada (spec 102, dívida nº 11): a igualdade que interessa é
+        "mesmo nome para um humano", não igualdade de bytes. Antes era `Squad.name ==
+        name` literal, então "Time A", "TIME A" e "Timé A" conviviam — `squads` era a
+        única das 5 taxonomias assim; as outras quatro comparam desacentuado desde a
+        014/015/016. O índice único da migration 102 usa a MESMA expressão, então o 409
+        do serviço e a constraint do banco concordam."""
+        result = await self.session.scalars(
+            select(Squad).where(
+                func.unaccent(func.lower(Squad.name)) == func.unaccent(func.lower(name))
+            )
+        )
         return result.first()
 
     async def list_filtered(
@@ -23,11 +34,13 @@ class SquadRepository(BaseRepository[Squad]):
         cursor: tuple[str, uuid.UUID] | None = None,
         limit: int = 20,
     ) -> tuple[Sequence[Squad], int]:
-        filters = []
+        # Anotado: `is_()` devolve BinaryExpression e `unaccented_contains` devolve o
+        # ColumnElement mais geral — sem a anotação o mypy infere a lista pela 1ª linha.
+        filters: list[ColumnElement[bool]] = []
         if is_active is not None:
             filters.append(Squad.is_active.is_(is_active))
         if query:
-            filters.append(Squad.name.ilike(f"%{query}%"))
+            filters.append(unaccented_contains(Squad.name, query))
 
         count_stmt = select(func.count()).select_from(Squad)
         for condition in filters:

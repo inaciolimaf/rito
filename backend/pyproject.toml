@@ -75,12 +75,25 @@ select = [
     "ASYNC",
     "DTZ",
     "C90",
+    "PLR0912",
     "PLR0915",
 ]
 # B008: Depends()/Header() em default de parâmetro é o idioma padrão do FastAPI.
 ignore = ["B008"]
 
 [tool.ruff.lint.pylint]
+# Spec 111. `max-branches` em 8, não nos 12 do padrão da regra. Medido em 02/09/2026: com o
+# `max-complexity = 6` da 106 em vigor, a função mais ramificada do projeto tem 8 ramos e
+# NENHUMA chega a 9 — um teto em 12 seria decoração, uma regra que não pode disparar.
+#
+# 8 não é redundante com o `C901`: as duas contam coisas diferentes. O `else` de um `if` é
+# 1 ramo para o `PLR0912` e 0 decisões para o mccabe, então `run_due_syncs` fica em C901 6
+# (no teto) e 8 ramos. Ramificação LARGA escapa do gate de complexidade; é isso que este
+# pega.
+#
+# Como o teto da 106, este número SÓ DESCE.
+max-branches = 8
+
 # Spec 109. `max-statements` no padrão da regra (50) — o `C901` da 106 mede DECISÕES e
 # este mede TAMANHO, e as duas coisas são independentes: `create_app` tinha complexidade
 # ciclomática 1 (nenhum `if`) e 70 statements, e nenhum gate a alcançava.

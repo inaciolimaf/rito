@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 142,
+  "last_measured_wall_clock_seconds": 151,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -370,6 +370,10 @@
     "109": {
       "wall_clock_seconds": 136,
       "notes": "PLR0915 (statements demais) no select, teto default de 50. 1580 backend (1576 da 106 + 4 meta de fiação do app: ordem dos três middlewares, as duas ordens de rota deliberadas, todo router importado registrado, e nenhuma rota fora de /api/v1 sem exceção declarada) + 313 frontend + 10 e2e. Eram 4 funções acima de 50; a 106 resolveu 3 — sobrou create_app (70), que o C901 nunca ia alcançar porque sua complexidade ciclomática é 1. A decomposição proposta pela spec não passava no próprio gate (_register_routers teria 61 statements), então as 61 chamadas a include_router viraram a tabela _ROUTERS. Contrato inalterado: 311 caminhos, 384 operações, e a ORDEM dos 311 idêntica à do HEAD limpo — verificada em git worktree, porque o dump de referência foi gravado com sort_keys=True e não guarda ordem. Os 4 meta-testes custam 2,0 s e foram provados mordendo, um defeito de cada vez. Wall-clock 136 s de 300 s."
+    },
+    "111": {
+      "wall_clock_seconds": 151,
+      "notes": "PLR0912 (ramos demais) no select, em 8 e nao nos 12 do padrao — a 12 a regra nao poderia disparar, porque com o max-complexity=6 da 106 a funcao mais ramificada do projeto tem 8 ramos. Zero violacoes: as seis da spec ja tinham caido na 106. 1591 backend (1580 da 109 + 11 de exaustividade de tabela de despacho: _ACOES vs ActionKind nos dois sentidos, OPERATORS vs _OPERADORES + _compare nos dois sentidos, catalogo de variaveis vs os quatro mapas de campo nos dois sentidos, namespaces vs _RESOLVERS, e as tabelas de UserRole, FinancialAccess, AgingBucket e REPORT_KEYS) + 313 frontend + 10 e2e. Nenhuma linha de app/ alterada. Os 11 custam 0,16 s e foram provados mordendo, uma chave removida de cada tabela. Achado: PLR0912 NAO e redundante com C901 — o else e 1 ramo e 0 decisoes, entao run_due_syncs fica em C901 6 e 8 ramos."
     }
   },
   "specs_concluidas": 100

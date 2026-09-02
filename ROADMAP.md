@@ -504,8 +504,8 @@ Eram quatro acima de 50 statements; a 106 resolveu três. Sobrou `create_app` (7
 Pente fino em 101 e 104–109. Auditar faixa de specs de qualidade é diferente de auditar features: o risco não é código ruim ter entrado, é gate ligado ter deixado de morder. Confere que o wall-clock voltou, que a contagem de `noqa` não cresceu e que nenhum gate foi silenciado por arquivo em vez de corrigido na origem.
 **Aceite:** wall-clock ≤ 200 s; suíte rodada em ordem invertida ao menos uma vez; sem mudança de comportamento. **t:** −. **Deps:** 101, 104–109
 
-### ⬜ 111 — PLR0912: ramos demais
-Seis funções acima de 12 ramos, cinco delas o mesmo padrão: despacho por valor escrito como cadeia de `if/elif`. Viram tabela de despacho exaustiva sobre o enum, o que torna «caso novo não tratado» um erro de mypy.
+### ✅ 111 — PLR0912: ramos demais
+As seis já tinham caído na 106. O teto entrou em **8** e não nos 12 do padrão, porque a 12 a regra não poderia disparar — e `PLR0912` não é redundante com o `C901`: o `else` é 1 ramo e 0 decisões, então `run_due_syncs` tem C901 6 e 8 ramos. O trabalho virou a exaustividade das tabelas que a 106 criou: 11 testes sobre 13 tabelas.
 **Aceite:** gate verde; teste que prova a exaustividade de cada tabela. **t:** 0 s. **Deps:** 106, 109
 
 ### ⬜ 112 — PLR0911: returns demais

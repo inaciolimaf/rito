@@ -164,13 +164,17 @@ def test_catalogo_traz_preco_por_token_e_calcula_custo() -> None:
 async def test_provider_le_catalogo_e_completion_de_fixture_gravada() -> None:
     """Regra 12: o caminho completo do client — payload, transporte e parse — exercitado
     contra fixture em disco. Nenhum byte sai da máquina."""
+    import asyncio
     from pathlib import Path
 
     from app.integrations.http.client import ResilientHttpClient
     from app.integrations.http.fixtures import FixtureTransport
     from app.integrations.openrouter.client import OpenRouterProvider
 
-    root = Path(__file__).resolve().parents[1] / "fixtures" / "llm"
+    # Spec 108: `.resolve()` toca o disco. Vai para uma thread como o resto do projeto
+    # (`asyncio.to_thread`), e continua devolvendo `pathlib.Path` — `FixtureTransport`
+    # espera a API síncrona.
+    root = (await asyncio.to_thread(Path(__file__).resolve)).parents[1] / "fixtures" / "llm"
     http = ResilientHttpClient(transport=FixtureTransport(root))
     provider = OpenRouterProvider(
         http=http, api_key="chave-de-teste", base_url="https://openrouter.ai/api/v1"

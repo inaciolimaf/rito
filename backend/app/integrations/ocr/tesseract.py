@@ -58,7 +58,11 @@ class TesseractOcr:
         await self._run(
             [self._pdf_renderer, "-r", _PDF_DPI, "-png", str(origem), str(pasta / "pagina")]
         )
-        return sorted(pasta.glob("pagina-*.png"))
+        # Spec 108: o `glob` varre o diretório, e varrer diretório dentro de corrotina
+        # trava o event loop de todas as requisições em voo. Vai para uma thread pelo
+        # mesmo `asyncio.to_thread` que `integrations/storage/s3.py` usa no boto3 — a
+        # stdlib basta aqui, e `anyio` não é dependência declarada deste projeto.
+        return await asyncio.to_thread(lambda: sorted(pasta.glob("pagina-*.png")))
 
     async def _run_tesseract(self, imagem: Path) -> str:
         saida = await self._run([self._binary, str(imagem), "stdout", "-l", _LANGUAGES])

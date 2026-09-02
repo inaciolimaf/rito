@@ -490,9 +490,11 @@ Quatro famílias com zero violações hoje; `ERA001` tem 2, ambas em migration c
 **Aceite:** as cinco no `select`; nenhuma linha de `app/`, `tests/` ou `scripts/` alterada. **t:** 0 s. **Deps:** —
 Recontagem no HEAD: sem drift — as mesmas 2 `ERA001`, nas mesmas duas migrations. Quatro das cinco famílias entraram com zero violação, que é o ponto: o gate trava um comportamento que o projeto já tinha, antes que ele se perca.
 
-### ⬜ 108 — ASYNC: I/O bloqueante em corrotina
+### ✅ 108 — ASYNC: I/O bloqueante em corrotina
 Duas ocorrências de `ASYNC240` — `integrations/ocr/tesseract.py:61` e um teste. `anyio.Path` ou `to_thread`, o padrão que o `storage/s3.py` já usa.
 **Aceite:** `ruff check . --select ASYNC` limpo, sem `noqa`; testes da 091 sem edição. **t:** 0 s. **Deps:** 091
+A spec dizia que `anyio` era "o padrão que `integrations/storage/s3.py` já usa"; não é — `s3.py` usa `asyncio.to_thread`, da stdlib. Seguir a letra teria criado o padrão novo que a spec dizia evitar, e ainda com import direto de `anyio`, que não é dependência declarada. Ficou `asyncio.to_thread` nos dois pontos.
+Achado: **nenhum teste exercita `TesseractOcr`** — o único teste de OCR usa um `FakeOcr`. A linha corrigida não tem cobertura. Material para a 117.
 
 ### ⬜ 109 — PLR0915: funções longas demais
 Quatro funções acima de 50 statements. `create_app` (70) é sequência linear e quebra de graça; as outras três já são alvo da 106.

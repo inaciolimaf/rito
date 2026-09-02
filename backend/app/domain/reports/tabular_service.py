@@ -3,11 +3,11 @@ por metadados (regra 1): a rota genérica do router só sabe despachar por `repo
 a query específica vive no repositório, a montagem da linha tipada vive aqui."""
 
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,6 +72,12 @@ def _decode_str_cursor(cursor: str | None) -> tuple[str, uuid.UUID] | None:
     return decode_cursor(cursor)
 
 
+# Assinatura comum dos relatórios da tabela de despacho. `report_key` chega em todos,
+# mesmo nos que não olham para ela: é o preço de ter uma tabela uniforme, e a alternativa
+# — uma assinatura por relatório — tornaria o despacho intipável.
+_Relatorio = Callable[..., Awaitable["ReportListResponse"]]
+
+
 class TabularReportService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.repo = TabularReportRepository(session)
@@ -87,179 +93,254 @@ class TabularReportService:
         limit: int,
         today: date,
     ) -> ReportListResponse:
-        if report_key == "productivity":
-            rows, total, points_total = await self.repo.productivity(
-                user_id=filters.user_id,
-                action_group_id=filters.action_group_id,
-                from_=filters.from_,
-                to=filters.to,
-                cursor=_decode_date_cursor(cursor),
-                limit=limit,
+        """Despacha para o relatório pedido (spec 106).
+
+        Era uma cadeia de oito `if report_key == ...`, cada um com ~25 linhas de montagem
+        de linha. A tabela abaixo é a mesma decisão escrita uma vez: relatório novo é uma
+        entrada aqui mais um método, e o `ReportKey` continua sendo a fonte das chaves —
+        chave que não existe no enum não compila.
+        """
+        relatorio = self._RELATORIOS[report_key]
+        resposta: ReportListResponse = await relatorio(
+            self, report_key, filters, cursor=cursor, limit=limit, today=today
+        )
+        return resposta
+
+    async def _relatorio_productivity(
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        cursor: str | None,
+        limit: int,
+        today: date,
+    ) -> ReportListResponse:
+        rows, total, points_total = await self.repo.productivity(
+            user_id=filters.user_id,
+            action_group_id=filters.action_group_id,
+            from_=filters.from_,
+            to=filters.to,
+            cursor=_decode_date_cursor(cursor),
+            limit=limit,
+        )
+        items: list[ReportRow] = [
+            ProductivityRow(
+                post_id=r[0],
+                responsible_name=r[1],
+                customer_name=r[2],
+                task_type_name=r[3],
+                points=r[4] or 0,
+                scheduled_date=r[5],
+                completed_at=r[6],
             )
-            items: list[ReportRow] = [
-                ProductivityRow(
-                    post_id=r[0],
-                    responsible_name=r[1],
-                    customer_name=r[2],
-                    task_type_name=r[3],
-                    points=r[4] or 0,
-                    scheduled_date=r[5],
-                    completed_at=r[6],
-                )
-                for r in rows
-            ]
-            next_cursor = _next_cursor(rows, items, limit, lambda r: r.scheduled_date)
+            for r in rows
+        ]
+        next_cursor = _next_cursor(rows, items, limit, lambda r: r.scheduled_date)
+        return ReportListResponse(
+            items=items, next_cursor=next_cursor, total=total, points_total=points_total
+        )
+
+    async def _relatorio_delayed_tasks(
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        cursor: str | None,
+        limit: int,
+        today: date,
+    ) -> ReportListResponse:
+        rows, total, points_total = await self.repo.delayed_tasks(
+            user_id=filters.user_id,
+            action_group_id=filters.action_group_id,
+            from_=filters.from_,
+            to=filters.to,
+            cursor=_decode_int_cursor(cursor),
+            limit=limit,
+        )
+        items = [
+            DelayedTaskRowItem(
+                post_id=r[0],
+                responsible_name=r[1],
+                customer_name=r[2],
+                task_type_name=r[3],
+                points=r[4] or 0,
+                scheduled_date=r[5],
+                delay_days=int(r[6]),
+            )
+            for r in rows
+        ]
+        next_cursor = _next_cursor(rows, items, limit, lambda r: r.delay_days)
+        return ReportListResponse(
+            items=items, next_cursor=next_cursor, total=total, points_total=points_total
+        )
+
+    async def _relatorio_access_logs(
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        cursor: str | None,
+        limit: int,
+        today: date,
+    ) -> ReportListResponse:
+        account = await self.accounts.get_current()
+        if account is None or not account.track_access_logs:
+            # Regra 5: desligado é o padrão (spec 073, regra 1) — estado vazio
+            # explicativo, não lista vazia crua.
             return ReportListResponse(
-                items=items, next_cursor=next_cursor, total=total, points_total=points_total
+                items=[],
+                next_cursor=None,
+                total=0,
+                disabled_reason=_ACCESS_LOGS_DISABLED_REASON,
             )
+        rows, total = await self.repo.access_logs_from_timesheet(
+            cursor=_decode_date_cursor(cursor), limit=limit
+        )
+        items = [
+            AccessLogRow(
+                user_id=r[0],
+                user_name=r[1],
+                day=r[2],
+                ip_address=str(r[3]) if r[3] else None,
+                first_login=r[4],
+                last_login=r[5],
+            )
+            for r in rows
+        ]
+        next_cursor = _next_cursor(rows, items, limit, lambda r: r.day)
+        return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
 
-        if report_key == "delayed_tasks":
-            rows, total, points_total = await self.repo.delayed_tasks(
-                user_id=filters.user_id,
-                action_group_id=filters.action_group_id,
-                from_=filters.from_,
-                to=filters.to,
-                cursor=_decode_int_cursor(cursor),
-                limit=limit,
+    async def _relatorio_new_customers(
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        cursor: str | None,
+        limit: int,
+        today: date,
+    ) -> ReportListResponse:
+        rows, total = await self.repo.new_customers(
+            from_=filters.from_,
+            to=filters.to,
+            cursor=_decode_datetime_cursor(cursor),
+            limit=limit,
+        )
+        items = [
+            NewCustomerRow(
+                customer_id=r[0],
+                name=r[1],
+                contact=r[2],
+                city_state=r[3],
+                origin_name=r[4],
+                created_at=r[5],
             )
-            items = [
-                DelayedTaskRowItem(
-                    post_id=r[0],
-                    responsible_name=r[1],
-                    customer_name=r[2],
-                    task_type_name=r[3],
-                    points=r[4] or 0,
-                    scheduled_date=r[5],
-                    delay_days=int(r[6]),
-                )
-                for r in rows
-            ]
-            next_cursor = _next_cursor(rows, items, limit, lambda r: r.delay_days)
-            return ReportListResponse(
-                items=items, next_cursor=next_cursor, total=total, points_total=points_total
-            )
+            for r in rows
+        ]
+        next_cursor = _next_cursor(rows, items, limit, lambda r: r.created_at)
+        return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
 
-        if report_key == "access_logs":
-            account = await self.accounts.get_current()
-            if account is None or not account.track_access_logs:
-                # Regra 5: desligado é o padrão (spec 073, regra 1) — estado vazio
-                # explicativo, não lista vazia crua.
-                return ReportListResponse(
-                    items=[],
-                    next_cursor=None,
-                    total=0,
-                    disabled_reason=_ACCESS_LOGS_DISABLED_REASON,
-                )
-            rows, total = await self.repo.access_logs_from_timesheet(
-                cursor=_decode_date_cursor(cursor), limit=limit
+    async def _relatorio_new_lawsuits(
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        cursor: str | None,
+        limit: int,
+        today: date,
+    ) -> ReportListResponse:
+        rows, total = await self.repo.new_lawsuits(
+            user_id=filters.user_id,
+            action_group_id=filters.action_group_id,
+            from_=filters.from_,
+            to=filters.to,
+            cursor=_decode_datetime_cursor(cursor),
+            limit=limit,
+        )
+        items = [
+            NewLawsuitRow(
+                lawsuit_id=r[0],
+                parties=r[1],
+                lawsuit_type_name=r[2],
+                process_number=r[3],
+                responsible_name=r[4],
+                created_at=r[5],
             )
-            items = [
-                AccessLogRow(
-                    user_id=r[0],
-                    user_name=r[1],
-                    day=r[2],
-                    ip_address=str(r[3]) if r[3] else None,
-                    first_login=r[4],
-                    last_login=r[5],
-                )
-                for r in rows
-            ]
-            next_cursor = _next_cursor(rows, items, limit, lambda r: r.day)
-            return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
+            for r in rows
+        ]
+        next_cursor = _next_cursor(rows, items, limit, lambda r: r.created_at)
+        return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
 
-        if report_key == "new_customers":
-            rows, total = await self.repo.new_customers(
-                from_=filters.from_,
-                to=filters.to,
-                cursor=_decode_datetime_cursor(cursor),
-                limit=limit,
+    async def _relatorio_won_lost(
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        cursor: str | None,
+        limit: int,
+        today: date,
+    ) -> ReportListResponse:
+        outcome = LawsuitOutcome.GANHO if report_key == "won_lawsuits" else LawsuitOutcome.PERDIDO
+        rows, total = await self.repo.lawsuits_by_outcome(
+            outcome=outcome,
+            user_id=filters.user_id,
+            action_group_id=filters.action_group_id,
+            from_=filters.from_,
+            to=filters.to,
+            cursor=_decode_date_cursor(cursor),
+            limit=limit,
+        )
+        items = [
+            LawsuitOutcomeRow(
+                lawsuit_id=r[0],
+                parties=r[1],
+                lawsuit_type_name=r[2],
+                process_number=r[3],
+                fees_value=r[4],
+                closure_date=r[5],
+                total_days=int(r[6]),
             )
-            items = [
-                NewCustomerRow(
-                    customer_id=r[0],
-                    name=r[1],
-                    contact=r[2],
-                    city_state=r[3],
-                    origin_name=r[4],
-                    created_at=r[5],
-                )
-                for r in rows
-            ]
-            next_cursor = _next_cursor(rows, items, limit, lambda r: r.created_at)
-            return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
+            for r in rows
+        ]
+        next_cursor = _next_cursor(rows, items, limit, lambda r: r.closure_date)
+        return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
 
-        if report_key == "new_lawsuits":
-            rows, total = await self.repo.new_lawsuits(
-                user_id=filters.user_id,
-                action_group_id=filters.action_group_id,
-                from_=filters.from_,
-                to=filters.to,
-                cursor=_decode_datetime_cursor(cursor),
-                limit=limit,
+    async def _relatorio_hearings(
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        cursor: str | None,
+        limit: int,
+        today: date,
+    ) -> ReportListResponse:
+        rows, total = await self.repo.hearings(
+            cursor=_decode_date_cursor(cursor), limit=limit, today=today
+        )
+        items = [
+            HearingRow(
+                post_id=r[0],
+                scheduled_date=r[1],
+                scheduled_time=r[2],
+                task_type_name=r[3],
+                process_number=r[4],
+                parties=r[5],
+                location=r[6],
+                responsible_name=r[7],
             )
-            items = [
-                NewLawsuitRow(
-                    lawsuit_id=r[0],
-                    parties=r[1],
-                    lawsuit_type_name=r[2],
-                    process_number=r[3],
-                    responsible_name=r[4],
-                    created_at=r[5],
-                )
-                for r in rows
-            ]
-            next_cursor = _next_cursor(rows, items, limit, lambda r: r.created_at)
-            return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
+            for r in rows
+        ]
+        next_cursor = _next_cursor(rows, items, limit, lambda r: r.scheduled_date)
+        return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
 
-        if report_key in ("won_lawsuits", "lost_lawsuits"):
-            outcome = (
-                LawsuitOutcome.GANHO if report_key == "won_lawsuits" else LawsuitOutcome.PERDIDO
-            )
-            rows, total = await self.repo.lawsuits_by_outcome(
-                outcome=outcome,
-                user_id=filters.user_id,
-                action_group_id=filters.action_group_id,
-                from_=filters.from_,
-                to=filters.to,
-                cursor=_decode_date_cursor(cursor),
-                limit=limit,
-            )
-            items = [
-                LawsuitOutcomeRow(
-                    lawsuit_id=r[0],
-                    parties=r[1],
-                    lawsuit_type_name=r[2],
-                    process_number=r[3],
-                    fees_value=r[4],
-                    closure_date=r[5],
-                    total_days=int(r[6]),
-                )
-                for r in rows
-            ]
-            next_cursor = _next_cursor(rows, items, limit, lambda r: r.closure_date)
-            return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
-
-        if report_key == "hearings":
-            rows, total = await self.repo.hearings(
-                cursor=_decode_date_cursor(cursor), limit=limit, today=today
-            )
-            items = [
-                HearingRow(
-                    post_id=r[0],
-                    scheduled_date=r[1],
-                    scheduled_time=r[2],
-                    task_type_name=r[3],
-                    process_number=r[4],
-                    parties=r[5],
-                    location=r[6],
-                    responsible_name=r[7],
-                )
-                for r in rows
-            ]
-            next_cursor = _next_cursor(rows, items, limit, lambda r: r.scheduled_date)
-            return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
-
-        # contrary_parties
+    async def _relatorio_contrary_parties(
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        cursor: str | None,
+        limit: int,
+        today: date,
+    ) -> ReportListResponse:
         rows, total = await self.repo.contrary_parties(
             cursor=_decode_str_cursor(cursor), limit=limit
         )
@@ -275,6 +356,19 @@ class TabularReportService:
         ]
         next_cursor = _next_cursor(rows, items, limit, lambda r: r.name)
         return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
+
+    # Tabela de despacho — declarada depois dos métodos porque referencia todos eles.
+    _RELATORIOS: ClassVar[dict[str, _Relatorio]] = {
+        "productivity": _relatorio_productivity,
+        "delayed_tasks": _relatorio_delayed_tasks,
+        "access_logs": _relatorio_access_logs,
+        "new_customers": _relatorio_new_customers,
+        "new_lawsuits": _relatorio_new_lawsuits,
+        "won_lawsuits": _relatorio_won_lost,
+        "lost_lawsuits": _relatorio_won_lost,
+        "hearings": _relatorio_hearings,
+        "contrary_parties": _relatorio_contrary_parties,
+    }
 
     async def export(
         self,

@@ -183,6 +183,33 @@ class GraphRuntime:
             time.monotonic() + self.run_timeout_s,
         )
 
+    async def _desfecho_da_falha(
+        self, thread: AiThread, state: dict[str, Any], exc: Exception
+    ) -> GraphResult:
+        """Traduz a exceção que derrubou o nó no desfecho que o thread merece.
+
+        As quatro formas de um nó terminar mal, e por que cada uma é diferente:
+
+        - **cancelamento** não é falha do grafo. Quem cancelou já sabe o porquê, e gravar
+          um passo de erro poluiria a auditoria com algo esperado — por isso é o único
+          caso que NÃO passa por `_fail`;
+        - **`NodeTimeoutError`** é o teto da execução inteira, e a mensagem já vem pronta;
+        - **`TimeoutError`** vem do `wait_for` de UM nó, e a mensagem precisa dizer qual
+          era o teto para o log fazer sentido;
+        - **qualquer outra** é erro do próprio nó (regra 10): nunca silencioso.
+
+        `asyncio.CancelledError` não chega aqui — é `BaseException` desde o 3.8, e o
+        `except Exception` de quem chama a deixa subir, que é o comportamento certo.
+        """
+        if isinstance(exc, ThreadCancelledError):
+            return GraphResult(status="error", error="Execução cancelada.")
+        if isinstance(exc, NodeTimeoutError):
+            return await self._fail(thread, state, "timeout", str(exc), exc)
+        if isinstance(exc, TimeoutError):
+            motivo = f"nó excedeu {self.node_timeout_s:.0f}s"
+            return await self._fail(thread, state, "timeout", motivo, exc)
+        return await self._fail(thread, state, "erro", str(exc), exc)
+
     async def _drive_iter(
         self, thread: AiThread, state: dict[str, Any]
     ) -> AsyncIterator[StepEvent | GraphResult]:
@@ -199,19 +226,8 @@ class GraphRuntime:
                 update = await asyncio.wait_for(iterator.__anext__(), timeout=self.node_timeout_s)
             except StopAsyncIteration:
                 break
-            except TimeoutError as exc:
-                yield await self._fail(
-                    thread, state, "timeout", f"nó excedeu {self.node_timeout_s:.0f}s", exc
-                )
-                return
-            except NodeTimeoutError as exc:
-                yield await self._fail(thread, state, "timeout", str(exc), exc)
-                return
-            except ThreadCancelledError:
-                yield GraphResult(status="error", error="Execução cancelada.")
-                return
             except Exception as exc:  # regra 10: erro de nó nunca é silencioso
-                yield await self._fail(thread, state, "erro", str(exc), exc)
+                yield await self._desfecho_da_falha(thread, state, exc)
                 return
 
             duration_ms = int((time.monotonic() - started) * 1000)

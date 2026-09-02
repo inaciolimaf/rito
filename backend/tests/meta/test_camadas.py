@@ -155,19 +155,31 @@ def encontrar_repositorio_em_router(path: Path) -> list[str]:
     achados: list[str] = []
     for node in ast.walk(_parse(path)):
         if isinstance(node, ast.ImportFrom):
-            modulo = node.module or ""
-            if _e_modulo_de_repositorio(modulo):
-                importados = ", ".join(alias.name for alias in node.names)
-                achados.append(f"{_rel(path)}:{node.lineno} from {modulo} import {importados}")
-                continue
-            for alias in node.names:
-                if _e_modulo_de_repositorio(alias.name) or alias.name.endswith("Repository"):
-                    achados.append(f"{_rel(path)}:{node.lineno} from {modulo} import {alias.name}")
+            achados += _furos_em_import_from(path, node)
         elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if _e_modulo_de_repositorio(alias.name):
-                    achados.append(f"{_rel(path)}:{node.lineno} import {alias.name}")
+            achados += [
+                f"{_rel(path)}:{node.lineno} import {alias.name}"
+                for alias in node.names
+                if _e_modulo_de_repositorio(alias.name)
+            ]
     return achados
+
+
+def _furos_em_import_from(path: Path, node: ast.ImportFrom) -> list[str]:
+    """`from X import Y` fura de duas formas: `X` é o módulo de repositório, ou `Y` é.
+
+    Quando o próprio módulo é o repositório, o import inteiro é o furo — não adianta
+    listar símbolo por símbolo.
+    """
+    modulo = node.module or ""
+    if _e_modulo_de_repositorio(modulo):
+        importados = ", ".join(alias.name for alias in node.names)
+        return [f"{_rel(path)}:{node.lineno} from {modulo} import {importados}"]
+    return [
+        f"{_rel(path)}:{node.lineno} from {modulo} import {alias.name}"
+        for alias in node.names
+        if _e_modulo_de_repositorio(alias.name) or alias.name.endswith("Repository")
+    ]
 
 
 def encontrar_integracao_concreta_em_service(path: Path) -> list[str]:

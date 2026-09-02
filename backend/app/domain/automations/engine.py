@@ -304,6 +304,36 @@ class AutomationEngine:
             return await self._fail(run, f"{type(exc).__name__}: {exc}")
         return detalhe
 
+    async def _concluir_passo(
+        self, run: AutomationRun, action: AutomationAction, detalhe: dict[str, Any]
+    ) -> None:
+        """Registra o passo feito e anda a posição.
+
+        `waiting_on_id` guarda a tarefa criada aqui: é ela que o `AFTER_PREVIOUS` do
+        próximo passo espera concluir (regra 4), e é por isso que a tarefa criada por
+        automação precisa ser rastreável a partir da execução.
+        """
+        await self._record_step(run, action, StepStatus.DONE, detail=detalhe)
+        run.actions_completed += 1
+        run.next_position = action.position + 1
+        if detalhe.get("created_post_id"):
+            run.waiting_on_id = uuid.UUID(str(detalhe["created_post_id"]))
+        await self.session.flush()
+
+    async def _marcar_espera(
+        self, run: AutomationRun, action: AutomationAction, quando: datetime
+    ) -> AutomationRun:
+        """A execução para aqui e volta quando `quando` chegar — o passo NÃO é consumido.
+
+        `next_position` fica na posição atual, não na seguinte: é o mesmo passo que vai
+        rodar de novo, e é isso que faz `wait_until`/`wait_for` ser espera e não pulo.
+        """
+        run.status = RunStatus.WAITING.value
+        run.next_position = action.position
+        run.next_action_at = quando
+        await self.session.flush()
+        return run
+
     async def advance(
         self, run: AutomationRun, *, automation: Automation | None = None
     ) -> AutomationRun:
@@ -318,22 +348,16 @@ class AutomationEngine:
         # Spec 094: quais posições pertencem a um ramo, e de qual decisão.
         dono_do_ramo = branch_owner_map(acoes)
         for action in acoes:
-            if action.position < (run.next_position or 0):
+            # Regra 8: idempotência. Reprocessar não repete o que já rodou, e nada antes
+            # da posição corrente é reexecutado.
+            if action.position < (run.next_position or 0) or action.position in ja_feitos:
                 continue
-            # Regra 8: idempotência. Reprocessar não repete o que já rodou.
-            if action.position in ja_feitos:
-                continue
-
             if await self._pular_se_necessario(run, action, dono_do_ramo):
                 continue
 
             espera = await self._wait_for(run, action)
             if espera is not None:
-                run.status = RunStatus.WAITING.value
-                run.next_position = action.position
-                run.next_action_at = espera
-                await self.session.flush()
-                return run
+                return await self._marcar_espera(run, action, espera)
 
             if action.action_kind == ActionKind.LLM_DECISION.value:
                 await self._executar_decisao(run, action, automation, autor)
@@ -344,12 +368,7 @@ class AutomationEngine:
                 return resultado
             detalhe = resultado
 
-            await self._record_step(run, action, StepStatus.DONE, detail=detalhe)
-            run.actions_completed += 1
-            run.next_position = action.position + 1
-            if detalhe.get("created_post_id"):
-                run.waiting_on_id = uuid.UUID(str(detalhe["created_post_id"]))
-            await self.session.flush()
+            await self._concluir_passo(run, action, detalhe)
 
         run.status = RunStatus.DONE.value
         run.next_position = None

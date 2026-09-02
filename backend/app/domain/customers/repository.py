@@ -60,6 +60,30 @@ def _has_active_lawsuit_clause(active: bool) -> ColumnElement[bool]:
     return exists if active else ~exists
 
 
+def _busca_por_nome_ou_documento(query: str) -> ColumnElement[bool]:
+    """Regra 1: nome é busca parcial sem acento; CPF/CNPJ é exato.
+
+    Um filtro só — se `query` não tiver dígitos, a comparação de `identification` nunca
+    bate (ele só guarda dígitos), então não é preciso "detectar" a intenção de quem
+    digitou.
+    """
+    search_pattern = func.concat("%", func.unaccent(func.lower(literal(query))), "%")
+    return or_(
+        func.unaccent(func.lower(Customer.name)).ilike(search_pattern),
+        Customer.identification == strip_document_mask(query),
+    )
+
+
+def _filtro_de_aniversario(birthdays: str | None, today: date) -> list[ColumnElement[bool]]:
+    """Regra 6: aniversário ignora o ano — compara mês, e no escopo do dia também o dia."""
+    if birthdays not in ("day", "month"):
+        return []
+    condicoes = [func.date_part("month", Customer.birthdate) == today.month]
+    if birthdays == "day":
+        condicoes.append(func.date_part("day", Customer.birthdate) == today.day)
+    return condicoes
+
+
 class CustomerRepository(BaseRepository[Customer]):
     model = Customer
 
@@ -97,23 +121,14 @@ class CustomerRepository(BaseRepository[Customer]):
         filters: list[ColumnElement[bool]] = [Customer.is_archived.is_(archived)]
 
         if query:
-            # Regra 1: nome é busca parcial sem acento; CPF/CNPJ é exato. Um filtro só —
-            # se `query` não tiver dígitos, a comparação de identification nunca bate
-            # (identification só guarda dígitos), então não precisa "detectar" a intenção.
-            digits = strip_document_mask(query)
-            search_pattern = func.concat("%", func.unaccent(func.lower(literal(query))), "%")
-            filters.append(
-                or_(
-                    func.unaccent(func.lower(Customer.name)).ilike(search_pattern),
-                    Customer.identification == digits,
-                )
-            )
+            filters.append(_busca_por_nome_ou_documento(query))
         if person_type is not None:
             filters.append(Customer.type == person_type)
-        if state:
-            filters.append(func.lower(Customer.state) == state.lower())
-        if city:
-            filters.append(func.lower(Customer.city) == city.lower())
+        # Estado e cidade comparam em minúsculas dos dois lados — o usuário digita "sp"
+        # ou "SP" e as duas coisas têm que achar o mesmo contato.
+        for valor, coluna in ((state, Customer.state), (city, Customer.city)):
+            if valor:
+                filters.append(func.lower(coluna) == valor.lower())
         if origin_id is not None:
             filters.append(Customer.origin_id == origin_id)
         filters += datetime_range(Customer.created_at, created_from, created_to)
@@ -122,12 +137,7 @@ class CustomerRepository(BaseRepository[Customer]):
             # menos um processo não arquivado. EXISTS correlacionado, não JOIN — um
             # contato com três processos ativos não pode aparecer três vezes na listagem.
             filters.append(_has_active_lawsuit_clause(has_active_lawsuit))
-        if birthdays == "day":
-            filters.append(func.date_part("month", Customer.birthdate) == today.month)
-            filters.append(func.date_part("day", Customer.birthdate) == today.day)
-        elif birthdays == "month":
-            filters.append(func.date_part("month", Customer.birthdate) == today.month)
-
+        filters += _filtro_de_aniversario(birthdays, today)
         return filters
 
     async def list_filtered(

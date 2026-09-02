@@ -7,6 +7,7 @@ runtime.
 
 import json
 import uuid
+from collections.abc import AsyncIterator
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -302,47 +303,59 @@ async def stream_thread(
         raise HTTPException(status_code=403, detail=_FORBIDDEN_DETAIL) from exc
     service = _build_service(session, current_user, provider, thread)
 
-    async def generate() -> Any:
-        if thread.status == "pending":
-            try:
-                async for event in service.stream(thread, None):
-                    if isinstance(event, StepEvent):
-                        yield _sse(
-                            "step",
-                            {
-                                "step": event.step,
-                                "node": event.node,
-                                "kind": event.kind,
-                                "output": event.output,
-                                "duration_ms": event.duration_ms,
-                            },
-                        )
-                    elif isinstance(event, GraphResult):
-                        yield _sse(_result_event(event), _result_payload(event))
-            except RuntimeSessionLostError:
-                # O status já está gravado (spec 103). Aqui não cabe 503: a resposta
-                # começou. Cabe contar ao cliente e devolver a conexão ao pool — quem
-                # abriu a transação está esperando este rollback para fechar limpo.
-                yield _sse("error", {"status": "error", "error": _SESSION_LOST_DETAIL})
-                await session.rollback()
-            return
-        for step in await service.list_steps(thread):
-            yield _sse(
-                "step",
-                {
-                    "step": step.step,
-                    "node": step.node,
-                    "kind": step.kind,
-                    "output": step.output,
-                    "duration_ms": step.duration_ms,
-                },
-            )
-        yield _sse(
-            "done" if thread.status == "done" else thread.status,
-            {"status": thread.status, "output": thread.output, "error": thread.error},
-        )
+    corpo = (
+        _eventos_ao_vivo(service, thread, session)
+        if thread.status == "pending"
+        else _eventos_reemitidos(service, thread)
+    )
+    return StreamingResponse(corpo, media_type=SSE_MEDIA_TYPE)
 
-    return StreamingResponse(generate(), media_type=SSE_MEDIA_TYPE)
+
+def _passo_sse(step: int, node: str, kind: str, output: Any, duration_ms: int) -> str:
+    """O evento `step` do SSE. Um formatador só para as duas origens — execução ao vivo e
+    reemissão do histórico —, porque um cliente que reconecta não pode receber um formato
+    diferente do que recebeu na primeira vez."""
+    return _sse(
+        "step",
+        {
+            "step": step,
+            "node": node,
+            "kind": kind,
+            "output": output,
+            "duration_ms": duration_ms,
+        },
+    )
+
+
+async def _eventos_ao_vivo(
+    service: Any, thread: AiThread, session: AsyncSession
+) -> AsyncIterator[str]:
+    """Thread ainda parado: executa agora e o cliente assiste do primeiro passo."""
+    try:
+        async for event in service.stream(thread, None):
+            if isinstance(event, StepEvent):
+                yield _passo_sse(
+                    event.step, event.node, event.kind, event.output, event.duration_ms
+                )
+            elif isinstance(event, GraphResult):
+                yield _sse(_result_event(event), _result_payload(event))
+    except RuntimeSessionLostError:
+        # O status já está gravado (spec 103). Aqui não cabe 503: a resposta começou.
+        # Cabe contar ao cliente e devolver a conexão ao pool — quem abriu a transação
+        # está esperando este rollback para fechar limpo.
+        yield _sse("error", {"status": "error", "error": _SESSION_LOST_DETAIL})
+        await session.rollback()
+
+
+async def _eventos_reemitidos(service: Any, thread: AiThread) -> AsyncIterator[str]:
+    """Thread que já rodou: os passos são reemitidos, então reconectar não perde o
+    histórico (regra 7)."""
+    for step in await service.list_steps(thread):
+        yield _passo_sse(step.step, step.node, step.kind, step.output, step.duration_ms)
+    yield _sse(
+        "done" if thread.status == "done" else thread.status,
+        {"status": thread.status, "output": thread.output, "error": thread.error},
+    )
 
 
 def _result_event(result: GraphResult) -> str:

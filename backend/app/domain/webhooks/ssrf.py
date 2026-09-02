@@ -35,6 +35,16 @@ def validate_webhook_url(url: str, *, allow_local: bool = False) -> str:
     em `localhost` precisa que funcione. Em produção o flag é falso, e o padrão é o
     seguro — nunca o contrário.
     """
+    host = _host_seguro(url, allow_local=allow_local)
+    if host is None:  # localhost liberado em desenvolvimento — não resolve DNS
+        return url
+    _recusar_enderecos_internos(host)
+    return url
+
+
+def _host_seguro(url: str, *, allow_local: bool) -> str | None:
+    """Valida esquema e host. Devolve `None` quando é um local liberado (regra 6) — nesse
+    caso não há o que resolver, o destino é a própria máquina."""
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise UnsafeUrlError("A URL do webhook precisa começar com https://.")
@@ -42,17 +52,22 @@ def validate_webhook_url(url: str, *, allow_local: bool = False) -> str:
     if not host:
         raise UnsafeUrlError("A URL do webhook não tem um host válido.")
 
-    ehLocal = host in _BLOCKED_HOSTNAMES or host.startswith("127.")
-    if parsed.scheme == "http" and not (allow_local and ehLocal):
+    eh_local = host in _BLOCKED_HOSTNAMES or host.startswith("127.")
+    if parsed.scheme == "http" and not (allow_local and eh_local):
         # Regra 6: HTTP manda o payload e a assinatura em texto puro pela rede.
         raise UnsafeUrlError(
             "Webhook precisa ser HTTPS. HTTP só é aceito para localhost, em desenvolvimento."
         )
-    if ehLocal:
-        if allow_local:
-            return url
-        raise UnsafeUrlError("Endereços locais não são aceitos como destino de webhook.")
+    if not eh_local:
+        return host
+    if allow_local:
+        return None
+    raise UnsafeUrlError("Endereços locais não são aceitos como destino de webhook.")
 
+
+def _recusar_enderecos_internos(host: str) -> None:
+    """O host resolve para onde? É aqui que o SSRF é barrado de verdade: um nome público
+    pode apontar para 169.254.169.254 ou para a rede interna."""
     for endereco in _resolve(host):
         if str(endereco) in _CLOUD_METADATA:
             raise UnsafeUrlError(
@@ -63,7 +78,6 @@ def validate_webhook_url(url: str, *, allow_local: bool = False) -> str:
                 f"O host {host} aponta para um endereço de rede interna ({endereco}). "
                 "Webhooks só podem sair para a internet."
             )
-    return url
 
 
 def _resolve(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:

@@ -208,6 +208,22 @@ class DecisionRunner:
             )
         return escolhido
 
+    async def _impedimento_para_perguntar(
+        self, automation: Automation, padrao: str
+    ) -> DecisionOutcome | None:
+        """As duas razões para nem chegar a perguntar ao modelo.
+
+        Regra 6: com o orçamento no fim, nem chega a chamar — pagar para descobrir que não
+        podia pagar seria a pior ordem possível. E sem IA configurada não há a quem
+        perguntar. Nos dois casos o ramo padrão decide, e o motivo fica registrado.
+        """
+        estourado = await self._budget_exhausted(automation)
+        if estourado is not None:
+            return _fallback(padrao, estourado, None)
+        if self.engine.ai_runner is None:
+            return _fallback(padrao, "Nenhuma IA configurada neste servidor.", None)
+        return None
+
     async def _ask(
         self,
         *,
@@ -219,15 +235,11 @@ class DecisionRunner:
         nomes: list[str],
     ) -> DecisionOutcome:
         padrao = str(config.get("default_branch") or (nomes[0] if nomes else ""))
-        estourado = await self._budget_exhausted(automation)
-        if estourado is not None:
-            # Regra 6: com o orçamento no fim, nem chega a chamar — pagar para descobrir
-            # que não podia pagar seria a pior ordem possível.
-            return _fallback(padrao, estourado, None)
-
+        impedimento = await self._impedimento_para_perguntar(automation, padrao)
+        if impedimento is not None:
+            return impedimento
         runner = self.engine.ai_runner
-        if runner is None:
-            return _fallback(padrao, "Nenhuma IA configurada neste servidor.", None)
+        assert runner is not None  # garantido por `_impedimento_para_perguntar`
         # A automação é dona da transação (ver `AiRunner.commit_usage`).
         runner.commit_usage = False
 

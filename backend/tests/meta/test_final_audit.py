@@ -354,32 +354,43 @@ def test_toda_divida_aberta_tem_numero_e_alvo_no_futuro() -> None:
     - **alvo vencido:** o item continua aberto apontando para uma spec que já entregou.
     """
     texto = DIVIDA.read_text(encoding="utf-8")
-    concluidas = _specs_concluidas()
+    problemas = _itens_sem_numero(texto) + _alvos_ja_entregues(texto, _specs_concluidas())
+    assert not problemas, "DIVIDA-TECNICA.md fora da própria regra:\n" + "\n".join(problemas)
 
+
+def _e_item_resolvido(cabecalho: str) -> bool:
+    """Resolvido vem com ~~tachado~~ ou com "RESOLVIDO" no próprio título."""
+    return "RESOLVIDO" in cabecalho or cabecalho.startswith("~~")
+
+
+def _itens_sem_numero(texto: str) -> list[str]:
+    """Todo título de item é `## <n>. <titulo>`.
+
+    Sem número foi como a dívida do SAVEPOINT sobreviveu à 100, cuja tabela de fechamento
+    contava itens numerados.
+    """
+    return [
+        f"item sem número: {titulo!r}"
+        for titulo in re.findall(r"^## (.+)$", texto, re.MULTILINE)
+        if not titulo.startswith(("Estado no fechamento", "Dívida técnica"))
+        and not _e_item_resolvido(titulo)
+        and not re.match(r"^\d+\.\s", titulo)
+    ]
+
+
+def _alvos_ja_entregues(texto: str, concluidas: set[str]) -> list[str]:
+    """Spec-alvo de item ainda ABERTO não pode ser uma spec já entregue."""
     problemas: list[str] = []
-
-    # Todo título de item é `## <n>. <titulo>`; item resolvido vem com ~~tachado~~ ou
-    # com "RESOLVIDO" no próprio título.
-    for titulo in re.findall(r"^## (.+)$", texto, re.MULTILINE):
-        if titulo.startswith(("Estado no fechamento", "Dívida técnica")):
-            continue
-        if "RESOLVIDO" in titulo or titulo.startswith("~~"):
-            continue
-        if not re.match(r"^\d+\.\s", titulo):
-            problemas.append(f"item sem número: {titulo!r}")
-
-    # Spec-alvo de item ainda aberto não pode ser uma spec já entregue.
     for bloco in re.split(r"^## ", texto, flags=re.MULTILINE)[1:]:
         cabecalho = bloco.splitlines()[0]
-        if "RESOLVIDO" in bloco.split("\n\n")[0] or cabecalho.startswith("~~"):
+        if _e_item_resolvido(bloco.split("\n\n")[0]) or cabecalho.startswith("~~"):
             continue
-        for alvo in re.findall(r"\*\*Spec-alvo:\*\*\s*(\d{3})", bloco):
-            if alvo in concluidas:
-                problemas.append(
-                    f"item {cabecalho.split('.')[0]!r} aberto com spec-alvo {alvo}, já ✅"
-                )
-
-    assert not problemas, "DIVIDA-TECNICA.md fora da própria regra:\n" + "\n".join(problemas)
+        problemas += [
+            f"item {cabecalho.split('.')[0]!r} aberto com spec-alvo {alvo}, já ✅"
+            for alvo in re.findall(r"\*\*Spec-alvo:\*\*\s*(\d{3})", bloco)
+            if alvo in concluidas
+        ]
+    return problemas
 
 
 def test_toda_rota_do_menu_lateral_existe_em_app_tsx() -> None:

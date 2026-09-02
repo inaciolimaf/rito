@@ -2,6 +2,7 @@ import uuid
 from calendar import monthrange
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -560,21 +561,19 @@ class TransactionService:
             )
             if payload.kind is not TransactionKind.TRANSFERENCIA and category.type != expected:
                 raise TransactionCategoryTypeMismatchError(category.type)
-        if payload.cost_center_id is not None and (
-            await self.cost_centers.get_by_id(payload.cost_center_id) is None
-        ):
-            raise TransactionCostCenterNotFoundError
-        for account_id in (payload.debit_account_id, payload.credit_account_id):
-            if account_id is not None and await self.accounts.get_by_id(account_id) is None:
-                raise TransactionAccountNotFoundError
-        if payload.customer_id is not None and (
-            await self.customers.get_by_id(payload.customer_id) is None
-        ):
-            raise TransactionCustomerNotFoundError
-        if payload.lawsuit_id is not None and (
-            await self.lawsuits.get_by_id(payload.lawsuit_id) is None
-        ):
-            raise TransactionLawsuitNotFoundError
+        # As demais referências são a mesma pergunta cinco vezes — «esse id existe neste
+        # tenant?» —, e o RLS é quem garante o "neste tenant". Tabela em vez de cinco
+        # blocos iguais: referência nova é uma linha aqui (spec 106).
+        referencias: tuple[tuple[uuid.UUID | None, Any, type[Exception]], ...] = (
+            (payload.cost_center_id, self.cost_centers, TransactionCostCenterNotFoundError),
+            (payload.debit_account_id, self.accounts, TransactionAccountNotFoundError),
+            (payload.credit_account_id, self.accounts, TransactionAccountNotFoundError),
+            (payload.customer_id, self.customers, TransactionCustomerNotFoundError),
+            (payload.lawsuit_id, self.lawsuits, TransactionLawsuitNotFoundError),
+        )
+        for id_, repositorio, erro in referencias:
+            if id_ is not None and await repositorio.get_by_id(id_) is None:
+                raise erro
 
     @staticmethod
     def _normalize_description(description: str | None) -> str | None:

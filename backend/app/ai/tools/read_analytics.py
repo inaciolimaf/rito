@@ -6,6 +6,7 @@ perguntou — não o contorna.
 """
 
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import date
 from typing import Any
 
@@ -127,39 +128,58 @@ async def get_bi_metrics(ctx: ToolContext, params: BiMetricsInput) -> dict[str, 
     ),
 )
 async def list_taxonomies(ctx: ToolContext, params: TaxonomiesInput) -> dict[str, Any]:
-    wanted = params.kind
-    result: dict[str, Any] = {}
+    if params.kind == "all":
+        pedidos = list(_CARREGADORES_DE_TAXONOMIA)
+    elif params.kind in _CARREGADORES_DE_TAXONOMIA:
+        pedidos = [params.kind]
+    else:
+        raise ToolError("invalid_argument", f"Taxonomia desconhecida: {params.kind}.")
+    return {chave: await _CARREGADORES_DE_TAXONOMIA[chave](ctx) for chave in pedidos}
 
-    async def include(key: str) -> bool:
-        return wanted in ("all", key)
 
-    if await include("action_groups"):
-        groups = await ActionGroupRepository(ctx.session).list_filtered(is_active=True)
-        result["action_groups"] = [{"id": str(row.id), "name": row.name} for row in groups]
-    if await include("lawsuit_types"):
-        types = await LawsuitTypeRepository(ctx.session).list_filtered(is_active=True)
-        result["lawsuit_types"] = [{"id": str(row.id), "name": row.name} for row in types]
-    if await include("stages"):
-        stages = await StageRepository(ctx.session).list_filtered(is_active=True)
-        result["stages"] = [
-            {"id": str(row.id), "name": row.name, "step_id": row.step_id} for row in stages
-        ]
-    if await include("steps"):
-        steps = await StepRepository(ctx.session).list_all()
-        result["steps"] = [{"id": row.id, "name": row.name} for row in steps]
-    if await include("task_types"):
-        task_types = await TaskTypeRepository(ctx.session).list_filtered(
-            step_id=None, is_active=True, query=None
-        )
-        result["task_types"] = [
-            {"id": str(row.id), "name": row.name, "reward": row.reward} for row in task_types
-        ]
-    if await include("origins"):
-        origins = await CustomerOriginRepository(ctx.session).list_filtered(is_active=True)
-        result["origins"] = [{"id": str(row.id), "name": row.name} for row in origins]
-    if not result:
-        raise ToolError("invalid_argument", f"Taxonomia desconhecida: {wanted}.")
-    return result
+async def _grupos_de_acao(ctx: ToolContext) -> list[dict[str, Any]]:
+    linhas = await ActionGroupRepository(ctx.session).list_filtered(is_active=True)
+    return [{"id": str(row.id), "name": row.name} for row in linhas]
+
+
+async def _tipos_de_acao(ctx: ToolContext) -> list[dict[str, Any]]:
+    linhas = await LawsuitTypeRepository(ctx.session).list_filtered(is_active=True)
+    return [{"id": str(row.id), "name": row.name} for row in linhas]
+
+
+async def _etapas(ctx: ToolContext) -> list[dict[str, Any]]:
+    linhas = await StageRepository(ctx.session).list_filtered(is_active=True)
+    return [{"id": str(row.id), "name": row.name, "step_id": row.step_id} for row in linhas]
+
+
+async def _fases(ctx: ToolContext) -> list[dict[str, Any]]:
+    linhas = await StepRepository(ctx.session).list_all()
+    return [{"id": row.id, "name": row.name} for row in linhas]
+
+
+async def _tipos_de_tarefa(ctx: ToolContext) -> list[dict[str, Any]]:
+    linhas = await TaskTypeRepository(ctx.session).list_filtered(
+        step_id=None, is_active=True, query=None
+    )
+    return [{"id": str(row.id), "name": row.name, "reward": row.reward} for row in linhas]
+
+
+async def _origens(ctx: ToolContext) -> list[dict[str, Any]]:
+    linhas = await CustomerOriginRepository(ctx.session).list_filtered(is_active=True)
+    return [{"id": str(row.id), "name": row.name} for row in linhas]
+
+
+# Registro em vez de seis `if` iguais (spec 106). Taxonomia nova é uma linha aqui — e a
+# chave é exatamente o nome que a ferramenta aceita em `kind`, então as duas coisas não
+# têm como divergir.
+_CARREGADORES_DE_TAXONOMIA: dict[str, Callable[[ToolContext], Awaitable[list[dict[str, Any]]]]] = {
+    "action_groups": _grupos_de_acao,
+    "lawsuit_types": _tipos_de_acao,
+    "stages": _etapas,
+    "steps": _fases,
+    "task_types": _tipos_de_tarefa,
+    "origins": _origens,
+}
 
 
 @tool(

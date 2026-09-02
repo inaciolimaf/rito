@@ -859,5 +859,16 @@ como reconhecê-lo: se voltar, **não reexecute até dar sorte**.
 disputar núcleo com as outras duas suítes; ou dar ao seletor de entidade uma espera por
 condição com teto próprio, em vez do teto padrão de 5 s.
 
+**Segunda ocorrência, no degrau 2 da spec 106.** O `make test` reprovou com as três
+suítes passando individualmente logo em seguida — backend 1.574, frontend 313, e2e 10/10 —
+e a execução seguinte fechou verde com `EXIT=0`. **Não foi possível dizer qual perna caiu:**
+o log capturado em segundo plano guardou só a cauda, e o marcador `--- <suíte> FALHOU ---`
+do `scripts/run-tests.sh` ficou na parte truncada.
+
+Isso acrescenta um pedaço à dívida: além do gate falhar sob carga, **o diagnóstico da falha
+se perde**. Quem reprovar no CI vai olhar para o mesmo buraco. Vale considerar, junto da
+correção, que o `run-tests.sh` repita ao final quais suítes falharam — hoje ele só diz o
+wall-clock e devolve o código de saída.
+
 **Spec-alvo:** 110 ou 120 — a auditoria que perguntar se os gates ainda mordem pelo motivo
 certo.

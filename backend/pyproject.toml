@@ -69,7 +69,7 @@ ignore = ["B008"]
 # cada degrau é um `pyproject.toml` verde, o que entrega gate funcionando em todos eles em
 # vez de uma spec grande que não fecha e deixa o `select` sem `C90` por mais um ciclo.
 # Este número SÓ DESCE. Subi-lo é afrouxar o gate e exige spec própria.
-max-complexity = 10
+max-complexity = 8
 
 [tool.ruff.lint.per-file-ignores]
 # CLAUDE.md §9: migration commitada não se edita. As duas ocorrências de ERA001

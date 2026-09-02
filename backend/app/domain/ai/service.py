@@ -194,6 +194,20 @@ class AiRunner:
         # (regra 7). Sem ele, `cost_usd` fica nulo em vez de virar zero mentiroso.
         self._catalog = {model.id: model for model in catalog or ()}
 
+    async def _feature_habilitada(self, feature_key: str) -> ResolvedFeature:
+        """A configuração da feature, já com o override de modelo aplicado.
+
+        Feature desligada levanta antes de qualquer gasto. O override existe para o
+        usuário trocar o modelo na UI (CLAUDE.md §7, regra 2) — modelo é configuração,
+        nunca código.
+        """
+        feature = await self.configs.resolve(feature_key)
+        if not feature.is_enabled:
+            raise FeatureDisabledError(feature_key)
+        if self.model_override:
+            feature = replace(feature, model=self.model_override)
+        return feature
+
     async def run(
         self,
         *,
@@ -203,17 +217,10 @@ class AiRunner:
         tools: Sequence[ToolSpec] | None = None,
         use_cache: bool = False,
     ) -> LLMResponse:
-        feature = await self.configs.resolve(feature_key)
-        if not feature.is_enabled:
-            raise FeatureDisabledError(feature_key)
-        if self.model_override:
-            feature = replace(feature, model=self.model_override)
+        feature = await self._feature_habilitada(feature_key)
         # Spec 090, alvo 2: o teto é checado ANTES de gastar — bloquear depois seria
         # cobrar a chamada e negar o resultado.
         await self.budget.ensure_within_budget()
-        # Cache é opt-in do chamador (`use_cache`), não automático: só quem conhece a
-        # feature sabe se repetir a mesma entrada significa "de novo, por favor" ou
-        # "essa resposta serve". Reanalisar uma intimação é o primeiro caso.
         if use_cache:
             em_cache = await self.budget.cached(
                 feature_key=feature_key, model=feature.model, messages=messages

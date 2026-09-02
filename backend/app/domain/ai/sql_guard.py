@@ -90,33 +90,35 @@ def _relations(tree: exp.Expression) -> list[str]:
     return nomes
 
 
-def check_sql(raw_sql: str, *, has_financial_access: bool) -> CheckedSql:
-    """Valida e devolve o SQL pronto para execução, ou levanta `SqlRejected`."""
+def _arvore_de_leitura(raw_sql: str) -> exp.Expression:
+    """Camada 2: uma consulta, e só de leitura.
+
+    O tipo do nó RAIZ é o que decide, não o texto — `SELECT` que esconde um `DROP` numa
+    subconsulta é pego pela varredura dos nós proibidos logo abaixo, e `SELECT 1; DROP
+    TABLE x` é pego pela contagem de comandos, que é a forma clássica de contrabandear o
+    segundo.
+    """
     import sqlglot
     from sqlglot import exp
 
     texto = (raw_sql or "").strip().rstrip(";").strip()
     if not texto:
         raise SqlRejected("A IA não gerou nenhuma consulta.")
-
     try:
         arvores = sqlglot.parse(texto, dialect=DIALECT)
     except Exception as exc:  # sqlglot levanta várias formas de ParseError
         raise SqlRejected(f"A consulta gerada não é SQL válido: {exc}") from exc
 
     arvores = [arvore for arvore in arvores if arvore is not None]
-    # Camada 2, primeira metade: um comando por vez. `SELECT 1; DROP TABLE x` é a forma
-    # clássica de contrabandear o segundo.
     if len(arvores) != 1:
         raise SqlRejected("Só é permitida UMA consulta por pergunta.")
     tree = arvores[0]
 
-    # Camada 2: somente SELECT — verificado no tipo do nó raiz, não no texto.
     if not isinstance(tree, exp.Select | exp.Union | exp.Subquery):
         raise SqlRejected(
             "Só consultas de leitura (SELECT) são permitidas — nada de alterar dados."
         )
-    for proibido in (
+    proibidos = (
         exp.Insert,
         exp.Update,
         exp.Delete,
@@ -126,11 +128,14 @@ def check_sql(raw_sql: str, *, has_financial_access: bool) -> CheckedSql:
         exp.TruncateTable,
         exp.Grant,
         exp.Command,
-    ):
-        if tree.find(proibido) is not None:
-            raise SqlRejected("A consulta tenta modificar o banco. Só leitura é permitida aqui.")
+    )
+    if any(tree.find(proibido) is not None for proibido in proibidos):
+        raise SqlRejected("A consulta tenta modificar o banco. Só leitura é permitida aqui.")
+    return tree
 
-    # Camadas 1 e 3: allowlist, valendo em qualquer profundidade da árvore.
+
+def _relacoes_permitidas(tree: exp.Expression) -> list[str]:
+    """Camadas 1 e 3: allowlist, valendo em qualquer profundidade da árvore."""
     relacoes = _relations(tree)
     if not relacoes:
         raise SqlRejected("A consulta não indica de onde ler os dados.")
@@ -141,6 +146,15 @@ def check_sql(raw_sql: str, *, has_financial_access: bool) -> CheckedSql:
             + ", ".join(proibidas)
             + ". Só as visões de indicadores estão disponíveis."
         )
+    return relacoes
+
+
+def check_sql(raw_sql: str, *, has_financial_access: bool) -> CheckedSql:
+    """Valida e devolve o SQL pronto para execução, ou levanta `SqlRejected`."""
+    from sqlglot import exp
+
+    tree = _arvore_de_leitura(raw_sql)
+    relacoes = _relacoes_permitidas(tree)
 
     financeiro = any(nome in FINANCIAL_RELATIONS for nome in relacoes) or any(
         coluna.name.lower() in FINANCIAL_COLUMNS for coluna in tree.find_all(exp.Column)

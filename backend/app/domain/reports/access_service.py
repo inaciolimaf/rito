@@ -11,8 +11,9 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import month_end
-from app.core.repository import decode_cursor
+from app.core.repository import decode_cursor, encode_cursor
 from app.domain.account.models import Account
+from app.domain.account.repository import AccountRepository
 from app.domain.reports.access_repository import AccessLogRepository
 from app.domain.reports.models import TimesheetDay
 from app.domain.users.models import User
@@ -39,6 +40,16 @@ class AccessLogService:
         self.tenant_id = tenant_id
         self.repo = AccessLogRepository(session)
         self.holidays = HolidayRepository(session)
+        self.accounts = AccountRepository(session)
+
+    async def get_account(self) -> Account | None:
+        """A conta do escritório — o livro de ponto depende do fuso dela (regra 5).
+
+        Vinha lida no router direto do `AccountRepository` (spec 118, checagem 2). Quem
+        decide o que fazer quando ela não existe continua sendo o router: aqui é `None`,
+        lá é 404.
+        """
+        return await self.accounts.get_current()
 
     async def list_access_logs(
         self,
@@ -48,7 +59,7 @@ class AccessLogService:
         to: date | None,
         cursor: str | None,
         limit: int,
-    ) -> tuple[list[AccessLogItem], int]:
+    ) -> tuple[list[AccessLogItem], str | None, int]:
         decoded = None
         if cursor is not None:
             raw_value, id_ = decode_cursor(cursor)
@@ -60,7 +71,14 @@ class AccessLogService:
             AccessLogItem(log_id=row[0], user_name=row[1], ip_address=row[2], occurred_at=row[3])
             for row in rows
         ]
-        return items, total
+        # Codificar o cursor é simétrico a decodificá-lo, e as duas metades ficam na
+        # mesma camada (spec 118, checagem 2): o router só repassa a string opaca.
+        next_cursor = (
+            encode_cursor(items[-1].occurred_at.isoformat(), items[-1].log_id)
+            if len(items) == limit
+            else None
+        )
+        return items, next_cursor, total
 
     async def timesheet(
         self, *, user: User, account: Account, month_start: date

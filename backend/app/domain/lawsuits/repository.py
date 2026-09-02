@@ -29,9 +29,6 @@ from app.domain.users.models import User
 # status dedicada, é o mesmo predicado do índice parcial ix_lawsuits_datajud_due.
 DATAJUD_NOT_FOUND_PAUSE_THRESHOLD = 5
 
-# Os 5 tipos da timeline (spec 026 §4). Os slots `task`/`publication`/`transaction` ficam
-# sem fonte até as specs 032/042/056 — não entram no union enquanto a tabela não existe.
-TIMELINE_KINDS = ("task", "movement_auto", "movement_manual", "publication", "transaction")
 
 _MOVEMENT_KIND_BY_ORIGIN = {
     "movement_auto": MovementOrigin.TRIBUNAL,

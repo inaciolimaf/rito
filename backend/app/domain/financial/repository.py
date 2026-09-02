@@ -24,6 +24,7 @@ from app.domain.financial.models import (
     TransactionKind,
     TransactionSeries,
 )
+from app.domain.financial.schemas import TransactionRow
 from app.domain.users.models import User
 
 
@@ -200,17 +201,6 @@ class BankAccountRepository(BaseRepository[BankAccount]):
         out = Decimal((await self.session.execute(debit_side)).scalar_one())
         into = Decimal((await self.session.execute(credit_side)).scalar_one())
         return out + into
-
-
-@dataclass
-class TransactionRow:
-    transaction: Transaction
-    user_name: str
-    debit_account_name: str | None
-    credit_account_name: str | None
-    category_name: str | None
-    cost_center_name: str | None
-    customer_name: str | None
 
 
 @dataclass

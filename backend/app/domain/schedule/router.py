@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import UserRole, require_role
 from app.core.rls import set_tenant_context
-from app.domain.account.repository import AccountRepository
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.schedule.ical import build_ical
 from app.domain.schedule.service import (
@@ -156,9 +155,9 @@ async def ical_feed(token: str, request: Request) -> Response:
         user = await session.get(User, user_id)
         if user is None or not user.is_active:
             raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL)
-        account = await AccountRepository(session).get_current()
-        timezone_name = account.timezone if account else "America/Sao_Paulo"
-        events = await ScheduleService(session).feed_events(user_id=user_id, today=date.today())
+        service = ScheduleService(session)
+        timezone_name = await service.feed_timezone()
+        events = await service.feed_events(user_id=user_id, today=date.today())
         content = build_ical(
             events,
             timezone_name=timezone_name,

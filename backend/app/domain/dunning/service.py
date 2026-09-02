@@ -6,17 +6,20 @@ from datetime import date, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.models import Tenant
+from app.core.repository import decode_cursor, encode_cursor
 from app.domain.dunning.exceptions import CustomerRequiredError, TransactionNotEligibleError
 from app.domain.dunning.models import DunningAttempt, DunningChannel, DunningRule, DunningStatus
 from app.domain.dunning.repository import (
-    AgingBucket,
     DunningAttemptRepository,
     DunningRuleRepository,
     OverdueRepository,
+)
+from app.domain.dunning.schemas import (
+    AgingBucket,
+    DunningRuleUpsertRequest,
     OverdueRow,
     OverdueSummary,
 )
-from app.domain.dunning.schemas import DunningRuleUpsertRequest
 from app.domain.dunning.template import TemplateContext, render_template
 from app.domain.financial.models import TransactionKind
 from app.integrations.messaging.base import ChannelNotConfiguredError, MessagingChannel
@@ -81,12 +84,29 @@ class DunningService:
         today: date,
         aging: AgingBucket | None,
         customer_id: uuid.UUID | None,
-        cursor: tuple[date, uuid.UUID] | None,
+        cursor: str | None,
         limit: int,
-    ) -> tuple[Sequence[OverdueRow], int]:
-        return await self.overdue.list_overdue(
-            today=today, aging=aging, customer_id=customer_id, cursor=cursor, limit=limit
+    ) -> tuple[Sequence[OverdueRow], str | None, int]:
+        """Página de vencidos, no formato do contrato de listagem (CLAUDE.md §6).
+
+        O codec de cursor vinha rodando no router (spec 118, checagem 2). Ele é da
+        camada de dados — quem sabe por qual valor a página ordena é quem ordena —, e o
+        router agora só repassa a string opaca que recebeu na query string.
+        """
+        decoded: tuple[date, uuid.UUID] | None = None
+        if cursor:
+            sort_value, cursor_id = decode_cursor(cursor)
+            decoded = (date.fromisoformat(sort_value), cursor_id)
+
+        rows, total = await self.overdue.list_overdue(
+            today=today, aging=aging, customer_id=customer_id, cursor=decoded, limit=limit
         )
+
+        next_cursor = None
+        if len(rows) == limit:
+            last = rows[-1].transaction
+            next_cursor = encode_cursor(last.due_date.isoformat(), last.id)
+        return rows, next_cursor, total
 
     async def summary(self, *, today: date) -> OverdueSummary:
         return await self.overdue.summary(today=today)

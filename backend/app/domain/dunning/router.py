@@ -8,12 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_messaging_channels
 from app.core.http import get_or_404
 from app.core.permissions import FinancialAccess, require_financial
-from app.core.repository import decode_cursor, encode_cursor
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.dunning.exceptions import CustomerRequiredError, TransactionNotEligibleError
 from app.domain.dunning.models import DunningAttempt
-from app.domain.dunning.repository import AgingBucket, OverdueRow
 from app.domain.dunning.schemas import (
+    AgingBucket,
     AgingBucketResponse,
     DebtorResponse,
     DunningAttemptListResponse,
@@ -22,6 +21,7 @@ from app.domain.dunning.schemas import (
     DunningRuleResponse,
     DunningRuleUpsertRequest,
     OverdueListResponse,
+    OverdueRow,
     OverdueSummaryResponse,
     OverdueTransactionResponse,
     SendDunningRequest,
@@ -77,17 +77,9 @@ async def list_overdue(
         raise HTTPException(status_code=422, detail="Faixa de aging inválida.")
     service = DunningService(session=session, tenant_id=current_user.tenant_id, channels={})
     today = date.today()
-    decoded_cursor: tuple[date, uuid.UUID] | None = None
-    if cursor:
-        sort_value, cursor_id = decode_cursor(cursor)
-        decoded_cursor = (date.fromisoformat(sort_value), cursor_id)
-    rows, total = await service.list_overdue(
-        today=today, aging=aging, customer_id=customer_id, cursor=decoded_cursor, limit=limit
+    rows, next_cursor, total = await service.list_overdue(
+        today=today, aging=aging, customer_id=customer_id, cursor=cursor, limit=limit
     )
-    next_cursor = None
-    if len(rows) == limit:
-        last = rows[-1].transaction
-        next_cursor = encode_cursor(last.due_date.isoformat(), last.id)
     return OverdueListResponse(
         items=[_overdue_to_response(row, today=today) for row in rows],
         next_cursor=next_cursor,

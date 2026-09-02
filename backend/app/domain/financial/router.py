@@ -60,7 +60,6 @@ from app.domain.financial.models import (
     TransactionSeries,
 )
 from app.domain.financial.reports import ReportGroupRow, ReportRegime, get_financial_report
-from app.domain.financial.repository import TransactionRow
 from app.domain.financial.schemas import (
     AccountBalanceItem,
     AccountBalanceResponse,
@@ -93,6 +92,7 @@ from app.domain.financial.schemas import (
     TransactionCreateRequest,
     TransactionListResponse,
     TransactionResponse,
+    TransactionRow,
     TransactionSeriesResponse,
     TransactionSeriesUpdateRequest,
     TransactionStatsResponse,

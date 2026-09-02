@@ -1,14 +1,11 @@
 import uuid
 from collections.abc import Sequence
-from typing import Literal
 
 from sqlalchemy import func, select
 
 from app.core.repository import BaseRepository
 from app.domain.documents.models import Document, DocumentFolder, DocumentScopeType
-
-SortField = Literal["name", "created_at", "size_bytes", "content_type"]
-SortOrder = Literal["asc", "desc"]
+from app.domain.documents.schemas import SortField, SortOrder
 
 _DOCUMENT_SORT_COLUMNS = {
     "name": Document.filename,

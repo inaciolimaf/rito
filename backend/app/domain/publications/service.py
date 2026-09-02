@@ -21,12 +21,11 @@ from app.domain.publications.repository import (
     PublicationCounts,
     PublicationFilterParams,
     PublicationLawyerRepository,
-    PublicationListRow,
     PublicationReadRepository,
     PublicationRecipientRepository,
     PublicationRepository,
 )
-from app.domain.publications.schemas import PublicationFilters
+from app.domain.publications.schemas import PublicationFilters, PublicationListRow
 from app.domain.users.repository import UserRepository
 from app.integrations.djen.parser import ParsedCommunication
 

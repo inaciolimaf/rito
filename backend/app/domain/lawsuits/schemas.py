@@ -8,6 +8,15 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.core.schemas import JsonDecimal
 from app.domain.lawsuits.models import ContingencyLevel, LawsuitOutcome, MovementOrigin, PartyPole
 
+# Os 5 tipos da timeline (spec 026 §4). Os slots `task`/`publication`/`transaction` ficam
+# sem fonte até as specs 032/042/056 — não entram no union enquanto a tabela não existe.
+#
+# Vocabulário do contrato (`?kinds=`), por isso mora aqui: o router precisa dele para
+# aplicar a regra 2 da 026 — omitir o parâmetro traz todos os tipos, `kinds=` vazio traz
+# nenhum — e ia buscá-lo em `repository.py` (spec 118, checagem 2). A regra continua no
+# router, que é onde ela estava: só o lugar da constante mudou.
+TIMELINE_KINDS = ("task", "movement_auto", "movement_manual", "publication", "transaction")
+
 
 class LawsuitBaseRequest(BaseModel):
     # extra="forbid": regra 2 — `action_group_id`/`step_id` são derivados e nunca aceitos

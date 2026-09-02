@@ -16,7 +16,6 @@ from app.domain.publications.exceptions import (
 )
 from app.domain.publications.metrics import PublicationMetricsService
 from app.domain.publications.models import Publication
-from app.domain.publications.repository import PublicationListRow
 from app.domain.publications.routing import PublicationRoutingService
 from app.domain.publications.schemas import (
     LinkPublicationRequest,
@@ -28,6 +27,7 @@ from app.domain.publications.schemas import (
     PublicationLawyerResponse,
     PublicationListItemResponse,
     PublicationListResponse,
+    PublicationListRow,
     PublicationMetricsResponse,
     PublicationRecipientResponse,
     PublicationResponse,

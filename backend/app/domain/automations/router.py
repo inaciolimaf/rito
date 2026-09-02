@@ -3,7 +3,6 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import UserRole, require_role
@@ -16,7 +15,6 @@ from app.domain.automations.engine import AutomationEngine, AutomationLimitError
 from app.domain.automations.models import (
     ActionKind,
     Automation,
-    AutomationDecision,
     AutomationRun,
 )
 from app.domain.automations.schemas import (
@@ -292,16 +290,8 @@ async def list_decisions(
 ) -> DecisionListResponse:
     """O raciocínio de cada decisão (regra 4) — é o que torna a automação auditável."""
     await _get(session, automation_id)
-    stmt = (
-        select(AutomationDecision)
-        .join(AutomationRun, AutomationRun.id == AutomationDecision.run_id)
-        .where(AutomationRun.automation_id == automation_id)
-        .order_by(AutomationDecision.created_at.desc())
-        .limit(limit)
-    )
-    if run_id is not None:
-        stmt = stmt.where(AutomationDecision.run_id == run_id)
-    decisoes = list((await session.scalars(stmt)).all())
+    service = AutomationService(session, current_user.tenant_id)
+    decisoes = await service.list_decisions(automation_id=automation_id, run_id=run_id, limit=limit)
     return DecisionListResponse(
         items=[
             DecisionResponse(

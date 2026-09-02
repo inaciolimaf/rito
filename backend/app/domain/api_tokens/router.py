@@ -8,17 +8,15 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import UserRole, require_role
-from app.domain.api_tokens.models import ApiRequest, ApiToken
+from app.domain.api_tokens.models import ApiToken
 from app.domain.api_tokens.schemas import (
     ApiTokenCreateRequest,
     ApiTokenListResponse,
     ApiTokenResponse,
     ApiUsageResponse,
-    ApiUsageRow,
     ScopeResponse,
 )
 from app.domain.api_tokens.scopes import ALL_SCOPES, describe
@@ -67,7 +65,7 @@ async def list_tokens(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> ApiTokenListResponse:
     service = ApiTokenService(session, current_user.tenant_id)
-    tokens = await service.tokens.list_all()
+    tokens = await service.list_tokens()
     # Sem `token`: o segredo existiu uma vez, na criação (regra 1).
     return ApiTokenListResponse(items=[_to_response(token) for token in tokens], total=len(tokens))
 
@@ -101,7 +99,7 @@ async def revoke_token(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> ApiTokenResponse:
     service = ApiTokenService(session, current_user.tenant_id)
-    token = await session.get(ApiToken, token_id)
+    token = await service.get_by_id(token_id)
     if token is None:
         raise HTTPException(status_code=404, detail=_NOT_FOUND)
     return _to_response(await service.revoke(token))
@@ -114,32 +112,6 @@ async def get_usage(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> ApiUsageResponse:
     """Uso por rota — é a tela que responde "quem está batendo no limite?"."""
-    from datetime import timedelta
-
-    desde = datetime.now(UTC) - timedelta(days=days)
-    stmt = (
-        select(
-            ApiRequest.path,
-            ApiRequest.method,
-            func.count().label("calls"),
-            func.count().filter(ApiRequest.status_code >= 400).label("errors"),
-            func.avg(ApiRequest.duration_ms).label("avg_ms"),
-        )
-        .where(ApiRequest.created_at >= desde)
-        .group_by(ApiRequest.path, ApiRequest.method)
-        .order_by(func.count().desc())
-    )
-    linhas = (await session.execute(stmt)).all()
-    return ApiUsageResponse(
-        items=[
-            ApiUsageRow(
-                path=row.path,
-                method=row.method,
-                calls=int(row.calls),
-                errors=int(row.errors),
-                avg_duration_ms=int(row.avg_ms) if row.avg_ms else None,
-            )
-            for row in linhas
-        ],
-        total_calls=sum(int(row.calls) for row in linhas),
-    )
+    service = ApiTokenService(session, current_user.tenant_id)
+    linhas = await service.usage(days=days)
+    return ApiUsageResponse(items=linhas, total_calls=sum(row.calls for row in linhas))

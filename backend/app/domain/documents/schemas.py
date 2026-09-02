@@ -1,10 +1,17 @@
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from app.domain.documents.models import DocumentScopeType
+
+# Vocabulário de ordenação da listagem. Mora aqui, e não no repositório, porque é
+# contrato: o valor chega na query string, o router o valida e o repositório o traduz
+# para coluna. Um tipo de contrato importado do repositório fazia o router depender da
+# camada de dados por causa de um `Literal` (spec 118, checagem 2).
+SortField = Literal["name", "created_at", "size_bytes", "content_type"]
+SortOrder = Literal["asc", "desc"]
 
 
 class DocumentFolderCreateRequest(BaseModel):

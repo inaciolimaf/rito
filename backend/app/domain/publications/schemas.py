@@ -1,8 +1,28 @@
 import uuid
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from app.domain.publications.models import Publication
+
+
+@dataclass
+class PublicationListRow:
+    """Linha enriquecida (spec 048) — partes e nome do responsável resolvidos sem
+    N+1, reaproveitada pela listagem e pelo export (mesmo padrão de `LawsuitListRow`,
+    spec 027).
+
+    Forma, não query: mora aqui desde a spec 118 (checagem 2), porque o router precisava
+    dela só para anotar o mapeamento para a resposta HTTP e acabava importando a camada
+    de dados por causa disso.
+    """
+
+    publication: Publication
+    parties: list[str]
+    routed_to_name: str | None
+    is_read: bool
 
 
 class PublicationImportRequest(BaseModel):

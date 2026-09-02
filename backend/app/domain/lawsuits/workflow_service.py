@@ -26,6 +26,7 @@ from app.domain.lawsuits.repository import (
 )
 from app.domain.posts.repository import PostRepository
 from app.domain.stages.models import Stage
+from app.domain.stages.repository import StageRepository
 from app.domain.users.models import User
 from app.domain.workflows.models import Workflow
 from app.domain.workflows.repository import WorkflowRepository
@@ -48,7 +49,21 @@ class LawsuitWorkflowService:
         self.applications = WorkflowApplicationRepository(session)
         self.suppressions = WorkflowSuppressionRepository(session)
         self.posts = PostRepository(session)
+        self.stages = StageRepository(session)
         self.workflow_service = WorkflowService(session=session, tenant_id=tenant_id)
+
+    async def get_workflow(self, workflow_id: uuid.UUID) -> Workflow | None:
+        """De passagem (spec 118, checagem 2) — o router precisava do workflow para
+        `apply` e ia buscá-lo no repositório."""
+        return await self.workflows.get_by_id(workflow_id)
+
+    async def suggest_for_stage_id(self, lawsuit: Lawsuit, stage_id: uuid.UUID) -> Workflow | None:
+        """`suggest_for_move` a partir do id da etapa. Etapa inexistente devolve `None`
+        — mesma resposta que o router dava ao não achar a etapa (spec 118, checagem 2)."""
+        target_stage = await self.stages.get_by_id(stage_id)
+        if target_stage is None:
+            return None
+        return await self.suggest_for_move(lawsuit, target_stage)
 
     async def suggest_for_move(self, lawsuit: Lawsuit, target_stage: Stage) -> Workflow | None:
         """Regra 1: sugere, nunca aplica sozinho. Regras 6/7: supressão é por

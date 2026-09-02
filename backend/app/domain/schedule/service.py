@@ -7,6 +7,7 @@ from enum import StrEnum
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.account.repository import AccountRepository
 from app.domain.schedule.ical import ICalEvent
 from app.domain.schedule.repository import ScheduleRepository
 
@@ -14,6 +15,9 @@ from app.domain.schedule.repository import ScheduleRepository
 MAX_RANGE_DAYS = 90
 # Regra 5: o feed iCal cobre no máximo 12 meses para trás e 12 para frente.
 FEED_WINDOW_DAYS = 365
+# Fuso do escritório quando a conta ainda não foi configurada — o feed iCal precisa de
+# um fuso para escrever `DTSTART`, e sem padrão o calendário do assinante leria UTC.
+DEFAULT_TIMEZONE = "America/Sao_Paulo"
 
 
 class ScheduleStatus(StrEnum):
@@ -77,6 +81,13 @@ class ScheduleService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repository = ScheduleRepository(session)
+        self.account = AccountRepository(session)
+
+    async def feed_timezone(self) -> str:
+        """Fuso em que o feed iCal escreve as datas (regra 5). Vinha lido no router
+        direto do `AccountRepository` (spec 118, checagem 2)."""
+        account = await self.account.get_current()
+        return account.timezone if account else DEFAULT_TIMEZONE
 
     async def list_events(
         self,

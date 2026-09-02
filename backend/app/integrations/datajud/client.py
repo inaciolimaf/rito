@@ -9,28 +9,25 @@ decide o que fazer com ele (alerta + pausa, regra 3) é o `DatajudService`.
 
 import json
 
+from app.integrations.datajud.base import (
+    DatajudApiError,
+    DatajudConfigError,
+    DatajudUnauthorizedError,
+)
 from app.integrations.datajud.parser import ParsedProcess, normalize_process_number, parse_process
 from app.integrations.http.types import HttpClient
 
-
-class DatajudConfigError(Exception):
-    """Chave ausente — regra 1: sempre vem de `DATAJUD_API_KEY`, nunca hardcoded."""
-
-
-class DatajudApiError(Exception):
-    """Resposta não-200 (exceto 401, tratado à parte) que sobreviveu às retentativas
-    da camada 041."""
-
-    def __init__(self, status_code: int) -> None:
-        super().__init__(f"DataJud respondeu status {status_code}")
-        self.status_code = status_code
-
-
-class DatajudUnauthorizedError(DatajudApiError):
-    """401 — chave pública inválida ou rotacionada (regra 3)."""
-
-    def __init__(self) -> None:
-        super().__init__(401)
+# Os três erros passaram a morar em `base.py` com o protocolo que os levanta (spec 118,
+# §4.D). Ficam reexportados aqui porque quem os importava de `client` continua certo.
+# A conformidade com `LawsuitSource` é estrutural — sem herança, como `S3FileStorage`
+# para `FileStorage` e `DjenPublicationSource` para `PublicationSource`. Quem prova que
+# ela vale é `tests/unit/test_datajud_source.py`.
+__all__ = [
+    "DatajudApiError",
+    "DatajudClient",
+    "DatajudConfigError",
+    "DatajudUnauthorizedError",
+]
 
 
 class DatajudClient:

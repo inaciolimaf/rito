@@ -57,18 +57,6 @@ class PublicationMetricsRow:
 _AUTO_MATCHED_BY = ("process_number", "lawyer_id")
 
 
-@dataclass
-class PublicationListRow:
-    """Linha enriquecida (spec 048) — partes e nome do responsável resolvidos sem
-    N+1, reaproveitada pela listagem e pelo export (mesmo padrão de `LawsuitListRow`,
-    spec 027)."""
-
-    publication: Publication
-    parties: list[str]
-    routed_to_name: str | None
-    is_read: bool
-
-
 class PublicationRepository(BaseRepository[Publication]):
     model = Publication
 

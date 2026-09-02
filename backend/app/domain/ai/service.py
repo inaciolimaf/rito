@@ -11,9 +11,12 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, replace
+from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from opentelemetry.trace import SpanKind
+from sqlalchemy import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -131,6 +134,29 @@ class AiConfigService:
         config.store_prompts = store_prompts
         config.updated_by = actor_id
         return await self.configs.upsert(config)
+
+
+class AiUsageService:
+    """Leitura do consumo de IA (spec 080). Existe para o router não falar com o
+    repositório (spec 118, checagem 2): a rota `/ai/usage` monta a resposta HTTP, quem
+    sabe agrupar e somar é esta camada."""
+
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        self.session = session
+        self.tenant_id = tenant_id
+        self.usage = AiUsageRepository(session)
+
+    async def summary(
+        self,
+        *,
+        from_: date | None,
+        to: date | None,
+        feature_key: str | None,
+        group_by: str,
+    ) -> tuple[Sequence[Row[Any]], Row[Any]]:
+        return await self.usage.summary(
+            from_=from_, to=to, feature_key=feature_key, group_by=group_by
+        )
 
 
 class AiRunner:

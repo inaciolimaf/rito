@@ -14,7 +14,6 @@ from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsError
 from app.domain.customers.models import Customer, PersonType
-from app.domain.customers.repository import MaritalStatusRepository
 from app.domain.customers.schemas import (
     BirthdayItemResponse,
     CheckDuplicateResponse,
@@ -29,7 +28,7 @@ from app.domain.customers.schemas import (
     DuplicateCandidateResponse,
     MaritalStatusResponse,
 )
-from app.domain.customers.service import CustomerService
+from app.domain.customers.service import CustomerService, MaritalStatusService
 from app.domain.notifications.dispatch import NotificationDispatcher
 from app.domain.notifications.models import NotificationEvent
 from app.domain.users.models import User
@@ -310,5 +309,5 @@ async def list_marital_statuses(
     _current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> list[MaritalStatusResponse]:
-    statuses = await MaritalStatusRepository(session).list_all()
+    statuses = await MaritalStatusService(session).list_all()
     return [MaritalStatusResponse(id=item.id, name=item.name) for item in statuses]

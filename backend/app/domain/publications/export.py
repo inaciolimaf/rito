@@ -2,7 +2,7 @@
 domínio sobre o `TableExport` genérico (spec 030)."""
 
 from app.core.export import ExportColumn, TableExport
-from app.domain.publications.repository import PublicationListRow
+from app.domain.publications.schemas import PublicationListRow
 
 
 def _parties(row: PublicationListRow) -> str:

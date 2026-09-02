@@ -9,6 +9,8 @@ precisa da capa, sem distinguir "sigiloso" de "não encontrado".
 """
 
 import logging
+import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,9 +18,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.courts.models import Court
 from app.domain.courts.repository import CnjMovementCodeRepository, CourtRepository
 from app.domain.datajud.exceptions import CourtNotSupportedError
+from app.domain.datajud.repository import LawsuitSyncRunRepository
 from app.domain.integration_alerts.models import IntegrationAlert
 from app.domain.integration_alerts.repository import IntegrationAlertRepository
-from app.integrations.datajud.client import DatajudClient, DatajudUnauthorizedError
+from app.domain.monitored_terms.models import TermSyncRun
+from app.integrations.datajud.base import DatajudUnauthorizedError, LawsuitSource
 from app.integrations.datajud.parser import ParsedProcess
 
 logger = logging.getLogger("rito.datajud")
@@ -40,7 +44,10 @@ class ProcessFetchStatus:
 
 
 class DatajudService:
-    def __init__(self, session: AsyncSession, client: DatajudClient) -> None:
+    def __init__(self, session: AsyncSession, client: LawsuitSource) -> None:
+        # `LawsuitSource`, não `DatajudClient` (spec 118, §4.D): o service depende da
+        # abstração. O client continua sendo o que os chamadores passam — a mudança é
+        # de quem o service sabe que está falando, não de quem fala com ele.
         self.session = session
         self.client = client
         self.courts = CourtRepository(session)
@@ -105,3 +112,20 @@ class DatajudService:
                 code,
                 process.process_number,
             )
+
+
+class LawsuitSyncRunService:
+    """Histórico de sincronização de um processo (spec 050, alvo 1).
+
+    Separado do `DatajudService` de propósito: ler o que já rodou não consulta o
+    tribunal, então não precisa de uma `LawsuitSource` — exigir uma faria a rota de
+    histórico depender de `DATAJUD_API_KEY` para listar linhas do próprio banco.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.runs = LawsuitSyncRunRepository(session)
+
+    async def list_for_lawsuit(
+        self, lawsuit_id: uuid.UUID, *, limit: int = 20
+    ) -> Sequence[TermSyncRun]:
+        return await self.runs.list_for_lawsuit(lawsuit_id, limit=limit)

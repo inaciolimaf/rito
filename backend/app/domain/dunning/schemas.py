@@ -1,10 +1,47 @@
 import uuid
+from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app.core.schemas import JsonDecimal
 from app.domain.dunning.models import DunningChannel, DunningStatus
+from app.domain.financial.models import Transaction
+
+# Formas — de fio (Pydantic) e de leitura interna (dataclass). As quatro de baixo
+# moravam em `repository.py`, e por isso o router importava a camada de dados só para
+# nomear um tipo (spec 118, checagem 2). `repository.py` guarda query; forma mora aqui.
+
+AgingBucket = Literal["1-15", "16-30", "31-60", "61-90", "90+"]
+
+
+@dataclass
+class OverdueRow:
+    """Transação vencida com os dados do devedor já resolvidos — o join que a listagem
+    e a régua consomem, para nenhuma das duas fazer N+1 atrás de nome e contato."""
+
+    transaction: Transaction
+    customer_name: str | None
+    customer_email: str | None
+    customer_cellphone: str | None
+    process_number: str | None
+
+
+@dataclass
+class DebtorTotal:
+    customer_id: uuid.UUID
+    customer_name: str
+    total: Decimal
+
+
+@dataclass
+class OverdueSummary:
+    total: Decimal
+    by_aging: dict[AgingBucket, Decimal]
+    top_debtors: list[DebtorTotal]
+
 
 _DEFAULT_TEMPLATE = (
     "Olá {{customer_name}}, identificamos um valor de {{amount}} com vencimento em "

@@ -9,8 +9,8 @@ from app.core.image_processing import extension_for, process_image
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsError
 from app.domain.customers.export import build_pdf, build_xlsx
-from app.domain.customers.models import Customer, PersonType
-from app.domain.customers.repository import CustomerRepository
+from app.domain.customers.models import Customer, MaritalStatus, PersonType
+from app.domain.customers.repository import CustomerRepository, MaritalStatusRepository
 from app.domain.customers.schemas import (
     CountedItem,
     CustomerCreateRequest,
@@ -43,6 +43,18 @@ _PF_ONLY_FIELDS = (
 
 def stats_cache_key(tenant_id: uuid.UUID) -> str:
     return tenant_key("customers:stats", tenant_id)
+
+
+class MaritalStatusService:
+    """Tabela de referência de estado civil. Sem `tenant_id` de propósito: a lista é
+    global (o RLS não a cobre porque não há o que isolar). Existe para o router não
+    falar com o repositório (spec 118, checagem 2)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.statuses = MaritalStatusRepository(session)
+
+    async def list_all(self) -> list[MaritalStatus]:
+        return list(await self.statuses.list_all())
 
 
 class CustomerService:

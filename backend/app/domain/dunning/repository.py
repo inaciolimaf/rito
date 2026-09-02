@@ -1,9 +1,8 @@
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any
 
 from sqlalchemy import ColumnElement, Row, Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,10 +11,14 @@ from app.core.listing import paginate_keyset
 from app.core.repository import BaseRepository
 from app.domain.customers.models import Customer
 from app.domain.dunning.models import DunningAttempt, DunningChannel, DunningRule
+from app.domain.dunning.schemas import (
+    AgingBucket,
+    DebtorTotal,
+    OverdueRow,
+    OverdueSummary,
+)
 from app.domain.financial.models import Transaction, TransactionKind
 from app.domain.lawsuits.models import Lawsuit
-
-AgingBucket = Literal["1-15", "16-30", "31-60", "61-90", "90+"]
 
 # Regra 2: as 5 faixas de aging, em dias de atraso (today - due_date).
 _AGING_RANGES: dict[AgingBucket, tuple[int, int | None]] = {
@@ -77,29 +80,6 @@ class DunningAttemptRepository(BaseRepository[DunningAttempt]):
                 .order_by(DunningAttempt.sent_at.desc())
             )
         ).all()
-
-
-@dataclass
-class OverdueRow:
-    transaction: Transaction
-    customer_name: str | None
-    customer_email: str | None
-    customer_cellphone: str | None
-    process_number: str | None
-
-
-@dataclass
-class DebtorTotal:
-    customer_id: uuid.UUID
-    customer_name: str
-    total: Decimal
-
-
-@dataclass
-class OverdueSummary:
-    total: Decimal
-    by_aging: dict[AgingBucket, Decimal]
-    top_debtors: list[DebtorTotal]
 
 
 def _overdue_condition(today: date) -> list[ColumnElement[bool]]:

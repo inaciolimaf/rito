@@ -23,7 +23,7 @@ from app.domain.lawsuits.listing import (
 )
 from app.domain.lawsuits.schemas import LawsuitFiltersQuery
 from app.domain.lawsuits.stagnation_service import StagnationService
-from app.domain.stages.repository import StepRepository
+from app.domain.stages.service import StepService
 from app.domain.users.models import User
 
 router = APIRouter(prefix="/crm", tags=["crm"])
@@ -65,7 +65,7 @@ async def get_board(
 ) -> BoardResponse:
     """Spec 051, regra 1: as 9 fases, sempre todas, mesmo vazias."""
     can_see_value = current_user.financial_access != FinancialAccess.NONE
-    steps = await StepRepository(session).list_all()
+    steps = await StepService(session).list_steps()
     service = BoardService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     board = await service.get_board(
         filters=filters_from_query(filters), limit_per_column=limit_per_column
@@ -119,7 +119,7 @@ async def get_stats(
 ) -> CrmStatsResponse:
     """§5: cards de topo do CRM — mesmos filtros do board (regra 8, spec 051)."""
     can_see_value = current_user.financial_access != FinancialAccess.NONE
-    steps = await StepRepository(session).list_all()
+    steps = await StepService(session).list_steps()
     service = BoardService(session=session, tenant_id=current_user.tenant_id, cache=redis)
     stats = await service.get_stats(filters=filters_from_query(filters))
     by_step = {row.step_id: row for row in stats.by_step}

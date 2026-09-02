@@ -20,12 +20,8 @@ from app.domain.documents.exceptions import (
 )
 from app.domain.documents.models import Document, DocumentFolder, DocumentScopeType
 from app.domain.documents.quota import StorageQuotaExceededError, quota_bytes
-from app.domain.documents.repository import (
-    DocumentFolderRepository,
-    DocumentRepository,
-    SortField,
-    SortOrder,
-)
+from app.domain.documents.repository import DocumentFolderRepository, DocumentRepository
+from app.domain.documents.schemas import SortField, SortOrder
 from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.users.models import User
 from app.integrations.storage.base import FileStorage

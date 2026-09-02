@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -10,8 +11,28 @@ from app.domain.financial.models import (
     AccountKind,
     EntryType,
     FinancialRecurrence,
+    Transaction,
     TransactionKind,
 )
+
+
+@dataclass
+class TransactionRow:
+    """Lançamento com os nomes das entidades ligadas já resolvidos — o join que a
+    listagem devolve, para a tela não fazer N+1 atrás de conta, categoria e cliente.
+
+    Mora aqui, e não em `repository.py`, porque é forma e não query: o router precisava
+    do tipo para anotar `_transaction_to_response` e por isso importava a camada de
+    dados (spec 118, checagem 2).
+    """
+
+    transaction: Transaction
+    user_name: str
+    debit_account_name: str | None
+    credit_account_name: str | None
+    category_name: str | None
+    cost_center_name: str | None
+    customer_name: str | None
 
 
 class DreGroupResponse(BaseModel):

@@ -10,14 +10,15 @@ em todas elas.
 import hashlib
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.repository import BaseRepository
-from app.domain.api_tokens.models import ApiToken
+from app.domain.api_tokens.models import ApiRequest, ApiToken
+from app.domain.api_tokens.schemas import ApiUsageRow
 from app.domain.api_tokens.scopes import is_valid
 
 TOKEN_PREFIX = "rito_"
@@ -64,11 +65,43 @@ class ApiTokenRepository(BaseRepository[ApiToken]):
         return len(ativos)
 
 
+class ApiRequestRepository(BaseRepository[ApiRequest]):
+    """Leitura do log de requisições da API pública. A agregação por rota vinha montada
+    dentro do router (spec 118, checagem 1) — é query, e query mora aqui."""
+
+    model = ApiRequest
+
+    async def usage_by_route(self, *, since: datetime) -> list[ApiUsageRow]:
+        stmt = (
+            select(
+                ApiRequest.path,
+                ApiRequest.method,
+                func.count().label("calls"),
+                func.count().filter(ApiRequest.status_code >= 400).label("errors"),
+                func.avg(ApiRequest.duration_ms).label("avg_ms"),
+            )
+            .where(ApiRequest.created_at >= since)
+            .group_by(ApiRequest.path, ApiRequest.method)
+            .order_by(func.count().desc())
+        )
+        return [
+            ApiUsageRow(
+                path=row.path,
+                method=row.method,
+                calls=int(row.calls),
+                errors=int(row.errors),
+                avg_duration_ms=int(row.avg_ms) if row.avg_ms else None,
+            )
+            for row in (await self.session.execute(stmt)).all()
+        ]
+
+
 class ApiTokenService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.session = session
         self.tenant_id = tenant_id
         self.tokens = ApiTokenRepository(session)
+        self.requests = ApiRequestRepository(session)
 
     async def create(
         self,
@@ -108,6 +141,16 @@ class ApiTokenService:
         token.revoked_at = datetime.now(UTC)
         await self.session.flush()
         return token
+
+    async def get_by_id(self, token_id: uuid.UUID) -> ApiToken | None:
+        return await self.tokens.get_by_id(token_id)
+
+    async def list_tokens(self) -> list[ApiToken]:
+        return await self.tokens.list_all()
+
+    async def usage(self, *, days: int) -> list[ApiUsageRow]:
+        """Uso por rota nos últimos `days` dias — a janela é regra, não HTTP."""
+        return await self.requests.usage_by_route(since=datetime.now(UTC) - timedelta(days=days))
 
 
 async def lookup_token(session: AsyncSession, raw: str) -> dict[str, Any] | None:

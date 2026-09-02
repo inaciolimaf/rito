@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
-from app.domain.locations.repository import CityRepository, StateRepository
 from app.domain.locations.schemas import CityResponse, StateResponse
+from app.domain.locations.service import LocationService
 from app.domain.users.models import User
 
 states_router = APIRouter(prefix="/states", tags=["locations"])
@@ -16,7 +16,7 @@ async def list_states(
     _current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> list[StateResponse]:
-    states = await StateRepository(session).list_all()
+    states = await LocationService(session).list_states()
     return [StateResponse(code=s.code, name=s.name, ibge_code=s.ibge_code) for s in states]
 
 
@@ -27,7 +27,7 @@ async def list_cities(
     _current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> list[CityResponse]:
-    cities = await CityRepository(session).list_filtered(state_code=state.upper(), query=q)
+    cities = await LocationService(session).list_cities(state_code=state, query=q)
     return [
         CityResponse(ibge_code=c.ibge_code, name=c.name, state_code=c.state_code) for c in cities
     ]

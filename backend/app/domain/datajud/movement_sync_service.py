@@ -31,7 +31,7 @@ from app.domain.lawsuits.repository import (
     LawsuitSubjectRepository,
 )
 from app.domain.monitored_terms.models import TermSyncRun
-from app.integrations.datajud.client import DatajudUnauthorizedError
+from app.integrations.datajud.base import DatajudUnauthorizedError
 from app.integrations.datajud.parser import ParsedMovement, ParsedProcess
 
 logger = logging.getLogger("rito.datajud")

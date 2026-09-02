@@ -9,7 +9,6 @@ from app.core.permissions import UserRole, require_role
 from app.domain.ai.budget import AiBudgetService
 from app.domain.ai.exceptions import UnknownFeatureError
 from app.domain.ai.features import AI_FEATURES
-from app.domain.ai.repository import AiUsageRepository
 from app.domain.ai.schemas import (
     BudgetRequest,
     BudgetResponse,
@@ -23,7 +22,7 @@ from app.domain.ai.schemas import (
     UsageResponse,
     UsageTotalsResponse,
 )
-from app.domain.ai.service import AiConfigService, ResolvedFeature
+from app.domain.ai.service import AiConfigService, AiUsageService, ResolvedFeature
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.users.models import User
 from app.integrations.openrouter.types import LLMError, LLMNotConfiguredError, LLMProvider
@@ -131,7 +130,8 @@ async def get_usage(
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> UsageResponse:
-    rows, totals = await AiUsageRepository(session).summary(
+    service = AiUsageService(session, current_user.tenant_id)
+    rows, totals = await service.summary(
         from_=from_, to=to, feature_key=feature_key, group_by=group_by
     )
     return UsageResponse(

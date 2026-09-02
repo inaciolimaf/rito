@@ -25,6 +25,7 @@ from app.domain.automations.models import (
     ActionKind,
     Automation,
     AutomationAction,
+    AutomationDecision,
     AutomationRun,
     AutomationRunStep,
     DelayKind,
@@ -74,11 +75,40 @@ class AutomationRepository(BaseRepository[Automation]):
         return list((await self.session.scalars(stmt)).all())
 
 
+class AutomationDecisionRepository(BaseRepository[AutomationDecision]):
+    """Leitura das decisões de IA de uma automação. A query vinha montada dentro do
+    router (spec 118, checagem 1)."""
+
+    model = AutomationDecision
+
+    async def list_for_automation(
+        self, *, automation_id: uuid.UUID, run_id: uuid.UUID | None, limit: int
+    ) -> list[AutomationDecision]:
+        stmt = (
+            select(AutomationDecision)
+            .join(AutomationRun, AutomationRun.id == AutomationDecision.run_id)
+            .where(AutomationRun.automation_id == automation_id)
+            .order_by(AutomationDecision.created_at.desc())
+            .limit(limit)
+        )
+        if run_id is not None:
+            stmt = stmt.where(AutomationDecision.run_id == run_id)
+        return list((await self.session.scalars(stmt)).all())
+
+
 class AutomationService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.session = session
         self.tenant_id = tenant_id
         self.automations = AutomationRepository(session)
+        self.decisions = AutomationDecisionRepository(session)
+
+    async def list_decisions(
+        self, *, automation_id: uuid.UUID, run_id: uuid.UUID | None, limit: int
+    ) -> list[AutomationDecision]:
+        return await self.decisions.list_for_automation(
+            automation_id=automation_id, run_id=run_id, limit=limit
+        )
 
     async def create(
         self,

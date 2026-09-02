@@ -532,9 +532,11 @@ Sete funções acima de 6 returns; três são o mesmo resolvedor de variável de
 Em 100 specs ninguém nunca soube a cobertura do Rito. Medida: backend 89,1% (91,1% sem `workers/`), frontend 55,0% de statements. Piso no valor medido, passo próprio de CI fora dos 300 s, `workers/` excluído com justificativa **e** meta-teste de corpo fino.
 **Aceite:** os dois pisos travados no medido; `coverage.json` versionado; nenhum teste de feature escrito nesta spec. **t:** 0 s. **Deps:** 009
 
-### ⬜ 118 — Gate de camadas: os sintomas de SOLID que dá para verificar
+### ✅ 118 — Gate de camadas: os sintomas de SOLID que dá para verificar
 Três checagens de AST para as regras que o §5 declara e ninguém verifica — e que já são violadas em 16 lugares: 2 routers com `select()`, 14 routers importando `repository`, e o `datajud` sem interface (o `djen` tem `source.py`, o `datajud` não).
 **Aceite:** as três checagens verdes com lista de exceção vazia; `LawsuitSource` no molde do `PublicationSource`; nenhum contrato de API alterado. **t:** 0,4 s. **Deps:** 003, 005
+Os 16 confirmados sem drift, as três listas de exceção terminam **vazias**, e um quarto teste trava isso. "Nenhum contrato alterado" foi provado, não afirmado: snapshot de `app.openapi()` contra o do HEAD limpo, **311 rotas, diff de zero linhas**.
+Dois achados fora do escopo declarado, com o número escrito no próprio módulo de teste: `app/public/router.py` tem 9 `select()` + 2 imports de repositório, e sobram 9 usos de `session.get/add/flush/delete` em routers que a regra 1 do §8 não lista.
 
 ### ⬜ 119 — Teto de duplicação
 Dá número à regra dos 3 usos: 0,61% em Python e 1,74% em TSX, medidos com jscpd sobre código de produção. O cluster exposto são seis páginas de CRUD repetindo o mesmo bloco, mais `LogoUploader`/`AvatarUploader`, que são o mesmo componente com dois nomes.

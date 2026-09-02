@@ -1,11 +1,12 @@
-"""Integração com o DataJud (spec 046) — client HTTP + parser puro."""
+"""Integração com o DataJud (spec 046) — contrato `LawsuitSource`, client HTTP e parser puro."""
 
-from app.integrations.datajud.client import (
+from app.integrations.datajud.base import (
     DatajudApiError,
-    DatajudClient,
     DatajudConfigError,
     DatajudUnauthorizedError,
+    LawsuitSource,
 )
+from app.integrations.datajud.client import DatajudClient
 from app.integrations.datajud.parser import (
     DatajudParseError,
     ParsedMovement,
@@ -22,6 +23,7 @@ __all__ = [
     "DatajudConfigError",
     "DatajudParseError",
     "DatajudUnauthorizedError",
+    "LawsuitSource",
     "ParsedMovement",
     "ParsedMovementComplement",
     "ParsedProcess",

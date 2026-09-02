@@ -14,8 +14,7 @@ from app.core.permissions import FinancialAccess, UserRole, require_financial, r
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.datajud.exceptions import LawsuitSyncInProgressError
 from app.domain.datajud.movement_sync_service import MovementSyncService, sync_lock_key
-from app.domain.datajud.repository import LawsuitSyncRunRepository
-from app.domain.datajud.service import DatajudService
+from app.domain.datajud.service import DatajudService, LawsuitSyncRunService
 from app.domain.lawsuits.board_service import BoardService
 from app.domain.lawsuits.cnj import SEGMENT_NAMES, CNJValidationError
 from app.domain.lawsuits.exceptions import (
@@ -43,8 +42,8 @@ from app.domain.lawsuits.listing import LawsuitListRow
 from app.domain.lawsuits.models import Lawsuit, LawsuitMovement
 from app.domain.lawsuits.movements_service import MovementsService
 from app.domain.lawsuits.parties_service import PartiesService, PartyDetail
-from app.domain.lawsuits.repository import TIMELINE_KINDS
 from app.domain.lawsuits.schemas import (
+    TIMELINE_KINDS,
     ApplyWorkflowRequest,
     ApplyWorkflowResponse,
     BulkMoveStageRequest,
@@ -97,9 +96,7 @@ from app.domain.lawsuits.stats import invalidate_stats_cache
 from app.domain.lawsuits.workflow_service import LawsuitWorkflowService
 from app.domain.notifications.dispatch import NotificationDispatcher
 from app.domain.notifications.models import NotificationEvent
-from app.domain.stages.repository import StageRepository
 from app.domain.users.models import User
-from app.domain.workflows.repository import WorkflowRepository
 from app.domain.workflows.service import InactiveAssigneeError
 from app.integrations.datajud.client import (
     DatajudClient,
@@ -541,13 +538,13 @@ async def move_lawsuit_stage(
         raise HTTPException(status_code=422, detail="Etapa não encontrada.") from exc
     updated = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
 
-    target_stage = await StageRepository(session).get_by_id(payload.stage_id)
-    suggested = None
-    if target_stage is not None:
-        workflows = LawsuitWorkflowService(session=session, tenant_id=current_user.tenant_id)
-        workflow = await workflows.suggest_for_move(updated.lawsuit, target_stage)
-        if workflow is not None:
-            suggested = SuggestedWorkflowResponse(id=workflow.id, name=workflow.name)
+    workflows = LawsuitWorkflowService(session=session, tenant_id=current_user.tenant_id)
+    workflow = await workflows.suggest_for_stage_id(updated.lawsuit, payload.stage_id)
+    suggested = (
+        SuggestedWorkflowResponse(id=workflow.id, name=workflow.name)
+        if workflow is not None
+        else None
+    )
     return MoveStageResponse(lawsuit=_to_response(updated), suggested_workflow=suggested)
 
 
@@ -563,11 +560,11 @@ async def apply_lawsuit_workflow(
     permite desfazer (regra 4)."""
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
+    workflows = LawsuitWorkflowService(session=session, tenant_id=current_user.tenant_id)
     workflow = await get_or_404(
-        lambda: WorkflowRepository(session).get_by_id(payload.workflow_id),
+        lambda: workflows.get_workflow(payload.workflow_id),
         "Workflow não encontrado.",
     )
-    workflows = LawsuitWorkflowService(session=session, tenant_id=current_user.tenant_id)
     try:
         outcome = await workflows.apply(
             detail.lawsuit,
@@ -933,7 +930,7 @@ async def list_sync_runs(
     do DJEN (spec 043), agora também pelo lado `lawsuit_id`."""
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
-    runs = await LawsuitSyncRunRepository(session).list_for_lawsuit(lawsuit_id)
+    runs = await LawsuitSyncRunService(session).list_for_lawsuit(lawsuit_id)
     return SyncRunListResponse(
         items=[
             SyncRunResponse(

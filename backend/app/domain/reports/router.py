@@ -8,8 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.export import ExportColumn, TableExport
 from app.core.http import parse_month_query
 from app.core.permissions import UserRole, require_role
-from app.core.repository import encode_cursor
-from app.domain.account.repository import AccountRepository
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.reports.access_service import AccessLogService
 from app.domain.reports.models import TimesheetDay
@@ -29,7 +27,7 @@ from app.domain.reports.schemas import (
 from app.domain.reports.service import ReportsService
 from app.domain.reports.tabular_service import ReportFilters, TabularReportService
 from app.domain.users.models import User
-from app.domain.users.repository import UserRepository
+from app.domain.users.service import UserService
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -203,13 +201,9 @@ async def get_access_logs_report(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> AccessLogListResponse:
     service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
-    items, total = await service.list_access_logs(
+    items, next_cursor, total = await service.list_access_logs(
         user_id=user_id, from_=from_, to=to, cursor=cursor, limit=limit
     )
-    next_cursor = None
-    if len(items) == limit:
-        last = items[-1]
-        next_cursor = encode_cursor(last.occurred_at.isoformat(), last.log_id)
     return AccessLogListResponse(
         items=[
             AccessLogItemResponse(
@@ -233,7 +227,7 @@ async def _resolve_timesheet_target(
     target_id = requested_user_id or current_user.id
     if target_id != current_user.id and not is_admin:
         raise HTTPException(status_code=403, detail="Você só pode ver o próprio ponto.")
-    target = await UserRepository(session).get_by_id(target_id)
+    target = await UserService(session, current_user.tenant_id).get(target_id)
     if target is None:
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     return target
@@ -259,11 +253,11 @@ async def get_timesheet_report(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TimesheetResponse:
     target = await _resolve_timesheet_target(session, current_user, user_id)
-    account = await AccountRepository(session).get_current()
+    service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
+    account = await service.get_account()
     if account is None:
         raise HTTPException(status_code=404, detail="Conta ainda não configurada.")
     month_start = parse_month_query(month)
-    service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
     days = await service.timesheet(user=target, account=account, month_start=month_start)
     return TimesheetResponse(
         user_id=target.id,
@@ -280,11 +274,11 @@ async def export_timesheet_report(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> Response:
     target = await _resolve_timesheet_target(session, current_user, user_id)
-    account = await AccountRepository(session).get_current()
+    service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
+    account = await service.get_account()
     if account is None:
         raise HTTPException(status_code=404, detail="Conta ainda não configurada.")
     month_start = parse_month_query(month)
-    service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
     days = await service.timesheet(user=target, account=account, month_start=month_start)
     rows = [_to_timesheet_day_response(day) for day in days]
     export = TableExport(sheet_title="timesheet", columns=_TIMESHEET_EXPORT_COLUMNS)

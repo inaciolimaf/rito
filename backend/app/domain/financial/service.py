@@ -52,7 +52,6 @@ from app.domain.financial.repository import (
     FinancialCategoryRepository,
     FinancialInstitutionRepository,
     TransactionRepository,
-    TransactionRow,
     TransactionSeriesRepository,
     TransactionTotals,
 )
@@ -64,6 +63,7 @@ from app.domain.financial.schemas import (
     FinancialCategoryCreateRequest,
     FinancialCategoryUpdateRequest,
     TransactionCreateRequest,
+    TransactionRow,
     TransactionSeriesUpdateRequest,
     TransactionUpdateRequest,
 )

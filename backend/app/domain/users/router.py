@@ -24,7 +24,6 @@ from app.domain.users.exceptions import (
     OabRequiredError,
 )
 from app.domain.users.models import User
-from app.domain.users.repository import OccupationRepository
 from app.domain.users.schemas import (
     AcceptInvitationRequest,
     InviteUserRequest,
@@ -38,7 +37,7 @@ from app.domain.users.schemas import (
     UserResponse,
     UserUpdateRequest,
 )
-from app.domain.users.service import UserService
+from app.domain.users.service import OccupationService, UserService
 from app.integrations.storage.base import FileStorage
 
 users_router = APIRouter(prefix="/users", tags=["users"])
@@ -276,7 +275,7 @@ async def list_occupations(
     _current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> list[OccupationResponse]:
-    occupations = await OccupationRepository(session).list_all()
+    occupations = await OccupationService(session).list_all()
     return [OccupationResponse(id=item.id, name=item.name) for item in occupations]
 
 

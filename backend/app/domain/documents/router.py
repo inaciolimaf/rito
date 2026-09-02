@@ -16,13 +16,14 @@ from app.domain.documents.exceptions import (
     FolderScopeMismatchError,
 )
 from app.domain.documents.models import Document, DocumentFolder, DocumentScopeType
-from app.domain.documents.repository import SortField, SortOrder
 from app.domain.documents.schemas import (
     DocumentFolderCreateRequest,
     DocumentFolderResponse,
     DocumentListResponse,
     DocumentResponse,
     DocumentSearchResponse,
+    SortField,
+    SortOrder,
     UploadResultResponse,
 )
 from app.domain.documents.service import DocumentService

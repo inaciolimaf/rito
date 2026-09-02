@@ -1,16 +1,15 @@
 import uuid
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_session_for_current_user
-from app.domain.integration_alerts.repository import IntegrationAlertRepository
 from app.domain.integration_alerts.schemas import (
     IntegrationAlertListResponse,
     IntegrationAlertResponse,
 )
+from app.domain.integration_alerts.service import IntegrationAlertService
 from app.domain.integrations.schemas import (
     IntegrationStatusItemResponse,
     IntegrationStatusResponse,
@@ -54,7 +53,7 @@ async def list_integration_alerts(
     _current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> IntegrationAlertListResponse:
-    alerts = list(await IntegrationAlertRepository(session).list_filtered(resolved=resolved))
+    alerts = list(await IntegrationAlertService(session).list_filtered(resolved=resolved))
     return IntegrationAlertListResponse(
         items=[
             IntegrationAlertResponse(
@@ -80,14 +79,11 @@ async def resolve_integration_alert(
     current_user: User = Depends(require_role(UserRole.GESTOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> IntegrationAlertResponse:
-    repository = IntegrationAlertRepository(session)
-    alert = await repository.get_by_id(alert_id)
+    service = IntegrationAlertService(session)
+    alert = await service.get(alert_id)
     if alert is None:
         raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL)
-    if alert.resolved_at is None:
-        alert.resolved_at = datetime.now(UTC)
-        alert.resolved_by = current_user.id
-        await session.commit()
+    await service.resolve(alert, resolved_by=current_user.id)
     return IntegrationAlertResponse(
         id=alert.id,
         integration=alert.integration,

@@ -16,7 +16,7 @@ from app.domain.users.exceptions import (
     LastActiveGestorError,
     OabRequiredError,
 )
-from app.domain.users.models import User, UserInvitation, UserRole
+from app.domain.users.models import Occupation, User, UserInvitation, UserRole
 from app.domain.users.repository import (
     OccupationRepository,
     UserInvitationRepository,
@@ -26,6 +26,17 @@ from app.domain.users.schemas import AcceptInvitationRequest, InviteUserRequest,
 from app.integrations.storage.base import FileStorage
 
 _INVITATION_TTL_DAYS = 7
+
+
+class OccupationService:
+    """Tabela de referência de profissões. Global, sem `tenant_id` — existe para o
+    router não falar com o repositório (spec 118, checagem 2)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.occupations = OccupationRepository(session)
+
+    async def list_all(self) -> Sequence[Occupation]:
+        return await self.occupations.list_all()
 
 
 class UserService:

@@ -728,3 +728,42 @@ suíte — cobertura, wall-clock, orçamento de query — sai errada para baixo,
 disso ao ler o número.
 
 **Spec-alvo:** 114.
+
+---
+
+## 31. `func.now()` é constante dentro de um teste, e ordenação por data virou cara ou coroa
+
+Achada no ciclo da spec 114, ao investigar uma falha que parecia regressão e não era:
+`tests/integration/test_customers_listing.py::test_ordenacao_por_created_at_desc_por_padrao`
+falha **3 em 6 execuções no HEAD limpo**, sem uma linha alterada.
+
+O mecanismo não é lentidão nem concorrência. `created_at` é
+`mapped_column(server_default=func.now())` (`app/core/models.py:32`), e no PostgreSQL
+`now()` devolve **o instante de início da transação**, não o do statement. A spec 105
+passou a rodar cada teste dentro de uma única transação, com as sessões entrando nela por
+`SAVEPOINT` — então **todas as linhas criadas dentro de um mesmo teste nascem com o
+mesmo `created_at`**, por mais requisições HTTP separadas que as tenham criado.
+
+Com o valor de ordenação empatado, `paginate_keyset` desempata por `Customer.id`, que é
+UUID v4. O resultado do teste passa a depender de qual UUID aleatório saiu maior: uma
+moeda, jogada a cada execução.
+
+**Por que isso é pior que um teste chato:** o teste afirma uma regra real do contrato de
+listagem do `CLAUDE.md` §6 (keyset, ordenação estável), e hoje ele dá o veredito certo por
+acaso em metade das vezes. Um PR que quebrasse a ordenação de verdade teria 50% de chance
+de passar. É a dívida 28 de novo — gate que mente —, por um caminho diferente e mais
+silencioso.
+
+**Escopo real, ainda não medido:** qualquer teste que dependa de `created_at` distinto
+entre linhas criadas no mesmo teste está sujeito ao mesmo empate. O levantamento faz parte
+da correção.
+
+**Correções possíveis, em ordem de preferência:**
+1. O teste passa a controlar `created_at` explicitamente, em vez de depender do relógio do
+   banco — é o mesmo princípio que a spec 114 aplica ao «hoje»: quem afirma sobre tempo
+   injeta o tempo.
+2. `statement_timestamp()` em vez de `now()` no `server_default` — resolve a raiz, mas
+   muda comportamento de produção e precisa de migration, então é decisão própria.
+3. Desempate por algo determinístico no teste (nome), o que enfraquece o que ele afirma.
+
+**Spec-alvo:** 110 — auditoria da 105, que é de onde o efeito colateral veio.

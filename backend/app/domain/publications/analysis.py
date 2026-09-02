@@ -230,7 +230,7 @@ class PublicationAnalysisService:
         if analise is None:
             raise AnalysisNotFoundError
 
-        correcao = _correcoes_humanas(
+        correcao = _human_corrections(
             analise,
             approved=approved,
             deadline_date=deadline_date,
@@ -333,7 +333,7 @@ def _publication_prompt(publication: Publication) -> str:
     )
 
 
-def _correcoes_humanas(
+def _human_corrections(
     analise: PublicationAnalysis,
     *,
     approved: bool,

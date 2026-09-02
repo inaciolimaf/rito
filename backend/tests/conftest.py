@@ -87,7 +87,7 @@ def _template_esta_pronto(template_url: str, head: str) -> bool:
 
 
 @contextmanager
-def _trava_do_template(template_url: str) -> Iterator[None]:
+def _template_lock(template_url: str) -> Iterator[None]:
     """Exclusão mútua entre workers durante o preparo do template (dívida 29).
 
     ## O que estava quebrado
@@ -139,7 +139,7 @@ def _preparar_template(maintenance_url: str, template_url: str) -> None:
     assert head is not None, "alembic sem head — migrations não foram encontradas"
     nome = _database_name(template_url)
 
-    with _trava_do_template(template_url):
+    with _template_lock(template_url):
         if _template_esta_pronto(template_url, head):
             return
         _psql(
@@ -168,7 +168,7 @@ def _banco_do_worker(config: pytest.Config, template_url: str) -> str | None:
     return f"{_database_name(template_url)}_{worker or 'master'}"
 
 
-def _redis_url_do_worker() -> str:
+def _worker_redis_url() -> str:
     """Um banco de Redis por worker do xdist (spec 110, dívida 35).
 
     A spec 105 deu a cada worker uma cópia própria do Postgres, e o `ROLLBACK` por teste
@@ -219,7 +219,7 @@ def pytest_configure(config: pytest.Config) -> None:
         "TEST_MIGRATIONS_DATABASE_URL",
         "postgresql+asyncpg://rito:rito@localhost:5432/rito_test",
     )
-    os.environ["REDIS_URL"] = _redis_url_do_worker()
+    os.environ["REDIS_URL"] = _worker_redis_url()
     # Spec 099, regra 3: a aplicação aplica migrations no boot. Em teste, quem migra é o
     # `scripts/run-tests.sh`, UMA vez por sessão (spec 009, regra 3) — deixar cada
     # `lifespan` de teste correr `alembic upgrade head` custaria segundos por teste e

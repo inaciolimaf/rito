@@ -37,7 +37,7 @@ def evaluate(condition: dict[str, Any] | None, subject: dict[str, Any]) -> bool:
     esperado = condition.get("value")
     atual = _lookup(subject, campo)
 
-    operacao = _OPERADORES.get(operador)
+    operacao = _OPERATORS_BY_NAME.get(operador)
     # Operador desconhecido cai em `_compare`, que trata os de ordem (gt, lt, gte, lte)
     # e devolve False para o que não reconhece — condição inválida não roda a ação.
     return operacao(atual, esperado) if operacao else _compare(operador, atual, esperado)
@@ -83,7 +83,7 @@ def _compare(operador: str, atual: Any, esperado: Any) -> bool:
 # Operadores de presença e igualdade (spec 106). Os de ORDEM ficam em `_compare`, porque
 # precisam converter os dois lados antes de comparar — misturá-los aqui obrigaria toda
 # entrada da tabela a carregar essa conversão.
-_OPERADORES: dict[str, Callable[[Any, Any], bool]] = {
+_OPERATORS_BY_NAME: dict[str, Callable[[Any, Any], bool]] = {
     "exists": lambda atual, _esperado: atual is not None,
     "empty": lambda atual, _esperado: atual is None or atual == "" or atual == [],
     "in": lambda atual, esperado: atual in esperado if isinstance(esperado, list) else False,

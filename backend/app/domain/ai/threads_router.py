@@ -304,9 +304,9 @@ async def stream_thread(
     service = _build_service(session, current_user, provider, thread)
 
     corpo = (
-        _eventos_ao_vivo(service, thread, session)
+        _live_events(service, thread, session)
         if thread.status == "pending"
-        else _eventos_reemitidos(service, thread)
+        else _replayed_events(service, thread)
     )
     return StreamingResponse(corpo, media_type=SSE_MEDIA_TYPE)
 
@@ -327,9 +327,7 @@ def _passo_sse(step: int, node: str, kind: str, output: Any, duration_ms: int) -
     )
 
 
-async def _eventos_ao_vivo(
-    service: Any, thread: AiThread, session: AsyncSession
-) -> AsyncIterator[str]:
+async def _live_events(service: Any, thread: AiThread, session: AsyncSession) -> AsyncIterator[str]:
     """Thread ainda parado: executa agora e o cliente assiste do primeiro passo."""
     try:
         async for event in service.stream(thread, None):
@@ -347,7 +345,7 @@ async def _eventos_ao_vivo(
         await session.rollback()
 
 
-async def _eventos_reemitidos(service: Any, thread: AiThread) -> AsyncIterator[str]:
+async def _replayed_events(service: Any, thread: AiThread) -> AsyncIterator[str]:
     """Thread que já rodou: os passos são reemitidos, então reconectar não perde o
     histórico (regra 7)."""
     for step in await service.list_steps(thread):

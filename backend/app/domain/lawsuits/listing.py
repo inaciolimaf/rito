@@ -218,7 +218,7 @@ def _so_digitos(valor: str) -> str:
     return "".join(character for character in valor if character.isdigit())
 
 
-def _busca_textual(q: str) -> ColumnElement[bool]:
+def _text_search(q: str) -> ColumnElement[bool]:
     """Regra 5: nome de parte (sem acento, case-insensitive — mesmo padrão da busca de
     contatos da spec 019), número, protocolo e pasta, num único texto."""
     pattern = f"%{q}%"
@@ -237,7 +237,7 @@ def _busca_textual(q: str) -> ColumnElement[bool]:
 # filtro novo desta forma passa a ser uma linha aqui (spec 106). Os que têm lógica de
 # verdade (busca textual, documento, número do processo, estagnação) continuam explícitos
 # abaixo: escondê-los numa tabela junto com os triviais é que seria perder informação.
-_FILTROS_IN: tuple[tuple[str, InstrumentedAttribute[Any]], ...] = (
+_IN_FILTERS: tuple[tuple[str, InstrumentedAttribute[Any]], ...] = (
     ("action_group_ids", LawsuitType.action_group_id),
     ("lawsuit_type_ids", Lawsuit.lawsuit_type_id),
     ("step_ids", Stage.step_id),
@@ -249,14 +249,14 @@ _FILTROS_IN: tuple[tuple[str, InstrumentedAttribute[Any]], ...] = (
 )
 
 # Filtros que são só «coluna ILIKE %texto%».
-_FILTROS_ILIKE: tuple[tuple[str, InstrumentedAttribute[Any]], ...] = (
+_ILIKE_FILTERS: tuple[tuple[str, InstrumentedAttribute[Any]], ...] = (
     ("protocol_number", Lawsuit.protocol_number),
     ("folder", Lawsuit.folder),
     ("notes", Lawsuit.notes),
 )
 
 # Intervalos de data/hora: (coluna, atributo do início, atributo do fim, helper).
-_FILTROS_INTERVALO: tuple[tuple[InstrumentedAttribute[Any], str, str, Any], ...] = (
+_RANGE_FILTERS: tuple[tuple[InstrumentedAttribute[Any], str, str, Any], ...] = (
     (Lawsuit.created_at, "created_from", "created_to", datetime_range),
     (Lawsuit.process_date, "process_date_from", "process_date_to", date_range),
     (Lawsuit.closure_date, "closure_from", "closure_to", date_range),
@@ -265,7 +265,7 @@ _FILTROS_INTERVALO: tuple[tuple[InstrumentedAttribute[Any], str, str, Any], ...]
 )
 
 
-def _condicoes_de_parte(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
+def _party_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
     """As que atravessam `lawsuit_parties` — `EXISTS` correlacionado, nunca `JOIN`, para
     um processo com três partes não aparecer três vezes."""
     condicoes: list[ColumnElement[bool]] = []
@@ -290,35 +290,35 @@ def _build_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
     if view_condition is not None:
         conditions.append(view_condition)
     if filters.q:
-        conditions.append(_busca_textual(filters.q))
+        conditions.append(_text_search(filters.q))
     if filters.process_number and (digits := _so_digitos(filters.process_number)):
         conditions.append(Lawsuit.process_number.ilike(f"%{digits}%"))
 
-    conditions += _condicoes_de_parte(filters)
-    conditions += _condicoes_declarativas(filters)
-    conditions += _condicoes_de_situacao(filters)
+    conditions += _party_conditions(filters)
+    conditions += _declarative_conditions(filters)
+    conditions += _status_conditions(filters)
     return conditions
 
 
-def _condicoes_declarativas(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
+def _declarative_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
     """As três tabelas: `IN`, `ILIKE` e intervalo. Cada uma só produz condição para o
     filtro que veio preenchido."""
     condicoes: list[ColumnElement[bool]] = [
         coluna.in_(valores)
-        for atributo, coluna in _FILTROS_IN
+        for atributo, coluna in _IN_FILTERS
         if (valores := getattr(filters, atributo))
     ]
     condicoes += [
         coluna.ilike(f"%{valor}%")
-        for atributo, coluna in _FILTROS_ILIKE
+        for atributo, coluna in _ILIKE_FILTERS
         if (valor := getattr(filters, atributo))
     ]
-    for coluna, inicio, fim, helper in _FILTROS_INTERVALO:
+    for coluna, inicio, fim, helper in _RANGE_FILTERS:
         condicoes += helper(coluna, getattr(filters, inicio), getattr(filters, fim))
     return condicoes
 
 
-def _condicoes_de_situacao(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
+def _status_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
     """Arquivado e estagnado: os dois são tri-estado — sim, não, ou tanto faz.
 
     `None` (e, na estagnação, qualquer valor fora do par) significa «não filtre», que é

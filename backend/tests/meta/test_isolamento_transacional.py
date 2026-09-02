@@ -195,7 +195,7 @@ def test_cada_worker_do_xdist_usa_um_banco_de_redis_proprio() -> None:
     só enxerga o próprio worker — não dá para observar a colisão de dentro dela. O que se
     pode afirmar é que a regra que atribui os bancos é injetora, e é isso que o teste faz.
     """
-    from tests.conftest import _redis_url_do_worker
+    from tests.conftest import _worker_redis_url
 
     original = os.environ.pop("TEST_REDIS_URL", None)
     anterior = os.environ.get("PYTEST_XDIST_WORKER")
@@ -203,14 +203,14 @@ def test_cada_worker_do_xdist_usa_um_banco_de_redis_proprio() -> None:
         urls = []
         for i in range(16):
             os.environ["PYTEST_XDIST_WORKER"] = f"gw{i}"
-            urls.append(_redis_url_do_worker())
+            urls.append(_worker_redis_url())
         assert len(set(urls)) == 16, f"workers compartilhando banco de Redis: {urls}"
 
         # E acima de 16 a regra RECUSA, em vez de voltar a compartilhar em silêncio —
         # que é o modo de falhar que criou a dívida 35.
         os.environ["PYTEST_XDIST_WORKER"] = "gw16"
         with pytest.raises(RuntimeError, match="16 bancos"):
-            _redis_url_do_worker()
+            _worker_redis_url()
     finally:
         if original is not None:
             os.environ["TEST_REDIS_URL"] = original

@@ -144,14 +144,14 @@ def _raise_party_errors(exc: Exception) -> NoReturn:
 # `CNJValidationError` fica fora da tabela de propósito: a mensagem dela já vem pronta do
 # validador e é específica do defeito no número (dígito verificador, segmento inexistente),
 # então repeti-la aqui só criaria uma segunda fonte de verdade para o mesmo texto.
-_MENSAGEM_DE_CRIACAO: dict[type[Exception], str] = {
+_CREATION_MESSAGE: dict[type[Exception], str] = {
     LawsuitTypeNotFoundError: "Tipo de ação não encontrado.",
     StageNotFoundError: "Etapa não encontrada.",
     ResponsibleNotActiveError: "Responsável precisa ser um usuário ativo do tenant.",
     CourtSystemIncompatibleError: "Sistema processual não pertence ao tribunal selecionado.",
 }
 
-_ERROS_DE_CRIACAO = (
+_CREATION_ERRORS = (
     LawsuitTypeNotFoundError,
     StageNotFoundError,
     ResponsibleNotActiveError,
@@ -162,12 +162,12 @@ _ERROS_DE_CRIACAO = (
 )
 
 
-def _erro_de_criacao(exc: Exception) -> HTTPException:
+def _creation_error(exc: Exception) -> HTTPException:
     """Erro de domínio → resposta HTTP. Os de parte saem por `_raise_party_errors`, que
     tem status próprio (409 na duplicata, não 422) e por isso não cabe na tabela."""
     if isinstance(exc, PartyCustomerNotFoundError | DuplicatePartyError):
         _raise_party_errors(exc)
-    return HTTPException(status_code=422, detail=_MENSAGEM_DE_CRIACAO.get(type(exc), str(exc)))
+    return HTTPException(status_code=422, detail=_CREATION_MESSAGE.get(type(exc), str(exc)))
 
 
 def _to_party_response(detail: PartyDetail) -> PartyResponse:
@@ -394,8 +394,8 @@ async def create_lawsuit(
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     try:
         created = await service.create(payload)
-    except _ERROS_DE_CRIACAO as exc:
-        raise _erro_de_criacao(exc) from exc
+    except _CREATION_ERRORS as exc:
+        raise _creation_error(exc) from exc
     # Regra 7 (spec 028): criar processo invalida o cache do dashboard.
     await invalidate_stats_cache(
         redis,

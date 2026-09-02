@@ -192,7 +192,7 @@ class CopilotService:
         await self._persist_reply(thread, turn)
         return turn
 
-    def _eventos_do_progresso(
+    def _progress_events(
         self, turn: CopilotTurn, event: StepEvent | GraphResult
     ) -> Iterator[tuple[str, dict[str, Any]]]:
         """O que vai para a tela ENQUANTO o grafo anda (regra 2).
@@ -224,7 +224,7 @@ class CopilotService:
         turn = CopilotTurn(thread=thread)
         async for event in self._drive(user, thread, state):
             self._absorb(turn, event)
-            for saida in self._eventos_do_progresso(turn, event):
+            for saida in self._progress_events(turn, event):
                 yield saida
         await self._persist_reply(thread, turn)
         if turn.reply:

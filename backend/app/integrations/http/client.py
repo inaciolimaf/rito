@@ -42,7 +42,7 @@ MAX_BODY_BYTES = 10 * 1024 * 1024
 _RATE_LIMIT_WINDOW_S = 60
 
 
-def _jitter_padrao() -> float:
+def _default_jitter() -> float:
     """Fator aleatório do backoff, entre 0,5× e 1,5× (spec 041, regra 2).
 
     O `S311` fica silenciado na linha do `return`: isto não é uso criptográfico. O objetivo
@@ -86,7 +86,7 @@ class ResilientHttpClient:
         self._policies = dict(policies or {})
         self._default_policy = default_policy or HostPolicy()
         self._sleep = sleep
-        self._jitter = jitter if jitter is not None else _jitter_padrao
+        self._jitter = jitter if jitter is not None else _default_jitter
         self._clock = clock
         self._audit_success_sample_rate = audit_success_sample_rate
         self._rng = rng
@@ -133,16 +133,14 @@ class ResilientHttpClient:
             kind=SpanKind.CLIENT,
             attributes={"http.request.method": method, "server.address": host},
         ):
-            return await self._request_com_resiliencia(
+            return await self._request_with_resilience(
                 method, url, parsed, host, headers, params, content, tenant_id
             )
 
-    async def _verificar_portao(
-        self, host: str, policy: HostPolicy, breaker: CircuitBreaker
-    ) -> None:
+    async def _check_gate(self, host: str, policy: HostPolicy, breaker: CircuitBreaker) -> None:
         """As duas recusas que acontecem ANTES de tocar a rede (spec 106).
 
-        Estavam no corpo de `_request_com_resiliencia`, misturadas com o laço de retry —
+        Estavam no corpo de `_request_with_resilience`, misturadas com o laço de retry —
         e são de outra natureza: aqui não há tentativa nenhuma, a requisição simplesmente
         não acontece.
         """
@@ -163,7 +161,7 @@ class ResilientHttpClient:
         if not allowed:
             raise RateLimitExceededError(host)
 
-    async def _preparar_requisicao(
+    async def _prepare_request(
         self, method: str, url: str, headers: dict[str, str] | None
     ) -> tuple[str, dict[str, str]]:
         """Chave de cache e cabeçalhos de revalidação condicional.
@@ -185,7 +183,7 @@ class ResilientHttpClient:
             request_headers["If-Modified-Since"] = cached.last_modified
         return cache_key, request_headers
 
-    async def _aguardar_retentativa(
+    async def _wait_before_retry(
         self,
         policy: HostPolicy,
         attempt: int,
@@ -209,7 +207,7 @@ class ResilientHttpClient:
         pedido = self._parse_retry_after(retry_after)
         await self._sleep(pedido if pedido is not None else self._backoff(policy, attempt))
 
-    async def _request_com_resiliencia(
+    async def _request_with_resilience(
         self,
         method: str,
         url: str,
@@ -222,8 +220,8 @@ class ResilientHttpClient:
     ) -> HttpResponse:
         policy = self._policy_for(host)
         breaker = self._breaker_for(host, policy)
-        await self._verificar_portao(host, policy, breaker)
-        cache_key, request_headers = await self._preparar_requisicao(method, url, headers)
+        await self._check_gate(host, policy, breaker)
+        cache_key, request_headers = await self._prepare_request(method, url, headers)
 
         last_error: BaseException | None = None
         last_status: int | None = None
@@ -249,7 +247,7 @@ class ResilientHttpClient:
                 await self._record_failure(
                     tenant_id, host, method, parsed.path, duration_ms, attempt, str(exc)
                 )
-                await self._aguardar_retentativa(policy, attempt, total_attempts)
+                await self._wait_before_retry(policy, attempt, total_attempts)
                 continue
 
             duration_ms = int((self._clock() - started) * 1000)
@@ -266,7 +264,7 @@ class ResilientHttpClient:
                     attempt,
                     f"status {raw.status_code}",
                 )
-                await self._aguardar_retentativa(
+                await self._wait_before_retry(
                     policy, attempt, total_attempts, raw.headers.get("retry-after")
                 )
                 continue

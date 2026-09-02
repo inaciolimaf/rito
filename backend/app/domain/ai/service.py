@@ -213,7 +213,7 @@ class AiRunner:
         # (regra 7). Sem ele, `cost_usd` fica nulo em vez de virar zero mentiroso.
         self._catalog = {model.id: model for model in catalog or ()}
 
-    async def _feature_habilitada(self, feature_key: str) -> ResolvedFeature:
+    async def _enabled_feature(self, feature_key: str) -> ResolvedFeature:
         """A configuração da feature, já com o override de modelo aplicado.
 
         Feature desligada levanta antes de qualquer gasto. O override existe para o
@@ -227,7 +227,7 @@ class AiRunner:
             feature = replace(feature, model=self.model_override)
         return feature
 
-    async def _tentar_fallback(
+    async def _try_fallback(
         self,
         *,
         feature: ResolvedFeature,
@@ -304,7 +304,7 @@ class AiRunner:
         tools: Sequence[ToolSpec] | None = None,
         use_cache: bool = False,
     ) -> LLMResponse:
-        feature = await self._feature_habilitada(feature_key)
+        feature = await self._enabled_feature(feature_key)
         # Spec 090, alvo 2: o teto é checado ANTES de gastar — bloquear depois seria
         # cobrar a chamada e negar o resultado.
         await self.budget.ensure_within_budget()
@@ -319,7 +319,7 @@ class AiRunner:
         try:
             response = await self._call(feature, messages, tools, feature.model)
         except LLMError as first_error:
-            return await self._tentar_fallback(
+            return await self._try_fallback(
                 feature=feature,
                 messages=messages,
                 tools=tools,

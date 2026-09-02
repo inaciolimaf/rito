@@ -189,7 +189,7 @@ class AutomationEngine:
 
     # ----------------------------------------------------------------- executar
 
-    async def _pular_se_necessario(
+    async def _should_skip(
         self,
         run: AutomationRun,
         action: AutomationAction,
@@ -222,7 +222,7 @@ class AutomationEngine:
             return True
         return False
 
-    async def _executar_decisao(
+    async def _run_decision_step(
         self,
         run: AutomationRun,
         action: AutomationAction,
@@ -252,14 +252,14 @@ class AutomationEngine:
         run.next_position = action.position + 1
         await self.session.flush()
 
-    async def _contexto_da_execucao(
+    async def _run_context(
         self, run: AutomationRun, automation: Automation | None
     ) -> tuple[Automation, User] | AutomationRun:
         """A automação e o autor sob os quais a execução roda.
 
         Autor apagado é a única forma de a execução não começar: as ações agem em nome
         de alguém, e sem esse alguém não há permissão a respeitar. Devolve o `run` já
-        falhado nesse caso, pelo mesmo padrão de união discriminada de `_executar_acao`.
+        falhado nesse caso, pelo mesmo padrão de união discriminada de `_run_action_step`.
         """
         if automation is None:
             automation = await self.session.get(Automation, run.automation_id)
@@ -269,7 +269,7 @@ class AutomationEngine:
             return await self._fail(run, "Autor da automação não existe mais.")
         return automation, autor
 
-    async def _executar_acao(
+    async def _run_action_step(
         self,
         run: AutomationRun,
         action: AutomationAction,
@@ -305,7 +305,7 @@ class AutomationEngine:
             return await self._fail(run, f"{type(exc).__name__}: {exc}")
         return detalhe
 
-    async def _concluir_passo(
+    async def _complete_step(
         self, run: AutomationRun, action: AutomationAction, detalhe: dict[str, Any]
     ) -> None:
         """Registra o passo feito e anda a posição.
@@ -321,7 +321,7 @@ class AutomationEngine:
             run.waiting_on_id = uuid.UUID(str(detalhe["created_post_id"]))
         await self.session.flush()
 
-    async def _marcar_espera(
+    async def _mark_waiting(
         self, run: AutomationRun, action: AutomationAction, quando: datetime
     ) -> AutomationRun:
         """A execução para aqui e volta quando `quando` chegar — o passo NÃO é consumido.
@@ -335,14 +335,14 @@ class AutomationEngine:
         await self.session.flush()
         return run
 
-    def _ja_consumido(
+    def _already_consumed(
         self, run: AutomationRun, action: AutomationAction, ja_feitos: set[int]
     ) -> bool:
         """Regra 8: idempotência. Reprocessar não repete o que já rodou, e nada antes da
         posição corrente é reexecutado."""
         return action.position < (run.next_position or 0) or action.position in ja_feitos
 
-    async def _executar_passo(
+    async def _run_step(
         self,
         run: AutomationRun,
         action: AutomationAction,
@@ -356,35 +356,35 @@ class AutomationEngine:
         significa «a execução para aqui», seja por espera, seja por falha.
 
         O `None` é o que substitui os `continue` do laço, e a união discriminada é a mesma
-        de `_executar_acao`: quem chama não precisa saber POR QUE parou para saber que
+        de `_run_action_step`: quem chama não precisa saber POR QUE parou para saber que
         parou — só devolve o que recebeu.
         """
-        if self._ja_consumido(run, action, ja_feitos):
+        if self._already_consumed(run, action, ja_feitos):
             return None
-        if await self._pular_se_necessario(run, action, dono_do_ramo):
+        if await self._should_skip(run, action, dono_do_ramo):
             return None
 
         espera = await self._wait_for(run, action)
         if espera is not None:
-            return await self._marcar_espera(run, action, espera)
+            return await self._mark_waiting(run, action, espera)
 
         # A decisão não produz detalhe para registrar: ela escolhe o ramo e o laço segue.
         if action.action_kind == ActionKind.LLM_DECISION.value:
-            await self._executar_decisao(run, action, automation, autor)
+            await self._run_decision_step(run, action, automation, autor)
             return None
 
-        resultado = await self._executar_acao(run, action, automation, autor)
+        resultado = await self._run_action_step(run, action, automation, autor)
         if isinstance(resultado, AutomationRun):
             return resultado
 
-        await self._concluir_passo(run, action, resultado)
+        await self._complete_step(run, action, resultado)
         return None
 
     async def advance(
         self, run: AutomationRun, *, automation: Automation | None = None
     ) -> AutomationRun:
         """Executa da posição atual até o fim, um passo que espere, ou uma falha."""
-        contexto = await self._contexto_da_execucao(run, automation)
+        contexto = await self._run_context(run, automation)
         if isinstance(contexto, AutomationRun):
             return contexto
         automation, autor = contexto
@@ -394,7 +394,7 @@ class AutomationEngine:
         # Spec 094: quais posições pertencem a um ramo, e de qual decisão.
         dono_do_ramo = branch_owner_map(acoes)
         for action in acoes:
-            parada = await self._executar_passo(
+            parada = await self._run_step(
                 run,
                 action,
                 automation=automation,
@@ -417,13 +417,13 @@ class AutomationEngine:
         if action.delay_kind == DelayKind.IMMEDIATE.value:
             return None
         if action.delay_kind == DelayKind.AFTER_PREVIOUS.value:
-            return await self._espera_pela_tarefa_anterior(run)
+            return await self._wait_for_previous_task(run)
         ja_esperou = run.status == RunStatus.WAITING.value and run.next_position == action.position
         if ja_esperou and (run.next_action_at is None or run.next_action_at <= self.now()):
             return None
-        return datetime.combine(await self._alvo_do_atraso(action), self.now().timetz())
+        return datetime.combine(await self._delay_target_date(action), self.now().timetz())
 
-    async def _espera_pela_tarefa_anterior(self, run: AutomationRun) -> datetime | None:
+    async def _wait_for_previous_task(self, run: AutomationRun) -> datetime | None:
         """Regra 4: encadeia de verdade — só segue quando a tarefa criada pelo passo
         anterior estiver concluída. É o caso de «protocolar» depois de «revisar».
 
@@ -435,7 +435,7 @@ class AutomationEngine:
             return None
         return self.now() + CONDITION_POLL
 
-    async def _alvo_do_atraso(self, action: AutomationAction) -> date:
+    async def _delay_target_date(self, action: AutomationAction) -> date:
         """O dia em que o passo pode rodar, contando corrido ou em dias úteis."""
         dias = int(action.delay_value or 0)
         if action.delay_kind == DelayKind.BUSINESS_DAYS.value:

@@ -88,7 +88,7 @@ class S3FileStorage:
         )
 
 
-def _obrigatorio(valor: str | None, variavel: str) -> str:
+def _required_setting(valor: str | None, variavel: str) -> str:
     """A variável de ambiente, ou um erro que diz QUAL faltou (spec 115).
 
     Eram cinco `assert`, que somem sob `python -O` — e aí o boto3 recebe `None` como
@@ -103,9 +103,9 @@ def _obrigatorio(valor: str | None, variavel: str) -> str:
 def create_file_storage() -> S3FileStorage:
     settings = get_settings()
     return S3FileStorage(
-        endpoint_url=_obrigatorio(settings.s3_endpoint_url, "S3_ENDPOINT_URL"),
-        access_key=_obrigatorio(settings.s3_access_key, "S3_ACCESS_KEY"),
-        secret_key=_obrigatorio(settings.s3_secret_key, "S3_SECRET_KEY"),
-        bucket=_obrigatorio(settings.s3_bucket, "S3_BUCKET"),
-        region=_obrigatorio(settings.s3_region, "S3_REGION"),
+        endpoint_url=_required_setting(settings.s3_endpoint_url, "S3_ENDPOINT_URL"),
+        access_key=_required_setting(settings.s3_access_key, "S3_ACCESS_KEY"),
+        secret_key=_required_setting(settings.s3_secret_key, "S3_SECRET_KEY"),
+        bucket=_required_setting(settings.s3_bucket, "S3_BUCKET"),
+        region=_required_setting(settings.s3_region, "S3_REGION"),
     )

@@ -129,20 +129,20 @@ async def get_bi_metrics(ctx: ToolContext, params: BiMetricsInput) -> dict[str, 
 )
 async def list_taxonomies(ctx: ToolContext, params: TaxonomiesInput) -> dict[str, Any]:
     if params.kind == "all":
-        pedidos = list(_CARREGADORES_DE_TAXONOMIA)
-    elif params.kind in _CARREGADORES_DE_TAXONOMIA:
+        pedidos = list(_TAXONOMY_LOADERS)
+    elif params.kind in _TAXONOMY_LOADERS:
         pedidos = [params.kind]
     else:
         raise ToolError("invalid_argument", f"Taxonomia desconhecida: {params.kind}.")
-    return {chave: await _CARREGADORES_DE_TAXONOMIA[chave](ctx) for chave in pedidos}
+    return {chave: await _TAXONOMY_LOADERS[chave](ctx) for chave in pedidos}
 
 
-async def _grupos_de_acao(ctx: ToolContext) -> list[dict[str, Any]]:
+async def _action_groups_rows(ctx: ToolContext) -> list[dict[str, Any]]:
     linhas = await ActionGroupRepository(ctx.session).list_filtered(is_active=True)
     return [{"id": str(row.id), "name": row.name} for row in linhas]
 
 
-async def _tipos_de_acao(ctx: ToolContext) -> list[dict[str, Any]]:
+async def _lawsuit_types_rows(ctx: ToolContext) -> list[dict[str, Any]]:
     linhas = await LawsuitTypeRepository(ctx.session).list_filtered(is_active=True)
     return [{"id": str(row.id), "name": row.name} for row in linhas]
 
@@ -157,7 +157,7 @@ async def _fases(ctx: ToolContext) -> list[dict[str, Any]]:
     return [{"id": row.id, "name": row.name} for row in linhas]
 
 
-async def _tipos_de_tarefa(ctx: ToolContext) -> list[dict[str, Any]]:
+async def _task_types_rows(ctx: ToolContext) -> list[dict[str, Any]]:
     linhas = await TaskTypeRepository(ctx.session).list_filtered(
         step_id=None, is_active=True, query=None
     )
@@ -172,12 +172,12 @@ async def _origens(ctx: ToolContext) -> list[dict[str, Any]]:
 # Registro em vez de seis `if` iguais (spec 106). Taxonomia nova é uma linha aqui — e a
 # chave é exatamente o nome que a ferramenta aceita em `kind`, então as duas coisas não
 # têm como divergir.
-_CARREGADORES_DE_TAXONOMIA: dict[str, Callable[[ToolContext], Awaitable[list[dict[str, Any]]]]] = {
-    "action_groups": _grupos_de_acao,
-    "lawsuit_types": _tipos_de_acao,
+_TAXONOMY_LOADERS: dict[str, Callable[[ToolContext], Awaitable[list[dict[str, Any]]]]] = {
+    "action_groups": _action_groups_rows,
+    "lawsuit_types": _lawsuit_types_rows,
     "stages": _etapas,
     "steps": _fases,
-    "task_types": _tipos_de_tarefa,
+    "task_types": _task_types_rows,
     "origins": _origens,
 }
 

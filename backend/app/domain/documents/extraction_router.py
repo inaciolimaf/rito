@@ -96,7 +96,7 @@ def _to_response(extraction: DocumentExtraction, *, duplicate: Any = None) -> Ex
     )
 
 
-async def _resolver_entrada(
+async def _resolve_input(
     file: UploadFile | None,
     attachment_id: uuid.UUID | None,
     *,
@@ -139,7 +139,7 @@ async def extract_document(
     ocr: OcrProvider = Depends(get_ocr_provider),
 ) -> ExtractionResponse:
     service = _service(session, current_user, provider, storage, ocr)
-    entrada = await _resolver_entrada(
+    entrada = await _resolve_input(
         file, attachment_id, session=session, storage=storage, tenant_id=current_user.tenant_id
     )
     content, filename, content_type, storage_key, origem = entrada

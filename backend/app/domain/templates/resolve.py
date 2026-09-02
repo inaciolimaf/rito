@@ -63,8 +63,8 @@ class TemplateResolverService:
     async def _build_scope(
         self, *, customer_id: uuid.UUID | None, lawsuit_id: uuid.UUID | None, current_user: User
     ) -> VariableScope:
-        customer, marital_status_name = await self._dados_do_contato(customer_id)
-        processo = await self._dados_do_processo(lawsuit_id)
+        customer, marital_status_name = await self._customer_data(customer_id)
+        processo = await self._lawsuit_data(lawsuit_id)
         return VariableScope(
             customer=customer,
             customer_marital_status_name=marital_status_name,
@@ -75,10 +75,10 @@ class TemplateResolverService:
             lawsuit_responsible_name=processo.responsible_name,
             account=await self.accounts.get_current(),
             user=current_user,
-            user_occupation_name=await self._nome_da_ocupacao(current_user),
+            user_occupation_name=await self._occupation_name(current_user),
         )
 
-    async def _dados_do_contato(
+    async def _customer_data(
         self, customer_id: uuid.UUID | None
     ) -> tuple[Customer | None, str | None]:
         """O contato e o nome do estado civil — que mora em outra tabela."""
@@ -92,7 +92,7 @@ class TemplateResolverService:
         marital_status = await self.session.get(MaritalStatus, customer.marital_status_id)
         return customer, (marital_status.name if marital_status else None)
 
-    async def _dados_do_processo(self, lawsuit_id: uuid.UUID | None) -> "_EscopoDoProcesso":
+    async def _lawsuit_data(self, lawsuit_id: uuid.UUID | None) -> "_EscopoDoProcesso":
         """O processo e os quatro nomes desnormalizados que o documento cita.
 
         Todos são «pode não existir»: tribunal é opcional no cadastro, e etapa, tipo e
@@ -121,7 +121,7 @@ class TemplateResolverService:
             responsible_name=responsible.name if responsible else None,
         )
 
-    async def _nome_da_ocupacao(self, current_user: User) -> str | None:
+    async def _occupation_name(self, current_user: User) -> str | None:
         if current_user.occupation_id is None:
             return None
         occupation = await self.session.get(Occupation, current_user.occupation_id)

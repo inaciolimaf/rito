@@ -38,7 +38,7 @@ def validate_webhook_url(url: str, *, allow_local: bool = False) -> str:
     host = _host_seguro(url, allow_local=allow_local)
     if host is None:  # localhost liberado em desenvolvimento — não resolve DNS
         return url
-    _recusar_enderecos_internos(host)
+    _reject_internal_addresses(host)
     return url
 
 
@@ -65,7 +65,7 @@ def _host_seguro(url: str, *, allow_local: bool) -> str | None:
     raise UnsafeUrlError("Endereços locais não são aceitos como destino de webhook.")
 
 
-def _recusar_enderecos_internos(host: str) -> None:
+def _reject_internal_addresses(host: str) -> None:
     """O host resolve para onde? É aqui que o SSRF é barrado de verdade: um nome público
     pode apontar para 169.254.169.254 ou para a rede interna."""
     for endereco in _resolve(host):

@@ -247,7 +247,7 @@ async def send_message(
     )
 
 
-async def _eventos_do_turno(
+async def _turn_events(
     service: Any,
     current_user: User,
     thread: Any,
@@ -291,5 +291,5 @@ async def stream_message(
     except ThreadLimitReachedError as exc:
         raise HTTPException(status_code=409, detail=_LIMIT_DETAIL) from exc
 
-    corpo = _eventos_do_turno(service, current_user, thread, state, session)
+    corpo = _turn_events(service, current_user, thread, state, session)
     return StreamingResponse(corpo, media_type=SSE_MEDIA_TYPE)

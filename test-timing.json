@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 133,
+  "last_measured_wall_clock_seconds": 171,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -394,6 +394,10 @@
     "110": {
       "wall_clock_seconds": 133,
       "notes": "Auditoria de orcamento e gates das sete specs 101+104-109. Wall-clock 133 s contra o alvo de <=200 s desta spec; import app.main em 2,2 s (teto 9), coleta em 1,57 s, template com zero linhas. 1605 backend (1603 da 115 + 2 meta de isolamento de Redis entre workers do xdist) + 313 frontend + 10 e2e. O gate passou a registrar tempo de CPU e carga: 389-396 s de CPU em 12 nucleos, a linha de base que faltava para interpretar o wall-clock — na execucao de 434 s da divida 33 esse par teria resolvido a duvida. A METRICA do gate nao mudou (o CLAUDE.md §3 promete wall-clock); a troca por tempo de CPU fica como decisao do usuario. Dois defeitos no proprio codigo de medicao, achados por conferir o numero contra execucao real: a substituicao de comando roda numa subshell e o times reporta os filhos DELA (sempre zero), e o locale pt_BR imprime virgula decimal que o awk le como zero. Suite inteira em ordem INVERTIDA: 1603/1603 em 197,5 s — e pytest-randomly nao esta instalado, entao isso nunca tinha sido testado. Zero assercoes removidas pelas sete specs, verificado no git log. Zero codigo morto (a primeira varredura acusou 19, todos falso positivo de funcao decorada). Dividas 29 e 35 resolvidas, 33 pela metade, 31 com o levantamento feito, 36 e 37 registradas."
+    },
+    "120": {
+      "wall_clock_seconds": 171,
+      "notes": "Auditoria dos gates de estrutura (111-119) e entrega do docs/GATES.md. 1613 backend (1605 da 110 + 8 do test_registro_de_gates.py) + 313 frontend + 10 e2e. Nenhum teto afrouxado: conferido no git log -p, o max-complexity so desceu (10->8->6) e os demais nunca mudaram. Auditoria de proxy: em tres dos cinco itens havia verificacao exaustiva melhor que a amostragem pedida — zero testes com nome que promete comportamento e assercao so de status 2xx, zero import de integracao dentro de funcao em service, zero pagina de listagem criada depois da 119. Divida 33 FECHADA: a causa das jornadas e2e caindo sob carga nao era o EntityPicker, era o e2e ser a unica das tres suites sem teto de worker (pytest capado em 3, vitest em 1, playwright em undefined = um por nucleo). Divida 37 FECHADA por decisao do usuario: 88 simbolos privados renomeados para ingles, 217 ocorrencias em 45 arquivos, verificado por AST (conjunto de identificadores antes com o mapa aplicado == depois, zero fora do mapa). Divida 28 tentada e REVERTIDA: a correcao prescrita quebra o teste. As duas medicoes finais (195 s e 171 s) foram sob carga externa de outro projeto do usuario — a instrumentacao de CPU e carga da 110 respondeu isso em um comando, na primeira vez que foi util."
     }
   },
   "specs_concluidas": 100

@@ -6,7 +6,20 @@ const API_BASE_URL = process.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
-  workers: process.env.CI ? 4 : undefined,
+  // Dívida 33: as três suítes do `make test` rodam CONCORRENTES (CLAUDE.md §3), e o
+  // `run-tests.sh` já limita as outras duas por isso — pytest em 3 workers, vitest em 1,
+  // "para dar ar às outras suítes". O e2e era o único sem teto: fora do CI, `undefined`
+  // significa UM WORKER POR NÚCLEO (12 nesta máquina), disputando CPU com o pytest, o
+  // vitest, o uvicorn e o vite ao mesmo tempo.
+  //
+  // O sintoma era jornada caindo por lentidão, sempre nas cinco que passam por um
+  // `EntityPicker` — o seletor assíncrono espera a busca voltar, e sob disputa a resposta
+  // não chega dentro dos 5 s padrão do `expect`. Cinco reprovaram numa execução; a
+  // seguinte, com a mesma árvore, fechou 10/10.
+  //
+  // Três é o mesmo teto do pytest, pelo mesmo motivo. `PLAYWRIGHT_WORKERS` devolve o
+  // comportamento antigo em máquina dedicada.
+  workers: Number(process.env.PLAYWRIGHT_WORKERS ?? (process.env.CI ? 4 : 3)),
   reporter: "list",
   globalSetup: "./global-setup.ts",
   use: {

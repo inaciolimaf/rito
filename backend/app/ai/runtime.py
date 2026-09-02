@@ -158,7 +158,7 @@ class GraphRuntime:
                 result = event
         return not_none(result, "_drive_iter sempre encerra com um GraphResult")
 
-    async def _preparar_execucao(
+    async def _prepare_run(
         self, thread: AiThread, state: dict[str, Any]
     ) -> tuple[AsyncIterator[dict[str, Any]], float]:
         """Monta o grafo, marca o thread como RUNNING e devolve o iterador e o prazo.
@@ -183,7 +183,7 @@ class GraphRuntime:
             time.monotonic() + self.run_timeout_s,
         )
 
-    async def _desfecho_da_falha(
+    async def _failure_outcome(
         self, thread: AiThread, state: dict[str, Any], exc: Exception
     ) -> GraphResult:
         """Traduz a exceção que derrubou o nó no desfecho que o thread merece.
@@ -210,7 +210,7 @@ class GraphRuntime:
             return await self._fail(thread, state, "timeout", motivo, exc)
         return await self._fail(thread, state, "erro", str(exc), exc)
 
-    async def _proximo_update(
+    async def _next_update(
         self,
         thread: AiThread,
         state: dict[str, Any],
@@ -236,16 +236,16 @@ class GraphRuntime:
         except StopAsyncIteration:
             return None
         except Exception as exc:  # regra 10: erro de nó nunca é silencioso
-            return await self._desfecho_da_falha(thread, state, exc)
+            return await self._failure_outcome(thread, state, exc)
         return update, int((time.monotonic() - started) * 1000)
 
     async def _drive_iter(
         self, thread: AiThread, state: dict[str, Any]
     ) -> AsyncIterator[StepEvent | GraphResult]:
-        iterator, deadline = await self._preparar_execucao(thread, state)
+        iterator, deadline = await self._prepare_run(thread, state)
 
         while True:
-            proximo = await self._proximo_update(thread, state, iterator, deadline)
+            proximo = await self._next_update(thread, state, iterator, deadline)
             if proximo is None:
                 break
             if isinstance(proximo, GraphResult):
@@ -253,7 +253,7 @@ class GraphRuntime:
                 return
             update, duration_ms = proximo
 
-            async for novo_state, evento in self._passos_do_update(
+            async for novo_state, evento in self._steps_of_update(
                 thread, state, update, duration_ms
             ):
                 state = novo_state
@@ -265,7 +265,7 @@ class GraphRuntime:
 
         yield await self._finish(thread, state)
 
-    async def _passos_do_update(
+    async def _steps_of_update(
         self,
         thread: AiThread,
         state: dict[str, Any],

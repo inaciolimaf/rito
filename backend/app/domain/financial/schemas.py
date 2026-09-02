@@ -207,9 +207,9 @@ class _TransactionMixin(BaseModel):
         categoria) precisa buscar a categoria, fica no service (mesmo padrão de
         `FinancialCategoryService._group_name`, que também valida com uma query)."""
         if self.kind is TransactionKind.TRANSFERENCIA:
-            self._validar_transferencia()
+            self._validate_transfer()
         else:
-            self._validar_lancamento_simples()
+            self._validate_simple_entry()
         if self.lawsuit_id is not None and self.customer_id is None:
             raise ValueError("Vincular processo exige cliente.")
         # "Data de pagamento no futuro" saiu daqui na spec 114: `model_validator` não
@@ -217,7 +217,7 @@ class _TransactionMixin(BaseModel):
         # quem está em Lisboa. A regra virou FuturePaymentDateError no service.
         return self
 
-    def _validar_transferencia(self) -> None:
+    def _validate_transfer(self) -> None:
         """Regra 2: transferência move dinheiro ENTRE contas do escritório.
 
         Não tem categoria nem centro de custo porque não é receita nem despesa — o
@@ -233,7 +233,7 @@ class _TransactionMixin(BaseModel):
         if self.category_id is not None or self.cost_center_id is not None:
             raise ValueError("Transferência não usa categoria nem centro de custo.")
 
-    def _validar_lancamento_simples(self) -> None:
+    def _validate_simple_entry(self) -> None:
         """Regra 3: receita e despesa exigem categoria e centro de custo — é o que torna o
         DRE e o relatório por centro possíveis. E `credit_account_id` é só de
         transferência: numa receita ou despesa há uma conta só."""

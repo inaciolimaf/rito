@@ -567,7 +567,7 @@ async def get_bank_account_balance(
 # erro novo é uma linha aqui, e a mensagem fica ao lado do tipo que a produz.
 # `TransactionLawsuitNotFoundError` não entra: é o fallback, e deixá-lo explícito na tabela
 # esconderia que ele também atende qualquer erro inesperado da família.
-_MENSAGEM_POR_ERRO: dict[type[Exception], str] = {
+_MESSAGE_BY_ERROR: dict[type[Exception], str] = {
     FuturePaymentDateError: "Data de pagamento não pode ser no futuro.",
     TransactionCategoryNotFoundError: "Categoria não encontrada.",
     TransactionCostCenterNotFoundError: "Centro de custo não encontrado.",
@@ -586,7 +586,7 @@ def _handle_transaction_errors(exc: Exception) -> HTTPException:
                 "incompatível com o lançamento."
             ),
         )
-    mensagem = _MENSAGEM_POR_ERRO.get(type(exc), "Processo não encontrado.")
+    mensagem = _MESSAGE_BY_ERROR.get(type(exc), "Processo não encontrado.")
     return HTTPException(status_code=422, detail=mensagem)
 
 

@@ -61,7 +61,7 @@ def _has_active_lawsuit_clause(active: bool) -> ColumnElement[bool]:
     return exists if active else ~exists
 
 
-def _filtros_simples(
+def _equality_filters(
     *,
     person_type: PersonType | None,
     state: str | None,
@@ -81,7 +81,7 @@ def _filtros_simples(
     return condicoes
 
 
-def _busca_por_nome_ou_documento(query: str) -> ColumnElement[bool]:
+def _search_by_name_or_document(query: str) -> ColumnElement[bool]:
     """Regra 1: nome é busca parcial sem acento; CPF/CNPJ é exato.
 
     Um filtro só — se `query` não tiver dígitos, a comparação de `identification` nunca
@@ -95,7 +95,7 @@ def _busca_por_nome_ou_documento(query: str) -> ColumnElement[bool]:
     )
 
 
-def _filtro_de_aniversario(birthdays: str | None, today: date) -> list[ColumnElement[bool]]:
+def _birthday_filter(birthdays: str | None, today: date) -> list[ColumnElement[bool]]:
     """Regra 6: aniversário ignora o ano — compara mês, e no escopo do dia também o dia."""
     if birthdays not in ("day", "month"):
         return []
@@ -157,8 +157,8 @@ class CustomerRepository(BaseRepository[Customer]):
         filters: list[ColumnElement[bool]] = [Customer.is_archived.is_(q.archived)]
 
         if q.query:
-            filters.append(_busca_por_nome_ou_documento(q.query))
-        filters += _filtros_simples(
+            filters.append(_search_by_name_or_document(q.query))
+        filters += _equality_filters(
             person_type=q.person_type, state=q.state, city=q.city, origin_id=q.origin_id
         )
         filters += datetime_range(Customer.created_at, q.created_from, q.created_to)
@@ -167,7 +167,7 @@ class CustomerRepository(BaseRepository[Customer]):
             # menos um processo não arquivado. EXISTS correlacionado, não JOIN — um
             # contato com três processos ativos não pode aparecer três vezes na listagem.
             filters.append(_has_active_lawsuit_clause(q.has_active_lawsuit))
-        filters += _filtro_de_aniversario(q.birthdays, today)
+        filters += _birthday_filter(q.birthdays, today)
         return filters
 
     async def list_filtered(

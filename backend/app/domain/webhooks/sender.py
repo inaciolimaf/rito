@@ -56,7 +56,7 @@ class HttpxWebhookSender:
     def __init__(self, *, timeout_s: float = TIMEOUT_SECONDS) -> None:
         self._timeout = timeout_s
 
-    async def _postar_seguindo_redirects(
+    async def _post_following_redirects(
         self,
         client: httpx.AsyncClient,
         *,
@@ -90,7 +90,7 @@ class HttpxWebhookSender:
             # `follow_redirects=False` de propósito: o redirect é seguido à mão, para
             # que cada salto seja validado.
             async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=False) as client:
-                resposta = await self._postar_seguindo_redirects(
+                resposta = await self._post_following_redirects(
                     client, url=url, body=body, headers=headers, allow_local=allow_local
                 )
             if resposta is None:

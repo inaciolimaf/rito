@@ -77,7 +77,7 @@ class Problema:
         return f"  {self.variavel.upper()}: {self.motivo}"
 
 
-def _faltando_em_producao(settings: Settings) -> list[Problema]:
+def _missing_in_production(settings: Settings) -> list[Problema]:
     return [
         Problema(variavel, f"não definida — {motivo}")
         for variavel, motivo in REQUIRED_IN_PRODUCTION.items()
@@ -85,7 +85,7 @@ def _faltando_em_producao(settings: Settings) -> list[Problema]:
     ]
 
 
-def _problemas_do_segredo(settings: Settings) -> list[Problema]:
+def _secret_problems(settings: Settings) -> list[Problema]:
     """O segredo de exemplo é PÚBLICO — está no `.env.example` versionado. Subir com ele
     é o mesmo que não ter segredo, e por isso é problema distinto de «curto demais»."""
     if settings.secret_key == EXAMPLE_SECRET_KEY:
@@ -107,7 +107,7 @@ def _problemas_do_segredo(settings: Settings) -> list[Problema]:
     return []
 
 
-def _problemas_de_cors(settings: Settings) -> list[Problema]:
+def _cors_problems(settings: Settings) -> list[Problema]:
     if "localhost" not in settings.cors_allowed_origins:
         return []
     return [
@@ -129,9 +129,9 @@ def validate(settings: Settings) -> list[Problema]:
     if settings.app_env != "production":
         return []
     return [
-        *_faltando_em_producao(settings),
-        *_problemas_do_segredo(settings),
-        *_problemas_de_cors(settings),
+        *_missing_in_production(settings),
+        *_secret_problems(settings),
+        *_cors_problems(settings),
     ]
 
 

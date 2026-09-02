@@ -550,8 +550,8 @@ Dá número à regra dos 3 usos: 0,61% em Python e 1,74% em TSX, medidos com jsc
 A contagem dupla era real e era da versão 4 do jscpd: 1.028 "arquivos analisados" para 760 em disco. O TSX drifou 1,74 → **2,09%** em cinco dias — o "décimo por spec" que a spec descreve, medido —, e caiu para **1,18%** depois das extrações. Tetos: Python 0,75%, TSX 1,30%.
 TypeScript ficou **sem teto**, de propósito: com 7.919 linhas, um único clone de 12 vale 0,15 pp, e qualquer teto ali reprovaria o PR de quem não causou o problema.
 
-### ⬜ 120 — 🔧 REFATORAÇÃO — Gates de estrutura
-Pente fino em 111–119, e a primeira spec cujo objeto são os próprios gates. Com catorze ligados em vinte specs, a pergunta deixa de ser «o CI está verde» e passa a ser «está verde porque o código está bom, ou porque alguém ajustou o gate?». Compara cada teto com o valor de entrada via `git log -p`, faz a revisão humana dos três gates de proxy, e entrega `docs/GATES.md`.
+### ✅ 120 — 🔧 REFATORAÇÃO — Gates de estrutura
+Nenhum teto afrouxado — o `max-complexity` só desceu (10→8→6) e os demais nunca mudaram, conferido no `git log -p`. Entrega `docs/GATES.md` com os 20 grupos de regra, os 5 tetos, os 3 tetos de silenciamento e os 19 meta-testes, mantido completo por `test_registro_de_gates.py`. Fecha a dívida 33: a causa das jornadas e2e caindo sob carga não era o `EntityPicker` — era o e2e ser a **única** das três suítes sem teto de worker. Fecha a 37 renomeando 88 símbolos privados para inglês, por decisão do usuário.
 **Aceite:** nenhum teto afrouxado sem spec; listas de exceção da 118 vazias; `docs/GATES.md` com meta-teste que o mantém completo. **t:** 0,2 s. **Deps:** 111–119
 
 ---

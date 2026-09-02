@@ -219,10 +219,10 @@ class AutomationService:
             # Regra 13: passou de 20, deixou de ser regra e virou programa.
             raise AutomationLimitError(f"Uma automação aceita no máximo {MAX_ACTIONS} ações.")
         for entrada in actions:
-            _validar_acao(entrada)
+            _validate_action(entrada)
 
 
-def _validar_acao(entrada: ActionInput) -> None:
+def _validate_action(entrada: ActionInput) -> None:
     """Uma ação da automação: tipo, atraso, condição e — se for decisão — a configuração
     da IA. Tudo verificado ANTES de salvar, porque erro de configuração tem de aparecer
     para quem configura, não numa execução silenciosa seis semanas depois."""

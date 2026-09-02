@@ -12,7 +12,7 @@ from app.domain.posts.models import Post, PostRecurrence, PostUser
 from app.domain.users.models import User
 
 
-def _com_filtro_de_responsavel(
+def _with_assignee_filter(
     stmt: Select[Any], *, assignee_id: uuid.UUID | None, only_open: bool
 ) -> Select[Any]:
     """Filtros que atravessam `post_users`.
@@ -93,7 +93,7 @@ class PostRepository(BaseRepository[Post]):
         for valor, condicao in diretos:
             if valor is not None:
                 stmt = stmt.where(condicao)
-        stmt = _com_filtro_de_responsavel(stmt, assignee_id=f.assignee_id, only_open=f.only_open)
+        stmt = _with_assignee_filter(stmt, assignee_id=f.assignee_id, only_open=f.only_open)
         return (await self.session.scalars(stmt)).all()
 
     async def assignees_for(self, post_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, list[User]]:

@@ -57,7 +57,7 @@ def board_counts_cache_key(tenant_id: uuid.UUID) -> str:
     return tenant_key("crm:board_counts", tenant_id)
 
 
-def _sem_filtro(filters: LawsuitFilters) -> bool:
+def _no_filter(filters: LawsuitFilters) -> bool:
     """Board padrão: nenhum filtro ativo. `dataclasses.asdict` não serve porque
     `LawsuitFilters` guarda listas; comparar campo a campo com o vazio é o que diz se
     esta é a visão que todo mundo abre."""
@@ -90,7 +90,7 @@ class BoardService:
         # Spec 098, regra 9: só a visão SEM filtro é cacheada — é a que o CRM abre por
         # padrão, e é uma chave por escritório. Com filtro, o espaço de chaves seria o
         # produto de todos os filtros possíveis (ver `core/cache.py`).
-        if _sem_filtro(filters):
+        if _no_filter(filters):
             counts = {
                 int(chave): valor
                 for chave, valor in (

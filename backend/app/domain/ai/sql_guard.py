@@ -90,7 +90,7 @@ def _relations(tree: exp.Expression) -> list[str]:
     return nomes
 
 
-def _arvore_de_leitura(raw_sql: str) -> exp.Expression:
+def _read_only_tree(raw_sql: str) -> exp.Expression:
     """Camada 2: uma consulta, e só de leitura.
 
     O tipo do nó RAIZ é o que decide, não o texto — `SELECT` que esconde um `DROP` numa
@@ -153,7 +153,7 @@ def check_sql(raw_sql: str, *, has_financial_access: bool) -> CheckedSql:
     """Valida e devolve o SQL pronto para execução, ou levanta `SqlRejected`."""
     from sqlglot import exp
 
-    tree = _arvore_de_leitura(raw_sql)
+    tree = _read_only_tree(raw_sql)
     relacoes = _relacoes_permitidas(tree)
 
     financeiro = any(nome in FINANCIAL_RELATIONS for nome in relacoes) or any(

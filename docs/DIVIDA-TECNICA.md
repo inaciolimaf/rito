@@ -661,10 +661,37 @@ inclui a montagem.
 o teste quer medir. Subir o `testTimeout` do arquivo é o contorno preguiçoso: esconde o
 sintoma e o próximo host mais frio o traz de volta.
 
-**Spec-alvo:** 120. A 110 olhou para ela e não a corrigiu: o conserto é reestruturar um
-teste de front-end (separar montagem de interação), e a 110 é auditoria de orçamento e
-gates do BACK-END — mexer no Vitest ali seria escopo emprestado. O diagnóstico continua
-válido e o caminho está escrito acima.
+### Tentada na spec 120 — e a correção prescrita QUEBRA o teste
+
+A 120 tentou o conserto indicado («aquecer o módulo uma vez por arquivo»): um `beforeAll`
+que monta o editor, espera o conteúdo aparecer e desmonta, movendo o custo do primeiro
+`render` para o `hookTimeout` (10 s por padrão, o dobro do `testTimeout`).
+
+**Resultado: o primeiro teste passou a falhar.** «Aplica negrito pela toolbar» estourou o
+`waitFor` de 3 s — `onChange` nunca foi chamado com `<strong>`. Os outros dois continuaram
+passando. Ou seja, o `render`/`unmount` de aquecimento deixa estado que interfere
+justamente no teste que depende de foco e marca pendente do tiptap.
+
+Revertido. O código está como estava, verde.
+
+**Duas coisas que isto ensina sobre a dívida:**
+
+1. **O sintoma não reproduz nesta máquina.** Com `node_modules/.vite` apagado, o primeiro
+   teste roda em **190 ms**, não em 5 s. O host onde a dívida foi observada era mais frio
+   (ou mais disputado) do que qualquer coisa que dê para provocar aqui.
+2. **A correção não é a linha que a dívida supunha.** «Separar montagem de interação» é a
+   ideia certa, mas a montagem do tiptap não é reentrante do jeito ingênuo — o editor guarda
+   estado que sobrevive ao `unmount` o suficiente para mudar o comportamento do teste
+   seguinte.
+
+**Quem for corrigir precisa, nesta ordem:** reproduzir o sintoma (host frio de verdade, ou
+`testTimeout` baixado artificialmente para 300 ms como proxy), e só então mexer — com o
+teste falhando na mão, dá para saber se a mudança resolveu. Sem reproduzir, é o que
+aconteceu aqui: uma correção plausível que troca um problema intermitente por um
+determinístico.
+
+**Spec-alvo:** spec própria de correção de front-end, com o sintoma reproduzido primeiro.
+Não cabe numa refatoração que não consegue vê-lo falhar.
 
 ---
 
@@ -889,7 +916,7 @@ não alcança.
 
 ---
 
-## 33. Uma jornada e2e falha quando as três suítes disputam CPU
+## 33. ~~Jornadas e2e falham quando as três suítes disputam CPU~~ — RESOLVIDO na spec 120
 
 Observada uma vez, ao fechar a spec 114: no primeiro `make test` com as portas livres, a
 jornada 6/25 (`schedule.spec.ts` — criar compromisso na agenda) falhou ao não achar a
@@ -982,9 +1009,28 @@ números teria resolvido a dúvida em um segundo — hoje sabemos que o normal �
 que o desenvolvedor espera de fato, e trocá-la por tempo de CPU alteraria a promessa da
 constituição. Essa troca continua em aberto e é decisão do usuário — ver §10 da spec 110.
 
-**Continua aberta a metade do `EntityPicker`**: as jornadas que caem sob carga são as cinco
-que passam por ele, e o teto de espera próprio para o seletor assíncrono ainda não foi
-feito. **Spec-alvo:** 120.
+**FECHADA na spec 120 — e a causa não era o `EntityPicker`.** A auditoria achou uma
+assimetria entre as três suítes do `run-tests.sh`:
+
+```
+run_backend:  pytest -n "${PYTEST_WORKERS:-3}"                # capado, com comentário
+run_frontend: vitest --maxWorkers="${VITEST_MAX_WORKERS:-1}"  # capado, com comentário
+run_e2e:      npm test                                        # SEM CAP
+```
+
+O `playwright.config.ts` tinha `workers: process.env.CI ? 4 : undefined`, e `undefined`
+significa **um worker por núcleo** — 12 nesta máquina, disputando CPU com o pytest, o
+vitest, o uvicorn e o vite ao mesmo tempo. As outras duas suítes são limitadas
+*exatamente* por isso, e o comentário de cada uma diz isso; o e2e ficou de fora.
+
+As cinco jornadas que caíam eram as do `EntityPicker` porque elas são as que **esperam
+resposta de rede**: sob disputa, a busca não volta nos 5 s padrão do `expect`. O seletor
+era o sintoma, a falta de teto era a causa — e é por isso que dar um teto de espera maior
+ao seletor teria escondido o problema em vez de resolvê-lo.
+
+Capado em 3, o mesmo do pytest e pelo mesmo motivo, com `PLAYWRIGHT_WORKERS` devolvendo o
+comportamento antigo em máquina dedicada. Medido depois: **10/10 em 15,4 s**, contra ~17 s
+antes — havia paralelismo sobrando, não faltando.
 
 ---
 
@@ -1146,7 +1192,7 @@ em silêncio» e cabem no mesmo ciclo.
 
 ---
 
-## 37. Identificadores em português e inglês lado a lado
+## 37. ~~Identificadores em português e inglês lado a lado~~ — RESOLVIDO na spec 120
 
 O `CLAUDE.md` §9 manda: «código e identificadores em **inglês**; UI, mensagens ao usuário e
 specs em **português**».
@@ -1175,4 +1221,19 @@ técnica — é de quem lê o código todo dia.
 O que NÃO se pode é deixar como está sem decidir, porque aí cada spec nova escolhe sozinha
 e a inconsistência cresce.
 
-**Spec-alvo:** 120, a próxima refatoração — com a decisão tomada antes, não durante.
+**RESOLVIDO na spec 120.** O usuário decidiu pela **saída 1: seguir o §9 e renomear**.
+88 símbolos privados (funções auxiliares e constantes de módulo) passaram para inglês —
+217 ocorrências em 45 arquivos. A constituição fica como está.
+
+O que NÃO foi renomeado, de propósito: `_OAB_PATTERN` (OAB é nome de instituição, não
+palavra portuguesa) e os que já estavam em inglês (`_RESOLVERS`, `_STATUS_MESSAGE_MAX`,
+`_status_for`). Uma colisão foi encontrada e desviada: `_ACOES` iria para `_ACTIONS`, que já
+existe em `automations/service.py` com outro sentido — virou `_ACTION_RUNNERS`.
+
+**Docstrings e comentários continuam em português**, como o §9 manda. O resultado é o padrão
+da maioria dos projetos brasileiros: nome em inglês, explicação em português.
+
+Verificado por AST, não por diff: para cada um dos 45 arquivos, o **conjunto de
+identificadores** de antes com o mapa aplicado é idêntico ao de depois. Zero identificadores
+fora do mapa. Isso é imune à reformatação do `black`, que mexeu em cinco arquivos porque os
+nomes mudaram de comprimento e as assinaturas passaram a quebrar em outro ponto.

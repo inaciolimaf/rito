@@ -143,7 +143,7 @@ async def _use_tools(state: GraphState, *, deps: GraphDeps) -> dict[str, Any]:
             "output": {"answer": None, "unavailable_tools": [c["name"] for c in pedidas]},
         }
     deps.tool_runner.begin_step()
-    messages, interrupcao = await _executar_ferramentas(state, deps, pedidas)
+    messages, interrupcao = await _run_tool_calls(state, deps, pedidas)
     if interrupcao is None or interrupcao.get("status") != "pending":
         return {"messages": messages, "scratch": scratch_limpo}
     return {
@@ -159,7 +159,7 @@ async def _use_tools(state: GraphState, *, deps: GraphDeps) -> dict[str, Any]:
     }
 
 
-async def _executar_ferramentas(
+async def _run_tool_calls(
     state: GraphState, deps: GraphDeps, pedidas: list[dict[str, Any]]
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """Roda cada ferramenta pedida e devolve o histórico novo e a PRIMEIRA interrupção.

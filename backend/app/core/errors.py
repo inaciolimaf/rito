@@ -68,7 +68,7 @@ def _problem_response(
     )
 
 
-def _como[E: Exception](tipo: type[E], exc: Exception) -> E:
+def _as_type[E: Exception](tipo: type[E], exc: Exception) -> E:
     """`exc` com o tipo que o handler foi registrado para tratar (spec 115).
 
     O FastAPI tipa todo handler como recebendo `Exception`, mas despacha pelo tipo com que
@@ -83,7 +83,7 @@ def _como[E: Exception](tipo: type[E], exc: Exception) -> E:
 
 
 async def handle_validation_error(request: Request, exc: Exception) -> JSONResponse:
-    erro = _como(RequestValidationError, exc)
+    erro = _as_type(RequestValidationError, exc)
     return _problem_response(
         status_code=422,
         detail="Um ou mais campos são inválidos.",
@@ -93,7 +93,7 @@ async def handle_validation_error(request: Request, exc: Exception) -> JSONRespo
 
 
 async def handle_http_exception(request: Request, exc: Exception) -> JSONResponse:
-    erro = _como(StarletteHTTPException, exc)
+    erro = _as_type(StarletteHTTPException, exc)
     # Any: starlette tipa HTTPException.detail como Any — pode ser str ou um dict de
     # convenção (ver abaixo).
     detail: Any = erro.detail
@@ -126,7 +126,7 @@ async def handle_budget_exceeded(request: Request, exc: Exception) -> JSONRespon
     """
     from app.domain.ai.budget import BudgetExceededError
 
-    erro = _como(BudgetExceededError, exc)
+    erro = _as_type(BudgetExceededError, exc)
     return _problem_response(
         status_code=409,
         detail=str(exc),

@@ -68,7 +68,7 @@ class DecisionOutcome:
     context_summary: str | None = None
 
 
-def _validar_pergunta_e_ramos(config: dict[str, Any]) -> list[str]:
+def _validate_question_and_branches(config: dict[str, Any]) -> list[str]:
     """Pergunta, ramos e o padrão — devolve os nomes dos ramos declarados.
 
     O ramo padrão é o que sustenta a regra 5: sem um caminho de fallback válido, a
@@ -89,7 +89,7 @@ def _validar_pergunta_e_ramos(config: dict[str, Any]) -> list[str]:
     return nomes
 
 
-def _validar_mapa_de_ramos(branches: Any, nomes: list[str]) -> None:
+def _validate_branch_map(branches: Any, nomes: list[str]) -> None:
     """O mapa nome → posições não pode citar ramo que a decisão não declarou: seria um
     trecho da automação que nenhuma resposta do modelo alcança."""
     if branches is not None and not isinstance(branches, dict):
@@ -102,11 +102,11 @@ def _validar_mapa_de_ramos(branches: Any, nomes: list[str]) -> None:
 def validate_decision_config(config: dict[str, Any], branches: Any) -> None:
     """O que precisa estar certo ANTES de salvar — erro de configuração tem de aparecer
     para quem está configurando, não numa execução silenciosa seis semanas depois."""
-    nomes = _validar_pergunta_e_ramos(config)
+    nomes = _validate_question_and_branches(config)
     confianca = config.get("min_confidence", 0.7)
     if not isinstance(confianca, int | float) or not 0 <= float(confianca) <= 1:
         raise DecisionConfigError("A confiança mínima precisa estar entre 0 e 1.")
-    _validar_mapa_de_ramos(branches, nomes)
+    _validate_branch_map(branches, nomes)
 
 
 def branch_owner_map(actions: list[AutomationAction]) -> dict[int, tuple[int, str]]:
@@ -222,9 +222,7 @@ class DecisionRunner:
             )
         return escolhido
 
-    async def _impedimento_para_perguntar(
-        self, automation: Automation, padrao: str
-    ) -> DecisionOutcome | None:
+    async def _blocker_to_ask(self, automation: Automation, padrao: str) -> DecisionOutcome | None:
         """As duas razões para nem chegar a perguntar ao modelo.
 
         Regra 6: com o orçamento no fim, nem chega a chamar — pagar para descobrir que não
@@ -238,7 +236,7 @@ class DecisionRunner:
             return _fallback(padrao, "Nenhuma IA configurada neste servidor.", None)
         return None
 
-    async def _rodar_ferramentas(
+    async def _run_tools(
         self,
         tool_runner: ToolRunner,
         historico: list[Message],
@@ -277,18 +275,18 @@ class DecisionRunner:
         nomes: list[str],
     ) -> DecisionOutcome:
         padrao = str(config.get("default_branch") or (nomes[0] if nomes else ""))
-        impedimento = await self._impedimento_para_perguntar(automation, padrao)
+        impedimento = await self._blocker_to_ask(automation, padrao)
         if impedimento is not None:
             return impedimento
         runner = self.engine.ai_runner
-        runner = not_none(runner, "garantido por _impedimento_para_perguntar")
+        runner = not_none(runner, "garantido por _blocker_to_ask")
         # A automação é dona da transação (ver `AiRunner.commit_usage`).
         runner.commit_usage = False
 
         ferramentas = self._context_tools(actor, config)
         historico = [
             Message(role="system", content=_SYSTEM_PROMPT),
-            Message(role="user", content=_pergunta_com_contexto(config, run, nomes)),
+            Message(role="user", content=_question_with_context(config, run, nomes)),
         ]
         tool_runner = ToolRunner(
             ToolContext(session=self.session, tenant_id=self.tenant_id, user=actor)
@@ -307,7 +305,7 @@ class DecisionRunner:
                     user_id=actor.id,
                 )
                 modelo = resposta.model
-                total_tokens, custo = _uso_somado(resposta.usage, total_tokens, custo)
+                total_tokens, custo = _accumulated_usage(resposta.usage, total_tokens, custo)
                 if not resposta.tool_calls:
                     ramo, confianca, raciocinio = parse_decision(resposta.content, branches=nomes)
                     if not raciocinio:
@@ -338,7 +336,7 @@ class DecisionRunner:
                         cost_usd=custo,
                         context_summary=", ".join(usados) or None,
                     )
-                historico, chamadas = await self._rodar_ferramentas(
+                historico, chamadas = await self._run_tools(
                     tool_runner, historico, resposta.tool_calls
                 )
                 usados.extend(chamadas)
@@ -469,7 +467,7 @@ class DecisionRunner:
         return decisao
 
 
-def _uso_somado(usage: Usage, tokens: int, custo: Decimal) -> tuple[int, Decimal]:
+def _accumulated_usage(usage: Usage, tokens: int, custo: Decimal) -> tuple[int, Decimal]:
     """O consumo acumulado depois de mais uma volta.
 
     Soma tokens sempre e custo só quando o provider informa: `cost_usd` vem `None` em
@@ -498,7 +496,7 @@ def _fallback(padrao: str, motivo: str, anterior: DecisionOutcome | None) -> Dec
     )
 
 
-def _pergunta_com_contexto(config: dict[str, Any], run: AutomationRun, nomes: list[str]) -> str:
+def _question_with_context(config: dict[str, Any], run: AutomationRun, nomes: list[str]) -> str:
     return (
         f"PERGUNTA: {config.get('question')}\n\n"
         f"RAMOS POSSÍVEIS: {', '.join(nomes)}\n\n"

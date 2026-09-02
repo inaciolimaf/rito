@@ -78,7 +78,7 @@ async def resolve_feed_token(
     return (row.tenant_id, row.user_id)
 
 
-def _oculto_para(post: Post, viewer: uuid.UUID, assignees: list[Any]) -> bool:
+def _hidden_from(post: Post, viewer: uuid.UUID, assignees: list[Any]) -> bool:
     """Regra 8 da spec 033, aplicada à agenda: tarefa privada de terceiro não vaza.
 
     Some da visão de quem não é criador nem responsável — inclusive do gestor. Privacidade
@@ -89,7 +89,7 @@ def _oculto_para(post: Post, viewer: uuid.UUID, assignees: list[Any]) -> bool:
     return all(viewer != uid for uid, _name, _done in assignees)
 
 
-def _status_do_evento(*, completed: bool, axis: date, today: date) -> ScheduleStatus:
+def _event_status(*, completed: bool, axis: date, today: date) -> ScheduleStatus:
     """Regra 3 — as cores da agenda. Concluída ganha de atrasada: uma tarefa entregue com
     atraso já foi entregue, e mostrá-la em vermelho seria cobrar o que está feito."""
     if completed:
@@ -128,14 +128,14 @@ class ScheduleService:
         events: list[ScheduleEvent] = []
         for post, task_type_name in rows:
             assignees = lines.get(post.id, [])
-            if _oculto_para(post, viewer, assignees):
+            if _hidden_from(post, viewer, assignees):
                 continue
             completed = bool(assignees) and all(done for _uid, _name, done in assignees)
             if completed and not show_completed:
                 continue
             axis = post.scheduled_date if date_field == DateField.SCHEDULED else post.deadline_date
             axis = not_none(axis, "o repositório já filtra eixo NULL")
-            status = _status_do_evento(completed=completed, axis=axis, today=today)
+            status = _event_status(completed=completed, axis=axis, today=today)
             events.append(
                 ScheduleEvent(
                     post_id=post.id,

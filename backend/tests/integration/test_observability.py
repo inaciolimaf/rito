@@ -198,8 +198,8 @@ async def test_span_externo_e_de_llm_nascem_das_camadas_certas(
     from app.integrations.http.client import ResilientHttpClient
 
     assert hasattr(
-        ResilientHttpClient, "_request_com_resiliencia"
-    ), "o span externo envolve breaker+retries: `request` delega a `_request_com_resiliencia`"
+        ResilientHttpClient, "_request_with_resilience"
+    ), "o span externo envolve breaker+retries: `request` delega a `_request_with_resilience`"
     with get_tracer().start_as_current_span("http GET", kind=SpanKind.CLIENT):
         pass
     with get_tracer().start_as_current_span("llm copilot", kind=SpanKind.CLIENT):

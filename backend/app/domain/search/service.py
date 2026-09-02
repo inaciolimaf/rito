@@ -131,7 +131,7 @@ class SearchService:
             ordem = desc(func.ts_rank(vetor, tsquery))
 
         stmt: Select[Any] = (
-            select(Customer, exato.label("exato"), _total_da_faceta())
+            select(Customer, exato.label("exato"), _facet_total())
             .where(condicao, Customer.is_archived.is_(False))
             .order_by(desc(literal_column("exato")), ordem, desc(Customer.created_at))
             .limit(limit)
@@ -177,7 +177,7 @@ class SearchService:
             ordem = desc(func.ts_rank(vetor, tsquery))
 
         stmt = (
-            select(Lawsuit, _total_da_faceta())
+            select(Lawsuit, _facet_total())
             .where(condicao)
             .order_by(ordem, desc(Lawsuit.created_at))
             .limit(limit)
@@ -212,7 +212,7 @@ class SearchService:
         )
         condicao = or_(Post.comments.ilike(padrao), Post.location.ilike(padrao))
         stmt = (
-            select(Post, TaskType.name, _total_da_faceta())
+            select(Post, TaskType.name, _facet_total())
             .join(TaskType, TaskType.id == Post.task_type_id)
             .where(condicao, envolvido)
             .order_by(desc(Post.created_at))
@@ -302,7 +302,7 @@ def _elapsed(comeco: float) -> int:
     return int((time.perf_counter() - comeco) * 1000)
 
 
-def _total_da_faceta() -> Any:
+def _facet_total() -> Any:
     """Total de resultados da faceta, por função de janela (spec 098, regra 1).
 
     Cada faceta fazia duas queries — a página e um `SELECT count(*)` com os mesmos

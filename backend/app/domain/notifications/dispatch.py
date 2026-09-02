@@ -59,9 +59,11 @@ class NotificationDispatcher:
             return
 
         for channel_name in rule.channels:
-            await self._enviar_por_canal(channel_name, user=user, rule=rule, title=title, body=body)
+            await self._send_through_channel(
+                channel_name, user=user, rule=rule, title=title, body=body
+            )
 
-    async def _enviar_por_canal(
+    async def _send_through_channel(
         self,
         channel_name: str,
         *,

@@ -147,7 +147,7 @@ class AiBudgetService:
             )
         return situacao
 
-    async def _por_feature(self, *, desde: datetime, ate: datetime | None) -> dict[str, Decimal]:
+    async def _by_feature(self, *, desde: datetime, ate: datetime | None) -> dict[str, Decimal]:
         stmt = (
             select(AiUsage.feature_key, func.coalesce(func.sum(AiUsage.cost_usd), 0))
             .where(AiUsage.created_at >= desde)
@@ -170,8 +170,8 @@ class AiBudgetService:
         inicio_hoje = agora.replace(hour=0, minute=0, second=0, microsecond=0)
         inicio_janela = inicio_hoje - timedelta(days=ANOMALY_WINDOW_DAYS)
 
-        hoje = await self._por_feature(desde=inicio_hoje, ate=None)
-        historico = await self._por_feature(desde=inicio_janela, ate=inicio_hoje)
+        hoje = await self._by_feature(desde=inicio_hoje, ate=None)
+        historico = await self._by_feature(desde=inicio_janela, ate=inicio_hoje)
 
         encontrados: list[SpendingAnomaly] = []
         for feature_key, gasto_hoje in hoje.items():

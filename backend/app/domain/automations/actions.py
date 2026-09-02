@@ -48,7 +48,7 @@ async def run_action(
     automation: Automation,
     actor: User,
 ) -> dict[str, Any]:
-    executar = _ACOES.get(action.action_kind)
+    executar = _ACTION_RUNNERS.get(action.action_kind)
     if executar is None:
         raise UnknownActionError(f"Ação desconhecida: {action.action_kind}")
     config = dict(action.action_config or {})
@@ -213,7 +213,7 @@ async def _http_request(
 # a carregar parâmetros que não usam. Ação nova é uma linha nesta tabela — e como a chave
 # vem do `ActionKind`, um valor novo do enum sem entrada aqui vira `UnknownActionError`
 # em vez de passar batido.
-_ACOES: dict[str, Callable[..., Awaitable[dict[str, Any]]]] = {
+_ACTION_RUNNERS: dict[str, Callable[..., Awaitable[dict[str, Any]]]] = {
     ActionKind.WAIT_CONDITION.value: _wait_condition,
     ActionKind.CREATE_TASK.value: (
         lambda engine, *, run, config, automation, actor: _create_task(

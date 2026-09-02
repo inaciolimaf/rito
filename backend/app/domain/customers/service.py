@@ -156,7 +156,7 @@ class CustomerService:
         decoded_cursor = decode_cursor(cursor) if cursor else None
         items, total = await self.customers.list_filtered(
             today=today,
-            filters=_consulta(filters),
+            filters=_to_query(filters),
             page=Page(sort=sort, descending=order == "desc", cursor=decoded_cursor, limit=limit),
         )
         next_cursor = None
@@ -233,13 +233,13 @@ class CustomerService:
         # Regra 7: respeita os filtros ativos, não a página visível; teto de 50.000 linhas.
         items, _total = await self.customers.list_filtered(
             today=today,
-            filters=_consulta(filters),
+            filters=_to_query(filters),
             page=Page(limit=_EXPORT_ROW_CAP),
         )
         return build_xlsx(list(items)) if format_ == "xlsx" else build_pdf(list(items))
 
 
-def _consulta(filters: CustomerFilters) -> CustomerQuery:
+def _to_query(filters: CustomerFilters) -> CustomerQuery:
     """Traduz o filtro da API para a linguagem do repositório (spec 116).
 
     Os nomes divergem porque as duas camadas falam línguas diferentes — `q`/`type` são

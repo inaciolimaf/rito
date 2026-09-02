@@ -394,7 +394,7 @@ class TransactionService:
             decodificado = (date.fromisoformat(valor), cursor_id)
         itens = list(
             await self.transactions.list_filtered(
-                filters=_consulta(params),
+                filters=_to_query(params),
                 page=Page(cursor=decodificado, limit=limit),
             )
         )
@@ -413,7 +413,7 @@ class TransactionService:
         consulta acontece aqui, uma vez para cada — em vez de repetir oito nomes de
         parâmetro nos dois lugares e torcer para não trocar nenhum.
         """
-        return await self.transactions.totals_filtered(_consulta(params))
+        return await self.transactions.totals_filtered(_to_query(params))
 
     async def get(self, transaction_id: uuid.UUID) -> TransactionRow | None:
         return await self.transactions.get_by_id_detail(transaction_id)
@@ -748,17 +748,17 @@ class TransactionSeriesService:
     ) -> list[Transaction]:
         """Regra 7: `scope=future` afeta as não pagas com vencimento a partir de hoje;
         `scope=all` afeta todas as não pagas. Parcela/ocorrência paga nunca muda."""
-        await self._validar_categoria_da_serie(series, payload)
+        await self._validate_series_category(series, payload)
 
         updated: list[Transaction] = []
         for transaction in await self.transactions.list_by_series(series.id):
-            if self._fora_do_escopo(transaction, scope, today):
+            if self._out_of_scope(transaction, scope, today):
                 continue
             self._aplicar_alteracoes(transaction, payload)
             updated.append(transaction)
         return updated
 
-    async def _validar_categoria_da_serie(
+    async def _validate_series_category(
         self, series: TransactionSeries, payload: TransactionSeriesUpdateRequest
     ) -> None:
         """Categoria nova tem que combinar com o tipo da série (receita/despesa).
@@ -778,7 +778,7 @@ class TransactionSeriesService:
             raise TransactionCategoryTypeMismatchError(category.type)
 
     @staticmethod
-    def _fora_do_escopo(transaction: Transaction, scope: str, today: date) -> bool:
+    def _out_of_scope(transaction: Transaction, scope: str, today: date) -> bool:
         """Regra 7: paga nunca muda; `scope=future` só mexe daqui para frente."""
         if transaction.payment_date is not None:
             return True
@@ -817,12 +817,12 @@ class TransactionSeriesService:
             series.is_active = False
 
 
-def _consulta(params: TransactionListParams) -> TransactionQuery:
+def _to_query(params: TransactionListParams) -> TransactionQuery:
     """Traduz os query params da listagem para a linguagem do repositório (spec 116).
 
     A tradução vive no service, e não no router, porque o `TransactionQuery` é tipo de
     repositório e router que importa repositório é violação de camada (CLAUDE.md §5) — o
-    `test_camadas.py` reprova. Mesmo desenho de `customers/service.py::_consulta`.
+    `test_camadas.py` reprova. Mesmo desenho de `customers/service.py::_to_query`.
 
     A única regra aqui: `"all"` é como o HTTP diz «não filtre», e o repositório diz isso
     com `None`.

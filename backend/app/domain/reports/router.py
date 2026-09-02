@@ -146,7 +146,7 @@ def report_scope(
     return ReportScopeParams(from_=from_, to=to, user_id=user_id, action_group_id=action_group_id)
 
 
-def _filtros_do_escopo(
+def _filters_from_scope(
     scope: ReportScopeParams, current_user: User, report_key: ReportKey
 ) -> ReportFilters:
     """Query params -> filtro, com o recorte de permissão aplicado no meio.
@@ -176,7 +176,7 @@ async def get_tabular_report(
 ) -> ReportListResponse:
     if report_key not in REPORT_KEYS:
         raise HTTPException(status_code=404, detail="Relatório desconhecido.")
-    filters = _filtros_do_escopo(scope, current_user, report_key)
+    filters = _filters_from_scope(scope, current_user, report_key)
     service = TabularReportService(session=session, tenant_id=current_user.tenant_id)
     return await service.fetch(report_key, filters, cursor=cursor, limit=limit, today=clock.today())
 
@@ -192,7 +192,7 @@ async def export_tabular_report(
 ) -> Response:
     if report_key not in REPORT_KEYS:
         raise HTTPException(status_code=404, detail="Relatório desconhecido.")
-    filters = _filtros_do_escopo(scope, current_user, report_key)
+    filters = _filters_from_scope(scope, current_user, report_key)
     service = TabularReportService(session=session, tenant_id=current_user.tenant_id)
     content = await service.export(report_key, filters, format_=format_, today=clock.today())
     return Response(content=content, media_type=_MIME_TYPES[format_])

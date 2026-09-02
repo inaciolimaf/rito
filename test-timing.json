@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 138,
+  "last_measured_wall_clock_seconds": 147,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -382,6 +382,10 @@
     "116": {
       "wall_clock_seconds": 138,
       "notes": "PLR0913 (argumentos demais) no select, max-args=8 (o joelho da curva: 126/50/31/15/6/3 nos tetos 5/6/7/8/10/12). Primeira desta leva com trabalho real: 15 funcoes acima de 8. 1596 backend (1591 da 112 + 5: teto de 2 noqa PLR0913 e justificativa de cada um, nenhum query param terminado em _ (a armadilha do alias reservado), e o snapshot de query params das cinco rotas de listagem reescritas) + 313 frontend + 10 e2e. O tipo comum que subiu foi a PAGINACAO — Page em core/listing.py, o quarteto sort/descending/cursor/limit do §6 repetido cinco vezes — e nao o filtro. Nasceram CustomerQuery, TransactionQuery e TaskQuery no repositorio; as rotas passaram a receber filtros por Depends(). Contrato inalterado: 276 operacoes com os mesmos query params, 311 caminhos, 384 operacoes, ordem identica. Dois achados: a armadilha do alias de palavra reservada no Depends() de modelo (o param from viraria from_ em silencio, pego pelo diff) e a divida 34 (rota publica de aniversariantes nao filtra nada). O meta-teste de camadas pegou uma violacao minha (router importando repositorio) e a correcao mostrou que a traducao mora no service."
+    },
+    "113": {
+      "wall_clock_seconds": 147,
+      "notes": "RUF100 no select: 29 diretivas noqa mortas removidas (nao 31 — a medicao original usou --select RUF100, que SUBSTITUI o select inteiro e faz todo noqa parecer inutil; com --fix teria apagado os dois PLR0913 legitimos da 116). 1596 backend (nenhum teste novo: o gate e o make lint) + 313 frontend + 10 e2e. Diff conferido mecanicamente: 29 linhas removidas, 29 acrescentadas, cada par diferindo APENAS pelo noqa. Sobraram 6 diretivas, todas segurando algo. Dois achados: o --fix leva junto a prosa depois do noqa, e em tres linhas isso apagou a justificativa de um type: ignore que ficava na mesma linha (pego pelo test_final_audit da spec 100, justificativas recolocadas na linha de cima); e ha DOIS noqa da familia S para a spec 115 reencontrar, nao um (S608 em test_post_comments sem justificativa, S603 em conftest com justificativa que se perdeu). Divida 35 registrada: teste de caos com acoplamento de estado entre testes."
     }
   },
   "specs_concluidas": 100

@@ -49,7 +49,7 @@ class MemoriaExporter(SpanExporter):
     def __init__(self) -> None:
         self.spans: list[object] = []
 
-    def export(self, spans) -> SpanExportResult:  # type: ignore[no-untyped-def]  # noqa: ANN001 — assinatura do SDK
+    def export(self, spans) -> SpanExportResult:  # type: ignore[no-untyped-def]
         self.spans.extend(spans)
         return SpanExportResult.SUCCESS
 

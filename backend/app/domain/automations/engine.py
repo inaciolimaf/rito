@@ -296,7 +296,7 @@ class AutomationEngine:
             run.next_action_at = self.now() + CONDITION_POLL
             await self.session.flush()
             return run
-        except Exception as exc:  # noqa: BLE001 - erro do domínio vira registro
+        except Exception as exc:
             # Regra 9: a falha interrompe e fica registrada; o que já rodou permanece.
             await self._record_step(
                 run, action, StepStatus.FAILED, error=f"{type(exc).__name__}: {exc}"

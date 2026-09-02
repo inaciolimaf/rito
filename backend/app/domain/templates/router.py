@@ -321,7 +321,7 @@ async def send_template_email(
 
 @router.get("/public-templates")
 async def list_public_templates(
-    type: TemplateType | None = Query(default=None),  # noqa: A002 (nome do contrato de API)
+    type: TemplateType | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> list[PublicTemplateResponse]:

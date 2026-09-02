@@ -226,7 +226,7 @@ async def list_dre_groups(
 
 @router.get("/financial-categories")
 async def list_financial_categories(
-    type: EntryType | None = Query(default=None),  # noqa: A002 (nome do contrato de API)
+    type: EntryType | None = Query(default=None),
     group: int | None = Query(default=None),
     status_: Literal["active", "inactive"] | None = Query(default=None, alias="status"),
     q: str | None = Query(default=None),

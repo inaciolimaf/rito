@@ -13,7 +13,7 @@ from app.domain.stages.repository import StageRepository
 from tests.integration.test_crm_kanban import _get_lawsuit
 from tests.integration.test_lawsuits import _create_stage
 from tests.integration.test_lawsuits_listing import LawsuitFactory
-from tests.integration.test_lawsuits_listing import factory as factory  # noqa: F401 (fixture)
+from tests.integration.test_lawsuits_listing import factory as factory
 
 SessionFactory = async_sessionmaker[AsyncSession]
 

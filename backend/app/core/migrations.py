@@ -73,7 +73,7 @@ async def _anotar_dono(conn: AsyncConnection, dono: str | None) -> None:
                 {"dono": dono},
             )
         await conn.commit()
-    except Exception:  # noqa: BLE001 — banco novo ainda não tem a tabela
+    except Exception:
         await conn.rollback()
         logger.debug("migration_locks ainda não existe — anotação de dono ignorada")
 
@@ -111,7 +111,7 @@ async def _versao_atual(engine: AsyncEngine) -> str | None:
     async with engine.connect() as conn:
         try:
             return (await conn.scalar(text("SELECT version_num FROM alembic_version"))) or None
-        except Exception:  # noqa: BLE001 — banco novo ainda não tem a tabela
+        except Exception:
             return None
 
 

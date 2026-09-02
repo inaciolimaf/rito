@@ -146,7 +146,7 @@ async def create_automation(
             actions=_to_inputs(payload),
             created_by=current_user.id,
         )
-    except Exception as exc:  # noqa: BLE001 - traduzido em _handle
+    except Exception as exc:
         raise _handle(exc) from exc
     return await _to_response(service, automation)
 
@@ -169,7 +169,7 @@ async def update_automation(
             trigger_config=payload.trigger_config,
             actions=_to_inputs(payload),
         )
-    except Exception as exc:  # noqa: BLE001 - traduzido em _handle
+    except Exception as exc:
         raise _handle(exc) from exc
     return await _to_response(service, automation)
 

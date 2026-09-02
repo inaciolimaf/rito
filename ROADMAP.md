@@ -512,8 +512,8 @@ As seis já tinham caído na 106. O teto entrou em **8** e não nos 12 do padrã
 As sete já tinham caído na 106 — a §3 acertou o diagnóstico e a 106 aplicou a cura. Teto no padrão (6) e **dominado pelo `C901`**: as cinco funções com 6 returns têm complexidade ciclomática exatamente 6, então o sétimo `return` já é barrado antes. Descer para 5 foi recusado — obrigaria a trocar cláusula de guarda por saída única, que é pior.
 **Aceite:** gate verde; os nomes publicados por `/api/v1/template-variables` inalterados. **t:** 0 s. **Deps:** 106, 111
 
-### ⬜ 113 — RUF100: noqa que não silencia nada
-31 diretivas mortas. Uma delas suprime `S608` e é herdada pela 115 — registrada em Descobertas para não sumir.
+### ✅ 113 — RUF100: noqa que não silencia nada
+29 diretivas mortas removidas (não 31: a medição original usou `--select RUF100`, que substitui o `select` inteiro e faz TODO `noqa` parecer inútil — com `--fix` teria apagado os dois `PLR0913` legítimos da 116). Sobraram seis, todos segurando algo. Os dois `noqa` da família `S` que a 115 vai reencontrar estão registrados na §8.
 **Aceite:** as 31 removidas; diff só com comentários; registro da linha herdada. **t:** 0 s. **Deps:** 107, 108, 109, 111, 112
 
 ### ✅ 114 — DTZ: «hoje» é o hoje de quem, exatamente?

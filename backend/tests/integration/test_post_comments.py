@@ -449,9 +449,7 @@ async def test_tenant_b_nao_enxerga_comentarios_anexos_nem_notificacoes(
             async with app_session_factory() as session, session.begin():
                 await set_tenant_context(session, tenant)
                 rows = await session.execute(
-                    text(
-                        f"SELECT count(*) FROM {table} WHERE id = CAST(:id AS uuid)"
-                    ),  # noqa: S608
+                    text(f"SELECT count(*) FROM {table} WHERE id = CAST(:id AS uuid)"),
                     {"id": row_id},
                 )
                 assert rows.scalar_one() == expected, (table, tenant)

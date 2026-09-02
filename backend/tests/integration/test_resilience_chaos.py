@@ -53,7 +53,7 @@ from tests.integration.test_datajud_movement_sync import (
     _cnj,
     get_lawsuit,
 )
-from tests.integration.test_datajud_movement_sync import setup as setup  # noqa: F401 (fixture)
+from tests.integration.test_datajud_movement_sync import setup as setup
 from tests.integration.test_djen_sync import make_term
 from tests.integration.test_lawsuits import (
     _auth_header,

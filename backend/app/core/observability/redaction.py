@@ -74,7 +74,7 @@ def redact_text(value: str) -> str:
     return value
 
 
-def redact_value(value: Any, *, key: str | None = None) -> Any:  # noqa: ANN401
+def redact_value(value: Any, *, key: str | None = None) -> Any:
     """Mascara um valor de log, recursivamente.
 
     `Any` é inevitável: `logger.info(..., extra={...})` aceita qualquer coisa

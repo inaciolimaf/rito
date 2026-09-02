@@ -974,3 +974,42 @@ primeiro volta.
 
 **Spec-alvo:** spec própria de correção, não uma de refatoração. Prioridade alta: é resposta
 errada em endpoint público documentado.
+
+---
+
+## 35. Um teste de caos só passa dependendo de quem roda junto
+
+`tests/integration/test_resilience_chaos.py::test_datajud_ganha_historico_de_execucao_sucesso_e_erro`
+passa sozinho (2,5 s), passa na suíte completa, e **falha** neste recorte:
+
+```
+pytest tests/ -k "cache or migration or observability or automation or crm or comment or chaos or guardrail"
+```
+
+O erro é `HttpRequestError: falha de transporte ... timeout simulado` escapando em vez de
+ser tratado — o teste simula UM timeout e espera que a resiliência da spec 041 absorva.
+
+Reproduzido no HEAD limpo (`git stash`), então é anterior à spec 113 e independe dela.
+Nenhum par de módulos reproduz: `chaos` com `automation`, `cache`, `migration`, `crm`,
+`comment`, `guardrail` ou `observability`, dois a dois, passa. Só a combinação maior falha.
+
+**O que isso significa:** existe estado compartilhado entre testes que a transação por teste
+da spec 105 não desfaz — os candidatos naturais são o **circuit breaker por host** (dicionário
+de instância, mas o cliente pode estar sendo reusado) e o **token bucket de rate limit no
+Redis**, que é global entre workers por construção (spec 041, regra 4) e não participa do
+`ROLLBACK`. Se um teste anterior abriu o circuito do host do DataJud ou gastou a janela do
+rate limit, o próximo recebe a recusa antes de tocar o transporte, e a simulação de timeout
+nunca acontece como o teste espera.
+
+**Por que não foi corrigido aqui:** a 113 é remoção de comentário morto; investigar
+isolamento de teste não cabe no escopo, e o defeito não afeta o `make test`.
+
+**Por que registrar mesmo assim:** a suíte completa esconder isso é sorte de distribuição
+entre os três workers do `-n 3`. Quando ela mudar — mais um arquivo de teste, outro número de
+workers no CI — vira falha intermitente sem causa aparente, que é o pior formato.
+
+**Correção provável:** dar ao teste de caos um host próprio (ou zerar breaker e bucket num
+fixture de `autouse`), de modo que ele não herde o estado de resiliência de ninguém.
+
+**Spec-alvo:** 110 ou 120 — mesma auditoria da dívida 33, que já vai olhar isolamento e
+gates. As duas têm a mesma raiz: estado que sobrevive ao teste que o criou.

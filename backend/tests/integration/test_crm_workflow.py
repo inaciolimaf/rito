@@ -15,7 +15,7 @@ from app.domain.users.models import UserRole
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import _auth_header, _create_stage
 from tests.integration.test_lawsuits_listing import LawsuitFactory
-from tests.integration.test_lawsuits_listing import factory as factory  # noqa: F401 (fixture)
+from tests.integration.test_lawsuits_listing import factory as factory
 from tests.integration.test_posts import _create_task_type
 from tests.integration.test_workflows import _create_workflow, _lawsuit_post_ids
 

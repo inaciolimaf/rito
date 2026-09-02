@@ -57,11 +57,11 @@ def tenant_key(namespace: str, tenant_id: uuid.UUID, *parts: object) -> str:
 async def cached_json(
     cache: Cache | None,
     key: str,
-    produce: Callable[[], Awaitable[Any]],  # noqa: ANN401 — o valor cacheado é JSON arbitrário
+    produce: Callable[[], Awaitable[Any]],
     *,
-    decode: Callable[[Any], Any],  # noqa: ANN401 — idem
+    decode: Callable[[Any], Any],
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
-) -> Any:  # noqa: ANN401
+) -> Any:
     """Devolve o valor do cache ou calcula, grava e devolve.
 
     `cache=None` desliga o cache sem ramificar o chamador — é o que permite a um teste
@@ -76,7 +76,7 @@ async def cached_json(
         return await produce()
     try:
         bruto = await cache.get(key)
-    except Exception:  # noqa: BLE001 — cache fora do ar degrada, não derruba
+    except Exception:
         bruto = None
     if bruto is not None:
         return decode(json.loads(bruto))

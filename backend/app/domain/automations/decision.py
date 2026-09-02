@@ -355,7 +355,7 @@ class DecisionRunner:
                     cost_usd=custo,
                 ),
             )
-        except Exception as exc:  # noqa: BLE001 - regra 5: IA não derruba automação
+        except Exception as exc:
             motivo = str(exc) if isinstance(exc, LLMError) else f"{type(exc).__name__}: {exc}"
             return _fallback(padrao, f"A IA não respondeu: {motivo}", None)
 

@@ -80,7 +80,7 @@ def _template_esta_pronto(template_url: str, head: str) -> bool:
             "SELECT version_num FROM alembic_version",
             "SELECT count(*) AS total FROM tenants",
         )
-    except Exception:  # noqa: BLE001 — banco novo, sem as tabelas: não está pronto
+    except Exception:
         return False
     return bool(versao["version_num"] == head and tenants["total"] == 0)
 
@@ -102,7 +102,7 @@ def _preparar_template(maintenance_url: str, template_url: str) -> None:
             f'DROP DATABASE IF EXISTS "{nome}" WITH (FORCE)',
             f'CREATE DATABASE "{nome}"',
         )
-        subprocess.run(  # noqa: S603 — argumentos fixos, nada vem de fora
+        subprocess.run(
             [sys.executable, "-m", "alembic", "upgrade", "head"],
             cwd=BACKEND_DIR,
             env={**os.environ, "MIGRATIONS_DATABASE_URL": template_url},

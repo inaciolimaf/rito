@@ -125,7 +125,7 @@ async def observe_queue_depths(redis: "Redis", queues: Sequence[str] = ("celery"
     for queue in queues:
         try:
             depth = await redis.llen(queue)
-        except Exception:  # noqa: BLE001 — métrica de fila nunca derruba o /metrics
+        except Exception:
             continue
         celery_queue_depth.labels(queue=queue).set(depth)
 
@@ -143,7 +143,9 @@ def instrument_engine(engine: "AsyncEngine") -> None:
     precisa enxergar.
     """
 
-    def _count(conn, cursor, statement, parameters, context, executemany) -> None:  # type: ignore[no-untyped-def]  # noqa: ANN001, E501 — assinatura fixada pelo evento do SQLAlchemy, sem stubs
+    # Assinatura fixada pelo evento do SQLAlchemy, que não publica stubs tipados: os
+    # seis parâmetros vêm dele, nesta ordem, e anotá-los seria inventar um contrato.
+    def _count(conn, cursor, statement, parameters, context, executemany) -> None:  # type: ignore[no-untyped-def]
         count_query()
 
     if not event.contains(engine.sync_engine, "before_cursor_execute", _count):

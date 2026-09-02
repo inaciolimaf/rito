@@ -151,7 +151,9 @@ def instrument_engine(engine: "AsyncEngine") -> None:
     """
     from sqlalchemy import event
 
-    def _start(conn, cursor, statement, parameters, context, executemany) -> None:  # type: ignore[no-untyped-def]  # noqa: ANN001, E501 — assinatura fixada pelo evento do SQLAlchemy
+    # Assinatura fixada pelo evento do SQLAlchemy, que não publica stubs tipados: os
+    # seis parâmetros vêm dele, nesta ordem, e anotá-los seria inventar um contrato.
+    def _start(conn, cursor, statement, parameters, context, executemany) -> None:  # type: ignore[no-untyped-def]
         span = get_tracer().start_span(
             f"db {_operation_of(statement)}",
             kind=SpanKind.CLIENT,
@@ -159,7 +161,9 @@ def instrument_engine(engine: "AsyncEngine") -> None:
         )
         conn.info.setdefault("rito_spans", []).append(span)
 
-    def _end(conn, cursor, statement, parameters, context, executemany) -> None:  # type: ignore[no-untyped-def]  # noqa: ANN001, E501 — assinatura fixada pelo evento do SQLAlchemy
+    # Assinatura fixada pelo evento do SQLAlchemy, que não publica stubs tipados: os
+    # seis parâmetros vêm dele, nesta ordem, e anotá-los seria inventar um contrato.
+    def _end(conn, cursor, statement, parameters, context, executemany) -> None:  # type: ignore[no-untyped-def]
         spans = conn.info.get("rito_spans")
         if spans:
             spans.pop().end()
@@ -173,7 +177,7 @@ def _operation_of(statement: str) -> str:
     return statement.lstrip().split(" ", 1)[0].upper() or "UNKNOWN"
 
 
-def span_attributes(**kwargs: Any) -> dict[str, Any]:  # noqa: ANN401
+def span_attributes(**kwargs: Any) -> dict[str, Any]:
     """Descarta atributo nulo — o SDK avisa em log para cada `None` recebido."""
     return {key: value for key, value in kwargs.items() if value is not None}
 

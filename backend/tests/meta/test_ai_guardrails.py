@@ -82,7 +82,7 @@ def test_provider_de_llm_em_teste_nunca_alcanca_a_rede() -> None:
     provider = create_llm_provider()
     # Alcançar o transporte por dentro é o ponto do teste: a garantia é justamente que
     # a instância montada em produção-de-teste não fala com a rede.
-    http = provider._http  # noqa: SLF001
-    transport = http._client._transport  # type: ignore[attr-defined]  # noqa: SLF001
+    http = provider._http
+    transport = http._client._transport  # type: ignore[attr-defined]
     assert isinstance(transport, FixtureTransport)
     assert Path(get_settings().llm_fixtures_dir).name == "llm"

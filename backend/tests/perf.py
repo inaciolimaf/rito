@@ -70,7 +70,7 @@ async def count_queries(app: FastAPI) -> AsyncIterator[QueryLog]:
     """
     log = QueryLog()
 
-    def _registrar(conn, cursor, statement, parameters, context, executemany) -> None:  # type: ignore[no-untyped-def]  # noqa: ANN001, E501 — assinatura fixada pelo evento do SQLAlchemy
+    def _registrar(conn, cursor, statement, parameters, context, executemany) -> None:  # type: ignore[no-untyped-def]
         if not e_plumbing(statement):
             log.statements.append(statement)
 

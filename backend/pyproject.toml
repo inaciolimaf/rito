@@ -79,7 +79,16 @@ select = [
     "PLR0913",
     "PLR0912",
     "PLR0915",
+    "RUF100",
 ]
+# RUF100 (spec 113): `# noqa` que não silencia nada é pior que ruído — documenta um
+# problema que não existe e treina quem lê a ignorar os `noqa` que seguram algo de verdade.
+#
+# ATENÇÃO ao medir: `ruff check . --select RUF100` SUBSTITUI o `select` inteiro, então
+# nenhuma outra regra fica ligada e TODO `noqa` do projeto parece inútil — inclusive os dois
+# `PLR0913` legítimos. Rodado com `--fix`, apagaria os dois. Use `--extend-select RUF100`,
+# ou simplesmente `ruff check .` com a regra aqui no `select`, que é o que o CI faz.
+
 # B008: Depends()/Header() em default de parâmetro é o idioma padrão do FastAPI.
 ignore = ["B008"]
 

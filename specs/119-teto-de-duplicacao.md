@@ -145,8 +145,54 @@ então o saldo tende a zero ou negativo — medir e registrar.
 
 ## 12. Descobertas
 
-Preencher durante a implementação. **Obrigatório:** o número medido após as correções e o teto
-escolhido para cada linguagem, com a conta.
+**Ferramenta.** Medido com `jscpd@5.1.1`, fixado exato em `frontend/package.json`. A 5 é uma
+reescrita em Rust: mesma configuração, números diferentes da 4 por poucos centésimos, e ~100×
+mais rápida (55 ms contra 5,4 s). O gate roda por `npm run dup:check`
+(`frontend/scripts/check-duplication.mjs`), ao lado do `bundle:check` da 098.
+
+**A contagem dupla era real, e era da versão 4 (§4.A).** Com a 4 e a lista de formatos padrão,
+os mesmos arquivos `.tsx` eram tokenizados duas vezes — uma como `tsx`, outra como
+`javascript`. Prova: 1.028 «arquivos analisados» para 760 arquivos em disco, e os 10 clones
+reportados sob `javascript` apontavam todos para arquivos `.tsx`. Na 5 o problema não
+aparece, e o `.jscpd.json` fixa `format: ["python", "typescript", "tsx"]` mesmo assim —
+extensões disjuntas, cada arquivo em exatamente um balde. Conferência: a soma dos `sources`
+por formato (374 + 286 + 86 = 746) é o número de arquivos analisados.
+
+**Recontagem (01/09/2026) contra os números da spec, de `44469bd`:**
+
+| Formato | Na spec | Antes das correções | Depois |
+|---|---|---|---|
+| Python | 0,61% | **0,64%** (357/55.562) | 0,64% — nenhuma linha de `backend/app` mudou aqui |
+| TSX | 1,74% | **2,09%** (574/27.521) | **1,18%** (323/27.317) |
+| TypeScript | 0,15% | 0,15% (12/7.900) | 0,15% |
+
+O TSX drifou de 1,74% para 2,09% em cinco dias — é exatamente o «décimo por spec» que o §1
+descreve, e a razão de o gate existir. As correções devolveram 0,91 pp: 38 clones → 23,
+574 linhas duplicadas → 323.
+
+**Tetos, com a conta:** medido + 0,1 pp, arredondado para cima ao múltiplo de 0,05 seguinte.
+
+- **Python: 0,75%** — 0,64 + 0,10 = 0,74 → 0,75.
+- **TSX: 1,30%** — 1,18 + 0,10 = 1,28 → 1,30.
+- **TypeScript: sem teto.** Com 7.919 linhas, um único clone de 12 linhas já vale 0,15 pp:
+  qualquer teto plausível cabe em um clone, e reprovaria o PR de quem não causou o problema
+  — o cenário que o §5 manda evitar. O número continua sendo medido e impresso; se a base
+  crescer, vira spec própria.
+
+**`thresholds` é campo nosso.** O jscpd só entende um teto global (`--threshold`), e a spec
+pede um por linguagem. O campo fica no `.jscpd.json` mesmo assim (fonte de verdade única) e o
+script o lê; o jscpd o ignora com um aviso, que o script filtra.
+
+**O que a extração pagou.** `<CrudListPage>` (oitavo de `components/domain/`) nas seis telas,
+`<ImageUploader>` no lugar de `LogoUploader`/`AvatarUploader` — que não tinham teste nenhum,
+ao contrário do que a regra 5 supunha —, e `<MaskedDecimalField>` sob `MoneyField`/
+`PercentField`, com as duas funções de parsing indo para `lib/money.ts` (onde o próprio
+cabeçalho do arquivo já dizia que elas moravam). Os testes das seis telas passaram sem
+edição; a suíte foi de 116 arquivos/304 testes para 119/313, de 25,8 s para 27,1 s.
+
+**Sétima e oitava telas do mesmo padrão.** `StagesListPage` e `TaskTypesListPage` ainda
+compartilham 15 linhas entre si e são candidatas naturais a `<CrudListPage>`. Ficaram fora
+por serem clone abaixo do gatilho da §7 desta spec — anotado para a 120.
 
 ## 13. Definição de pronto
 

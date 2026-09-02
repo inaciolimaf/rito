@@ -1,9 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
-import { DataTable } from "@/components/domain/DataTable";
-import { FormModal } from "@/components/domain/FormModal";
+import { CrudListPage } from "@/components/domain/CrudListPage";
 import type { DataTableColumn } from "@/components/domain/types";
 import { useCrudResource } from "@/components/domain/useCrudResource";
 import {
@@ -20,7 +17,6 @@ import {
   type SquadFormValues,
 } from "@/features/squads/schema";
 import { listUsers } from "@/features/users/api";
-import { ApiError } from "@/lib/errors";
 import { useAuth } from "@/providers/AuthProvider";
 
 const MAX_AVATARS_SHOWN = 3;
@@ -40,18 +36,7 @@ export function SquadsListPage(): JSX.Element {
   });
   const users = usersPage?.items ?? [];
 
-  const {
-    editing: editingSquad,
-    modalOpen,
-    setModalOpen,
-    formError,
-    pendingDelete,
-    setPendingDelete,
-    openCreateModal,
-    openEditModal,
-    handleSubmit,
-    handleConfirmDelete,
-  } = useCrudResource<SquadData, SquadFormValues>({
+  const crud = useCrudResource<SquadData, SquadFormValues>({
     queryKey: ["squads"],
     create: createSquad,
     update: (squad, values) => updateSquad(squad.id, { ...values, is_active: squad.is_active }),
@@ -96,70 +81,29 @@ export function SquadsListPage(): JSX.Element {
   ];
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-primary">Times</h1>
-        {isAdministrador && <Button onClick={openCreateModal}>Novo time</Button>}
-      </div>
-
-      <DataTable
-        columns={columns}
-        data={data?.items ?? []}
-        getRowId={(row) => row.id}
-        isLoading={isLoading}
-        error={error instanceof ApiError ? error.message : null}
-        emptyMessage="Nenhum time cadastrado ainda."
-        rowActions={
-          isAdministrador
-            ? (row) => (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="text-sm text-accent underline"
-                    onClick={() => openEditModal(row)}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm text-danger underline"
-                    onClick={() => setPendingDelete(row)}
-                  >
-                    Excluir
-                  </button>
-                </div>
-              )
-            : undefined
-        }
-      />
-
-      <FormModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        title={editingSquad ? "Editar time" : "Novo time"}
-        schema={squadFormSchema}
-        defaultValues={
-          editingSquad
-            ? { name: editingSquad.name, member_ids: editingSquad.members.map((m) => m.id) }
-            : DEFAULT_SQUAD_FORM_VALUES
-        }
-        serverError={formError}
-        onSubmit={handleSubmit}
-      >
-        {(form) => <SquadForm form={form} users={users} />}
-      </FormModal>
-
-      <ConfirmDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingDelete(null);
-        }}
-        title="Excluir time?"
-        description={`"${pendingDelete?.name ?? ""}" será excluído. Tarefas já atribuídas a partir dele não são afetadas (regra 5).`}
-        confirmLabel="Excluir"
-        destructive
-        onConfirm={handleConfirmDelete}
-      />
-    </div>
+    <CrudListPage
+      title="Times"
+      createLabel="Novo time"
+      canWrite={isAdministrador}
+      columns={columns}
+      data={data?.items ?? []}
+      isLoading={isLoading}
+      error={error}
+      emptyMessage="Nenhum time cadastrado ainda."
+      crud={crud}
+      createTitle="Novo time"
+      editTitle="Editar time"
+      schema={squadFormSchema}
+      emptyFormValues={DEFAULT_SQUAD_FORM_VALUES}
+      toFormValues={(squad) => ({
+        name: squad.name,
+        member_ids: squad.members.map((m) => m.id),
+      })}
+      formFields={(form) => <SquadForm form={form} users={users} />}
+      confirmTitle="Excluir time?"
+      confirmDescription={(item) =>
+        `"${item?.name ?? ""}" será excluído. Tarefas já atribuídas a partir dele não são afetadas (regra 5).`
+      }
+    />
   );
 }

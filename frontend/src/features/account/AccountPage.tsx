@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 
 import { EmptyState } from "@/components/domain/EmptyState";
+import { ImageUploader } from "@/components/domain/ImageUploader";
 import { AccessTrackingToggle } from "@/features/account/AccessTrackingToggle";
 import { AccountForm } from "@/features/account/AccountForm";
 import { AccountStorageSection } from "@/features/account/AccountStorageSection";
-import { LogoUploader } from "@/features/account/LogoUploader";
 import {
   getAccount,
   updateAccessTracking,
@@ -88,8 +88,17 @@ export function AccountPage(): JSX.Element {
       {account && <AccountStorageSection disabled={!isGestor} />}
 
       {account && (
-        <LogoUploader
-          logoUrl={account.logo_url}
+        <ImageUploader
+          label="Logotipo"
+          imageUrl={account.logo_url}
+          alt="Logotipo do escritório"
+          emptyLabel="Sem logo"
+          uploadLabel="Enviar logotipo"
+          replaceLabel="Trocar logotipo"
+          replaceTitle="Substituir logotipo?"
+          replaceDescription="O logotipo atual será substituído pelo novo arquivo."
+          oversizeError="Logotipo acima de 2 MB."
+          uploadError="Não foi possível enviar o logotipo."
           disabled={!isGestor}
           onUpload={async (file) => {
             await logoMutation.mutateAsync(file);

@@ -3,7 +3,7 @@ import * as React from "react";
 import { useParams } from "react-router-dom";
 
 import { EmptyState } from "@/components/domain/EmptyState";
-import { AvatarUploader } from "@/features/users/AvatarUploader";
+import { ImageUploader } from "@/components/domain/ImageUploader";
 import {
   getOccupations,
   getUser,
@@ -104,8 +104,18 @@ export function UserDetailPage(): JSX.Element {
     <div className="space-y-6 p-6">
       <h1 className="text-lg font-semibold text-primary">{targetUser.name}</h1>
 
-      <AvatarUploader
-        avatarUrl={targetUser.avatar_url}
+      <ImageUploader
+        label="Foto de perfil"
+        imageUrl={targetUser.avatar_url}
+        alt="Foto de perfil"
+        emptyLabel="Sem foto"
+        uploadLabel="Enviar foto"
+        replaceLabel="Trocar foto"
+        replaceTitle="Substituir foto?"
+        replaceDescription="A foto atual será substituída pelo novo arquivo."
+        oversizeError="Foto acima de 2 MB."
+        uploadError="Não foi possível enviar a foto."
+        shape="circle"
         onUpload={async (file) => {
           await avatarMutation.mutateAsync(file);
         }}

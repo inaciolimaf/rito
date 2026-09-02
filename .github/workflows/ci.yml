@@ -138,6 +138,14 @@ jobs:
           npm run build
           npm run bundle:check
 
+      # Spec 119: teto de duplicação por linguagem. Passo próprio, fora do `make test` —
+      # não é teste e não deve consumir os 300 s do orçamento. A configuração (caminhos,
+      # min-lines/min-tokens, exclusões e os tetos) vive em `.jscpd.json` na raiz.
+      - name: Gate de duplicação
+        run: |
+          cd frontend
+          npm run dup:check
+
       # Spec 100, §3: dependência com vulnerabilidade conhecida é a superfície de ataque
       # que não exige erro nosso — basta o tempo passar. Roda em todo PR porque é barato
       # e porque o custo de descobrir tarde é o de um incidente.

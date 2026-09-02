@@ -1,9 +1,7 @@
-import { Controller, type Control, type FieldValues, type Path } from "react-hook-form";
+import type { Control, FieldValues, Path } from "react-hook-form";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { stripNonDigits } from "@/lib/br-masks";
-import { formatDecimalPtBr } from "@/lib/money";
+import { MaskedDecimalField } from "@/components/domain/MaskedDecimalField";
+import { parsePercentInput } from "@/lib/money";
 
 export interface PercentFieldProps<TValues extends FieldValues> {
   control: Control<TValues>;
@@ -21,27 +19,13 @@ export function PercentField<TValues extends FieldValues>({
   label,
   id,
 }: PercentFieldProps<TValues>): JSX.Element {
-  const inputId = id ?? String(name);
   return (
-    <div className="space-y-1">
-      <Label htmlFor={inputId}>{label}</Label>
-      <Controller
-        control={control}
-        name={name}
-        render={({ field }) => (
-          <Input
-            id={inputId}
-            inputMode="numeric"
-            value={formatDecimalPtBr(String(field.value ?? ""))}
-            onChange={(event) => {
-              const digits = stripNonDigits(event.target.value).slice(0, 5);
-              const cents = digits === "" ? 0 : Math.min(parseInt(digits, 10), 10000);
-              field.onChange(digits === "" ? "" : (cents / 100).toFixed(2));
-            }}
-            onBlur={field.onBlur}
-          />
-        )}
-      />
-    </div>
+    <MaskedDecimalField
+      control={control}
+      name={name}
+      label={label}
+      id={id}
+      parseInput={parsePercentInput}
+    />
   );
 }

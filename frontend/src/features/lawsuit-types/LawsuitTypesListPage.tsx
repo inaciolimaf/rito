@@ -1,10 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
-import { DataTable } from "@/components/domain/DataTable";
-import { FilterBar } from "@/components/domain/FilterBar";
-import { FormModal } from "@/components/domain/FormModal";
+import { CrudListPage } from "@/components/domain/CrudListPage";
 import type { DataTableColumn, FilterFieldDef } from "@/components/domain/types";
 import { useCrudResource } from "@/components/domain/useCrudResource";
 import { useFilters } from "@/components/domain/useFilters";
@@ -22,7 +18,6 @@ import {
   lawsuitTypeFormSchema,
   type LawsuitTypeFormValues,
 } from "@/features/lawsuit-types/schema";
-import { ApiError } from "@/lib/errors";
 import { useAuth } from "@/providers/AuthProvider";
 
 export function LawsuitTypesListPage(): JSX.Element {
@@ -65,18 +60,7 @@ export function LawsuitTypesListPage(): JSX.Element {
     queryFn: () => listLawsuitTypes({ group_id: groupId, status, q }),
   });
 
-  const {
-    editing: editingType,
-    modalOpen,
-    setModalOpen,
-    formError,
-    pendingDelete,
-    setPendingDelete,
-    openCreateModal,
-    openEditModal,
-    handleSubmit,
-    handleConfirmDelete,
-  } = useCrudResource<LawsuitTypeData, LawsuitTypeFormValues>({
+  const crud = useCrudResource<LawsuitTypeData, LawsuitTypeFormValues>({
     queryKey: ["lawsuit-types"],
     create: createLawsuitType,
     update: (lawsuitType, values) =>
@@ -96,72 +80,28 @@ export function LawsuitTypesListPage(): JSX.Element {
   ];
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-primary">Tipos de ação</h1>
-        {isGestor && <Button onClick={openCreateModal}>Novo tipo de ação</Button>}
-      </div>
-
-      <FilterBar fields={filterFields} />
-
-      <DataTable
-        columns={columns}
-        data={data?.items ?? []}
-        getRowId={(row) => row.id}
-        isLoading={isLoading}
-        error={error instanceof ApiError ? error.message : null}
-        emptyMessage="Nenhum tipo de ação cadastrado ainda."
-        rowActions={
-          isGestor
-            ? (row) => (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="text-sm text-accent underline"
-                    onClick={() => openEditModal(row)}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm text-danger underline"
-                    onClick={() => setPendingDelete(row)}
-                  >
-                    Excluir
-                  </button>
-                </div>
-              )
-            : undefined
-        }
-      />
-
-      <FormModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        title={editingType ? "Editar tipo de ação" : "Novo tipo de ação"}
-        schema={lawsuitTypeFormSchema}
-        defaultValues={
-          editingType
-            ? { name: editingType.name, action_group_id: editingType.action_group_id }
-            : DEFAULT_LAWSUIT_TYPE_FORM_VALUES
-        }
-        serverError={formError}
-        onSubmit={handleSubmit}
-      >
-        {(form) => <LawsuitTypeForm form={form} groups={groups} />}
-      </FormModal>
-
-      <ConfirmDialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingDelete(null);
-        }}
-        title="Excluir tipo de ação?"
-        description={`"${pendingDelete?.name ?? ""}" será excluído.`}
-        confirmLabel="Excluir"
-        destructive
-        onConfirm={handleConfirmDelete}
-      />
-    </div>
+    <CrudListPage
+      title="Tipos de ação"
+      createLabel="Novo tipo de ação"
+      canWrite={isGestor}
+      filterFields={filterFields}
+      columns={columns}
+      data={data?.items ?? []}
+      isLoading={isLoading}
+      error={error}
+      emptyMessage="Nenhum tipo de ação cadastrado ainda."
+      crud={crud}
+      createTitle="Novo tipo de ação"
+      editTitle="Editar tipo de ação"
+      schema={lawsuitTypeFormSchema}
+      emptyFormValues={DEFAULT_LAWSUIT_TYPE_FORM_VALUES}
+      toFormValues={(lawsuitType) => ({
+        name: lawsuitType.name,
+        action_group_id: lawsuitType.action_group_id,
+      })}
+      formFields={(form) => <LawsuitTypeForm form={form} groups={groups} />}
+      confirmTitle="Excluir tipo de ação?"
+      confirmDescription={(item) => `"${item?.name ?? ""}" será excluído.`}
+    />
   );
 }

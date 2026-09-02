@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . && tsc -b --noEmit && prettier --check .",
-    "bundle:check": "node scripts/check-bundle.mjs"
+    "bundle:check": "node scripts/check-bundle.mjs",
+    "dup:check": "node scripts/check-duplication.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
@@ -54,6 +55,7 @@
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
+    "jscpd": "5.1.1",
     "jsdom": "^25.0.1",
     "msw": "^2.7.0",
     "postcss": "^8.4.49",

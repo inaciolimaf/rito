@@ -538,9 +538,11 @@ Três checagens de AST para as regras que o §5 declara e ninguém verifica — 
 Os 16 confirmados sem drift, as três listas de exceção terminam **vazias**, e um quarto teste trava isso. "Nenhum contrato alterado" foi provado, não afirmado: snapshot de `app.openapi()` contra o do HEAD limpo, **311 rotas, diff de zero linhas**.
 Dois achados fora do escopo declarado, com o número escrito no próprio módulo de teste: `app/public/router.py` tem 9 `select()` + 2 imports de repositório, e sobram 9 usos de `session.get/add/flush/delete` em routers que a regra 1 do §8 não lista.
 
-### ⬜ 119 — Teto de duplicação
+### ✅ 119 — Teto de duplicação
 Dá número à regra dos 3 usos: 0,61% em Python e 1,74% em TSX, medidos com jscpd sobre código de produção. O cluster exposto são seis páginas de CRUD repetindo o mesmo bloco, mais `LogoUploader`/`AvatarUploader`, que são o mesmo componente com dois nomes.
 **Aceite:** `.jscpd.json` versionado sem contagem dupla; teto por linguagem no medido + 0,1 pp; `<CrudListPage>` e `<ImageUploader>` em `components/domain/`. **t:** 1 s. **Deps:** 007
+A contagem dupla era real e era da versão 4 do jscpd: 1.028 "arquivos analisados" para 760 em disco. O TSX drifou 1,74 → **2,09%** em cinco dias — o "décimo por spec" que a spec descreve, medido —, e caiu para **1,18%** depois das extrações. Tetos: Python 0,75%, TSX 1,30%.
+TypeScript ficou **sem teto**, de propósito: com 7.919 linhas, um único clone de 12 vale 0,15 pp, e qualquer teto ali reprovaria o PR de quem não causou o problema.
 
 ### ⬜ 120 — 🔧 REFATORAÇÃO — Gates de estrutura
 Pente fino em 111–119, e a primeira spec cujo objeto são os próprios gates. Com catorze ligados em vinte specs, a pergunta deixa de ser «o CI está verde» e passa a ser «está verde porque o código está bom, ou porque alguém ajustou o gate?». Compara cada teto com o valor de entrada via `git log -p`, faz a revisão humana dos três gates de proxy, e entrega `docs/GATES.md`.

@@ -1,9 +1,7 @@
-import { Controller, type Control, type FieldValues, type Path } from "react-hook-form";
+import type { Control, FieldValues, Path } from "react-hook-form";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { stripNonDigits } from "@/lib/br-masks";
-import { digitsToDecimalRaw, formatDecimalPtBr } from "@/lib/money";
+import { MaskedDecimalField } from "@/components/domain/MaskedDecimalField";
+import { parseMoneyInput } from "@/lib/money";
 
 export interface MoneyFieldProps<TValues extends FieldValues> {
   control: Control<TValues>;
@@ -21,27 +19,13 @@ export function MoneyField<TValues extends FieldValues>({
   label,
   id,
 }: MoneyFieldProps<TValues>): JSX.Element {
-  const inputId = id ?? String(name);
   return (
-    <div className="space-y-1">
-      <Label htmlFor={inputId}>{label}</Label>
-      <Controller
-        control={control}
-        name={name}
-        render={({ field }) => (
-          <Input
-            id={inputId}
-            inputMode="numeric"
-            value={formatDecimalPtBr(String(field.value ?? ""))}
-            onChange={(event) => {
-              // 14 dígitos = NUMERIC(14,2) contando os 2 de centavos (regra 1).
-              const digits = stripNonDigits(event.target.value).slice(0, 14);
-              field.onChange(digitsToDecimalRaw(digits));
-            }}
-            onBlur={field.onBlur}
-          />
-        )}
-      />
-    </div>
+    <MaskedDecimalField
+      control={control}
+      name={name}
+      label={label}
+      id={id}
+      parseInput={parseMoneyInput}
+    />
   );
 }

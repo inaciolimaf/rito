@@ -1,0 +1,18 @@
+{
+  "path": ["backend/app", "frontend/src"],
+  "format": ["python", "typescript", "tsx"],
+  "minLines": 10,
+  "minTokens": 60,
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "frontend/src/test/**",
+    "frontend/src/mocks/**"
+  ],
+  "reporters": ["console"],
+  "absolute": false,
+  "thresholds": {
+    "python": 0.75,
+    "tsx": 1.3
+  }
+}

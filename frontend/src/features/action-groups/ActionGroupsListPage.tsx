@@ -1,11 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 
-import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
-import { DataTable } from "@/components/domain/DataTable";
-import { FilterBar } from "@/components/domain/FilterBar";
-import { FormModal } from "@/components/domain/FormModal";
+import { CrudListPage } from "@/components/domain/CrudListPage";
 import { TransferBeforeDeleteDialog } from "@/components/domain/TransferBeforeDeleteDialog";
 import type { DataTableColumn, EntityOption, FilterFieldDef } from "@/components/domain/types";
 import { useCrudResource } from "@/components/domain/useCrudResource";
@@ -66,30 +62,23 @@ export function ActionGroupsListPage(): JSX.Element {
   });
   const users = usersPage?.items ?? [];
 
-  const {
-    editing: editingGroup,
-    modalOpen,
-    setModalOpen,
-    formError,
-    pendingDelete,
-    setPendingDelete,
-    openCreateModal,
-    openEditModal,
-    handleSubmit,
-    handleConfirmDelete,
-  } = useCrudResource<ActionGroupData, ActionGroupFormValues>({
+  const crud = useCrudResource<ActionGroupData, ActionGroupFormValues>({
     queryKey: ["action-groups"],
     create: createActionGroup,
     update: (group, values) =>
       updateActionGroup(group.id, { ...values, is_active: group.is_active }),
     remove: (group) => deleteActionGroup(group.id),
   });
+  const { editing: editingGroup, pendingDelete, setPendingDelete } = crud;
 
   async function searchUsers(query: string): Promise<EntityOption[]> {
     const page = await listUsers({ q: query, limit: 20 });
     return page.items.map((item) => ({ id: item.id, label: item.name }));
   }
 
+  /** Diferente das outras taxonomias, o grupo de ação já sabe pela listagem quantos tipos
+   * dependem dele (`lawsuit_types_count`) — então a tela decide pelo contador, sem tentar
+   * o DELETE primeiro (spec 101, §useTransferBeforeDelete). */
   function requestDelete(group: ActionGroupData): void {
     setTransferError(null);
     setPendingDelete(group);
@@ -143,79 +132,37 @@ export function ActionGroupsListPage(): JSX.Element {
   ];
 
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-primary">Grupos de ação</h1>
-        {isGestor && <Button onClick={openCreateModal}>Novo grupo</Button>}
-      </div>
-
-      <FilterBar fields={FILTER_FIELDS} />
-
-      <DataTable
-        columns={columns}
-        data={groups}
-        getRowId={(row) => row.id}
-        isLoading={isLoading}
-        error={error instanceof ApiError ? error.message : null}
-        emptyMessage="Nenhum grupo de ação cadastrado ainda."
-        rowActions={
-          isGestor
-            ? (row) => (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="text-sm text-accent underline"
-                    onClick={() => openEditModal(row)}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    className="text-sm text-danger underline"
-                    onClick={() => requestDelete(row)}
-                  >
-                    Excluir
-                  </button>
-                </div>
-              )
-            : undefined
-        }
-      />
-
-      <FormModal
-        open={modalOpen}
-        onOpenChange={setModalOpen}
-        title={editingGroup ? "Editar grupo de ação" : "Novo grupo de ação"}
-        schema={actionGroupFormSchema}
-        defaultValues={
-          editingGroup
-            ? { name: editingGroup.name, publications_user_id: editingGroup.publications_user_id }
-            : DEFAULT_ACTION_GROUP_FORM_VALUES
-        }
-        serverError={formError}
-        onSubmit={handleSubmit}
-      >
-        {(form) => (
-          <ActionGroupForm
-            form={form}
-            onSearchUsers={searchUsers}
-            currentResponsible={currentResponsible}
-          />
-        )}
-      </FormModal>
-
-      <ConfirmDialog
-        open={pendingDelete !== null && pendingDelete.lawsuit_types_count === 0}
-        onOpenChange={(open) => {
-          if (!open) setPendingDelete(null);
-        }}
-        title="Excluir grupo de ação?"
-        description={`"${pendingDelete?.name ?? ""}" será excluído.`}
-        confirmLabel="Excluir"
-        destructive
-        onConfirm={handleConfirmDelete}
-      />
-
+    <CrudListPage
+      title="Grupos de ação"
+      createLabel="Novo grupo"
+      canWrite={isGestor}
+      filterFields={FILTER_FIELDS}
+      columns={columns}
+      data={groups}
+      isLoading={isLoading}
+      error={error}
+      emptyMessage="Nenhum grupo de ação cadastrado ainda."
+      crud={crud}
+      onDeleteRequest={requestDelete}
+      createTitle="Novo grupo de ação"
+      editTitle="Editar grupo de ação"
+      schema={actionGroupFormSchema}
+      emptyFormValues={DEFAULT_ACTION_GROUP_FORM_VALUES}
+      toFormValues={(group) => ({
+        name: group.name,
+        publications_user_id: group.publications_user_id,
+      })}
+      formFields={(form) => (
+        <ActionGroupForm
+          form={form}
+          onSearchUsers={searchUsers}
+          currentResponsible={currentResponsible}
+        />
+      )}
+      confirmTitle="Excluir grupo de ação?"
+      confirmDescription={(item) => `"${item?.name ?? ""}" será excluído.`}
+      isDeletableWithoutTransfer={(group) => group.lawsuit_types_count === 0}
+    >
       <TransferBeforeDeleteDialog
         open={transferDialogOpen && pendingDelete !== null && pendingDelete.lawsuit_types_count > 0}
         onOpenChange={(open) => {
@@ -232,6 +179,6 @@ export function ActionGroupsListPage(): JSX.Element {
           {transferError.message}
         </p>
       )}
-    </div>
+    </CrudListPage>
   );
 }

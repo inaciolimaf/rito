@@ -1,13 +1,16 @@
 export { BarChart } from "@/components/domain/BarChart";
 export { CashFlowChart } from "@/components/domain/CashFlowChart";
 export { ConfirmDialog } from "@/components/domain/ConfirmDialog";
+export { CrudListPage } from "@/components/domain/CrudListPage";
 export { DataTable } from "@/components/domain/DataTable";
 export { DonutChart } from "@/components/domain/DonutChart";
 export { EmptyState } from "@/components/domain/EmptyState";
 export { EntityPicker } from "@/components/domain/EntityPicker";
 export { FilterBar } from "@/components/domain/FilterBar";
+export { ImageUploader } from "@/components/domain/ImageUploader";
 export { IntegrationAlertBanner } from "@/components/domain/IntegrationAlertBanner";
 export { FormModal, mapApiErrorToFields } from "@/components/domain/FormModal";
+export { MaskedDecimalField } from "@/components/domain/MaskedDecimalField";
 export { MoneyField } from "@/components/domain/MoneyField";
 export { PercentField } from "@/components/domain/PercentField";
 export { StatCard } from "@/components/domain/StatCard";

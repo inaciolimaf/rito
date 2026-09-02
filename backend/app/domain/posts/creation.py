@@ -10,6 +10,7 @@ from collections.abc import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invariants import not_none
 from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.posts.detail import PostDetail, build_detail
 from app.domain.posts.exceptions import (
@@ -104,7 +105,7 @@ class CreatePostUseCase:
         )
         await self._check_duplicate(payload, assignee_ids)
         task_type = await self.task_types.get_by_id(payload.task_type_id)
-        assert task_type is not None  # validado em validate_references
+        task_type = not_none(task_type, "validado em validate_references")
         post = Post(
             tenant_id=self.tenant_id,
             lawsuit_id=payload.lawsuit_id,

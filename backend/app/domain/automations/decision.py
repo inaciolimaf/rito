@@ -26,6 +26,7 @@ from typing import Any
 from app.ai.prompts import load_prompt
 from app.ai.tools.base import ToolContext, tool_specs
 from app.ai.tools.runner import ToolRunner
+from app.core.invariants import not_none
 from app.domain.automations.models import (
     Automation,
     AutomationAction,
@@ -280,7 +281,7 @@ class DecisionRunner:
         if impedimento is not None:
             return impedimento
         runner = self.engine.ai_runner
-        assert runner is not None  # garantido por `_impedimento_para_perguntar`
+        runner = not_none(runner, "garantido por _impedimento_para_perguntar")
         # A automação é dona da transação (ver `AiRunner.commit_usage`).
         runner.commit_usage = False
 

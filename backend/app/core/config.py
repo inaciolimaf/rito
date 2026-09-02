@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     s3_bucket: str | None = None
     s3_region: str | None = None
 
+    # Spec 115: onde estão `pg_dump`/`pg_restore`. Vazio = procurar no PATH, que é o que
+    # vale em desenvolvimento. Em produção o container deve apontar para o diretório do
+    # pacote `postgresql-client` (`/usr/bin`), para que o backup não dependa de qual
+    # binário o PATH resolve primeiro.
+    pg_bin_dir: str | None = None
+
     # Spec 081: OpenRouter é o único gateway de LLM (regra 1). O modelo padrão vive
     # aqui, em variável de ambiente (regra 2: trocar de modelo é configuração, não
     # deploy) — este é o ÚNICO arquivo do `app/` onde um id de modelo pode aparecer, e

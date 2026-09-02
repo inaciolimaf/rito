@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invariants import not_none
 from app.domain.attachments.models import Attachment
 from app.domain.attachments.service import AttachmentService
 from app.domain.comments.mentions import MentionCandidate, resolve_mentions
@@ -143,7 +144,7 @@ class CommentService:
     async def update(self, comment_id: uuid.UUID, actor: User, body: str) -> CommentDetail:
         comment = await self._get_editable(comment_id, actor)
         post = await self.posts.get_by_id(comment.post_id)
-        assert post is not None  # mesma tenant/RLS do comentário
+        post = not_none(post, "a tarefa do comentário está no mesmo tenant, sob o mesmo RLS")
         mentioned = await self._resolve_allowed_mentions(post, body)
         previous = set(comment.mentioned_user_ids)
         comment.body = body

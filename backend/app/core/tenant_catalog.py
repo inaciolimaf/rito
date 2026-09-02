@@ -31,7 +31,11 @@ def _migration(nome: str) -> ModuleType:
     serve — `spec_from_file_location` é o caminho normal para isso."""
     caminho = _VERSIONS / f"{nome}.py"
     spec = importlib.util.spec_from_file_location(f"_rito_seed_{nome}", caminho)
-    assert spec is not None and spec.loader is not None, f"migration {nome} não encontrada"
+    if spec is None or spec.loader is None:
+        # Checagem de sistema de arquivos, não invariante: a migration pode não existir
+        # numa árvore incompleta. `assert` some sob `python -O` e o erro viraria um
+        # `AttributeError` em `spec.loader` (spec 115).
+        raise FileNotFoundError(f"migration {nome} não encontrada em {caminho}")
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
     return modulo

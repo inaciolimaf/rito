@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invariants import not_none
 from app.core.locks import SyncLock
 from app.domain.courts.models import Court
 from app.domain.courts.repository import CourtRepository
@@ -192,9 +193,10 @@ class MovementSyncService:
         if court is None or not court.datajud_alias:
             return LawsuitSyncResult(lawsuit.id, "no_court")
 
-        assert lawsuit.process_number is not None  # regra 1: só entra na fila com número
+        # Regra 1: processo sem número não entra na fila de sincronização.
+        numero = not_none(lawsuit.process_number, "regra 1: só entra na fila com número")
         now = datetime.now(UTC)
-        status = await self.datajud.fetch_process_status(court, lawsuit.process_number)
+        status = await self.datajud.fetch_process_status(court, numero)
 
         if status.sealed:
             return await self._marcar_sigiloso(lawsuit, now)

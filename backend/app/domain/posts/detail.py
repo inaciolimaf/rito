@@ -6,6 +6,7 @@ importe o outro."""
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from app.core.invariants import not_none
 from app.domain.posts.models import Post, PostUser
 from app.domain.posts.repository import PostRepository
 from app.domain.task_types.repository import TaskTypeRepository
@@ -32,7 +33,7 @@ async def build_detail(
 ) -> PostDetail:
     """O detalhe completo de um post: nome do tipo + responsáveis com suas linhas."""
     task_type = await task_types.get_by_id(post.task_type_id)
-    assert task_type is not None
+    task_type = not_none(task_type, "a tarefa referencia um tipo existente (FK)")
     lines = await posts.assignee_lines_for([post.id])
     return PostDetail(
         post=post,

@@ -21,7 +21,9 @@ from app.domain.api_tokens.models import ApiRequest, ApiToken
 from app.domain.api_tokens.schemas import ApiUsageRow
 from app.domain.api_tokens.scopes import is_valid
 
-TOKEN_PREFIX = "rito_"
+# `# noqa: S105`: prefixo público que aparece no token para identificá-lo à vista; a
+# regra confunde o nome da constante com o conteúdo.
+TOKEN_PREFIX = "rito_"  # noqa: S105
 PREFIX_LENGTH = 8
 # Regra 14: dez tokens ativos por escritório. Mais que isso é sinal de token esquecido —
 # e token esquecido é credencial viva que ninguém rotaciona.

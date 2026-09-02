@@ -144,7 +144,12 @@ async def refresh_aggregate(name: str, url: str | None = None) -> RefreshOutcome
                 )
                 raise
             duration_ms = int((monotonic() - started) * 1000)
-            rows_affected = (await conn.execute(text(f"SELECT count(*) FROM {name}"))).scalar_one()
+            # `# noqa: S608`: `name` é validado contra `_KNOWN_VIEWS` na entrada de
+            # `refresh_aggregate` — só passa nome que está em `MATERIALIZED_VIEWS`.
+            # Identificador não vai como bind param; a allowlist é a defesa real.
+            rows_affected = (
+                await conn.execute(text(f"SELECT count(*) FROM {name}"))  # noqa: S608
+            ).scalar_one()
             await conn.execute(
                 text(
                     "UPDATE aggregate_refresh_log "
@@ -248,11 +253,14 @@ async def purge_refresh_log(url: str | None = None) -> int:
     engine = create_engine_from_url(resolved)
     try:
         async with engine.begin() as conn:
+            # Spec 115: a retenção ia interpolada no SQL. `make_interval` aceita o número
+            # como parâmetro ligado, então nada mais é montado por string aqui.
             result = await conn.execute(
                 text(
                     "DELETE FROM aggregate_refresh_log "
-                    f"WHERE started_at < now() - interval '{REFRESH_LOG_RETENTION_DAYS} days'"
-                )
+                    "WHERE started_at < now() - make_interval(days => :dias)"
+                ),
+                {"dias": REFRESH_LOG_RETENTION_DAYS},
             )
             return int(result.rowcount)
     finally:

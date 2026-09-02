@@ -87,90 +87,118 @@ async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[
     escritório não duplica nada, o que torna a operação segura de repetir quando um
     provisionamento morre no meio.
     """
-    parametros = {"tenant": tenant_id}
     criados: dict[str, int] = {}
 
-    grupos = ", ".join(f"('{nome}')" for nome in tenant_catalog.action_groups())
+    # Spec 115: as seis inserções montavam a lista `VALUES` interpolando os nomes do
+    # catálogo direto no SQL, com aspas postas à mão (`f"('{nome}')"`). Nenhum valor vem
+    # de fora — são constantes de uma migration —, mas a FORMA é a da injeção, e bastava
+    # um apóstrofo num nome de taxonomia (`"Ação de Cobrança d'Água"`) para quebrar a
+    # query. `unnest` de arrays LIGADOS faz o mesmo serviço sem construir SQL: o driver
+    # manda os valores por fora do texto, e o problema deixa de existir em vez de ser
+    # silenciado.
+    grupos = list(tenant_catalog.action_groups())
     resultado = await conn.execute(
-        text(f"""
+        text("""
             INSERT INTO action_groups (tenant_id, name)
-            SELECT :tenant, g.name FROM (VALUES {grupos}) AS g(name)
+            SELECT :tenant, g.name FROM unnest(CAST(:grupos AS text[])) AS g(name)
             ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
             """),
-        parametros,
+        {"tenant": tenant_id, "grupos": grupos},
     )
     criados["action_groups"] = resultado.rowcount or 0
 
-    tipos = ", ".join(f"('{tipo}', '{grupo}')" for tipo, grupo in tenant_catalog.lawsuit_types())
+    tipos = list(tenant_catalog.lawsuit_types())
     resultado = await conn.execute(
-        text(f"""
+        text("""
             INSERT INTO lawsuit_types (tenant_id, action_group_id, name)
             SELECT :tenant, ag.id, t.type_name
-            FROM (VALUES {tipos}) AS t(type_name, group_name)
+            FROM unnest(CAST(:nomes AS text[]), CAST(:grupos AS text[]))
+                 AS t(type_name, group_name)
             JOIN action_groups ag
               ON ag.tenant_id = :tenant AND ag.name = t.group_name
             ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
             """),
-        parametros,
+        {
+            "tenant": tenant_id,
+            "nomes": [tipo for tipo, _grupo in tipos],
+            "grupos": [grupo for _tipo, grupo in tipos],
+        },
     )
     criados["lawsuit_types"] = resultado.rowcount or 0
 
     # `position` vem da ordem da lista: as 59 etapas têm ordem definida pela 015, e
     # embaralhá-las mudaria o funil que o escritório vê na primeira abertura do CRM.
-    etapas = ", ".join(
-        f"('{etapa}', '{fase}', {posicao})"
-        for posicao, (etapa, fase) in enumerate(tenant_catalog.stages(), start=1)
-    )
+    etapas = list(enumerate(tenant_catalog.stages(), start=1))
     resultado = await conn.execute(
-        text(f"""
+        text("""
             INSERT INTO stages (tenant_id, step_id, name, position)
             SELECT :tenant, s.id, e.nome, e.posicao
-            FROM (VALUES {etapas}) AS e(nome, fase, posicao)
+            FROM unnest(
+                     CAST(:nomes AS text[]),
+                     CAST(:fases AS text[]),
+                     CAST(:posicoes AS int[])
+                 ) AS e(nome, fase, posicao)
             JOIN steps s ON s.name = e.fase
             ON CONFLICT (tenant_id, step_id, immutable_unaccent(lower(name))) DO NOTHING
             """),
-        parametros,
+        {
+            "tenant": tenant_id,
+            "nomes": [etapa for _pos, (etapa, _fase) in etapas],
+            "fases": [fase for _pos, (_etapa, fase) in etapas],
+            "posicoes": [pos for pos, _ in etapas],
+        },
     )
     criados["stages"] = resultado.rowcount or 0
 
-    origens = ", ".join(f"('{nome}')" for nome in tenant_catalog.customer_origins())
     resultado = await conn.execute(
-        text(f"""
+        text("""
             INSERT INTO customer_origins (tenant_id, name)
-            SELECT :tenant, o.name FROM (VALUES {origens}) AS o(name)
+            SELECT :tenant, o.name FROM unnest(CAST(:origens AS text[])) AS o(name)
             ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
             """),
-        parametros,
+        {"tenant": tenant_id, "origens": list(tenant_catalog.customer_origins())},
     )
     criados["customer_origins"] = resultado.rowcount or 0
 
-    tarefas = ", ".join(
-        f"('{nome}', {pontos}, {str(sistemica).lower()})"
-        for nome, pontos, sistemica in tenant_catalog.task_types()
-    )
+    tarefas = list(tenant_catalog.task_types())
     resultado = await conn.execute(
-        text(f"""
+        text("""
             INSERT INTO task_types (tenant_id, name, reward, is_system)
             SELECT :tenant, t.nome, t.pontos, t.sistemica
-            FROM (VALUES {tarefas}) AS t(nome, pontos, sistemica)
+            FROM unnest(
+                     CAST(:nomes AS text[]),
+                     CAST(:pontos AS numeric[]),
+                     CAST(:sistemicas AS boolean[])
+                 ) AS t(nome, pontos, sistemica)
             ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
             """),
-        parametros,
+        {
+            "tenant": tenant_id,
+            "nomes": [nome for nome, _p, _s in tarefas],
+            "pontos": [pontos for _n, pontos, _s in tarefas],
+            "sistemicas": [sistemica for _n, _p, sistemica in tarefas],
+        },
     )
     criados["task_types"] = resultado.rowcount or 0
 
-    categorias = ", ".join(
-        f"('{nome}', '{tipo}', {grupo})"
-        for nome, tipo, grupo in tenant_catalog.financial_categories()
-    )
+    categorias = list(tenant_catalog.financial_categories())
     resultado = await conn.execute(
-        text(f"""
+        text("""
             INSERT INTO financial_categories (tenant_id, dre_group_id, name, type, is_default)
             SELECT :tenant, c.grupo, c.nome, c.tipo::entry_type, true
-            FROM (VALUES {categorias}) AS c(nome, tipo, grupo)
+            FROM unnest(
+                     CAST(:nomes AS text[]),
+                     CAST(:tipos AS text[]),
+                     CAST(:grupos AS int[])
+                 ) AS c(nome, tipo, grupo)
             ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
             """),
-        parametros,
+        {
+            "tenant": tenant_id,
+            "nomes": [nome for nome, _t, _g in categorias],
+            "tipos": [tipo for _n, tipo, _g in categorias],
+            "grupos": [grupo for _n, _t, grupo in categorias],
+        },
     )
     criados["financial_categories"] = resultado.rowcount or 0
 
@@ -180,7 +208,7 @@ async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[
             VALUES (:tenant, 'GERAL', true)
             ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
             """),
-        parametros,
+        {"tenant": tenant_id},
     )
     criados["cost_centers"] = resultado.rowcount or 0
 

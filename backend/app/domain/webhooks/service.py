@@ -21,6 +21,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.invariants import not_none
 from app.core.observability.metrics import record_webhook_delivery
 from app.core.repository import BaseRepository
 from app.domain.integration_alerts.models import IntegrationAlert
@@ -198,7 +199,7 @@ class WebhookService:
     ) -> WebhookDelivery:
         if endpoint is None:
             endpoint = await self.endpoints.get_by_id(delivery.endpoint_id)
-        assert endpoint is not None
+        endpoint = not_none(endpoint, "a entrega referencia um endpoint existente (FK)")
 
         corpo = json.dumps(delivery.payload, ensure_ascii=False).encode("utf-8")
         agora = self.now()
@@ -309,7 +310,7 @@ class WebhookService:
         que quebra a conciliação do outro lado.
         """
         endpoint = await self.endpoints.get_by_id(delivery.endpoint_id)
-        assert endpoint is not None
+        endpoint = not_none(endpoint, "a entrega referencia um endpoint existente (FK)")
         if not endpoint.is_active:
             raise EndpointInactiveError
         nova = WebhookDelivery(

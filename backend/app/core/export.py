@@ -11,6 +11,8 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from io import BytesIO
 
+from app.core.invariants import not_none
+
 
 @dataclass(frozen=True)
 class ExportColumn[T]:
@@ -34,8 +36,7 @@ class TableExport[T]:
         from openpyxl import Workbook
 
         workbook = Workbook()
-        sheet = workbook.active
-        assert sheet is not None
+        sheet = not_none(workbook.active, "Workbook() recém-criado sempre tem planilha ativa")
         sheet.title = self.sheet_title
         sheet.append([column.header for column in self.columns])
         for row in self._rows(items):

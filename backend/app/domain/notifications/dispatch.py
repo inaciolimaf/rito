@@ -9,6 +9,7 @@ from collections.abc import Mapping
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invariants import not_none
 from app.domain.notifications.models import (
     NotificationChannelName,
     NotificationEvent,
@@ -80,10 +81,10 @@ class NotificationDispatcher:
         channel = self.channels.get(channel_name)
         if channel is None:
             return
-        assert rule.responsible_user_id is not None
-        preference = await self.preferences.get(
-            rule.responsible_user_id, NotificationChannelName(channel_name)
+        responsavel = not_none(
+            rule.responsible_user_id, "regra com canal definido sempre tem responsável"
         )
+        preference = await self.preferences.get(responsavel, NotificationChannelName(channel_name))
         if preference is not None and not preference.enabled:
             return
         to = user.email if channel_name == "EMAIL" else user.cellphone

@@ -2,6 +2,7 @@ import asyncio
 import smtplib
 from email.mime.text import MIMEText
 
+from app.core.invariants import not_none
 from app.integrations.messaging.base import ChannelNotConfiguredError
 
 
@@ -35,12 +36,12 @@ class SmtpEmailChannel:
         await asyncio.to_thread(self._send_sync, to, subject, message)
 
     def _send_sync(self, to: str, subject: str, message: str) -> None:
-        assert self._host is not None  # garantido pelo `send` acima
+        host = not_none(self._host, "garantido pelo `send` acima")
         mime = MIMEText(message, "plain", "utf-8")
         mime["Subject"] = subject
         mime["From"] = self._from_email
         mime["To"] = to
-        with smtplib.SMTP(self._host, self._port, timeout=10) as server:
+        with smtplib.SMTP(host, self._port, timeout=10) as server:
             if self._use_tls:
                 server.starttls()
             if self._username and self._password:

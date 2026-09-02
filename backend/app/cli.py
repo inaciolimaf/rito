@@ -48,6 +48,18 @@ def _pg_url(async_url: str) -> str:
     return async_url.replace("+asyncpg", "")
 
 
+def _pg_bin(settings: Settings, nome: str) -> str:
+    """Caminho do binário do Postgres (spec 115).
+
+    Com `PG_BIN_DIR` configurado, devolve o caminho absoluto: o backup deixa de depender
+    de qual `pg_dump` o `PATH` do container resolve primeiro. Sem ela, devolve o nome e o
+    `PATH` decide — que é o comportamento anterior e o que serve em desenvolvimento.
+    """
+    if not settings.pg_bin_dir:
+        return nome
+    return str(Path(settings.pg_bin_dir) / nome)
+
+
 async def _db_upgrade(settings: Settings) -> int:
     engine = _admin_engine(settings)
     try:
@@ -164,8 +176,19 @@ def _backup_create(settings: Settings, args: argparse.Namespace) -> int:
     destino = Path(args.output or f"rito-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.dump")
     url = _pg_url(settings.migrations_database_url or settings.database_url)
     # `--format=custom`: comprimido e restaurável seletivamente, ao contrário do SQL puro.
-    resultado = subprocess.run(
-        ["pg_dump", "--format=custom", "--no-owner", "--file", str(destino), url],
+    # `# noqa: S603`: nenhum argumento vem de entrada de usuário — o caminho do destino é
+    # do operador que rodou o comando, e a URL sai da configuração do processo. O que a
+    # regra procura (string de shell montada com dado de terceiro) não existe aqui: a
+    # lista de argumentos é passada direto ao `execve`, sem shell no meio.
+    resultado = subprocess.run(  # noqa: S603
+        [
+            _pg_bin(settings, "pg_dump"),
+            "--format=custom",
+            "--no-owner",
+            "--file",
+            str(destino),
+            url,
+        ],
         check=False,
     )
     if resultado.returncode != 0:
@@ -188,8 +211,17 @@ def _backup_restore(settings: Settings, args: argparse.Namespace) -> int:
         )
         return 1
     url = _pg_url(settings.migrations_database_url or settings.database_url)
-    resultado = subprocess.run(
-        ["pg_restore", "--clean", "--if-exists", "--no-owner", "--dbname", url, str(origem)],
+    # `# noqa: S603`: mesma razão do `_backup_create` acima — argumentos fixos, sem shell.
+    resultado = subprocess.run(  # noqa: S603
+        [
+            _pg_bin(settings, "pg_restore"),
+            "--clean",
+            "--if-exists",
+            "--no-owner",
+            "--dbname",
+            url,
+            str(origem),
+        ],
         check=False,
     )
     if resultado.returncode == 0:

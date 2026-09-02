@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.bootstrap import migrations_url
 from app.core.clock import Clock
 from app.core.config import get_settings
 from app.core.db import create_engine_from_url, create_session_factory
@@ -65,8 +66,7 @@ async def _check_tenant(
 
 async def run_daily_check() -> dict[str, int]:
     settings = get_settings()
-    url = settings.migrations_database_url
-    assert url is not None, "MIGRATIONS_DATABASE_URL necessária para a varredura cross-tenant"
+    url = migrations_url("a varredura cross-tenant de saúde das integrações")
     engine = create_engine_from_url(url)
     session_factory = create_session_factory(engine)
     redis = create_redis_client()

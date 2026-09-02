@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_redis
 from app.core.http import get_or_404
+from app.core.invariants import not_none
 from app.core.permissions import UserRole, require_role
 from app.core.rate_limit import check_and_increment
 from app.domain.aggregates.schemas import AggregateStatusItem, AggregateStatusResponse
@@ -66,5 +67,4 @@ async def refresh_aggregate_endpoint(
     with suppress(Exception):
         await refresh_aggregate(name)
     item = await service.status_item(name, now=datetime.now(UTC))
-    assert item is not None  # o get_or_404 acima já garantiu que o agregado existe
-    return item
+    return not_none(item, "o get_or_404 acima já garantiu que o agregado existe")

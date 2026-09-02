@@ -11,6 +11,7 @@ from app.core.deps import get_file_storage
 from app.core.exceptions import InvalidTransferError
 from app.core.export import ExportColumn, TableExport
 from app.core.http import get_or_404, parse_active_status, parse_month_query
+from app.core.invariants import not_none
 from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
 from app.domain.attachments.rules import AttachmentTooLargeError, AttachmentTypeBlockedError
 from app.domain.attachments.service import (
@@ -772,7 +773,7 @@ async def pay_transaction(
     # views invalidadas por transaction.paid (saldo diário, ciclos e custos de BI).
     schedule_aggregate_refresh("transaction.paid")
     updated = await service.get(transaction_id)
-    assert updated is not None
+    updated = not_none(updated, "o lançamento acabou de ser baixado nesta requisição")
     return _transaction_to_response(updated)
 
 
@@ -789,7 +790,7 @@ async def unpay_transaction(
     # transaction.paid (spec 078, regra 5; mesma motivação da regra 11 da spec 059).
     schedule_aggregate_refresh("transaction.paid")
     updated = await service.get(transaction_id)
-    assert updated is not None
+    updated = not_none(updated, "o lançamento acabou de ser baixado nesta requisição")
     return _transaction_to_response(updated)
 
 

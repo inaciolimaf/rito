@@ -15,6 +15,7 @@ from pathlib import Path
 
 import httpx
 
+from app.core.invariants import not_none
 from app.integrations.http.types import FixtureMissingError
 
 # Headers que nunca vão para uma fixture gravada (regra 8) — a fixture é commitada
@@ -48,8 +49,8 @@ class FixtureTransport(httpx.AsyncBaseTransport):
         path = self._root / host / f"{fixture_key(request.method, str(request.url), body)}.json"
 
         if self._record:
-            assert self._real is not None
-            response = await self._real.handle_async_request(request)
+            real = not_none(self._real, "gravar exige transporte real, montado no __init__")
+            response = await real.handle_async_request(request)
             content = await response.aread()
             self.write_fixture(path, request, response, content)
             return httpx.Response(

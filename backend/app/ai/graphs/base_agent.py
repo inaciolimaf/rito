@@ -22,6 +22,7 @@ from app.ai.graphs.base import (
     register_graph_placeholder,
 )
 from app.ai.prompts import load_prompt
+from app.core.invariants import not_none
 from app.integrations.openrouter.types import Message
 
 # Spec 090, alvo 3: o texto mora em `app/ai/prompts/copilot.md`, versionado e revisável
@@ -166,11 +167,11 @@ async def _executar_ferramentas(
     Só a primeira importa: a partir dela o grafo para e espera a pessoa, então uma
     segunda proposta na mesma volta nunca chegaria à tela.
     """
-    assert deps.tool_runner is not None
+    tool_runner = not_none(deps.tool_runner, "o nó só roda quando há ferramentas pedidas")
     messages = [*(state.get("messages") or [])]
     interrupcao: dict[str, Any] | None = None
     for call in pedidas:
-        result = await deps.tool_runner.call(call["name"], call.get("arguments") or {})
+        result = await tool_runner.call(call["name"], call.get("arguments") or {})
         messages.append(
             {
                 "role": "tool",

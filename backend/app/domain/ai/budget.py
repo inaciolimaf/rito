@@ -20,6 +20,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invariants import not_none
 from app.core.repository import BaseRepository
 from app.domain.ai.models import AiBudget, AiCacheEntry, AiUsage
 from app.integrations.openrouter.types import LLMResponse, Message, ToolCall, Usage
@@ -140,8 +141,10 @@ class AiBudgetService:
         bloquear — há quem prefira estourar a parar no meio de um prazo."""
         situacao = await self.status(now=now)
         if situacao.exceeded and situacao.is_blocking:
-            assert situacao.limit_usd is not None
-            raise BudgetExceededError(situacao.spent_usd, situacao.limit_usd)
+            raise BudgetExceededError(
+                situacao.spent_usd,
+                not_none(situacao.limit_usd, "só há excesso quando existe teto"),
+            )
         return situacao
 
     async def _por_feature(self, *, desde: datetime, ate: datetime | None) -> dict[str, Decimal]:

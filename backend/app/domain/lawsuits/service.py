@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invariants import not_none
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.action_groups.repository import ActionGroupRepository, LawsuitTypeRepository
 from app.domain.automations.engine import AutomationEngine
@@ -334,7 +335,7 @@ class LawsuitService:
     async def _with_derived(self, lawsuit: Lawsuit) -> LawsuitDetail:
         """Spec 098, regra 6: uma query, não quatro. Ver `get_derived_refs`."""
         refs = await self.lawsuits.get_derived_refs(lawsuit)
-        assert refs is not None
+        refs = not_none(refs, "o processo veio da mesma query que produz as referências")
         return LawsuitDetail(
             lawsuit=lawsuit,
             action_group_id=refs.action_group_id,

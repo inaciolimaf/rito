@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.ai.graphs.base import PENDING_ACTION_KEY, GraphDeps, GraphResult, PendingAction
 from app.ai.graphs.registry import get_graph
+from app.core.invariants import not_none
 from app.core.rls import set_tenant_context
 from app.domain.ai.models import AiCheckpoint, AiStep, AiThread, ThreadStatus
 
@@ -155,8 +156,7 @@ class GraphRuntime:
         async for event in self._drive_iter(thread, state):
             if isinstance(event, GraphResult):
                 result = event
-        assert result is not None  # _drive_iter sempre encerra com um GraphResult
-        return result
+        return not_none(result, "_drive_iter sempre encerra com um GraphResult")
 
     async def _preparar_execucao(
         self, thread: AiThread, state: dict[str, Any]

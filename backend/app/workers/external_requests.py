@@ -10,7 +10,7 @@ import asyncio
 
 from sqlalchemy import delete, func, text
 
-from app.core.config import get_settings
+from app.core.bootstrap import migrations_url
 from app.core.db import create_engine_from_url
 from app.domain.external_requests.models import ExternalRequest
 from app.workers.celery_app import celery_app
@@ -25,8 +25,7 @@ def purge_external_requests() -> int:
 
 
 async def _purge() -> int:
-    url = get_settings().migrations_database_url
-    assert url is not None, "MIGRATIONS_DATABASE_URL necessária para a purga cross-tenant"
+    url = migrations_url("a purga cross-tenant de requisições externas")
     engine = create_engine_from_url(url)
     try:
         async with engine.begin() as conn:

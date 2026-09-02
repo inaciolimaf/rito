@@ -571,3 +571,72 @@ def test_todo_noqa_plr0913_tem_justificativa() -> None:
         if not tem_justificativa(linhas, i)
     ]
     assert ofensores == [], "`# noqa: PLR0913` sem justificativa:\n  " + "\n  ".join(ofensores)
+
+
+# Spec 115 §7, regra 4. `assert` some sob `python -O`: a validação deixa de existir sem
+# aviso e o código segue com o valor que ela recusaria. Em teste isso é irrelevante (a
+# suíte É feita de assert, e nunca roda otimizada); em produção é uma garantia imaginária.
+def test_nenhum_assert_em_producao() -> None:
+    """Zero `assert` em `app/`, por AST.
+
+    Por AST e não por regex porque «assert» aparece em docstring, em comentário e em
+    string de mensagem — e nada disso é o defeito. O que se procura é o statement.
+
+    A regra do Ruff (`S101`) e este teste se cobrem mutuamente: quem apagar `S` do
+    `select` continua reprovando aqui; quem apagar este teste continua reprovando no
+    `make lint`. Mesmo par da 114 com o `DTZ011`.
+
+    Substituto: `app/core/invariants.py::not_none` para invariante de programador,
+    `ConfigurationError` para configuração ausente, e erro de domínio para o resto.
+    """
+    ofensores: list[str] = []
+    for arquivo in sorted(APP.rglob("*.py")):
+        arvore = ast.parse(arquivo.read_text(), filename=str(arquivo))
+        ofensores += [
+            f"{arquivo.relative_to(RAIZ)}:{node.lineno}"
+            for node in ast.walk(arvore)
+            if isinstance(node, ast.Assert)
+        ]
+    assert ofensores == [], (
+        "`assert` em código de produção some sob `python -O` — a garantia deixa de "
+        "existir em silêncio (spec 115). Use `not_none` para invariante, "
+        "`ConfigurationError` para configuração, ou um erro de domínio:\n  "
+        + "\n  ".join(ofensores)
+    )
+
+
+# O silenciamento da família `S` é contado como os outros. Os seis de hoje: `S603` no
+# `rito backup` (2), `S608` no `SELECT count(*)` de view validada por allowlist (1),
+# `S105` em duas constantes cujo NOME confunde a regra (2), e `S311` no jitter de backoff,
+# que não é uso criptográfico (1).
+TETO_DE_NOQA_S = 6
+
+
+def test_noqa_de_seguranca_dentro_do_teto() -> None:
+    """§7 da 115: silenciar regra de segurança é exceção contada, nunca reflexo."""
+    achados = [
+        (caminho, i, linhas)
+        for regra in ("S101", "S105", "S106", "S107", "S112", "S311", "S603", "S607", "S608")
+        for caminho, i, linhas in _todos_os_noqa(regra)
+    ]
+    locais = sorted(f"{c.relative_to(RAIZ)}:{i + 1}" for c, i, _ in achados)
+    assert len(achados) <= TETO_DE_NOQA_S, (
+        f"{len(achados)} `# noqa: S*` no projeto, teto é {TETO_DE_NOQA_S}. Corrija na "
+        "origem ou abra spec para discutir o teto:\n  " + "\n  ".join(locais)
+    )
+
+
+def test_todo_noqa_de_seguranca_tem_justificativa() -> None:
+    """E cada um explica por que o achado é falso positivo — ou por que o risco não existe.
+
+    «É seguro» não é justificativa; «o nome vem de `_KNOWN_VIEWS`, validado na entrada da
+    função» é. Um silenciamento de regra de segurança sem defesa escrita é indistinguível
+    de um bug aceito por engano.
+    """
+    ofensores = [
+        f"{caminho.relative_to(RAIZ)}:{i + 1}"
+        for regra in ("S101", "S105", "S106", "S107", "S112", "S311", "S603", "S607", "S608")
+        for caminho, i, linhas in _todos_os_noqa(regra)
+        if not tem_justificativa(linhas, i)
+    ]
+    assert ofensores == [], "`# noqa: S*` sem justificativa:\n  " + "\n  ".join(ofensores)

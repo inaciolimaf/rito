@@ -5,6 +5,7 @@ from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import add_business_days
+from app.core.invariants import not_none
 from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.posts.models import Post
 from app.domain.posts.repository import PostRepository
@@ -149,7 +150,7 @@ class WorkflowService:
         effective: list[tuple[WorkflowStep, TaskType, uuid.UUID]] = []
         for step in steps:
             task_type = types[step.task_type_id]
-            assert task_type is not None  # FK validada no save
+            task_type = not_none(task_type, "FK validada no save")
             # Regra 10: tipo inativo é pulado, com aviso — não derruba a aplicação.
             if not task_type.is_active:
                 skipped.append(

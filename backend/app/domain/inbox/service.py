@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime, time
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invariants import not_none
 from app.domain.inbox.repository import InboxPreferenceRepository, InboxRepository
 from app.domain.inbox.sections import DEFAULT_SECTION_ORDER, InboxSection
 from app.domain.posts.models import PostUser
@@ -184,7 +185,7 @@ class InboxService:
             if line.completed_at is not None:
                 continue  # idempotente dentro do lote
             post = await self.posts.get_by_id(post_id)
-            assert post is not None
+            post = not_none(post, "a linha da caixa de entrada aponta para uma tarefa do tenant")
             line.completed_at = now
             line.points_earned = post.reward_snapshot
         await self.session.flush()

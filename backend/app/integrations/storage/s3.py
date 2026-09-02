@@ -3,6 +3,7 @@ import asyncio
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
+from app.core.bootstrap import ConfigurationError
 from app.core.config import get_settings
 
 _PRESIGNED_URL_EXPIRY_SECONDS = 7 * 24 * 60 * 60
@@ -87,18 +88,24 @@ class S3FileStorage:
         )
 
 
+def _obrigatorio(valor: str | None, variavel: str) -> str:
+    """A variável de ambiente, ou um erro que diz QUAL faltou (spec 115).
+
+    Eram cinco `assert`, que somem sob `python -O` — e aí o boto3 recebe `None` como
+    endpoint e falha lá dentro, sem dizer qual configuração estava ausente. O `raise`
+    devolve a mesma mensagem que o `assert` dava, e devolve sempre.
+    """
+    if valor is None:
+        raise ConfigurationError(f"{variavel} não configurada")
+    return valor
+
+
 def create_file_storage() -> S3FileStorage:
     settings = get_settings()
-    assert settings.s3_endpoint_url is not None, "S3_ENDPOINT_URL não configurada"
-    assert settings.s3_access_key is not None, "S3_ACCESS_KEY não configurada"
-    assert settings.s3_secret_key is not None, "S3_SECRET_KEY não configurada"
-    assert settings.s3_bucket is not None, "S3_BUCKET não configurada"
-    assert settings.s3_region is not None, "S3_REGION não configurada"
-
     return S3FileStorage(
-        endpoint_url=settings.s3_endpoint_url,
-        access_key=settings.s3_access_key,
-        secret_key=settings.s3_secret_key,
-        bucket=settings.s3_bucket,
-        region=settings.s3_region,
+        endpoint_url=_obrigatorio(settings.s3_endpoint_url, "S3_ENDPOINT_URL"),
+        access_key=_obrigatorio(settings.s3_access_key, "S3_ACCESS_KEY"),
+        secret_key=_obrigatorio(settings.s3_secret_key, "S3_SECRET_KEY"),
+        bucket=_obrigatorio(settings.s3_bucket, "S3_BUCKET"),
+        region=_obrigatorio(settings.s3_region, "S3_REGION"),
     )

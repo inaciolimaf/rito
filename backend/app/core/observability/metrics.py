@@ -10,6 +10,7 @@ caminho concreto: rotular por caminho criaria uma série temporal por processo d
 escritório e derrubaria o Prometheus em uma semana.
 """
 
+import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,8 @@ from prometheus_client.core import CollectorRegistry as _Registry
 from sqlalchemy import event
 
 from app.core.observability.context import count_query, current_query_count
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
@@ -126,6 +129,10 @@ async def observe_queue_depths(redis: "Redis", queues: Sequence[str] = ("celery"
         try:
             depth = await redis.llen(queue)
         except Exception:
+            # Spec 115: a profundidade de UMA fila que não responde não pode derrubar o
+            # `/metrics` inteiro — mas engolir em silêncio esconde um Redis quebrado
+            # justamente da página que existe para mostrar que algo quebrou.
+            logger.warning("profundidade da fila %s indisponível", queue, exc_info=True)
             continue
         celery_queue_depth.labels(queue=queue).set(depth)
 

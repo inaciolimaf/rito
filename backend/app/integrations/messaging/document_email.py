@@ -5,6 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Protocol
 
+from app.core.invariants import not_none
 from app.integrations.messaging.base import ChannelNotConfiguredError
 
 
@@ -48,7 +49,7 @@ class SmtpDocumentMailer:
         await asyncio.to_thread(self._send_sync, to, subject, body, filename, content)
 
     def _send_sync(self, to: str, subject: str, body: str, filename: str, content: bytes) -> None:
-        assert self._host is not None  # garantido pelo `send` acima
+        host = not_none(self._host, "garantido pelo `send` acima")
         message = MIMEMultipart()
         message["Subject"] = subject
         message["From"] = self._from_email
@@ -57,7 +58,7 @@ class SmtpDocumentMailer:
         attachment = MIMEApplication(content, _subtype="pdf")
         attachment.add_header("Content-Disposition", "attachment", filename=filename)
         message.attach(attachment)
-        with smtplib.SMTP(self._host, self._port, timeout=10) as server:
+        with smtplib.SMTP(host, self._port, timeout=10) as server:
             if self._use_tls:
                 server.starttls()
             if self._username and self._password:

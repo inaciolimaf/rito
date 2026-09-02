@@ -19,6 +19,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
+from app.core.bootstrap import migrations_url
 from app.core.config import get_settings
 from app.core.db import create_engine_from_url, create_session_factory
 from app.core.locks import RedisSyncLock
@@ -43,8 +44,7 @@ async def run_due_syncs(term_id: uuid.UUID | None = None) -> dict[str, int]:
     """Executa a varredura. Recebe a infra de produção montada na hora (o worker
     roda fora do ciclo de request); devolve contadores para o resultado da task."""
     settings = get_settings()
-    url = settings.migrations_database_url
-    assert url is not None, "MIGRATIONS_DATABASE_URL necessária para a varredura cross-tenant"
+    url = migrations_url("a varredura cross-tenant do DJEN")
     engine = create_engine_from_url(url)
     session_factory = create_session_factory(engine)
     redis = create_redis_client()

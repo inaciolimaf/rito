@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invariants import not_none
 from app.core.models import Tenant
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.dunning.exceptions import CustomerRequiredError, TransactionNotEligibleError
@@ -192,7 +193,7 @@ class DunningService:
             return await self.attempts.create(attempt)
 
         tenant = await self.session.get(Tenant, self.tenant_id)
-        assert tenant is not None  # tenant da sessão atual sempre existe
+        tenant = not_none(tenant, "o tenant da sessão atual sempre existe")
         message = render_template(
             template,
             TemplateContext(

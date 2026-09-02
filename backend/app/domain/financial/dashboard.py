@@ -24,6 +24,7 @@ from sqlalchemy import ColumnElement, Date, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import card_cycle_range, next_month_start
+from app.core.invariants import not_none
 from app.core.materialized_view import MATERIALIZED_VIEWS
 from app.domain.financial.models import (
     AccountKind,
@@ -256,9 +257,10 @@ class FinancialDashboardRepository:
     async def card_invoice(self, account: BankAccount, *, today: date) -> Decimal:
         """Regra 7: fatura do ciclo — soma de DESPESA com vencimento na janela do ciclo
         corrente (`card_cycle_range`, spec 055 regra 5), pago ou não."""
-        # garantido pelo CHECK ck_bank_accounts_card_needs_cycle
-        assert account.cycle_day is not None
-        start, end = card_cycle_range(account.cycle_day, today)
+        ciclo = not_none(
+            account.cycle_day, "garantido pelo CHECK ck_bank_accounts_card_needs_cycle"
+        )
+        start, end = card_cycle_range(ciclo, today)
         value = await self.session.scalar(
             select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.debit_account_id == account.id,

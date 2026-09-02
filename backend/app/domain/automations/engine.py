@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.clock import Clock
 from app.core.dates import add_business_days
+from app.core.invariants import not_none
 from app.domain.account.repository import AccountRepository
 from app.domain.automations.actions import ConditionNotMet
 from app.domain.automations.conditions import evaluate
@@ -262,7 +263,7 @@ class AutomationEngine:
         """
         if automation is None:
             automation = await self.session.get(Automation, run.automation_id)
-        assert automation is not None
+        automation = not_none(automation, "a execução referencia uma automação existente (FK)")
         autor = await self.session.get(User, automation.created_by)
         if autor is None:  # pragma: no cover - FK garante
             return await self._fail(run, "Autor da automação não existe mais.")

@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.invariants import not_none
 from app.domain.account.models import DEFAULT_TIMEZONE
 from app.domain.account.repository import AccountRepository
 from app.domain.posts.models import Post
@@ -133,7 +134,7 @@ class ScheduleService:
             if completed and not show_completed:
                 continue
             axis = post.scheduled_date if date_field == DateField.SCHEDULED else post.deadline_date
-            assert axis is not None  # o repositório filtra eixo NULL
+            axis = not_none(axis, "o repositório já filtra eixo NULL")
             status = _status_do_evento(completed=completed, axis=axis, today=today)
             events.append(
                 ScheduleEvent(
@@ -189,7 +190,7 @@ class ScheduleService:
         from app.domain.users.models import User
 
         user = await self.session.get(User, user_id)
-        assert user is not None  # vem do usuário autenticado
+        user = not_none(user, "o id vem do usuário autenticado")
         if not user.ical_token:
             user.ical_token = secrets.token_urlsafe(32)
         user.ical_enabled = True
@@ -201,7 +202,7 @@ class ScheduleService:
         from app.domain.users.models import User
 
         user = await self.session.get(User, user_id)
-        assert user is not None
+        user = not_none(user, "o id vem do usuário autenticado")
         user.ical_token = secrets.token_urlsafe(32)
         user.ical_enabled = True
         await self.session.flush()

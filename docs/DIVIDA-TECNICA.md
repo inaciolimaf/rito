@@ -1011,5 +1011,24 @@ workers no CI — vira falha intermitente sem causa aparente, que é o pior form
 **Correção provável:** dar ao teste de caos um host próprio (ou zerar breaker e bucket num
 fixture de `autouse`), de modo que ele não herde o estado de resiliência de ninguém.
 
+**Segunda manifestação, na spec 115 — e ela confirma a hipótese.** O `make test` reprovou
+em `test_public_api.py::test_limite_de_get_devolve_429_com_retry_after`: a requisição que
+devia tomar 429 recebeu 200. O arquivo inteiro passa sozinho (16/16, 3,6 s) e a execução
+seguinte da suíte completa fechou verde.
+
+O mecanismo agora tem nome: o **token bucket de rate limit vive no Redis**, é global entre
+workers por construção (spec 041, regra 4) e não participa do `ROLLBACK` por teste da 105.
+Com `pytest -n 3`, outro worker gastando ou zerando a janela do mesmo host faz o teste de
+limite ver uma janela que não é a dele. Era exatamente o candidato levantado na primeira
+manifestação, e agora ele apareceu sozinho.
+
+Isso amplia o alvo: não é «um teste de caos frágil», é **toda asserção sobre estado no
+Redis** — rate limit, circuit breaker, cache — que hoje depende de nenhum vizinho ter
+tocado a mesma chave.
+
+**Correção provável, agora mais clara:** prefixar as chaves de Redis por worker do xdist
+(`PYTEST_XDIST_WORKER`) no ambiente de teste, como a 105 fez com o banco. O isolamento por
+transação resolveu o Postgres e deixou o Redis de fora.
+
 **Spec-alvo:** 110 ou 120 — mesma auditoria da dívida 33, que já vai olhar isolamento e
-gates. As duas têm a mesma raiz: estado que sobrevive ao teste que o criou.
+gates. As três têm a mesma raiz: estado que sobrevive ao teste que o criou.

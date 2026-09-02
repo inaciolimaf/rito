@@ -18,7 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import UserRole, require_role
 from app.domain.ai.editor import (
     MAX_SELECTION,
-    TONE_INSTRUCTIONS,
     ActionNotFoundError,
     EditorAiService,
     SelectionTooLongError,
@@ -181,7 +180,6 @@ async def adjust_tone(
     service = _service(session, current_user, provider)
     if len(payload.selection) > MAX_SELECTION:
         raise HTTPException(status_code=422, detail=_TOO_LONG)
-    assert payload.tone in TONE_INSTRUCTIONS
     return _sse(
         service.tone(
             user=current_user,

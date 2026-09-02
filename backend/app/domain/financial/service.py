@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import RecurrencePeriod, RecurrenceWeek, next_occurrence, shift_month
+from app.core.invariants import not_none
 from app.core.listing import Page
 from app.core.repository import decode_cursor, encode_cursor
 from app.core.transfer import count_references, reassign_references, validated_transfer
@@ -460,8 +461,7 @@ class TransactionService:
             )
             created = await self.transactions.create(transaction)
         detail = await self.transactions.get_by_id_detail(created.id)
-        assert detail is not None  # acabou de criar — sempre existe
-        return detail
+        return not_none(detail, "o lançamento acabou de ser criado nesta transação")
 
     @staticmethod
     def _check_payment_date(payment_date: date | None, today: date) -> None:
@@ -503,8 +503,7 @@ class TransactionService:
         transaction.is_internal = payload.is_internal
         transaction.internal_note = payload.internal_note
         detail = await self.transactions.get_by_id_detail(transaction.id)
-        assert detail is not None  # acabou de atualizar — sempre existe
-        return detail
+        return not_none(detail, "o lançamento acabou de ser atualizado nesta transação")
 
     async def delete(self, transaction: Transaction) -> None:
         # Regra 10: lançamento pago exige estornar antes.
@@ -639,8 +638,7 @@ class TransactionSeriesService:
             created = await self.transactions.create(transaction)
             if first is None:
                 first = created
-        assert first is not None  # count >= 2 (InstallmentRequest.count)
-        return first
+        return not_none(first, "InstallmentRequest.count >= 2, então o laço criou ao menos uma")
 
     async def create_recurrence(
         self,
@@ -691,12 +689,12 @@ class TransactionSeriesService:
         template = await self.transactions.latest_in_series(series.id)
         if anchor is None or template is None or series.generated_until is None:
             return 0
-        assert (
-            series.recurrence is not None
-        )  # garantido pelo CHECK ck_series_recurrence_needs_period
+        recorrencia = not_none(
+            series.recurrence, "garantido pelo CHECK ck_series_recurrence_needs_period"
+        )
         year, month = shift_month(reference_date.year, reference_date.month, 3)
         horizon = date(year, month, min(reference_date.day, monthrange(year, month)[1]))
-        period = RecurrencePeriod(series.recurrence.value)
+        period = RecurrencePeriod(recorrencia.value)
         current = series.generated_until
         generated = 0
         while True:

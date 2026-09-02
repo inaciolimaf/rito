@@ -11,6 +11,7 @@ direto, sem fila nem broker.
 import asyncio
 import logging
 
+from app.core.bootstrap import migrations_url
 from app.core.config import get_settings
 from app.core.db import create_engine_from_url, create_session_factory
 from app.core.redis import create_redis_client
@@ -31,8 +32,7 @@ _DATAJUD_HOST = "api-publica.datajud.cnj.jus.br"
 
 async def run_scheduled_sync() -> dict[str, int]:
     settings = get_settings()
-    url = settings.migrations_database_url
-    assert url is not None, "MIGRATIONS_DATABASE_URL necessária para a varredura cross-tenant"
+    url = migrations_url("a varredura cross-tenant do DataJud")
     engine = create_engine_from_url(url)
     session_factory = create_session_factory(engine)
     redis = create_redis_client()

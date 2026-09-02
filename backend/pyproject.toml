@@ -80,6 +80,7 @@ select = [
     "PLR0912",
     "PLR0915",
     "RUF100",
+    "S",
 ]
 # RUF100 (spec 113): `# noqa` que não silencia nada é pior que ruído — documenta um
 # problema que não existe e treina quem lê a ignorar os `noqa` que seguram algo de verdade.
@@ -157,7 +158,30 @@ max-complexity = 6
 # CLAUDE.md §9: migration commitada não se edita. As duas ocorrências de ERA001
 # (054:30, 088:49) são anteriores a esta spec e ficam onde estão — o ganho de
 # apagá-las não paga o precedente de mexer em migration aplicada.
-"alembic/versions/*.py" = ["ERA001"]
+#
+# Spec 115: `S608` (SQL montado por string) pelo mesmo motivo. As oito são `op.execute`
+# com nome de tabela vindo de constante do próprio arquivo — nenhuma recebe entrada
+# externa —, e editá-las custaria o precedente sem comprar segurança nenhuma.
+"alembic/versions/*.py" = ["ERA001", "S608"]
+
+# Spec 115. `S101` é `assert`, e `assert` É a interface do pytest: 4.020 das 4.069
+# ocorrências do projeto estão aqui. A regra existe porque `assert` some sob `python -O`,
+# o que nunca é o caso de uma suíte de teste. Ligá-la aqui reprovaria todo PR para sempre,
+# e a reação previsível seria desligar a família `S` inteira — trocando 4.020 falsos
+# positivos por zero verdadeiros.
+#
+# `S608` pelo mesmo raciocínio: o SQL cru dos testes verifica o BANCO por fora do ORM
+# (contagem por tenant, checagem de RLS), com nome de tabela vindo de lista literal
+# escrita no próprio teste. Não há entrada externa em lugar nenhum desse caminho.
+#
+# O que NÃO está silenciado aqui é o que importa: `app/` continua sujeito às duas.
+#
+# `S105`/`S106`/`S107` (senha literal): as senhas de teste são literais POR DESENHO — um
+# teste que precisasse de segredo de verdade não seria reproduzível. `S603`/`S607`
+# (subprocess): `test_runner_gate.py` roda o próprio `run-tests.sh`, que é o objeto do
+# teste.
+"tests/**/*.py" = ["S101", "S105", "S106", "S107", "S603", "S607", "S608"]
+"scripts/*.py" = ["S101", "S105", "S608"]
 
 [tool.black]
 line-length = 100

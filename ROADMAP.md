@@ -523,8 +523,8 @@ Recontagem: **96** chamadas, não 90. O fuso vem por `JOIN` na query de autentic
 **O gate não teria bastado:** cinco pontos liam `datetime.now(UTC).date()`, que o `DTZ` não pega — tem fuso, só que o errado. Eram a janela do DJEN, os prazos do motor de automações e quatro arquivos de teste. Foram os testes que apontaram cada um.
 Fecha a **dívida 30** (a suíte deixou de depender da hora: de 12 falhas para 0). Abre a **31** (`func.now()` constante dentro do teste) e a **32** (timestamp UTC comparado com data de escritório). Duas rotas mudaram o corpo do 422, de propósito.
 
-### ⬜ 115 — Bandit (S): a superfície de segurança que o lint alcança
-3.880 violações, das quais 3.827 são `assert` em teste — `per-file-ignores` resolve. Sobram 53 reais, sendo 44 `assert` em código de produção, que somem sob `python -O`.
+### ✅ 115 — Bandit (S): a superfície de segurança que o lint alcança
+4.122 achados, 4.069 deles `assert` de teste (`per-file-ignores`). Sobraram 72 reais: **47 `assert` em produção**, nenhum virado `noqa` — 32 foram para `not_none` (checa e devolve, sem ramo morto nos pontos de uso), 9 para `ConfigurationError`, 3 para `_como` nos handlers. Dos 9 `S608` de `app/`, **6 eram interpolação de literal e não de identificador**: viraram `unnest` de arrays ligados, o que remove a forma de injeção em vez de silenciá-la.
 **Aceite:** nenhum `assert` em `app/`; quoting de identificador centralizado; todo `noqa: S*` justificado. **t:** 0,5 s. **Deps:** 113
 
 ### ✅ 116 — PLR0913: argumentos demais

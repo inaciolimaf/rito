@@ -21,7 +21,9 @@ from app.core.config import Settings
 
 # O valor que está no `.env.example`. Serve em desenvolvimento, onde ninguém pode
 # alcançar a máquina; em produção é uma porta destrancada com a chave pendurada.
-EXAMPLE_SECRET_KEY = "troque-isto-em-producao"
+# `# noqa: S105`: a regra dispara pelo NOME da variável. Este valor não é segredo — é
+# justamente o não-segredo que o `ensure_valid` recusa em produção.
+EXAMPLE_SECRET_KEY = "troque-isto-em-producao"  # noqa: S105
 
 MIN_SECRET_KEY_LENGTH = 32
 
@@ -43,6 +45,27 @@ REQUIRED_IN_PRODUCTION: dict[str, str] = {
 
 class ConfigurationError(RuntimeError):
     """Configuração inválida. Sobe no boot e derruba o processo — nunca é capturada."""
+
+
+def migrations_url(para: str) -> str:
+    """A URL de migration, que as tarefas cross-tenant exigem (spec 115).
+
+    Quatro workers precisavam dela e os quatro conferiam com `assert`, que some sob
+    `python -O`: a tarefa seguiria com `None` e falharia ao abrir a conexão, dizendo apenas
+    que a URL era inválida — nunca que ela não fora configurada.
+
+    Aqui em vez de em cada worker por dois motivos: a mensagem fica uma só, e o `if` fica
+    fora de funções que já estavam no teto de complexidade da 106 (`run_due_syncs` passou de
+    6 para 7 quando o `if` morava lá dentro).
+
+    `para` completa a frase «é obrigatória para ...» e diz ao operador QUAL tarefa parou.
+    """
+    from app.core.config import get_settings
+
+    url = get_settings().migrations_database_url
+    if url is None:
+        raise ConfigurationError(f"MIGRATIONS_DATABASE_URL é obrigatória para {para}")
+    return url
 
 
 @dataclass(frozen=True)

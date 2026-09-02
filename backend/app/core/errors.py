@@ -68,21 +68,35 @@ def _problem_response(
     )
 
 
+def _como[E: Exception](tipo: type[E], exc: Exception) -> E:
+    """`exc` com o tipo que o handler foi registrado para tratar (spec 115).
+
+    O FastAPI tipa todo handler como recebendo `Exception`, mas despacha pelo tipo com que
+    ele foi registrado — então o `isinstance` aqui é verdade por construção. Era um
+    `assert`, e `assert` some sob `python -O`: aí o `mypy` teria estreitado um tipo que
+    nada garante em produção, e um erro de registro viraria `AttributeError` no meio da
+    montagem da resposta de erro. Que é o pior momento possível para um erro novo.
+    """
+    if not isinstance(exc, tipo):  # pragma: no cover - o FastAPI despacha por tipo
+        raise TypeError(f"handler de {tipo.__name__} recebeu {type(exc).__name__}")
+    return exc
+
+
 async def handle_validation_error(request: Request, exc: Exception) -> JSONResponse:
-    assert isinstance(exc, RequestValidationError)
+    erro = _como(RequestValidationError, exc)
     return _problem_response(
         status_code=422,
         detail="Um ou mais campos são inválidos.",
         instance=request.url.path,
-        errors=exc.errors(),
+        errors=erro.errors(),
     )
 
 
 async def handle_http_exception(request: Request, exc: Exception) -> JSONResponse:
-    assert isinstance(exc, StarletteHTTPException)
+    erro = _como(StarletteHTTPException, exc)
     # Any: starlette tipa HTTPException.detail como Any — pode ser str ou um dict de
     # convenção (ver abaixo).
-    detail: Any = exc.detail
+    detail: Any = erro.detail
     errors: Sequence[Any] | None = None
     extra: dict[str, Any] | None = None
     # Convenção para validação de negócio (não de schema): raise HTTPException(
@@ -94,12 +108,12 @@ async def handle_http_exception(request: Request, exc: Exception) -> JSONRespons
         extra = {key: value for key, value in detail.items() if key not in ("detail", "errors")}
         detail = detail.get("detail", "Erro de validação.")
     return _problem_response(
-        status_code=exc.status_code,
+        status_code=erro.status_code,
         detail=str(detail),
         instance=request.url.path,
         errors=errors,
         extra=extra or None,
-        headers=exc.headers,
+        headers=erro.headers,
     )
 
 
@@ -112,12 +126,12 @@ async def handle_budget_exceeded(request: Request, exc: Exception) -> JSONRespon
     """
     from app.domain.ai.budget import BudgetExceededError
 
-    assert isinstance(exc, BudgetExceededError)
+    erro = _como(BudgetExceededError, exc)
     return _problem_response(
         status_code=409,
         detail=str(exc),
         instance=request.url.path,
-        extra={"spent_usd": float(exc.spent), "limit_usd": float(exc.limit)},
+        extra={"spent_usd": float(erro.spent), "limit_usd": float(erro.limit)},
     )
 
 

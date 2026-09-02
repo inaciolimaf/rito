@@ -5,6 +5,7 @@ from datetime import date
 
 from sqlalchemy import ColumnElement, exists, func, select
 
+from app.core.invariants import not_none
 from app.core.listing import date_range, paginate_keyset
 from app.core.repository import BaseRepository
 from app.domain.lawsuits.models import LawsuitParty
@@ -102,8 +103,9 @@ class PublicationRepository(BaseRepository[Publication]):
             condition = Publication.is_active.is_(False)
             conditions.append(condition if filters.cancelled else ~condition)
         if filters.read is not None:
-            assert filters.current_user_id is not None
-            read_exists = self._read_exists(filters.current_user_id)
+            # O filtro `read` é por usuário: quem pergunta «lidas» precisa dizer por quem.
+            leitor = not_none(filters.current_user_id, "filtrar por lida exige saber quem lê")
+            read_exists = self._read_exists(leitor)
             conditions.append(read_exists if filters.read else ~read_exists)
         return conditions
 

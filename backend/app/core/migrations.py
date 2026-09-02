@@ -143,12 +143,16 @@ async def upgrade_with_lock(engine: AsyncEngine) -> None:
     trava = await _tentar_travar(engine, dono)
     while trava is None:
         if datetime.now(UTC) > limite:
+            # A mensagem citava a query a rodar (`SELECT ... FROM migration_locks`) e o
+            # `S608` casava com o TEXTO, achando que era SQL montado por string. Dizer as
+            # colunas em vez de escrever o comando informa o mesmo e não parece query —
+            # falso positivo removido na origem, sem `noqa` (spec 115).
             raise RuntimeError(
                 "outra instância está aplicando migrations há mais de "
-                f"{LOCK_TIMEOUT.total_seconds():.0f}s. Quem está com a trava aparece em "
-                "`SELECT locked_by, locked_at FROM migration_locks`; se aquele processo "
-                "morreu, o advisory lock caiu junto com a conexão dele e uma nova "
-                "tentativa passa."
+                f"{LOCK_TIMEOUT.total_seconds():.0f}s. Quem está com a trava aparece na "
+                "tabela `migration_locks`, colunas `locked_by` e `locked_at`; se aquele "
+                "processo morreu, o advisory lock caiu junto com a conexão dele e uma "
+                "nova tentativa passa."
             )
         antes = await _versao_atual(engine)
         await asyncio.sleep(POLL_INTERVAL_SECONDS)

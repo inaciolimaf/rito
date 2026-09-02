@@ -18,6 +18,7 @@ import httpx
 from opentelemetry.trace import SpanKind
 from redis.asyncio import Redis
 
+from app.core.invariants import not_none
 from app.core.observability.tracing import get_tracer
 from app.core.rate_limit import check_and_increment
 from app.integrations.http.audit import AuditSink, NullAuditSink, RequestAuditEntry
@@ -39,6 +40,21 @@ logger = logging.getLogger("rito.http")
 MAX_BODY_BYTES = 10 * 1024 * 1024
 
 _RATE_LIMIT_WINDOW_S = 60
+
+
+def _jitter_padrao() -> float:
+    """Fator aleatório do backoff, entre 0,5× e 1,5× (spec 041, regra 2).
+
+    O `S311` fica silenciado na linha do `return`: isto não é uso criptográfico. O objetivo
+    é descorrelacionar as retentativas de vários workers que falharam ao mesmo tempo;
+    previsibilidade aqui não dá vantagem a ninguém, e `secrets` gastaria entropia do
+    sistema para nada.
+
+    Função nomeada em vez de `lambda` atribuído: aquele obrigava silenciar o `E731` junto,
+    e trocar uma supressão por duas é o oposto do que a spec 115 faz.
+    """
+    # Aleatoriedade de espaçamento, não de segredo — ver a docstring acima.
+    return random.uniform(0.5, 1.5)  # noqa: S311
 
 
 class ResilientHttpClient:
@@ -70,7 +86,7 @@ class ResilientHttpClient:
         self._policies = dict(policies or {})
         self._default_policy = default_policy or HostPolicy()
         self._sleep = sleep
-        self._jitter = jitter if jitter is not None else lambda: random.uniform(0.5, 1.5)
+        self._jitter = jitter if jitter is not None else _jitter_padrao
         self._clock = clock
         self._audit_success_sample_rate = audit_success_sample_rate
         self._rng = rng
@@ -277,7 +293,7 @@ class ResilientHttpClient:
         breaker.on_failure()
         if last_status is not None:
             raise HttpStatusError(url, last_status)
-        assert last_error is not None
+        last_error = not_none(last_error, "sem status e sem erro o laço teria retornado antes")
         raise HttpRequestError(url, last_error)
 
     async def _read_body(self, raw: httpx.Response, url: str) -> bytes:

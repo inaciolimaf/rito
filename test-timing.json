@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 147,
+  "last_measured_wall_clock_seconds": 146,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -386,6 +386,10 @@
     "113": {
       "wall_clock_seconds": 147,
       "notes": "RUF100 no select: 29 diretivas noqa mortas removidas (nao 31 — a medicao original usou --select RUF100, que SUBSTITUI o select inteiro e faz todo noqa parecer inutil; com --fix teria apagado os dois PLR0913 legitimos da 116). 1596 backend (nenhum teste novo: o gate e o make lint) + 313 frontend + 10 e2e. Diff conferido mecanicamente: 29 linhas removidas, 29 acrescentadas, cada par diferindo APENAS pelo noqa. Sobraram 6 diretivas, todas segurando algo. Dois achados: o --fix leva junto a prosa depois do noqa, e em tres linhas isso apagou a justificativa de um type: ignore que ficava na mesma linha (pego pelo test_final_audit da spec 100, justificativas recolocadas na linha de cima); e ha DOIS noqa da familia S para a spec 115 reencontrar, nao um (S608 em test_post_comments sem justificativa, S603 em conftest com justificativa que se perdeu). Divida 35 registrada: teste de caos com acoplamento de estado entre testes."
+    },
+    "115": {
+      "wall_clock_seconds": 146,
+      "notes": "Familia S (bandit) no select. 4.122 achados, 4.069 deles S101 em teste (per-file-ignores para tests/ e scripts/, mais S105/S106/S107/S603/S607 pelo mesmo motivo, e S608 em alembic/versions por causa do §9). Sobraram 72 reais. 1603 backend (1596 da 113 + 7: 4 unitarios de not_none, incluindo um que roda o mesmo programa com e sem python -O para provar a tese da spec, 1 meta de zero assert em app/ por AST, e 2 meta do teto de 6 noqa S* com justificativa) + 313 frontend + 10 e2e. 47 assert de producao (a spec estimava 44), NENHUM virado noqa: 32 para app/core/invariants.py::not_none (checa e devolve, o unico ramo morto do projeto e o da propria funcao), 9 para ConfigurationError, 1 para FileNotFoundError, 3 para _como nos handlers de erro do FastAPI, e 1 apagado por ser exaustividade de tabela (padrao da 111). Dos 9 S608 de app/, a §4 diagnosticou errado: 6 eram interpolacao de LITERAL em provisioning.py e viraram unnest de arrays ligados; 1 era falso positivo em prosa de mensagem de erro (reescrita, sem noqa); 1 virou make_interval por bind; so 1 e identificador de verdade, com allowlist. Achado de metodo: por o if de validacao dentro dos workers quebrou C901 e PLR0912 em djen_sync, e o conserto (helper migrations_url compartilhado) encolheu tres corpos de task. Divida 35 confirmada: o token bucket de rate limit vive no Redis, e global entre workers do xdist e nao participa do ROLLBACK da 105."
     }
   },
   "specs_concluidas": 100

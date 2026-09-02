@@ -508,8 +508,8 @@ Pente fino em 101 e 104–109. Auditar faixa de specs de qualidade é diferente 
 As seis já tinham caído na 106. O teto entrou em **8** e não nos 12 do padrão, porque a 12 a regra não poderia disparar — e `PLR0912` não é redundante com o `C901`: o `else` é 1 ramo e 0 decisões, então `run_due_syncs` tem C901 6 e 8 ramos. O trabalho virou a exaustividade das tabelas que a 106 criou: 11 testes sobre 13 tabelas.
 **Aceite:** gate verde; teste que prova a exaustividade de cada tabela. **t:** 0 s. **Deps:** 106, 109
 
-### ⬜ 112 — PLR0911: returns demais
-Sete funções acima de 6 returns; três são o mesmo resolvedor de variável de modelo repetido em `templates/variables.py` e viram um registro só.
+### ✅ 112 — PLR0911: returns demais
+As sete já tinham caído na 106 — a §3 acertou o diagnóstico e a 106 aplicou a cura. Teto no padrão (6) e **dominado pelo `C901`**: as cinco funções com 6 returns têm complexidade ciclomática exatamente 6, então o sétimo `return` já é barrado antes. Descer para 5 foi recusado — obrigaria a trocar cláusula de guarda por saída única, que é pior.
 **Aceite:** gate verde; os nomes publicados por `/api/v1/template-variables` inalterados. **t:** 0 s. **Deps:** 106, 111
 
 ### ⬜ 113 — RUF100: noqa que não silencia nada

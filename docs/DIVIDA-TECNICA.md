@@ -890,6 +890,29 @@ Isso muda a leitura da dívida em dois pontos:
 O wall-clock maior na execução que falhou (169 s contra 140 s) é a confirmação direta da
 hipótese de carga — a máquina estava mais lenta nas duas pontas ao mesmo tempo.
 
+**Quarta ocorrência (spec 112) — e agora o gate de wall-clock também caiu.** O `make test`
+reprovou com **434 s** contra o orçamento de 300 s, mais uma jornada e2e (a 4/25, que passa
+por um `EntityPicker`, como as outras). A execução seguinte, mesma árvore, fechou em
+**140 s**. Três vezes mais lento, sem uma linha de diferença.
+
+A perna que estourou não foi o e2e: foi o **backend**, com 283 s contra os ~92 s habituais.
+E a causa foi encontrada desta vez: `uptime` acusava load average entre 4,7 e 6,3, com uma
+**segunda sessão do Claude Code rodando em outro projeto do usuário** e o Chrome com
+renderizadores a 90-99% de CPU. Carga externa à suíte, na mesma máquina.
+
+Isso acrescenta uma dimensão que as três ocorrências anteriores não tinham: **o gate de
+orçamento do §11 mede uma coisa que não depende só do projeto**. Um número que varia 3× por
+causa de quem mais está usando a máquina não separa «o projeto ficou lento» de «o laptop
+estava ocupado» — e a primeira vez que ele reprovar sem motivo real, alguém aumenta o teto.
+
+Duas correções possíveis, para a spec que atacar isto:
+
+1. **Medir CPU consumida em vez de tempo de parede** (`os.times()`, `time.process_time()` ou
+   `/usr/bin/time`), ou normalizar o wall-clock pela carga observada. Tempo de CPU é
+   praticamente imune a vizinho barulhento.
+2. **Reprovar só na segunda medição consecutiva acima do teto.** Um estouro isolado vira
+   aviso; dois seguidos viram falha. Mantém o gate honesto sem torná-lo folclore.
+
 **Spec-alvo:** 110 ou 120 — a auditoria que perguntar se os gates ainda mordem pelo motivo
-certo. Com a terceira ocorrência, isto passa de «observar» para «corrigir»: a correção do
-`EntityPicker` deve entrar na primeira das duas que abrir.
+certo. Com a terceira ocorrência isto já passava de «observar» para «corrigir»; com a
+quarta, são DUAS correções: o `EntityPicker` e a medição do orçamento.

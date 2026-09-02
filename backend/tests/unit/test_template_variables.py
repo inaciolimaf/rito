@@ -12,10 +12,13 @@ from app.domain.templates.variables import (
     _RESOLVERS,
     _USER_FIELDS,
     VARIABLE_CATALOG,
+    VariableScope,
+    build_variable_map,
     format_date_extenso,
     format_money_extenso,
     resolve_content,
 )
+from app.domain.users.models import User
 
 
 def test_extenso_de_data_usa_primeiro_no_dia_1() -> None:
@@ -135,3 +138,30 @@ def test_todo_namespace_do_catalogo_tem_resolvedor() -> None:
     assert (
         faltando == []
     ), "namespace do catálogo sem resolvedor — KeyError na geração:\n  " + "\n  ".join(faltando)
+
+
+def test_mapa_de_variaveis_cobre_exatamente_o_catalogo_publicado() -> None:
+    """Spec 112, §7: o registro de resolvedores cobre exatamente o que a API publica.
+
+    Os três testes acima comparam as tabelas com o catálogo; este fecha o circuito pelo
+    lado de fora, chamando `build_variable_map` de verdade. É o que `/api/v1/template-
+    variables` oferece ao seletor confrontado com o que a resolução realmente produz — as
+    duas pontas que o usuário liga quando arrasta uma variável para dentro do modelo.
+
+    Escopo vazio de propósito: aqui a pergunta é quais CHAVES existem, não que valor cada
+    uma tem. Um `User` em memória basta, sem banco.
+    """
+    escopo = VariableScope(
+        customer=None,
+        customer_marital_status_name=None,
+        lawsuit=None,
+        lawsuit_type_name=None,
+        lawsuit_court_name=None,
+        lawsuit_step_name=None,
+        lawsuit_responsible_name=None,
+        account=None,
+        user=User(name="Fulano de Tal"),
+        user_occupation_name=None,
+    )
+    publicadas = {f"{namespace}.{campo}" for namespace, campo, _rotulo in VARIABLE_CATALOG}
+    assert set(build_variable_map(escopo)) == publicadas

@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 151,
+  "last_measured_wall_clock_seconds": 140,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -374,6 +374,10 @@
     "111": {
       "wall_clock_seconds": 151,
       "notes": "PLR0912 (ramos demais) no select, em 8 e nao nos 12 do padrao — a 12 a regra nao poderia disparar, porque com o max-complexity=6 da 106 a funcao mais ramificada do projeto tem 8 ramos. Zero violacoes: as seis da spec ja tinham caido na 106. 1591 backend (1580 da 109 + 11 de exaustividade de tabela de despacho: _ACOES vs ActionKind nos dois sentidos, OPERATORS vs _OPERADORES + _compare nos dois sentidos, catalogo de variaveis vs os quatro mapas de campo nos dois sentidos, namespaces vs _RESOLVERS, e as tabelas de UserRole, FinancialAccess, AgingBucket e REPORT_KEYS) + 313 frontend + 10 e2e. Nenhuma linha de app/ alterada. Os 11 custam 0,16 s e foram provados mordendo, uma chave removida de cada tabela. Achado: PLR0912 NAO e redundante com C901 — o else e 1 ramo e 0 decisoes, entao run_due_syncs fica em C901 6 e 8 ramos."
+    },
+    "112": {
+      "wall_clock_seconds": 140,
+      "notes": "PLR0911 (returns demais) no select, teto padrao de 6. Zero violacoes: as sete da spec ja tinham caido na 106, e a §3 dela tinha acertado o diagnostico (os tres resolvedores de variables.py viraram um registro). 1592 backend (1591 da 111 + 1: build_variable_map chamada de verdade, com escopo vazio e User em memoria, comparada com o catalogo que /api/v1/template-variables publica) + 313 frontend + 10 e2e. Nenhuma linha de app/ alterada. Achado: este gate esta DOMINADO pelo C901 — as cinco funcoes com 6 returns tem complexidade ciclomatica exatamente 6, e nao foi possivel construir uma funcao que violasse PLR0911(6) e passasse no C901(6). Descer para 5 foi recusado: obrigaria a trocar clausula de guarda por saida unica. A execucao anterior deu 434 s e reprovou no gate de orcamento por carga EXTERNA (outra sessao do Claude Code e Chrome na mesma maquina, load average 4,7-6,3); backend levou 283 s contra os ~92 s habituais. Dividida 33, quarta ocorrencia."
     }
   },
   "specs_concluidas": 100

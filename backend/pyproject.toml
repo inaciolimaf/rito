@@ -75,6 +75,7 @@ select = [
     "ASYNC",
     "DTZ",
     "C90",
+    "PLR0911",
     "PLR0912",
     "PLR0915",
 ]
@@ -82,6 +83,19 @@ select = [
 ignore = ["B008"]
 
 [tool.ruff.lint.pylint]
+# Spec 112. `max-returns` no padrão da regra (6). Medido em 02/09/2026: a função com mais
+# pontos de saída do projeto tem 5, e as cinco que chegam a 6 (com o teto experimental em 5)
+# têm complexidade ciclomática EXATAMENTE 6 — no teto da 106.
+#
+# Ou seja: aqui returns e decisões andam juntos, e este gate está hoje DOMINADO pelo `C901`.
+# Um sétimo `return` empurraria a complexidade para 7 e seria barrado antes. Fica como
+# seguro, não como restrição ativa — custa zero e continua valendo se um dia aparecer
+# construção que multiplique saída sem custar decisão.
+#
+# Descer para 5 foi considerado e recusado: obrigaria as cinco a trocar cláusula de guarda
+# por variável de resultado e saída única, que é PIOR — e é o oposto do que a 106 concluiu.
+max-returns = 6
+
 # Spec 111. `max-branches` em 8, não nos 12 do padrão da regra. Medido em 02/09/2026: com o
 # `max-complexity = 6` da 106 em vigor, a função mais ramificada do projeto tem 8 ramos e
 # NENHUMA chega a 9 — um teto em 12 seria decoração, uma regra que não pode disparar.

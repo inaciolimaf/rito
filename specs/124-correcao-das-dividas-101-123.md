@@ -252,6 +252,30 @@ teve o contador de CPU que imprimia zero, a 120 teve dois harnesses que comparav
 arquivo, e agora esta. A regra prática que fica: **antes de acreditar num verde, confira que a
 ferramenta viu arquivos.** `tsc -p tsconfig.app.json` acusa; `tsc` sozinho, não.
 
+### O efeito colateral da 31: uma fila de sincronização que podia matar de fome
+
+Corrigir a dívida 31 revelou um defeito de PRODUÇÃO que ela escondia.
+
+`list_due_for_datajud_sync` ordena por `datajud_last_sync_at ASC NULLS FIRST` e aplica
+`LIMIT`. Todo processo que nunca sincronizou tem esse campo `NULL` — então, na prática, o
+`ORDER BY` empatava para a fila inteira, e **um `ORDER BY` que empata sob `LIMIT` não é uma
+fila**: o Postgres pode devolver quaisquer `limit` linhas entre as empatadas, e as mesmas de
+novo na volta seguinte. Com mais processos que o lote, um processo podia nunca ser escolhido.
+Fome, não lentidão — e silenciosa.
+
+Isso estava lá antes da 124. O que a 124 fez foi tirar a sorte que o escondia: enquanto
+`created_at` vinha de `now()` e empatava dentro da transação, a ordem era a física do heap, e
+um teste de sincronização (`test_datajud_ganha_historico_de_execucao_sucesso_e_erro`) passava
+por acaso. Com `statement_timestamp()` o acaso mudou de lado e o teste passou a reprovar —
+determinístico, cinco em cinco.
+
+A correção é o desempate que faltava: `created_at ASC` (o mais antigo primeiro, que é a
+política justa de uma fila) e `id` para fechar a ordem total.
+
+**A lição é a mesma da dívida 31, um nível acima:** empate em `ORDER BY` não é detalhe de
+teste. Onde há `LIMIT`, ele é a diferença entre uma fila e um sorteio — e o teste que
+reprovou era o único aviso de que existia um sorteio em produção.
+
 ### Dívida 39: um gate que nunca tinha rodado
 
 `URL.pathname` devolve o caminho percent-encoded. Em `/home/.../Área de trabalho/...` o gate

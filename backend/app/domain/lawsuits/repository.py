@@ -184,7 +184,21 @@ class LawsuitRepository(BaseRepository[Lawsuit]):
                 Lawsuit.is_archived.is_(False),
                 Lawsuit.datajud_not_found_count < DATAJUD_NOT_FOUND_PAUSE_THRESHOLD,
             )
-            .order_by(Lawsuit.datajud_last_sync_at.asc().nulls_first())
+            # Desempate OBRIGATÓRIO. `datajud_last_sync_at` é NULL para todo processo que
+            # nunca sincronizou, e um `ORDER BY` que empata sob um `LIMIT` não é uma fila:
+            # o Postgres pode devolver quaisquer `limit` linhas entre as empatadas, e as
+            # mesmas de novo na volta seguinte. Com mais processos que o lote, um processo
+            # podia nunca ser escolhido — fome, não lentidão.
+            #
+            # `created_at` é o critério justo (o mais antigo na fila primeiro) e `id` fecha
+            # a ordem total. Achado na spec 124: até a migration 124 o `created_at` vinha de
+            # `now()` e empatava dentro da transação, então nem ele desempatava — a ordem
+            # era a física do heap, e um teste de sincronização passava por sorte.
+            .order_by(
+                Lawsuit.datajud_last_sync_at.asc().nulls_first(),
+                Lawsuit.created_at.asc(),
+                Lawsuit.id,
+            )
             .limit(limit)
         )
         return (await self.session.scalars(stmt)).all()

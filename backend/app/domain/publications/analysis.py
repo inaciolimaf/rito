@@ -230,27 +230,13 @@ class PublicationAnalysisService:
         if analise is None:
             raise AnalysisNotFoundError
 
-        correcao: dict[str, Any] = {}
-        if deadline_date is not None and deadline_date != analise.deadline_date:
-            correcao["deadline_date"] = {
-                "suggested": analise.deadline_date.isoformat() if analise.deadline_date else None,
-                "corrected": deadline_date.isoformat(),
-            }
-        if task_type_id is not None and task_type_id != analise.suggested_task_type_id:
-            correcao["task_type_id"] = {
-                "suggested": (
-                    str(analise.suggested_task_type_id) if analise.suggested_task_type_id else None
-                ),
-                "corrected": str(task_type_id),
-            }
-        if user_id is not None and user_id != analise.suggested_user_id:
-            correcao["user_id"] = {
-                "suggested": str(analise.suggested_user_id) if analise.suggested_user_id else None,
-                "corrected": str(user_id),
-            }
-        if not approved:
-            correcao["rejected"] = True
-
+        correcao = _correcoes_humanas(
+            analise,
+            approved=approved,
+            deadline_date=deadline_date,
+            task_type_id=task_type_id,
+            user_id=user_id,
+        )
         analise.reviewed_by = user.id
         analise.reviewed_at = datetime.now(UTC)
         # Regra 11: correção vazia é informação também — significa "a IA acertou".
@@ -345,3 +331,40 @@ def _publication_prompt(publication: Publication) -> str:
         f"Tipo de comunicação: {publication.communication_type or 'não informado'}\n\n"
         f"Inteiro teor:\n{publication.body}"
     )
+
+
+def _correcoes_humanas(
+    analise: PublicationAnalysis,
+    *,
+    approved: bool,
+    deadline_date: date | None,
+    task_type_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+) -> dict[str, Any]:
+    """O que a pessoa mudou em relação ao que a IA sugeriu, campo a campo.
+
+    É o dado que mede a qualidade da sugestão ao longo do tempo: cada entrada guarda o
+    sugerido E o corrigido, porque saber que houve correção não diz nada sem saber de quê
+    para quê. Recusar a sugestão inteira também entra, como `rejected`.
+    """
+    correcao: dict[str, Any] = {}
+    if deadline_date is not None and deadline_date != analise.deadline_date:
+        correcao["deadline_date"] = {
+            "suggested": analise.deadline_date.isoformat() if analise.deadline_date else None,
+            "corrected": deadline_date.isoformat(),
+        }
+    if task_type_id is not None and task_type_id != analise.suggested_task_type_id:
+        correcao["task_type_id"] = {
+            "suggested": (
+                str(analise.suggested_task_type_id) if analise.suggested_task_type_id else None
+            ),
+            "corrected": str(task_type_id),
+        }
+    if user_id is not None and user_id != analise.suggested_user_id:
+        correcao["user_id"] = {
+            "suggested": str(analise.suggested_user_id) if analise.suggested_user_id else None,
+            "corrected": str(user_id),
+        }
+    if not approved:
+        correcao["rejected"] = True
+    return correcao

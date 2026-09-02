@@ -163,6 +163,30 @@ class ResilientHttpClient:
             request_headers["If-Modified-Since"] = cached.last_modified
         return cache_key, request_headers
 
+    async def _aguardar_retentativa(
+        self,
+        policy: HostPolicy,
+        attempt: int,
+        total_attempts: int,
+        retry_after: str | None = None,
+    ) -> None:
+        """A pausa entre uma tentativa e a próxima — e nenhuma pausa depois da última.
+
+        As duas causas de retentativa (erro de transporte e status retentável) esperavam
+        cada uma do seu jeito, com a mesma regra escrita duas vezes. A diferença real
+        entre elas é só uma: o servidor pode ter mandado `Retry-After`, e aí a regra 3
+        manda obedecer a ele em vez do backoff calculado. Erro de transporte não tem
+        cabeçalho nenhum para ler, e cai no backoff pelo mesmo caminho.
+
+        Não dormir depois da última tentativa importa: seria segurar o chamador por um
+        atraso que não vai ser usado para nada.
+        """
+        if attempt >= total_attempts:
+            return
+        # Regra 3: Retry-After prevalece sobre o backoff calculado.
+        pedido = self._parse_retry_after(retry_after)
+        await self._sleep(pedido if pedido is not None else self._backoff(policy, attempt))
+
     async def _request_com_resiliencia(
         self,
         method: str,
@@ -203,8 +227,7 @@ class ResilientHttpClient:
                 await self._record_failure(
                     tenant_id, host, method, parsed.path, duration_ms, attempt, str(exc)
                 )
-                if attempt < total_attempts:
-                    await self._sleep(self._backoff(policy, attempt))
+                await self._aguardar_retentativa(policy, attempt, total_attempts)
                 continue
 
             duration_ms = int((self._clock() - started) * 1000)
@@ -221,13 +244,9 @@ class ResilientHttpClient:
                     attempt,
                     f"status {raw.status_code}",
                 )
-                if attempt < total_attempts:
-                    # Regra 3: Retry-After prevalece sobre o backoff calculado.
-                    retry_after = self._parse_retry_after(raw.headers.get("retry-after"))
-                    delay = (
-                        retry_after if retry_after is not None else self._backoff(policy, attempt)
-                    )
-                    await self._sleep(delay)
+                await self._aguardar_retentativa(
+                    policy, attempt, total_attempts, raw.headers.get("retry-after")
+                )
                 continue
 
             # Resposta final (sucesso, 304 ou 4xx não retentável — regra 1: 4xx

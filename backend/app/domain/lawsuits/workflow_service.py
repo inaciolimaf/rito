@@ -7,6 +7,7 @@ como fazer, já que `Post` não guarda vínculo com o workflow que o criou.
 """
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -134,15 +135,21 @@ class LawsuitWorkflowService:
         """Regra 5: só em até 1 h e só se nenhuma tarefa criada foi concluída."""
         if datetime.now(UTC) - application.applied_at > UNDO_WINDOW:
             raise WorkflowUndoWindowExpiredError
-        for post_id in application.posts_created:
-            for line in await self.posts.lines_for_post(post_id):
-                if line.completed_at is not None:
-                    raise WorkflowUndoHasCompletedTaskError
+        await self._recusar_se_alguma_tarefa_concluida(application.posts_created)
         for post_id in application.posts_created:
             post = await self.posts.get_by_id(post_id)
             if post is not None:
                 await self.posts.delete(post)
         await self.applications.delete(application)
+
+    async def _recusar_se_alguma_tarefa_concluida(self, post_ids: Sequence[uuid.UUID]) -> None:
+        """Desfazer apaga as tarefas criadas — e apagar tarefa concluída apagaria trabalho
+        feito, além da pontuação de quem a concluiu. A checagem roda ANTES de qualquer
+        exclusão: parar no meio deixaria o desfazer pela metade."""
+        for post_id in post_ids:
+            for line in await self.posts.lines_for_post(post_id):
+                if line.completed_at is not None:
+                    raise WorkflowUndoHasCompletedTaskError
 
     async def get_application(
         self, lawsuit_id: uuid.UUID, application_id: uuid.UUID

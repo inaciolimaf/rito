@@ -167,6 +167,26 @@ class MovementSyncService:
         await self.session.flush()
         return result
 
+    async def _marcar_sigiloso(self, lawsuit: Lawsuit, now: datetime) -> LawsuitSyncResult:
+        """Regra 4: processo em segredo de justiça sai da fila DE VEZ, sem esperar as 5
+        tentativas — o sigilo não muda de uma consulta para outra, e insistir seria gastar
+        cota do DataJud para receber a mesma recusa. Nada do processo é persistido."""
+        lawsuit.datajud_not_found_count = DATAJUD_NOT_FOUND_PAUSE_THRESHOLD
+        lawsuit.datajud_last_sync_at = now
+        await self.session.flush()
+        return LawsuitSyncResult(lawsuit.id, "sealed")
+
+    async def _marcar_nao_encontrado(self, lawsuit: Lawsuit, now: datetime) -> LawsuitSyncResult:
+        """Regra 5: não encontrado ACUMULA. O alerta sai na tentativa exata do limiar —
+        `==`, não `>=` — para o escritório não receber o mesmo aviso a cada varredura
+        depois que a contagem passa do teto."""
+        lawsuit.datajud_not_found_count += 1
+        lawsuit.datajud_last_sync_at = now
+        if lawsuit.datajud_not_found_count == DATAJUD_NOT_FOUND_PAUSE_THRESHOLD:
+            await self._create_not_found_alert(lawsuit)
+        await self.session.flush()
+        return LawsuitSyncResult(lawsuit.id, "not_found")
+
     async def _sync_lawsuit_inner(self, lawsuit: Lawsuit) -> LawsuitSyncResult:
         court = await self.resolve_court(lawsuit)
         if court is None or not court.datajud_alias:
@@ -177,20 +197,9 @@ class MovementSyncService:
         status = await self.datajud.fetch_process_status(court, lawsuit.process_number)
 
         if status.sealed:
-            # Regra 4: nada é persistido; "não sincronizável" = sai da fila de vez,
-            # sem esperar 5 tentativas (o sigilo não muda de uma consulta pra outra).
-            lawsuit.datajud_not_found_count = DATAJUD_NOT_FOUND_PAUSE_THRESHOLD
-            lawsuit.datajud_last_sync_at = now
-            await self.session.flush()
-            return LawsuitSyncResult(lawsuit.id, "sealed")
-
+            return await self._marcar_sigiloso(lawsuit, now)
         if status.process is None:
-            lawsuit.datajud_not_found_count += 1
-            lawsuit.datajud_last_sync_at = now
-            if lawsuit.datajud_not_found_count == DATAJUD_NOT_FOUND_PAUSE_THRESHOLD:
-                await self._create_not_found_alert(lawsuit)  # regra 5
-            await self.session.flush()
-            return LawsuitSyncResult(lawsuit.id, "not_found")
+            return await self._marcar_nao_encontrado(lawsuit, now)
 
         process = status.process
         lawsuit.datajud_not_found_count = 0  # regra 5: sucesso reseta a sequência

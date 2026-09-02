@@ -117,20 +117,29 @@ def encontrar_queries_em_router(path: Path) -> list[str]:
     de_sqlalchemy = _nomes_vindos_de_sqlalchemy(arvore)
     achados: list[str] = []
     for node in ast.walk(arvore):
-        if not isinstance(node, ast.Call):
-            continue
-        alvo = node.func
-        if isinstance(alvo, ast.Name):
-            suspeito = alvo.id in _CONSTRUTORES_SQL and alvo.id in de_sqlalchemy
-            inequivoco = alvo.id in _CONSTRUTORES_SQL_INEQUIVOCOS
-            if suspeito or inequivoco:
-                achados.append(f"{_rel(path)}:{node.lineno} {alvo.id}(...)")
-        elif isinstance(alvo, ast.Attribute):
-            executa = alvo.attr in _METODOS_DE_EXECUCAO
-            constroi = alvo.attr in _CONSTRUTORES_SQL_INEQUIVOCOS and _raiz(alvo) in de_sqlalchemy
-            if executa or constroi:
-                achados.append(f"{_rel(path)}:{node.lineno} .{alvo.attr}(...)")
+        if isinstance(node, ast.Call):
+            achados += _query_nesta_chamada(path, node, de_sqlalchemy)
     return achados
+
+
+def _query_nesta_chamada(path: Path, node: ast.Call, de_sqlalchemy: set[str]) -> list[str]:
+    """Uma chamada é query de duas formas: pelo NOME (`select(...)`) ou pelo ATRIBUTO
+    (`session.execute(...)`, `stmt.where(...)`).
+
+    O `de_sqlalchemy` existe porque nome sozinho não basta: um `update(...)` pode ser o do
+    SQLAlchemy ou o método de um dicionário. Só os construtores INEQUÍVOCOS dispensam essa
+    conferência.
+    """
+    alvo = node.func
+    if isinstance(alvo, ast.Name):
+        suspeito = alvo.id in _CONSTRUTORES_SQL and alvo.id in de_sqlalchemy
+        inequivoco = alvo.id in _CONSTRUTORES_SQL_INEQUIVOCOS
+        return [f"{_rel(path)}:{node.lineno} {alvo.id}(...)"] if suspeito or inequivoco else []
+    if isinstance(alvo, ast.Attribute):
+        executa = alvo.attr in _METODOS_DE_EXECUCAO
+        constroi = alvo.attr in _CONSTRUTORES_SQL_INEQUIVOCOS and _raiz(alvo) in de_sqlalchemy
+        return [f"{_rel(path)}:{node.lineno} .{alvo.attr}(...)"] if executa or constroi else []
+    return []
 
 
 def _raiz(node: ast.expr) -> str | None:
@@ -190,21 +199,34 @@ def encontrar_integracao_concreta_em_service(path: Path) -> list[str]:
     """
     achados: list[str] = []
     for node in ast.walk(_parse(path)):
-        if isinstance(node, ast.ImportFrom):
-            modulos = [node.module or ""]
-        elif isinstance(node, ast.Import):
-            modulos = [alias.name for alias in node.names]
-        else:
+        # Filtrar aqui, e não dentro do helper, é o que dá a `node` um tipo com
+        # `lineno`: `ast.walk` devolve `ast.AST`, e nem todo nó tem posição.
+        if not isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
-        for modulo in modulos:
-            partes = modulo.split(".")
-            if partes[:2] != ["app", "integrations"]:
-                continue
-            # `from app.integrations.x import y` roda o `__init__` do pacote, que reexporta
-            # o client — é acoplamento igual, só mais discreto.
-            if len(partes) < 4 or partes[-1] not in _MODULOS_DE_CONTRATO:
+        for modulo in _modulos_importados(node):
+            if _e_integracao_concreta(modulo):
                 achados.append(f"{_rel(path)}:{node.lineno} {modulo}")
     return achados
+
+
+def _modulos_importados(node: ast.Import | ast.ImportFrom) -> list[str]:
+    """Os módulos que um nó de import traz."""
+    if isinstance(node, ast.ImportFrom):
+        return [node.module or ""]
+    return [alias.name for alias in node.names]
+
+
+def _e_integracao_concreta(modulo: str) -> bool:
+    """`app.integrations.datajud.base` passa; `...datajud.client` não.
+
+    `from app.integrations.x import y` — com três partes — também não passa: importar o
+    pacote roda o `__init__`, que reexporta o client. É acoplamento igual, só mais
+    discreto.
+    """
+    partes = modulo.split(".")
+    if partes[:2] != ["app", "integrations"]:
+        return False
+    return len(partes) < 4 or partes[-1] not in _MODULOS_DE_CONTRATO
 
 
 def _violacoes(

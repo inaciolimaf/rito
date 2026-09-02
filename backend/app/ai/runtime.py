@@ -210,27 +210,49 @@ class GraphRuntime:
             return await self._fail(thread, state, "timeout", motivo, exc)
         return await self._fail(thread, state, "erro", str(exc), exc)
 
+    async def _proximo_update(
+        self,
+        thread: AiThread,
+        state: dict[str, Any],
+        iterator: AsyncIterator[dict[str, Any]],
+        deadline: float,
+    ) -> tuple[dict[str, Any], int] | GraphResult | None:
+        """Puxa o próximo update do grafo, com o relógio e as duas paradas ao redor.
+
+        Três desfechos, discriminados pelo tipo: o update e quanto ele demorou, `None`
+        quando o grafo acabou por bem, e um `GraphResult` quando algo o interrompeu. O
+        `GraphResult` volta como valor em vez de ser emitido aqui porque este helper é
+        uma corrotina, não um gerador — quem rende para o cliente continua sendo
+        `_drive_iter`, e é lá que a decisão de parar fica visível.
+        """
+        started = time.monotonic()
+        try:
+            # Regra 6: a checagem de cancelamento é ENTRE nós — nunca no meio de um nó,
+            # que poderia estar com uma escrita em andamento.
+            await self._ensure_not_cancelled(thread)
+            if time.monotonic() > deadline:
+                raise NodeTimeoutError("execução excedeu o tempo total")
+            update = await asyncio.wait_for(iterator.__anext__(), timeout=self.node_timeout_s)
+        except StopAsyncIteration:
+            return None
+        except Exception as exc:  # regra 10: erro de nó nunca é silencioso
+            return await self._desfecho_da_falha(thread, state, exc)
+        return update, int((time.monotonic() - started) * 1000)
+
     async def _drive_iter(
         self, thread: AiThread, state: dict[str, Any]
     ) -> AsyncIterator[StepEvent | GraphResult]:
         iterator, deadline = await self._preparar_execucao(thread, state)
 
         while True:
-            started = time.monotonic()
-            try:
-                # Regra 6: a checagem de cancelamento é ENTRE nós — nunca no meio de um
-                # nó, que poderia estar com uma escrita em andamento.
-                await self._ensure_not_cancelled(thread)
-                if time.monotonic() > deadline:
-                    raise NodeTimeoutError("execução excedeu o tempo total")
-                update = await asyncio.wait_for(iterator.__anext__(), timeout=self.node_timeout_s)
-            except StopAsyncIteration:
+            proximo = await self._proximo_update(thread, state, iterator, deadline)
+            if proximo is None:
                 break
-            except Exception as exc:  # regra 10: erro de nó nunca é silencioso
-                yield await self._desfecho_da_falha(thread, state, exc)
+            if isinstance(proximo, GraphResult):
+                yield proximo
                 return
+            update, duration_ms = proximo
 
-            duration_ms = int((time.monotonic() - started) * 1000)
             async for novo_state, evento in self._passos_do_update(
                 thread, state, update, duration_ms
             ):

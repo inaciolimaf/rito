@@ -334,6 +334,51 @@ class AutomationEngine:
         await self.session.flush()
         return run
 
+    def _ja_consumido(
+        self, run: AutomationRun, action: AutomationAction, ja_feitos: set[int]
+    ) -> bool:
+        """Regra 8: idempotência. Reprocessar não repete o que já rodou, e nada antes da
+        posição corrente é reexecutado."""
+        return action.position < (run.next_position or 0) or action.position in ja_feitos
+
+    async def _executar_passo(
+        self,
+        run: AutomationRun,
+        action: AutomationAction,
+        *,
+        automation: Automation,
+        autor: User,
+        ja_feitos: set[int],
+        dono_do_ramo: dict[int, tuple[int, str]],
+    ) -> AutomationRun | None:
+        """Roda um passo. `None` significa «siga para o próximo»; um `AutomationRun`
+        significa «a execução para aqui», seja por espera, seja por falha.
+
+        O `None` é o que substitui os `continue` do laço, e a união discriminada é a mesma
+        de `_executar_acao`: quem chama não precisa saber POR QUE parou para saber que
+        parou — só devolve o que recebeu.
+        """
+        if self._ja_consumido(run, action, ja_feitos):
+            return None
+        if await self._pular_se_necessario(run, action, dono_do_ramo):
+            return None
+
+        espera = await self._wait_for(run, action)
+        if espera is not None:
+            return await self._marcar_espera(run, action, espera)
+
+        # A decisão não produz detalhe para registrar: ela escolhe o ramo e o laço segue.
+        if action.action_kind == ActionKind.LLM_DECISION.value:
+            await self._executar_decisao(run, action, automation, autor)
+            return None
+
+        resultado = await self._executar_acao(run, action, automation, autor)
+        if isinstance(resultado, AutomationRun):
+            return resultado
+
+        await self._concluir_passo(run, action, resultado)
+        return None
+
     async def advance(
         self, run: AutomationRun, *, automation: Automation | None = None
     ) -> AutomationRun:
@@ -348,27 +393,16 @@ class AutomationEngine:
         # Spec 094: quais posições pertencem a um ramo, e de qual decisão.
         dono_do_ramo = branch_owner_map(acoes)
         for action in acoes:
-            # Regra 8: idempotência. Reprocessar não repete o que já rodou, e nada antes
-            # da posição corrente é reexecutado.
-            if action.position < (run.next_position or 0) or action.position in ja_feitos:
-                continue
-            if await self._pular_se_necessario(run, action, dono_do_ramo):
-                continue
-
-            espera = await self._wait_for(run, action)
-            if espera is not None:
-                return await self._marcar_espera(run, action, espera)
-
-            if action.action_kind == ActionKind.LLM_DECISION.value:
-                await self._executar_decisao(run, action, automation, autor)
-                continue
-
-            resultado = await self._executar_acao(run, action, automation, autor)
-            if isinstance(resultado, AutomationRun):
-                return resultado
-            detalhe = resultado
-
-            await self._concluir_passo(run, action, detalhe)
+            parada = await self._executar_passo(
+                run,
+                action,
+                automation=automation,
+                autor=autor,
+                ja_feitos=ja_feitos,
+                dono_do_ramo=dono_do_ramo,
+            )
+            if parada is not None:
+                return parada
 
         run.status = RunStatus.DONE.value
         run.next_position = None
@@ -379,28 +413,34 @@ class AutomationEngine:
 
     async def _wait_for(self, run: AutomationRun, action: AutomationAction) -> datetime | None:
         """Quando este passo pode rodar. `None` = agora."""
-        ja_esperou = run.status == RunStatus.WAITING.value and run.next_position == action.position
         if action.delay_kind == DelayKind.IMMEDIATE.value:
             return None
         if action.delay_kind == DelayKind.AFTER_PREVIOUS.value:
-            # Regra 4: encadeia de verdade — só segue quando a tarefa criada pelo passo
-            # anterior estiver concluída. É o caso de "protocolar" depois de "revisar".
-            if run.waiting_on_id is None:
-                return None
-            if await self._post_completed(run.waiting_on_id):
-                return None
-            # Sem prazo: quem acorda esta execução é o gatilho de conclusão da tarefa.
-            return self.now() + CONDITION_POLL
+            return await self._espera_pela_tarefa_anterior(run)
+        ja_esperou = run.status == RunStatus.WAITING.value and run.next_position == action.position
         if ja_esperou and (run.next_action_at is None or run.next_action_at <= self.now()):
             return None
+        return datetime.combine(await self._alvo_do_atraso(action), self.now().timetz())
+
+    async def _espera_pela_tarefa_anterior(self, run: AutomationRun) -> datetime | None:
+        """Regra 4: encadeia de verdade — só segue quando a tarefa criada pelo passo
+        anterior estiver concluída. É o caso de «protocolar» depois de «revisar».
+
+        Sem tarefa para esperar, segue na hora. Com tarefa pendente, devolve um instante
+        de repique curto em vez de um prazo: quem realmente acorda esta execução é o
+        gatilho de conclusão da tarefa, e o repique é só a rede de segurança.
+        """
+        if run.waiting_on_id is None or await self._post_completed(run.waiting_on_id):
+            return None
+        return self.now() + CONDITION_POLL
+
+    async def _alvo_do_atraso(self, action: AutomationAction) -> date:
+        """O dia em que o passo pode rodar, contando corrido ou em dias úteis."""
+        dias = int(action.delay_value or 0)
         if action.delay_kind == DelayKind.BUSINESS_DAYS.value:
             # Regra 5: dias úteis com os feriados do banco — o mesmo cálculo da 040.
-            alvo = add_business_days(
-                await self.today(), int(action.delay_value or 0), await self._holidays()
-            )
-        else:
-            alvo = await self.today() + timedelta(days=int(action.delay_value or 0))
-        return datetime.combine(alvo, self.now().timetz())
+            return add_business_days(await self.today(), dias, await self._holidays())
+        return await self.today() + timedelta(days=dias)
 
     async def _execute(
         self,

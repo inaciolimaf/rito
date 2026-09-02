@@ -147,6 +147,16 @@ def parse_stream_line(line: str) -> LLMChunk | None:
         body = json.loads(data)
     except json.JSONDecodeError:
         return LLMChunk(kind="error", error="Resposta de streaming ilegível.")
+    return _chunk_do_corpo(body)
+
+
+def _chunk_do_corpo(body: dict[str, Any]) -> LLMChunk | None:
+    """O CONTEÚDO de um evento de streaming, já desembrulhado do envelope SSE.
+
+    A separação é a da spec 106: acima mora o protocolo (linha vazia, comentário, prefixo
+    `data:`, `[DONE]`, JSON ilegível); aqui mora o que o modelo disse. As duas coisas
+    mudam por motivos diferentes — o envelope é do SSE, o corpo é do OpenRouter.
+    """
     if body.get("error"):
         error = body["error"]
         message = error.get("message") if isinstance(error, dict) else error

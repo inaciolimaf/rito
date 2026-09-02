@@ -208,6 +208,70 @@ class AiRunner:
             feature = replace(feature, model=self.model_override)
         return feature
 
+    async def _tentar_fallback(
+        self,
+        *,
+        feature: ResolvedFeature,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec] | None,
+        first_error: LLMError,
+        started: float,
+        user_id: uuid.UUID | None,
+    ) -> LLMResponse:
+        """O que acontece depois que o modelo principal falhou (regra 5).
+
+        Sem modelo de reserva configurado, o erro original sobe — mas só depois de
+        registrado: é justamente a chamada que falhou que mais interessa auditar, e é por
+        isso que `_commit_usage` vem antes do `raise` nos dois caminhos.
+
+        Com reserva, é UMA tentativa. Falhando ela também, o erro que sobe é o DELA, com
+        o primeiro no texto: o último estado real da chamada é o que o operador precisa
+        ler primeiro, e o anterior é contexto.
+        """
+        if feature.fallback_model is None:
+            await self._record(
+                feature=feature,
+                model=feature.model,
+                status=STATUS_ERROR,
+                usage=Usage(),
+                latency_ms=_elapsed_ms(started),
+                user_id=user_id,
+                error=str(first_error),
+                messages=messages,
+                response=None,
+            )
+            await self._commit_usage()
+            raise first_error
+
+        try:
+            response = await self._call(feature, messages, tools, feature.fallback_model)
+        except LLMError as fallback_error:
+            await self._record(
+                feature=feature,
+                model=feature.fallback_model,
+                status=STATUS_ERROR,
+                usage=Usage(),
+                latency_ms=_elapsed_ms(started),
+                user_id=user_id,
+                error=f"{first_error} | fallback: {fallback_error}",
+                messages=messages,
+                response=None,
+            )
+            await self._commit_usage()
+            raise
+        await self._record(
+            feature=feature,
+            model=feature.fallback_model,
+            status=STATUS_FALLBACK,
+            usage=response.usage,
+            latency_ms=_elapsed_ms(started),
+            user_id=user_id,
+            error=str(first_error),
+            messages=messages,
+            response=response,
+        )
+        return response
+
     async def run(
         self,
         *,
@@ -232,50 +296,14 @@ class AiRunner:
         try:
             response = await self._call(feature, messages, tools, feature.model)
         except LLMError as first_error:
-            if feature.fallback_model is None:
-                await self._record(
-                    feature=feature,
-                    model=feature.model,
-                    status=STATUS_ERROR,
-                    usage=Usage(),
-                    latency_ms=_elapsed_ms(started),
-                    user_id=user_id,
-                    error=str(first_error),
-                    messages=messages,
-                    response=None,
-                )
-                await self._commit_usage()
-                raise
-            # Regra 5: UMA tentativa no fallback. Se ela também falhar, o erro que sobe
-            # é o do fallback — é o último estado real da chamada.
-            try:
-                response = await self._call(feature, messages, tools, feature.fallback_model)
-            except LLMError as fallback_error:
-                await self._record(
-                    feature=feature,
-                    model=feature.fallback_model,
-                    status=STATUS_ERROR,
-                    usage=Usage(),
-                    latency_ms=_elapsed_ms(started),
-                    user_id=user_id,
-                    error=f"{first_error} | fallback: {fallback_error}",
-                    messages=messages,
-                    response=None,
-                )
-                await self._commit_usage()
-                raise
-            await self._record(
+            return await self._tentar_fallback(
                 feature=feature,
-                model=feature.fallback_model,
-                status=STATUS_FALLBACK,
-                usage=response.usage,
-                latency_ms=_elapsed_ms(started),
-                user_id=user_id,
-                error=str(first_error),
                 messages=messages,
-                response=response,
+                tools=tools,
+                first_error=first_error,
+                started=started,
+                user_id=user_id,
             )
-            return response
 
         await self._record(
             feature=feature,

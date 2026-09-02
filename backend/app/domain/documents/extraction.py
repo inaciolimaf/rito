@@ -180,6 +180,29 @@ def _validity(nome: str, valor: str) -> dict[str, Any]:
     return {"is_valid": True}
 
 
+def _recusar_se_longo(paginas: int) -> None:
+    """Teto de páginas, cobrado tanto no texto embutido quanto no resultado do OCR."""
+    if paginas > MAX_PAGES:
+        raise ExtractionTooLargeError(
+            f"O documento tem {paginas} páginas e o limite é {MAX_PAGES}. "
+            "Envie um recorte com as páginas que interessam."
+        )
+
+
+def _texto_embutido(content: bytes, content_type: str) -> ExtractedText | None:
+    """Regra 1: OCR só quando NÃO há texto para ler.
+
+    PDF gerado por editor já traz o texto; passar isso por OCR seria pagar segundos de
+    processamento para reconhecer o que já estava escrito. `None` significa «não deu, siga
+    para o OCR» — um PDF escaneado tem página, mas quase nenhum caractere.
+    """
+    if content_type != "application/pdf":
+        return None
+    embutido = read_pdf_text(content)
+    _recusar_se_longo(embutido.page_count)
+    return embutido if len(embutido.text) >= MIN_EMBEDDED_TEXT_CHARS else None
+
+
 class DocumentExtractionRepository(BaseRepository[DocumentExtraction]):
     model = DocumentExtraction
 
@@ -221,24 +244,14 @@ class DocumentExtractionService:
                 f"O arquivo tem {len(content) // (1024 * 1024)} MB e o limite é 20 MB. "
                 "Envie um recorte com as páginas que interessam."
             )
-        if content_type == "application/pdf":
-            embutido = read_pdf_text(content)
-            if embutido.page_count > MAX_PAGES:
-                raise ExtractionTooLargeError(
-                    f"O documento tem {embutido.page_count} páginas e o limite é "
-                    f"{MAX_PAGES}. Envie um recorte com as páginas que interessam."
-                )
-            if len(embutido.text) >= MIN_EMBEDDED_TEXT_CHARS:
-                return embutido
+        embutido = _texto_embutido(content, content_type)
+        if embutido is not None:
+            return embutido
         try:
             resultado = await self.ocr.extract_text(content=content, content_type=content_type)
         except OcrError as exc:
             raise UnreadableDocumentError(str(exc)) from exc
-        if resultado.page_count > MAX_PAGES:
-            raise ExtractionTooLargeError(
-                f"O documento tem {resultado.page_count} páginas e o limite é {MAX_PAGES}. "
-                "Envie um recorte com as páginas que interessam."
-            )
+        _recusar_se_longo(resultado.page_count)
         if not resultado.text.strip():
             raise UnreadableDocumentError(
                 "Não foi possível ler nada neste documento. Confira se a imagem está "

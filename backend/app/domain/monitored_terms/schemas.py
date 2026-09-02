@@ -11,6 +11,20 @@ BACKFILL_MAX_DAYS = 365  # regra 6: máximo 12 meses
 SYNC_RUN_RETENTION_DAYS = 90  # spec 049, regra 9
 
 
+def _oab_validada(bruto: str, digits: str, uf: str | None) -> str:
+    """Regra 1: OAB é só número e exige UF, devolvida em maiúsculas.
+
+    A checagem `bruto != digits` é o que distingue OAB de CPF/CNPJ: nos outros dois a
+    máscara é aceita e removida, aqui um caractere não numérico é erro — porque "12345/SP"
+    digitado no campo do número é UF no lugar errado, não formatação.
+    """
+    if bruto.strip() != digits:
+        raise ValueError("Número de OAB deve conter apenas dígitos.")
+    if not uf:
+        raise ValueError("UF da OAB é obrigatória.")
+    return uf.upper()
+
+
 class MonitoredTermCreateRequest(BaseModel):
     kind: TermKind
     value: str
@@ -27,11 +41,7 @@ class MonitoredTermCreateRequest(BaseModel):
         if not digits:
             raise ValueError("Informe o número do termo.")
         if self.kind is TermKind.OAB:
-            if self.value.strip() != digits:
-                raise ValueError("Número de OAB deve conter apenas dígitos.")
-            if not self.oab_state:
-                raise ValueError("UF da OAB é obrigatória.")
-            self.oab_state = self.oab_state.upper()
+            self.oab_state = _oab_validada(self.value, digits, self.oab_state)
         elif self.kind is TermKind.CPF and not is_valid_cpf(digits):
             raise ValueError("CPF inválido.")
         elif self.kind is TermKind.CNPJ and not is_valid_cnpj(digits):

@@ -10,6 +10,7 @@ concluindo uma tarefa acabaria movendo etapas que ele não pode mover.
 """
 
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -47,22 +48,26 @@ async def run_action(
     automation: Automation,
     actor: User,
 ) -> dict[str, Any]:
+    executar = _ACOES.get(action.action_kind)
+    if executar is None:
+        raise UnknownActionError(f"Ação desconhecida: {action.action_kind}")
     config = dict(action.action_config or {})
-    if action.action_kind == ActionKind.WAIT_CONDITION.value:
-        if not evaluate(config.get("condition"), run.trigger_payload or {}):
-            raise ConditionNotMet
-        return {"waited": False}
-    if action.action_kind == ActionKind.CREATE_TASK.value:
-        return await _create_task(engine, run=run, config=config, actor=actor)
-    if action.action_kind == ActionKind.SET_ASSIGNEE.value:
-        return await _set_assignee(engine, run=run, config=config)
-    if action.action_kind == ActionKind.CHANGE_STAGE.value:
-        return await _change_stage(engine, run=run, config=config, actor=actor)
-    if action.action_kind == ActionKind.NOTIFY.value:
-        return await _notify(engine, run=run, config=config)
-    if action.action_kind == ActionKind.HTTP_REQUEST.value:
-        return await _http_request(engine, run=run, config=config, automation=automation)
-    raise UnknownActionError(f"Ação desconhecida: {action.action_kind}")
+    return await executar(engine, run=run, config=config, automation=automation, actor=actor)
+
+
+async def _wait_condition(
+    engine: "AutomationEngine",
+    *,
+    run: AutomationRun,
+    config: dict[str, Any],
+    automation: Automation,
+    actor: User,
+) -> dict[str, Any]:
+    """Regra do `wait_condition`: condição não satisfeita NÃO é falha — o motor põe a
+    execução em espera e volta depois. Pode esperar meses, e é para isso que existe."""
+    if not evaluate(config.get("condition"), run.trigger_payload or {}):
+        raise ConditionNotMet
+    return {"waited": False}
 
 
 async def _lawsuit_of(engine: "AutomationEngine", run: AutomationRun) -> Lawsuit:
@@ -201,3 +206,36 @@ async def _http_request(
         "status_code": delivery.status_code,
         "delivered": delivery.delivered_at is not None,
     }
+
+
+# Tipo de ação → executor (spec 106). Os handlers têm assinaturas diferentes porque cada
+# um precisa de coisas diferentes; a adaptação fica aqui, visível, em vez de obrigar todos
+# a carregar parâmetros que não usam. Ação nova é uma linha nesta tabela — e como a chave
+# vem do `ActionKind`, um valor novo do enum sem entrada aqui vira `UnknownActionError`
+# em vez de passar batido.
+_ACOES: dict[str, Callable[..., Awaitable[dict[str, Any]]]] = {
+    ActionKind.WAIT_CONDITION.value: _wait_condition,
+    ActionKind.CREATE_TASK.value: (
+        lambda engine, *, run, config, automation, actor: _create_task(
+            engine, run=run, config=config, actor=actor
+        )
+    ),
+    ActionKind.SET_ASSIGNEE.value: (
+        lambda engine, *, run, config, automation, actor: _set_assignee(
+            engine, run=run, config=config
+        )
+    ),
+    ActionKind.CHANGE_STAGE.value: (
+        lambda engine, *, run, config, automation, actor: _change_stage(
+            engine, run=run, config=config, actor=actor
+        )
+    ),
+    ActionKind.NOTIFY.value: (
+        lambda engine, *, run, config, automation, actor: _notify(engine, run=run, config=config)
+    ),
+    ActionKind.HTTP_REQUEST.value: (
+        lambda engine, *, run, config, automation, actor: _http_request(
+            engine, run=run, config=config, automation=automation
+        )
+    ),
+}

@@ -1,13 +1,33 @@
 import uuid
 from collections.abc import Sequence
 from datetime import date
+from typing import Any
 
+from sqlalchemy import Select, func, select, update
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import func, select, update
 
 from app.core.repository import BaseRepository
 from app.domain.posts.models import Post, PostRecurrence, PostUser
 from app.domain.users.models import User
+
+
+def _com_filtro_de_responsavel(
+    stmt: Select[Any], *, assignee_id: uuid.UUID | None, only_open: bool
+) -> Select[Any]:
+    """Filtros que atravessam `post_users`.
+
+    O `JOIN` só entra quando um deles é pedido, e traz o `distinct` junto: uma tarefa com
+    três responsáveis apareceria três vezes sem ele. Filtro que não precisa do join não
+    paga por ele.
+    """
+    if assignee_id is None and not only_open:
+        return stmt
+    stmt = stmt.join(PostUser, PostUser.post_id == Post.id)
+    if assignee_id is not None:
+        stmt = stmt.where(PostUser.user_id == assignee_id)
+    if only_open:
+        stmt = stmt.where(PostUser.completed_at.is_(None))
+    return stmt.distinct()
 
 
 class PostRepository(BaseRepository[Post]):
@@ -54,21 +74,17 @@ class PostRepository(BaseRepository[Post]):
         """
         axis = Post.deadline_date if by_deadline else Post.scheduled_date
         stmt = select(Post).where(axis.is_not(None)).order_by(axis, Post.id).limit(limit)
-        if date_from is not None:
-            stmt = stmt.where(axis >= date_from)
-        if date_to is not None:
-            stmt = stmt.where(axis <= date_to)
-        if lawsuit_id is not None:
-            stmt = stmt.where(Post.lawsuit_id == lawsuit_id)
-        if task_type_id is not None:
-            stmt = stmt.where(Post.task_type_id == task_type_id)
-        if assignee_id is not None or only_open:
-            stmt = stmt.join(PostUser, PostUser.post_id == Post.id)
-            if assignee_id is not None:
-                stmt = stmt.where(PostUser.user_id == assignee_id)
-            if only_open:
-                stmt = stmt.where(PostUser.completed_at.is_(None))
-            stmt = stmt.distinct()
+        # Filtros diretos na própria tarefa — cada um é «se veio, restringe».
+        diretos: tuple[tuple[Any, Any], ...] = (
+            (date_from, axis >= date_from),
+            (date_to, axis <= date_to),
+            (lawsuit_id, Post.lawsuit_id == lawsuit_id),
+            (task_type_id, Post.task_type_id == task_type_id),
+        )
+        for valor, condicao in diretos:
+            if valor is not None:
+                stmt = stmt.where(condicao)
+        stmt = _com_filtro_de_responsavel(stmt, assignee_id=assignee_id, only_open=only_open)
         return (await self.session.scalars(stmt)).all()
 
     async def assignees_for(self, post_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, list[User]]:

@@ -8,6 +8,7 @@ diferentes por causa do transporte.
 
 import json
 import uuid
+from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
 
@@ -246,6 +247,28 @@ async def send_message(
     )
 
 
+async def _eventos_do_turno(
+    service: Any,
+    current_user: User,
+    thread: Any,
+    state: Any,
+    session: AsyncSession,
+) -> AsyncIterator[str]:
+    """Os eventos SSE de um turno do copiloto.
+
+    Perder a sessão no meio (spec 103) não pode virar 503: a resposta já começou e o
+    status HTTP já foi enviado. O turno termina como `error` no próprio fluxo, e o
+    rollback devolve a conexão ao pool — quem abriu a transação está esperando por ele.
+    """
+    try:
+        async for event, data in service.stream_turn(user=current_user, thread=thread, state=state):
+            yield _sse(event, data)
+    except RuntimeSessionLostError:
+        yield _sse("error", {"message": _SESSION_LOST_DETAIL})
+        yield _sse("done", {"thread_id": str(thread.id), "status": "error"})
+        await session.rollback()
+
+
 @router.get("/stream/{thread_id}")
 async def stream_message(
     thread_id: uuid.UUID,
@@ -268,17 +291,5 @@ async def stream_message(
     except ThreadLimitReachedError as exc:
         raise HTTPException(status_code=409, detail=_LIMIT_DETAIL) from exc
 
-    async def generate() -> Any:
-        try:
-            async for event, data in service.stream_turn(
-                user=current_user, thread=thread, state=state
-            ):
-                yield _sse(event, data)
-        except RuntimeSessionLostError:
-            # A resposta já começou: não dá para virar 503. O turno vai como `error` e
-            # a conexão volta ao pool pelo rollback (spec 103).
-            yield _sse("error", {"message": _SESSION_LOST_DETAIL})
-            yield _sse("done", {"thread_id": str(thread.id), "status": "error"})
-            await session.rollback()
-
-    return StreamingResponse(generate(), media_type=SSE_MEDIA_TYPE)
+    corpo = _eventos_do_turno(service, current_user, thread, state, session)
+    return StreamingResponse(corpo, media_type=SSE_MEDIA_TYPE)

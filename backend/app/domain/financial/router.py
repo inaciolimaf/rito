@@ -561,11 +561,21 @@ async def get_bank_account_balance(
     )
 
 
+# Erro de domínio → mensagem do 422. Tabela em vez de cadeia de `isinstance` (spec 106):
+# erro novo é uma linha aqui, e a mensagem fica ao lado do tipo que a produz.
+# `TransactionLawsuitNotFoundError` não entra: é o fallback, e deixá-lo explícito na tabela
+# esconderia que ele também atende qualquer erro inesperado da família.
+_MENSAGEM_POR_ERRO: dict[type[Exception], str] = {
+    FuturePaymentDateError: "Data de pagamento não pode ser no futuro.",
+    TransactionCategoryNotFoundError: "Categoria não encontrada.",
+    TransactionCostCenterNotFoundError: "Centro de custo não encontrado.",
+    TransactionAccountNotFoundError: "Conta não encontrada.",
+    TransactionCustomerNotFoundError: "Cliente não encontrado.",
+}
+
+
 def _handle_transaction_errors(exc: Exception) -> HTTPException:
-    if isinstance(exc, FuturePaymentDateError):
-        return HTTPException(status_code=422, detail="Data de pagamento não pode ser no futuro.")
-    if isinstance(exc, TransactionCategoryNotFoundError):
-        return HTTPException(status_code=422, detail="Categoria não encontrada.")
+    # O mismatch de tipo é o único que compõe a mensagem com dado do próprio erro.
     if isinstance(exc, TransactionCategoryTypeMismatchError):
         return HTTPException(
             status_code=422,
@@ -574,13 +584,8 @@ def _handle_transaction_errors(exc: Exception) -> HTTPException:
                 "incompatível com o lançamento."
             ),
         )
-    if isinstance(exc, TransactionCostCenterNotFoundError):
-        return HTTPException(status_code=422, detail="Centro de custo não encontrado.")
-    if isinstance(exc, TransactionAccountNotFoundError):
-        return HTTPException(status_code=422, detail="Conta não encontrada.")
-    if isinstance(exc, TransactionCustomerNotFoundError):
-        return HTTPException(status_code=422, detail="Cliente não encontrado.")
-    return HTTPException(status_code=422, detail="Processo não encontrado.")
+    mensagem = _MENSAGEM_POR_ERRO.get(type(exc), "Processo não encontrado.")
+    return HTTPException(status_code=422, detail=mensagem)
 
 
 _TRANSACTION_VALIDATION_ERRORS = (

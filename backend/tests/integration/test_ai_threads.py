@@ -106,32 +106,34 @@ def _with_interrupt(_deps: GraphDeps) -> Any:
 _FAILURES: dict[str, int] = {}
 
 
+async def _no_caro(state: GraphState) -> dict[str, Any]:
+    _FAILURES["expensive_runs"] = _FAILURES.get("expensive_runs", 0) + 1
+    return {"scratch": {**(state.get("scratch") or {}), "expensive_done": True}}
+
+
+async def _no_fragil(state: GraphState) -> dict[str, Any]:
+    """Falha na PRIMEIRA execução e só na primeira — é o que torna a retomada
+    observável: se o grafo repetisse o nó caro, o contador denunciaria."""
+    _FAILURES["fragile_runs"] = _FAILURES.get("fragile_runs", 0) + 1
+    if _FAILURES["fragile_runs"] == 1:
+        raise RuntimeError("falha transitória do nó")
+    return {"output": {"ok": True}}
+
+
+def _rota_caro_fragil(state: GraphState) -> str:
+    if state.get("output") is not None:
+        return END
+    return "fragile" if (state.get("scratch") or {}).get("expensive_done") else "expensive"
+
+
 def _fails_once(_deps: GraphDeps) -> Any:
     """caro → frágil. O nó `caro` só pode rodar UMA vez: se a retomada o repetisse, o
     contador denunciaria."""
     graph = StateGraph(GraphState)
-
-    async def expensive(state: GraphState) -> dict[str, Any]:
-        _FAILURES["expensive_runs"] = _FAILURES.get("expensive_runs", 0) + 1
-        return {"scratch": {**(state.get("scratch") or {}), "expensive_done": True}}
-
-    async def fragile(state: GraphState) -> dict[str, Any]:
-        _FAILURES["fragile_runs"] = _FAILURES.get("fragile_runs", 0) + 1
-        if _FAILURES["fragile_runs"] == 1:
-            raise RuntimeError("falha transitória do nó")
-        return {"output": {"ok": True}}
-
-    def route(state: GraphState) -> str:
-        if state.get("output") is not None:
-            return END
-        if (state.get("scratch") or {}).get("expensive_done"):
-            return "fragile"
-        return "expensive"
-
-    graph.add_node("expensive", expensive)
-    graph.add_node("fragile", fragile)
+    graph.add_node("expensive", _no_caro)
+    graph.add_node("fragile", _no_fragil)
     graph.set_conditional_entry_point(
-        route, {"expensive": "expensive", "fragile": "fragile", END: END}
+        _rota_caro_fragil, {"expensive": "expensive", "fragile": "fragile", END: END}
     )
     graph.add_edge("expensive", "fragile")
     graph.add_edge("fragile", END)

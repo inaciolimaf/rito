@@ -1,7 +1,7 @@
 # 106 — Gate de complexidade ciclomática (C901, máx. 6)
 
 **Fase:** 10 · **Tipo:** refatoração · **Orçamento:** +0 s (gate de lint, não de teste)
-**Depende de:** 104 · **Status:** ⬜ pendente
+**Depende de:** 104 · **Status:** ✅ concluída
 
 ---
 
@@ -148,20 +148,161 @@ O gate de verdade desta spec não é um teste: é o `make lint` do CI, que já r
 
 ## 9. Descobertas
 
-Preencher durante a implementação. Em especial: funções que não couberam em 6 sem mudar
-regra, e o que a spec de `PLR0912`/`PLR0915` vai encontrar já resolvido.
+### A contagem estava errada, e para menos
+
+A spec previu 41 funções em três cortes de 11 / +18 / +12. A medição no commit anterior
+(`da213af`) deu **50** acima de 6, distribuídas em 10 / +12 / +28. O erro não foi de
+método: foi de escala — a estimativa saiu de uma amostra, e a faixa 7–8 é justamente a
+mais populosa, porque é onde uma função «normal» chega sem que ninguém ache que ela ficou
+grande.
+
+O degrau 3 encontrou **33** e não 28. A diferença são funções auxiliares criadas nos
+degraus 1 e 2: com o gate em 8, uma extração que devolvia um helper de complexidade 7
+passava. Descer o teto depois cobra esse resto. Vale como aviso para qualquer gate
+descido em degraus: **cada degrau produz trabalho para o seguinte**, e a conta final é
+maior que a soma das medições iniciais. No total, 55 funções foram simplificadas.
+
+### Cada degrau achou um defeito de forma diferente
+
+Não é a mesma refatoração feita três vezes com o número menor. Cada faixa tem uma doença
+característica:
+
+**Degrau 1 (acima de 10) — o preâmbulo e a fiação.** Funções longas onde o começo faz uma
+coisa (montar, validar, preparar) e o resto faz outra, dentro de um laço. `_drive_iter`
+tinha o prelúdio do grafo colado no laço que roda N vezes; extrair `_preparar_execucao`
+não baixou só o número, deixou visível que aquilo acontece **uma vez**.
+
+Quatro casos do mesmo padrão apareceram aqui, e é o mais traiçoeiro: **fábrica cuja
+closure soma ramos**. `build`, `stream_thread`, `_fails_once` e `stream_message` são
+funções curtas que devolvem outra função — e o McCabe cobra da externa a complexidade da
+interna. Ler o código dá a impressão de que o medidor está errado; não está: quem lê
+`build` precisa mesmo entender os dois níveis de uma vez.
+
+**Degrau 2 (acima de 8) — duas regras no mesmo corpo.** A forma dominante é a validação
+que confere coisas de naturezas diferentes em sequência (`_validate_shape` da financeira
+validava transferência E lançamento simples), e a pilha de `except` que é, na verdade, um
+mapa de erro para mensagem. `_handle_transaction_errors` virou `_MENSAGEM_POR_ERRO` mais
+três linhas.
+
+**Degrau 3 (acima de 6) — despacho por valor, em toda parte.** A forma esmagadoramente
+mais comum: `if kind == A: ... elif kind == B: ...`. Vira tabela de despacho no nível do
+módulo, e a tabela documenta o catálogo de um jeito que a cadeia de `elif` nunca fez.
+
+Um detalhe que se repetiu três vezes e merece regra: **o fallback fica fora da tabela**.
+Em `_handle_transaction_errors`, em `conditions.evaluate` e em `create_lawsuit`, o caso
+«nenhum dos anteriores» não é mais um item do dicionário — é o `else` depois do `get`. Pôr
+o padrão dentro da tabela faz o leitor procurar qual chave é o padrão; deixá-lo fora torna
+óbvio que existe um, e qual é.
+
+### O que NÃO cede: complexidade que é fluxo
+
+Quatro funções reapareceram em todos os três degraus — `advance`, `_drive_iter`,
+`stream_turn` e `_ask`. Elas não estavam mal organizadas; a complexidade delas **é o fluxo
+de execução**: um laço de retry com quatro saídas, um driver de grafo, uma conversa com o
+modelo que pode dar três voltas de ferramenta. Baixar o número nelas exigiu tirar uma
+camada por degrau, e é exatamente isso que justifica o corte em três passos em vez de um
+salto de 10 para 6.
+
+O padrão que resolveu as quatro foi o mesmo: **união discriminada como valor de retorno**.
+`_executar_passo` devolve `AutomationRun | None`, `_proximo_update` devolve
+`tuple[...] | GraphResult | None`. Cada `continue` e cada `break` do laço original virou um
+valor de retorno com nome e tipo — e o `isinstance` no chamador é o que faz o `mypy`
+provar que todos os casos foram tratados. Tupla não serviria: obrigaria o valor do caminho
+feliz a ser opcional em todo ponto de uso, e foi o `mypy` quem apontou isso.
+
+Nenhuma precisou de `# noqa: C901`. **O projeto fecha a spec com zero silenciamentos**,
+contra o teto de 3 que a regra 5 autorizava.
+
+### O ganho maior não foi o número — foi a documentação
+
+Extrair uma função obriga a nomeá-la, e nomear obriga a decidir o que ela é. Regras que
+existiam só no fluxo do código e nunca tinham sido escritas passaram a estar escritas:
+
+- **por que o `Retry-After` prevalece sobre o backoff** — e por que erro de transporte,
+  que não tem cabeçalho para ler, cai no mesmo caminho (`_aguardar_retentativa`);
+- **por que não se dorme depois da última tentativa** — seria segurar o chamador por um
+  atraso que ninguém vai usar;
+- **por que o custo só soma quando o provider informa** — `cost_usd` é `None` em modelo
+  gratuito, e somar zero daria a impressão de que a conta foi medida (`_uso_somado`);
+- **por que o erro que sobe é o do fallback, e não o primeiro** — é o último estado real
+  da chamada (`_tentar_fallback`);
+- **por que `_commit_usage` vem antes do `raise`** — a chamada que falhou é a que mais
+  interessa auditar, e a sessão por request faria rollback dela;
+- **por que a resposta do copiloto não é emitida dentro do laço** — ela só existe depois
+  de `_persist_reply`, e emiti-la antes seria dizer que ficou pronta antes de estar
+  gravada (`_eventos_do_progresso`);
+- **por que a espera de `wait_until` não consome o passo** — `next_position` fica onde
+  está, e é isso que faz aquilo ser espera e não pulo (`_marcar_espera`);
+- **por que a análise guarda sugerido E corrigido** — saber que houve correção não diz
+  nada sem saber de quê para quê, e é esse par que mede a qualidade da IA ao longo do
+  tempo (`_correcoes_humanas`);
+- **por que o cancelamento é checado ENTRE nós** — no meio de um nó poderia haver escrita
+  em andamento (`_proximo_update`).
+
+Nenhuma dessas frases é nova como decisão. Todas eram novas como texto.
+
+### Cobrar os testes também foi acerto
+
+Quatro funções de `tests/` estouraram o teto, três delas **meta-testes que guardam
+gates**. Um teste ilegível é um gate em que ninguém confia, e a primeira reação a um gate
+em que ninguém confia é afrouxá-lo. Se `tests/` tivesse ficado de fora do `select`, a
+spec teria melhorado o `app/` e deixado exatamente a parte que vigia o `app/` sem vigia.
+
+### Dois métodos que valeram, e um risco real
+
+**Guardar os blocos antes e comparar byte a byte depois.** Usado em
+`tabular_service.py::fetch`, que tinha 8 blocos quase iguais: salvei cada bloco antes,
+comparei os 8 depois. Sete idênticos; o oitavo diferia só porque o `black` desdobrou um
+ternário. Para extração em massa, é a única forma barata de provar que nada mudou.
+
+**Diff de OpenAPI como prova de contrato.** Para qualquer refatoração que toque
+`router.py`, dumpar o `app.openapi()` antes e depois e comparar. 311 caminhos, 384
+operações, diff zero — verificado quatro vezes ao longo da spec. Um detalhe: o dump de
+referência foi gravado com `ensure_ascii=True` e o novo sem, então o `diff` de texto
+acusou 620 linhas de diferença que eram só escape de acento. Compare o JSON **parseado**,
+não o texto.
+
+**O risco: inserção posicional por script.** Errei três vezes, e duas vezes pelo mesmo
+motivo — inseri o helper **entre o decorador e a função**. Em `extraction_router.py` o
+FastAPI registrou o helper como rota e 11 arquivos de teste falharam na coleção; em
+`publications/analysis.py` um `@dataclass(frozen=True)` passou a decorar uma função e o
+`mypy` acusou 9 erros. Conferir depois não bastou: eu tinha escrito a regra e mesmo assim
+verifiquei só «a linha anterior é a `def`», não «a linha anterior é um decorador».
+
+A regra que resolve é mecânica, não de atenção — o script recua sozinho:
+
+```python
+inicio = idx_def
+while inicio > 0 and linhas[inicio - 1].lstrip().startswith("@"):
+    inicio -= 1
+```
+
+E, quando o helper não depende de ordem de definição, o lugar seguro é o **fim do
+módulo** — sem posição para errar. Rodar `ruff` + `black` + `mypy` e os testes do módulo
+depois de **cada** inserção é o que manteve o custo de cada erro em um minuto.
+
+### Para a spec de `PLR0912`/`PLR0915`
+
+Vai encontrar quase tudo pronto. `PLR0912` (ramos demais) mede quase a mesma coisa que o
+`C901` e deve entrar praticamente verde. `PLR0915` (statements demais) é ortogonal: função
+longa e linear — as que só montam um `dict` grande ou uma lista de colunas — não aparece
+aqui e vai aparecer lá. As duas maiores candidatas que sobreviveram a esta spec inteira
+sem serem tocadas são as que montam payload de resposta, não as que decidem.
 
 ## 10. Definição de pronto
 
-- [ ] `C90` no `select`, `max-complexity = 6` no `pyproject.toml`
-- [ ] `uv run ruff check .` sem nenhum C901 não silenciado
-- [ ] No máximo 3 `# noqa: C901`, cada um com justificativa, travados por meta-teste
-- [ ] Nenhum `per-file-ignores` novo
-- [ ] Nenhum teste anterior editado
-- [ ] `make test` verde e wall-clock dentro do orçamento
-- [ ] `make lint` verde — repositório inteiro
-- [ ] `ROADMAP.md` com a linha da 106 em ✅
-- [ ] Commit `refactor(106): gate de complexidade ciclomática em 6`
+- [x] `C90` no `select`, `max-complexity = 6` no `pyproject.toml`
+- [x] `uv run ruff check .` sem nenhum C901 não silenciado
+- [x] No máximo 3 `# noqa: C901`, cada um com justificativa, travados por meta-teste —
+      **zero no projeto**; o teto e a exigência de justificativa foram provados nos dois
+      sentidos (4 marcadores reprovam; 1 justificado passa)
+- [x] Nenhum `per-file-ignores` novo
+- [x] Nenhum teste anterior editado — nenhuma asserção tocada em nenhum dos três degraus
+- [x] `make test` verde e wall-clock dentro do orçamento
+- [x] `make lint` verde — repositório inteiro
+- [x] `ROADMAP.md` com a linha da 106 em ✅
+- [x] Commit `refactor(106): gate de complexidade ciclomática em 6` — em três, um por
+      degrau (`7e982ac` teto 10, `3aaac51` teto 8, este teto 6)
 
 ---
 
@@ -171,11 +312,15 @@ regra, e o que a spec de `PLR0912`/`PLR0915` vai encontrar já resolvido.
 se não fechar, **não marque como concluída**. O corte natural é por faixa de complexidade,
 porque a faixa alta é onde mora o ganho e onde o risco de mudar comportamento é maior:
 
-| Corte | Alvo | Funções |
-|---|---|---|
-| 106 | `max-complexity = 10`, resolve a cauda | 11 |
-| 106b | `max-complexity = 8` | +18 |
-| 106c | `max-complexity = 6` | +12 |
+| Corte | Alvo | Previsto | Medido |
+|---|---|---|---|
+| 106 | `max-complexity = 10`, resolve a cauda | 11 | 10 |
+| 106b | `max-complexity = 8` | +18 | +12 |
+| 106c | `max-complexity = 6` | +12 | +33 |
+
+(O `+33` do último degrau contra os 28 que sobravam da medição inicial é o resto que os
+dois degraus anteriores produziram: com o gate em 8, um helper extraído com complexidade 7
+passava. Ver §9.)
 
 Cada corte é um `pyproject.toml` verde no fim. Descer o teto em três passos entrega gate
 funcionando em todos eles — o que é melhor que uma spec grande que não fecha e deixa o

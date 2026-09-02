@@ -60,6 +60,26 @@ def _has_active_lawsuit_clause(active: bool) -> ColumnElement[bool]:
     return exists if active else ~exists
 
 
+def _filtros_simples(
+    *,
+    person_type: PersonType | None,
+    state: str | None,
+    city: str | None,
+    origin_id: uuid.UUID | None,
+) -> list[ColumnElement[bool]]:
+    """Igualdade direta. Estado e cidade comparam em minúsculas dos DOIS lados — o
+    usuário digita "sp" ou "SP" e as duas coisas têm que achar o mesmo contato."""
+    condicoes: list[ColumnElement[bool]] = []
+    if person_type is not None:
+        condicoes.append(Customer.type == person_type)
+    for valor, coluna in ((state, Customer.state), (city, Customer.city)):
+        if valor:
+            condicoes.append(func.lower(coluna) == valor.lower())
+    if origin_id is not None:
+        condicoes.append(Customer.origin_id == origin_id)
+    return condicoes
+
+
 def _busca_por_nome_ou_documento(query: str) -> ColumnElement[bool]:
     """Regra 1: nome é busca parcial sem acento; CPF/CNPJ é exato.
 
@@ -122,15 +142,9 @@ class CustomerRepository(BaseRepository[Customer]):
 
         if query:
             filters.append(_busca_por_nome_ou_documento(query))
-        if person_type is not None:
-            filters.append(Customer.type == person_type)
-        # Estado e cidade comparam em minúsculas dos dois lados — o usuário digita "sp"
-        # ou "SP" e as duas coisas têm que achar o mesmo contato.
-        for valor, coluna in ((state, Customer.state), (city, Customer.city)):
-            if valor:
-                filters.append(func.lower(coluna) == valor.lower())
-        if origin_id is not None:
-            filters.append(Customer.origin_id == origin_id)
+        filters += _filtros_simples(
+            person_type=person_type, state=state, city=city, origin_id=origin_id
+        )
         filters += datetime_range(Customer.created_at, created_from, created_to)
         if has_active_lawsuit is not None:
             # Spec 101, regra 5: "processo ativo" é ser parte (`lawsuit_parties`) de ao

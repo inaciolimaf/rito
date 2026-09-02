@@ -6,6 +6,7 @@ campo de configuração é execução de código com outro nome, e quem escreve 
 um advogado, não um programador.
 """
 
+from collections.abc import Callable
 from typing import Any
 
 OPERATORS = ("eq", "ne", "gt", "lt", "gte", "lte", "in", "exists", "empty")
@@ -36,17 +37,10 @@ def evaluate(condition: dict[str, Any] | None, subject: dict[str, Any]) -> bool:
     esperado = condition.get("value")
     atual = _lookup(subject, campo)
 
-    if operador == "exists":
-        return atual is not None
-    if operador == "empty":
-        return atual is None or atual == "" or atual == []
-    if operador == "in":
-        return atual in esperado if isinstance(esperado, list) else False
-    if operador == "eq":
-        return _same(atual, esperado)
-    if operador == "ne":
-        return not _same(atual, esperado)
-    return _compare(operador, atual, esperado)
+    operacao = _OPERADORES.get(operador)
+    # Operador desconhecido cai em `_compare`, que trata os de ordem (gt, lt, gte, lte)
+    # e devolve False para o que não reconhece — condição inválida não roda a ação.
+    return operacao(atual, esperado) if operacao else _compare(operador, atual, esperado)
 
 
 def _lookup(subject: dict[str, Any], campo: str) -> Any:
@@ -84,3 +78,15 @@ def _compare(operador: str, atual: Any, esperado: Any) -> bool:
     if operador == "gte":
         return bool(esquerda >= direita)
     return bool(esquerda <= direita)
+
+
+# Operadores de presença e igualdade (spec 106). Os de ORDEM ficam em `_compare`, porque
+# precisam converter os dois lados antes de comparar — misturá-los aqui obrigaria toda
+# entrada da tabela a carregar essa conversão.
+_OPERADORES: dict[str, Callable[[Any, Any], bool]] = {
+    "exists": lambda atual, _esperado: atual is not None,
+    "empty": lambda atual, _esperado: atual is None or atual == "" or atual == [],
+    "in": lambda atual, esperado: atual in esperado if isinstance(esperado, list) else False,
+    "eq": _same,
+    "ne": lambda atual, esperado: not _same(atual, esperado),
+}

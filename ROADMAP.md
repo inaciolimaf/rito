@@ -481,8 +481,8 @@ O que o `CLAUDE.md` §3 e a spec 009 declaravam e não existia no código: o `ri
 **Aceite:** wall-clock ≤ 200 s; duas execuções seguidas não acumulam tenants; `test_isolation_matrix.py` passa sem edição. **t:** −11 s no backend. **Deps:** 003, 009, 032
 Backend de 92–97 s para **82 s**; tenants acumulados de 1.126 para **0**; −65 linhas de `TRUNCATE`/preservação de catálogo no `run-tests.sh`. O wall-clock não mudou (124 s) porque o backend deixou de ser o poste mais alto — agora são os 124 s do Vitest, e ganhar mais tempo é trabalho de front-end. `@pytest.mark.commits` ficou em 19 arquivos/69 testes (a spec previa 4), com teto travado por meta-teste: quem observa visão materializada, plano de execução, cache ou o próprio commit precisa de commit.
 
-### ⬜ 106 — Gate de complexidade ciclomática (C901, máx. 6)
-Liga `C90` com `max-complexity = 6` e resolve as 41 funções acima do teto — de `_build_conditions` (23) para baixo.
+### ✅ 106 — Gate de complexidade ciclomática (C901, máx. 6)
+Liga `C90` com `max-complexity = 6` e resolve as funções acima do teto — de `_build_conditions` (23) para baixo. Eram 50, não 41; descidas em três degraus (10 → 8 → 6), 55 funções simplificadas ao todo, **zero `# noqa: C901`** contra o teto de 3.
 **Aceite:** `ruff check .` sem C901; no máximo 3 `noqa` justificados, travados por meta-teste. **t:** 0 s. **Deps:** 104
 
 ### ✅ 107 — Higiene de estilo: RET, PTH, ERA, TID, ICN

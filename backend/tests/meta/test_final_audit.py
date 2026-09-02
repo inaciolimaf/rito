@@ -175,20 +175,29 @@ def test_toda_rota_declara_permissao() -> None:
     ofensores: list[str] = []
     for caminho in arquivos(APP, ".py"):
         relativo = str(caminho.relative_to(RAIZ / "backend"))
-        if not relativo.endswith("router.py") or relativo in PUBLICAS:
-            continue
-        arvore = ast.parse(caminho.read_text())
-        for no in ast.walk(arvore):
-            if not isinstance(no, ast.AsyncFunctionDef | ast.FunctionDef):
-                continue
-            decoradores = " ".join(ast.unparse(d) for d in no.decorator_list)
-            if not re.search(r"router\.(get|post|put|patch|delete)", decoradores):
-                continue
-            assinatura = ast.unparse(no.args)
-            if not re.search(r"require_role|require_financial|require_scope", assinatura):
-                ofensores.append(f"{relativo}:{no.lineno} {no.name}")
+        if relativo.endswith("router.py") and relativo not in PUBLICAS:
+            ofensores += _rotas_sem_permissao(caminho, relativo)
 
     assert ofensores == [], "rota sem permissão declarada:\n  " + "\n  ".join(ofensores)
+
+
+def _rotas_sem_permissao(caminho: Path, relativo: str) -> list[str]:
+    """As rotas de UM arquivo que não declaram permissão na assinatura.
+
+    A permissão é procurada nos ARGUMENTOS, não no corpo: `Depends(require_role(...))` é
+    contrato da rota e aparece no OpenAPI; uma checagem escondida no meio do corpo não
+    aparece, e é justamente essa a que passa despercebida numa revisão.
+    """
+    ofensores: list[str] = []
+    for no in ast.walk(ast.parse(caminho.read_text())):
+        if not isinstance(no, ast.AsyncFunctionDef | ast.FunctionDef):
+            continue
+        decoradores = " ".join(ast.unparse(d) for d in no.decorator_list)
+        if not re.search(r"router\.(get|post|put|patch|delete)", decoradores):
+            continue
+        if not re.search(r"require_role|require_financial|require_scope", ast.unparse(no.args)):
+            ofensores.append(f"{relativo}:{no.lineno} {no.name}")
+    return ofensores
 
 
 @pytest.mark.parametrize(
@@ -459,3 +468,63 @@ def test_nenhum_date_today_em_app() -> None:
         "resolva com `Clock(await AccountRepository(session).timezone())` em worker.\n"
         + "\n".join(ofensores)
     )
+
+
+# Spec 106 §7, regra 5. Não é zero: há função cuja complexidade é o FLUXO dela — um laço
+# de retry, um driver de grafo —, e quebrá-la em pedaços que só existem para baixar o
+# número piora o código em vez de melhorar. Três é pouco o bastante para que cada uma
+# precise ser defendida, e o teto é o que impede o `# noqa` de virar a saída padrão.
+TETO_DE_NOQA_C901 = 3
+
+
+def _noqa_c901(raiz: Path) -> list[tuple[Path, int, list[str]]]:
+    """Onde `C901` está silenciado, com as linhas de contexto de cada ocorrência.
+
+    Este arquivo fica de fora da varredura porque ele PRECISA escrever o marcador para
+    falar dele: o exemplo no comentário do regex e as duas mensagens de falha abaixo
+    casariam com o próprio padrão, e o teste acusaria três silenciamentos que não existem.
+    É a exceção clássica do linter que se lê — e o preço é uma cegueira estreita: um
+    `# noqa: C901` de verdade AQUI não seria contado. Aceitável porque este arquivo é
+    varredura de AST e regex, sem laço complexo, e porque a alternativa (adivinhar se o
+    marcador está em código ou em texto) erraria nos dois sentidos.
+    """
+    achados: list[tuple[Path, int, list[str]]] = []
+    for caminho in arquivos(raiz, ".py"):
+        if caminho == Path(__file__).resolve():
+            continue
+        linhas = caminho.read_text().splitlines()
+        for i, linha in enumerate(linhas):
+            # `# noqa: C901` e `# noqa: B008, C901` — mas não `C9010`, que não existe.
+            if re.search(r"#\s*noqa:[^#]*\bC901\b", linha):
+                achados.append((caminho, i, linhas))
+    return achados
+
+
+def test_noqa_c901_dentro_do_teto() -> None:
+    """§7 regra 5: silenciar a complexidade é exceção contada, não válvula de escape.
+
+    O gate real é o `max-complexity = 6` do `pyproject.toml`; o `# noqa` é o furo dele. Um
+    teto numérico é o que separa «esta função é irredutível» de «não quis mexer»: sem ele,
+    a primeira função difícil vira precedente e o gate morre por mil silenciamentos.
+    """
+    achados = _noqa_c901(APP) + _noqa_c901(BACKEND / "tests")
+    locais = [f"{c.relative_to(RAIZ)}:{i + 1}" for c, i, _ in achados]
+    assert len(achados) <= TETO_DE_NOQA_C901, (
+        f"{len(achados)} `# noqa: C901` no projeto, teto é {TETO_DE_NOQA_C901}. "
+        "Simplifique a função ou abra spec para discutir o teto:\n  " + "\n  ".join(locais)
+    )
+
+
+def test_todo_noqa_c901_tem_justificativa() -> None:
+    """E cada um dos três precisa dizer POR QUE aquela função é irredutível.
+
+    Mesmo critério do `# type: ignore`: não dá para verificar automaticamente se a
+    explicação é boa, dá para exigir que exista. «Este laço de retry tem quatro saídas e
+    quebrá-lo esconderia a ordem delas» é uma defesa; o silêncio não é.
+    """
+    ofensores = [
+        f"{caminho.relative_to(RAIZ)}:{i + 1}"
+        for caminho, i, linhas in _noqa_c901(APP) + _noqa_c901(BACKEND / "tests")
+        if not tem_justificativa(linhas, i)
+    ]
+    assert ofensores == [], "`# noqa: C901` sem justificativa:\n  " + "\n  ".join(ofensores)

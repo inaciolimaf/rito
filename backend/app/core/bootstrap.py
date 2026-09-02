@@ -54,47 +54,62 @@ class Problema:
         return f"  {self.variavel.upper()}: {self.motivo}"
 
 
+def _faltando_em_producao(settings: Settings) -> list[Problema]:
+    return [
+        Problema(variavel, f"não definida — {motivo}")
+        for variavel, motivo in REQUIRED_IN_PRODUCTION.items()
+        if not getattr(settings, variavel, None)
+    ]
+
+
+def _problemas_do_segredo(settings: Settings) -> list[Problema]:
+    """O segredo de exemplo é PÚBLICO — está no `.env.example` versionado. Subir com ele
+    é o mesmo que não ter segredo, e por isso é problema distinto de «curto demais»."""
+    if settings.secret_key == EXAMPLE_SECRET_KEY:
+        return [
+            Problema(
+                "secret_key",
+                "está com o valor de exemplo do .env.example, que é público. "
+                "Gere um segredo novo (`openssl rand -hex 32`).",
+            )
+        ]
+    if len(settings.secret_key) < MIN_SECRET_KEY_LENGTH:
+        return [
+            Problema(
+                "secret_key",
+                f"tem menos de {MIN_SECRET_KEY_LENGTH} caracteres — "
+                "curta demais para assinar token de sessão.",
+            )
+        ]
+    return []
+
+
+def _problemas_de_cors(settings: Settings) -> list[Problema]:
+    if "localhost" not in settings.cors_allowed_origins:
+        return []
+    return [
+        Problema(
+            "cors_allowed_origins",
+            "aponta para localhost em produção — o navegador de ninguém "
+            "vai chegar lá, e a origem real ficaria de fora.",
+        )
+    ]
+
+
 def validate(settings: Settings) -> list[Problema]:
     """Lista TODOS os problemas de configuração. Vazia = pode subir.
 
     Devolve em vez de levantar para o teste poder afirmar sobre o conjunto — e para a
-    mensagem de erro sair de uma vez só.
+    mensagem de erro sair de uma vez só. Fora de produção não há o que checar: o
+    desenvolvimento roda com o `.env.example` de propósito.
     """
-    producao = settings.app_env == "production"
-    problemas: list[Problema] = []
-
-    if producao:
-        for variavel, motivo in REQUIRED_IN_PRODUCTION.items():
-            if not getattr(settings, variavel, None):
-                problemas.append(Problema(variavel, f"não definida — {motivo}"))
-
-        if settings.secret_key == EXAMPLE_SECRET_KEY:
-            problemas.append(
-                Problema(
-                    "secret_key",
-                    "está com o valor de exemplo do .env.example, que é público. "
-                    "Gere um segredo novo (`openssl rand -hex 32`).",
-                )
-            )
-        elif len(settings.secret_key) < MIN_SECRET_KEY_LENGTH:
-            problemas.append(
-                Problema(
-                    "secret_key",
-                    f"tem menos de {MIN_SECRET_KEY_LENGTH} caracteres — "
-                    "curta demais para assinar token de sessão.",
-                )
-            )
-
-        if "localhost" in settings.cors_allowed_origins:
-            problemas.append(
-                Problema(
-                    "cors_allowed_origins",
-                    "aponta para localhost em produção — o navegador de ninguém "
-                    "vai chegar lá, e a origem real ficaria de fora.",
-                )
-            )
-
-    return problemas
+    if settings.app_env != "production":
+        return []
+    return [
+        *_faltando_em_producao(settings),
+        *_problemas_do_segredo(settings),
+        *_problemas_de_cors(settings),
+    ]
 
 
 def ensure_valid(settings: Settings) -> None:

@@ -56,38 +56,54 @@ class HttpxWebhookSender:
     def __init__(self, *, timeout_s: float = TIMEOUT_SECONDS) -> None:
         self._timeout = timeout_s
 
+    async def _postar_seguindo_redirects(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        url: str,
+        body: bytes,
+        headers: dict[str, str],
+        allow_local: bool,
+    ) -> httpx.Response | None:
+        """Posta e segue redirect À MÃO, validando cada salto contra o SSRF.
+
+        É por isso que `follow_redirects` fica desligado: o httpx seguiria sozinho, e um
+        destino que responde 302 para `169.254.169.254` levaria o payload assinado direto
+        para o serviço de metadados da nuvem. `None` significa que os saltos acabaram sem
+        resposta final.
+        """
+        destino = url
+        for _salto in range(MAX_REDIRECTS + 1):
+            response = await client.post(destino, content=body, headers=headers)
+            localizacao = response.headers.get("location")
+            # Sem `Location`, o 3xx não tem para onde ir — vale como resposta final.
+            if response.status_code not in (301, 302, 303, 307, 308) or not localizacao:
+                return response
+            destino = validate_webhook_url(urljoin(destino, localizacao), allow_local=allow_local)
+        return None
+
     async def send(
         self, *, url: str, body: bytes, headers: dict[str, str], allow_local: bool
     ) -> SendResult:
         comeco = time.perf_counter()
-        destino = url
         try:
             # `follow_redirects=False` de propósito: o redirect é seguido à mão, para
             # que cada salto seja validado.
             async with httpx.AsyncClient(timeout=self._timeout, follow_redirects=False) as client:
-                for _salto in range(MAX_REDIRECTS + 1):
-                    response = await client.post(destino, content=body, headers=headers)
-                    if response.status_code not in (301, 302, 303, 307, 308):
-                        return SendResult(
-                            status_code=response.status_code,
-                            body=response.text,
-                            duration_ms=_elapsed(comeco),
-                        )
-                    localizacao = response.headers.get("location")
-                    if not localizacao:
-                        return SendResult(
-                            status_code=response.status_code,
-                            body=response.text,
-                            duration_ms=_elapsed(comeco),
-                        )
-                    destino = validate_webhook_url(
-                        urljoin(destino, localizacao), allow_local=allow_local
-                    )
+                resposta = await self._postar_seguindo_redirects(
+                    client, url=url, body=body, headers=headers, allow_local=allow_local
+                )
+            if resposta is None:
+                return SendResult(
+                    status_code=None,
+                    body="",
+                    duration_ms=_elapsed(comeco),
+                    error="Redirecionamentos demais.",
+                )
             return SendResult(
-                status_code=None,
-                body="",
+                status_code=resposta.status_code,
+                body=resposta.text,
                 duration_ms=_elapsed(comeco),
-                error="Redirecionamentos demais.",
             )
         except UnsafeUrlError as exc:
             return SendResult(

@@ -96,6 +96,37 @@ def _to_response(extraction: DocumentExtraction, *, duplicate: Any = None) -> Ex
     )
 
 
+async def _resolver_entrada(
+    file: UploadFile | None,
+    attachment_id: uuid.UUID | None,
+    *,
+    session: AsyncSession,
+    storage: FileStorage,
+    tenant_id: uuid.UUID,
+) -> tuple[bytes, str, str, str, uuid.UUID | None]:
+    """As duas origens do documento a extrair: upload novo ou anexo já existente.
+
+    Devolve `(conteúdo, nome, tipo, chave, id do anexo de origem)`. O `origem` é `None`
+    no upload porque não há anexo a que se ligar — é a extração que passa a existir
+    primeiro, e ligá-la a um anexo inventado seria mentir na auditoria.
+    """
+    if file is not None:
+        content = await file.read()
+        content_type = file.content_type or "application/octet-stream"
+        storage_key = f"{tenant_id}/extractions/{uuid.uuid4()}"
+        await storage.upload(key=storage_key, content=content, content_type=content_type)
+        return content, file.filename or "documento", content_type, storage_key, None
+    if attachment_id is None:
+        raise HTTPException(
+            status_code=422, detail="Envie um arquivo ou o id de um anexo existente."
+        )
+    anexo = await AttachmentRepository(session).get_by_id(attachment_id)
+    if anexo is None:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado.")
+    content = await storage.download(key=anexo.storage_key)
+    return content, anexo.filename, anexo.content_type, anexo.storage_key, anexo.id
+
+
 @router.post("/extract", status_code=201)
 async def extract_document(
     file: UploadFile | None = None,
@@ -108,25 +139,10 @@ async def extract_document(
     ocr: OcrProvider = Depends(get_ocr_provider),
 ) -> ExtractionResponse:
     service = _service(session, current_user, provider, storage, ocr)
-    if file is not None:
-        content = await file.read()
-        filename = file.filename or "documento"
-        content_type = file.content_type or "application/octet-stream"
-        storage_key = f"{current_user.tenant_id}/extractions/{uuid.uuid4()}"
-        await storage.upload(key=storage_key, content=content, content_type=content_type)
-        origem = None
-    elif attachment_id is not None:
-        anexo = await AttachmentRepository(session).get_by_id(attachment_id)
-        if anexo is None:
-            raise HTTPException(status_code=404, detail="Anexo não encontrado.")
-        content = await storage.download(key=anexo.storage_key)
-        filename, content_type = anexo.filename, anexo.content_type
-        storage_key = anexo.storage_key
-        origem = anexo.id
-    else:
-        raise HTTPException(
-            status_code=422, detail="Envie um arquivo ou o id de um anexo existente."
-        )
+    entrada = await _resolver_entrada(
+        file, attachment_id, session=session, storage=storage, tenant_id=current_user.tenant_id
+    )
+    content, filename, content_type, storage_key, origem = entrada
 
     try:
         extraction = await service.extract(

@@ -295,25 +295,42 @@ def _build_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
         conditions.append(Lawsuit.process_number.ilike(f"%{digits}%"))
 
     conditions += _condicoes_de_parte(filters)
-    conditions += [
+    conditions += _condicoes_declarativas(filters)
+    conditions += _condicoes_de_situacao(filters)
+    return conditions
+
+
+def _condicoes_declarativas(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
+    """As três tabelas: `IN`, `ILIKE` e intervalo. Cada uma só produz condição para o
+    filtro que veio preenchido."""
+    condicoes: list[ColumnElement[bool]] = [
         coluna.in_(valores)
         for atributo, coluna in _FILTROS_IN
         if (valores := getattr(filters, atributo))
     ]
-    conditions += [
+    condicoes += [
         coluna.ilike(f"%{valor}%")
         for atributo, coluna in _FILTROS_ILIKE
         if (valor := getattr(filters, atributo))
     ]
     for coluna, inicio, fim, helper in _FILTROS_INTERVALO:
-        conditions += helper(coluna, getattr(filters, inicio), getattr(filters, fim))
+        condicoes += helper(coluna, getattr(filters, inicio), getattr(filters, fim))
+    return condicoes
 
+
+def _condicoes_de_situacao(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
+    """Arquivado e estagnado: os dois são tri-estado — sim, não, ou tanto faz.
+
+    `None` (e, na estagnação, qualquer valor fora do par) significa «não filtre», que é
+    diferente de «filtre por falso». Um `if` que tratasse ausência como `False` esconderia
+    metade dos processos da listagem sem ninguém pedir.
+    """
+    condicoes: list[ColumnElement[bool]] = []
     if filters.archived is not None:
-        conditions.append(Lawsuit.is_archived.is_(filters.archived))
+        condicoes.append(Lawsuit.is_archived.is_(filters.archived))
     if filters.display_stagnant in ("stagnant", "active"):
-        conditions.append(Lawsuit.is_stagnant.is_(filters.display_stagnant == "stagnant"))
-
-    return conditions
+        condicoes.append(Lawsuit.is_stagnant.is_(filters.display_stagnant == "stagnant"))
+    return condicoes
 
 
 class LawsuitListingRepository:

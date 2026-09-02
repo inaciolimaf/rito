@@ -17,6 +17,7 @@ Três invariantes que valem mesmo quando tudo dá errado:
 
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -32,7 +33,7 @@ from app.domain.automations.models import (
     AutomationRun,
 )
 from app.domain.users.models import User
-from app.integrations.openrouter.types import LLMError, Message, ToolSpec
+from app.integrations.openrouter.types import LLMError, Message, ToolCall, ToolSpec, Usage
 
 FEATURE_KEY = "automation_decision"
 
@@ -66,33 +67,45 @@ class DecisionOutcome:
     context_summary: str | None = None
 
 
-def validate_decision_config(config: dict[str, Any], branches: Any) -> None:
-    """O que precisa estar certo ANTES de salvar — erro de configuração tem de aparecer
-    para quem está configurando, não numa execução silenciosa seis semanas depois."""
-    pergunta = str(config.get("question") or "").strip()
-    if len(pergunta) < 10:
+def _validar_pergunta_e_ramos(config: dict[str, Any]) -> list[str]:
+    """Pergunta, ramos e o padrão — devolve os nomes dos ramos declarados.
+
+    O ramo padrão é o que sustenta a regra 5: sem um caminho de fallback válido, a
+    automação pararia na primeira falha de IA em vez de seguir por um caminho conhecido.
+    """
+    if len(str(config.get("question") or "").strip()) < 10:
         raise DecisionConfigError(
             "A pergunta da decisão precisa ser uma frase — é ela que o modelo responde."
         )
     nomes = list(config.get("branches") or [])
     if len(nomes) < 2:
         raise DecisionConfigError("Uma decisão precisa de pelo menos dois ramos.")
-    padrao = str(config.get("default_branch") or "")
-    if padrao not in nomes:
-        # Sem padrão válido não existe caminho de fallback, e a regra 5 deixa de ter como
-        # ser cumprida: a automação pararia na primeira falha de IA.
+    if str(config.get("default_branch") or "") not in nomes:
         raise DecisionConfigError(
             "O ramo padrão precisa ser um dos ramos declarados — é para onde a automação "
             "vai quando a IA não puder decidir."
         )
-    confianca = config.get("min_confidence", 0.7)
-    if not isinstance(confianca, int | float) or not 0 <= float(confianca) <= 1:
-        raise DecisionConfigError("A confiança mínima precisa estar entre 0 e 1.")
+    return nomes
+
+
+def _validar_mapa_de_ramos(branches: Any, nomes: list[str]) -> None:
+    """O mapa nome → posições não pode citar ramo que a decisão não declarou: seria um
+    trecho da automação que nenhuma resposta do modelo alcança."""
     if branches is not None and not isinstance(branches, dict):
         raise DecisionConfigError("Os ramos precisam mapear nome para lista de posições.")
     for nome in branches or {}:
         if nome not in nomes:
             raise DecisionConfigError(f"O ramo '{nome}' não está declarado na decisão.")
+
+
+def validate_decision_config(config: dict[str, Any], branches: Any) -> None:
+    """O que precisa estar certo ANTES de salvar — erro de configuração tem de aparecer
+    para quem está configurando, não numa execução silenciosa seis semanas depois."""
+    nomes = _validar_pergunta_e_ramos(config)
+    confianca = config.get("min_confidence", 0.7)
+    if not isinstance(confianca, int | float) or not 0 <= float(confianca) <= 1:
+        raise DecisionConfigError("A confiança mínima precisa estar entre 0 e 1.")
+    _validar_mapa_de_ramos(branches, nomes)
 
 
 def branch_owner_map(actions: list[AutomationAction]) -> dict[int, tuple[int, str]]:
@@ -224,6 +237,34 @@ class DecisionRunner:
             return _fallback(padrao, "Nenhuma IA configurada neste servidor.", None)
         return None
 
+    async def _rodar_ferramentas(
+        self,
+        tool_runner: ToolRunner,
+        historico: list[Message],
+        chamadas: Sequence[ToolCall],
+    ) -> tuple[list[Message], list[str]]:
+        """Executa as ferramentas que o modelo pediu e devolve o histórico com as saídas.
+
+        Devolve também os nomes usados em vez de mexer na lista de quem chamou: é ela que
+        vira `context_summary`, e o que ela guarda — «o que a IA consultou para decidir» —
+        é parte da auditoria da regra 4, não um detalhe de implementação deste laço.
+        """
+        tool_runner.begin_step()
+        novo = list(historico)
+        usados: list[str] = []
+        for chamada in chamadas:
+            usados.append(chamada.name)
+            saida = await tool_runner.call(chamada.name, chamada.arguments)
+            novo.append(
+                Message(
+                    role="tool",
+                    content=json.dumps(saida, ensure_ascii=False, default=str),
+                    tool_call_id=chamada.id,
+                    name=chamada.name,
+                )
+            )
+        return novo, usados
+
     async def _ask(
         self,
         *,
@@ -265,9 +306,7 @@ class DecisionRunner:
                     user_id=actor.id,
                 )
                 modelo = resposta.model
-                total_tokens += resposta.usage.prompt_tokens + resposta.usage.completion_tokens
-                if resposta.usage.cost_usd is not None:
-                    custo += Decimal(str(resposta.usage.cost_usd))
+                total_tokens, custo = _uso_somado(resposta.usage, total_tokens, custo)
                 if not resposta.tool_calls:
                     ramo, confianca, raciocinio = parse_decision(resposta.content, branches=nomes)
                     if not raciocinio:
@@ -298,19 +337,10 @@ class DecisionRunner:
                         cost_usd=custo,
                         context_summary=", ".join(usados) or None,
                     )
-                tool_runner.begin_step()
-                for chamada in resposta.tool_calls:
-                    usados.append(chamada.name)
-                    saida = await tool_runner.call(chamada.name, chamada.arguments)
-                    historico = [
-                        *historico,
-                        Message(
-                            role="tool",
-                            content=json.dumps(saida, ensure_ascii=False, default=str),
-                            tool_call_id=chamada.id,
-                            name=chamada.name,
-                        ),
-                    ]
+                historico, chamadas = await self._rodar_ferramentas(
+                    tool_runner, historico, resposta.tool_calls
+                )
+                usados.extend(chamadas)
             await self._charge(automation, custo)
             return _fallback(
                 padrao,
@@ -436,6 +466,19 @@ class DecisionRunner:
         self.session.add(decisao)
         await self.session.flush()
         return decisao
+
+
+def _uso_somado(usage: Usage, tokens: int, custo: Decimal) -> tuple[int, Decimal]:
+    """O consumo acumulado depois de mais uma volta.
+
+    Soma tokens sempre e custo só quando o provider informa: `cost_usd` vem `None` em
+    modelo gratuito e em provider que não devolve preço, e somar zero nesses casos daria
+    a impressão de que a conta foi medida quando não foi.
+    """
+    tokens += usage.prompt_tokens + usage.completion_tokens
+    if usage.cost_usd is not None:
+        custo += Decimal(str(usage.cost_usd))
+    return tokens, custo
 
 
 def _fallback(padrao: str, motivo: str, anterior: DecisionOutcome | None) -> DecisionOutcome:

@@ -3,12 +3,14 @@ import uuid
 from dataclasses import dataclass
 from datetime import date, time, timedelta
 from enum import StrEnum
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.account.models import DEFAULT_TIMEZONE
 from app.domain.account.repository import AccountRepository
+from app.domain.posts.models import Post
 from app.domain.schedule.ical import ICalEvent
 from app.domain.schedule.repository import ScheduleRepository
 
@@ -75,6 +77,25 @@ async def resolve_feed_token(
     return (row.tenant_id, row.user_id)
 
 
+def _oculto_para(post: Post, viewer: uuid.UUID, assignees: list[Any]) -> bool:
+    """Regra 8 da spec 033, aplicada à agenda: tarefa privada de terceiro não vaza.
+
+    Some da visão de quem não é criador nem responsável — inclusive do gestor. Privacidade
+    de tarefa não tem exceção por perfil; se tivesse, não seria privacidade.
+    """
+    if not post.is_private or post.created_by == viewer:
+        return False
+    return all(viewer != uid for uid, _name, _done in assignees)
+
+
+def _status_do_evento(*, completed: bool, axis: date, today: date) -> ScheduleStatus:
+    """Regra 3 — as cores da agenda. Concluída ganha de atrasada: uma tarefa entregue com
+    atraso já foi entregue, e mostrá-la em vermelho seria cobrar o que está feito."""
+    if completed:
+        return ScheduleStatus.CONCLUIDA
+    return ScheduleStatus.ATRASADA if axis < today else ScheduleStatus.PENDENTE
+
+
 class ScheduleService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -106,25 +127,14 @@ class ScheduleService:
         events: list[ScheduleEvent] = []
         for post, task_type_name in rows:
             assignees = lines.get(post.id, [])
-            # Regra 8 da spec 033, aplicada à agenda: tarefa privada de terceiro não
-            # vaza — some da visão de quem não é criador nem responsável.
-            if (
-                post.is_private
-                and post.created_by != viewer
-                and all(viewer != uid for uid, _name, _done in assignees)
-            ):
+            if _oculto_para(post, viewer, assignees):
                 continue
             completed = bool(assignees) and all(done for _uid, _name, done in assignees)
             if completed and not show_completed:
                 continue
             axis = post.scheduled_date if date_field == DateField.SCHEDULED else post.deadline_date
             assert axis is not None  # o repositório filtra eixo NULL
-            if completed:
-                status = ScheduleStatus.CONCLUIDA
-            elif axis < today:
-                status = ScheduleStatus.ATRASADA
-            else:
-                status = ScheduleStatus.PENDENTE
+            status = _status_do_evento(completed=completed, axis=axis, today=today)
             events.append(
                 ScheduleEvent(
                     post_id=post.id,

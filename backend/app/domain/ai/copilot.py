@@ -10,7 +10,7 @@ o que o usuário vê quando algo falha.
 """
 
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -192,6 +192,30 @@ class CopilotService:
         await self._persist_reply(thread, turn)
         return turn
 
+    def _eventos_do_progresso(
+        self, turn: CopilotTurn, event: StepEvent | GraphResult
+    ) -> Iterator[tuple[str, dict[str, Any]]]:
+        """O que vai para a tela ENQUANTO o grafo anda (regra 2).
+
+        Separado de `stream_turn` na spec 106: aquele método cuida do turno inteiro —
+        abrir, absorver, persistir, fechar —, e este só traduz um evento do grafo em zero
+        ou mais eventos de SSE. A resposta final não sai daqui de propósito: ela só existe
+        depois de `_persist_reply`, e emiti-la no laço seria dizer que ficou pronta antes
+        de estar gravada.
+        """
+        if isinstance(event, StepEvent):
+            # Só o nó de ferramentas tem o que mostrar; os outros passos são internos.
+            if event.node == "tools":
+                # As três últimas: o usuário quer saber o que está acontecendo agora, não
+                # o histórico do turno inteiro.
+                for label in turn.tool_labels[-3:]:
+                    yield "tool", {"label": label}
+            return
+        if event.status == "waiting_human":
+            yield "action", {"pending_action": event.pending_action}
+        elif event.status == "error":
+            yield "error", {"message": _humanize(event.error)}
+
     async def stream_turn(
         self, *, user: User, thread: AiThread, state: dict[str, Any]
     ) -> AsyncIterator[tuple[str, dict[str, Any]]]:
@@ -200,14 +224,8 @@ class CopilotService:
         turn = CopilotTurn(thread=thread)
         async for event in self._drive(user, thread, state):
             self._absorb(turn, event)
-            if isinstance(event, StepEvent) and event.node == "tools":
-                for label in turn.tool_labels[-3:]:
-                    yield "tool", {"label": label}
-            elif isinstance(event, GraphResult):
-                if event.status == "waiting_human":
-                    yield "action", {"pending_action": event.pending_action}
-                elif event.status == "error":
-                    yield "error", {"message": _humanize(event.error)}
+            for saida in self._eventos_do_progresso(turn, event):
+                yield saida
         await self._persist_reply(thread, turn)
         if turn.reply:
             yield "message", {"content": turn.reply}

@@ -207,25 +207,40 @@ class _TransactionMixin(BaseModel):
         categoria) precisa buscar a categoria, fica no service (mesmo padrão de
         `FinancialCategoryService._group_name`, que também valida com uma query)."""
         if self.kind is TransactionKind.TRANSFERENCIA:
-            if (
-                self.debit_account_id is None
-                or self.credit_account_id is None
-                or self.debit_account_id == self.credit_account_id
-            ):
-                raise ValueError("Transferência exige conta de origem e destino diferentes.")
-            if self.category_id is not None or self.cost_center_id is not None:
-                raise ValueError("Transferência não usa categoria nem centro de custo.")
+            self._validar_transferencia()
         else:
-            if self.category_id is None or self.cost_center_id is None:
-                raise ValueError("Categoria e centro de custo são obrigatórios.")
-            if self.credit_account_id is not None:
-                raise ValueError("credit_account_id é só para transferência.")
+            self._validar_lancamento_simples()
         if self.lawsuit_id is not None and self.customer_id is None:
             raise ValueError("Vincular processo exige cliente.")
         # "Data de pagamento no futuro" saiu daqui na spec 114: `model_validator` não
         # tem fuso do escritório, e o futuro de quem está em Rio Branco não é o mesmo de
         # quem está em Lisboa. A regra virou FuturePaymentDateError no service.
         return self
+
+    def _validar_transferencia(self) -> None:
+        """Regra 2: transferência move dinheiro ENTRE contas do escritório.
+
+        Não tem categoria nem centro de custo porque não é receita nem despesa — o
+        dinheiro não entrou nem saiu do caixa, só mudou de lugar. Contabilizá-la
+        inflaria os dois lados do DRE com um movimento que não existiu.
+        """
+        if (
+            self.debit_account_id is None
+            or self.credit_account_id is None
+            or self.debit_account_id == self.credit_account_id
+        ):
+            raise ValueError("Transferência exige conta de origem e destino diferentes.")
+        if self.category_id is not None or self.cost_center_id is not None:
+            raise ValueError("Transferência não usa categoria nem centro de custo.")
+
+    def _validar_lancamento_simples(self) -> None:
+        """Regra 3: receita e despesa exigem categoria e centro de custo — é o que torna o
+        DRE e o relatório por centro possíveis. E `credit_account_id` é só de
+        transferência: numa receita ou despesa há uma conta só."""
+        if self.category_id is None or self.cost_center_id is None:
+            raise ValueError("Categoria e centro de custo são obrigatórios.")
+        if self.credit_account_id is not None:
+            raise ValueError("credit_account_id é só para transferência.")
 
 
 class InstallmentRequest(BaseModel):

@@ -9,7 +9,11 @@ from collections.abc import Mapping
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.notifications.models import NotificationChannelName, NotificationEvent
+from app.domain.notifications.models import (
+    NotificationChannelName,
+    NotificationEvent,
+    NotificationRule,
+)
 from app.domain.notifications.repository import (
     NotificationRuleRepository,
     UserNotificationPreferenceRepository,
@@ -54,16 +58,36 @@ class NotificationDispatcher:
             return
 
         for channel_name in rule.channels:
-            channel = self.channels.get(channel_name)
-            if channel is None:
-                continue
-            preference = await self.preferences.get(
-                rule.responsible_user_id, NotificationChannelName(channel_name)
-            )
-            if preference is not None and not preference.enabled:
-                continue
-            to = user.email if channel_name == "EMAIL" else user.cellphone
-            if not to:
-                continue
-            with contextlib.suppress(Exception):
-                await channel.send(to=to, subject=title, message=body)
+            await self._enviar_por_canal(channel_name, user=user, rule=rule, title=title, body=body)
+
+    async def _enviar_por_canal(
+        self,
+        channel_name: str,
+        *,
+        user: User,
+        rule: NotificationRule,
+        title: str,
+        body: str,
+    ) -> None:
+        """Um canal, para um destinatário. Três razões para não enviar, todas silenciosas:
+        canal não configurado no servidor, preferência do usuário desligada, ou destino
+        vazio (e-mail/celular em branco no cadastro).
+
+        A falha do envio também é engolida de propósito: notificação é acessório do que
+        acabou de acontecer, e derrubar a operação principal porque o SMS não saiu seria
+        trocar um aviso perdido por um trabalho perdido.
+        """
+        channel = self.channels.get(channel_name)
+        if channel is None:
+            return
+        assert rule.responsible_user_id is not None
+        preference = await self.preferences.get(
+            rule.responsible_user_id, NotificationChannelName(channel_name)
+        )
+        if preference is not None and not preference.enabled:
+            return
+        to = user.email if channel_name == "EMAIL" else user.cellphone
+        if not to:
+            return
+        with contextlib.suppress(Exception):
+            await channel.send(to=to, subject=title, message=body)

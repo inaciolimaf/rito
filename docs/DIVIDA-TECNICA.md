@@ -870,5 +870,26 @@ se perde**. Quem reprovar no CI vai olhar para o mesmo buraco. Vale considerar, 
 correção, que o `run-tests.sh` repita ao final quais suítes falharam — hoje ele só diz o
 wall-clock e devolve o código de saída.
 
+**Terceira ocorrência, ao fechar o degrau 3 da spec 106 — e a pior.** Não uma jornada:
+**cinco**, na mesma execução (contatos, financeiro, caixa de entrada, publicações e
+agenda). Todas no mesmo ponto: preencher a busca do `EntityPicker` e não achar a opção. A
+execução seguinte, com a **árvore de trabalho idêntica**, fechou 10/10 em 140 s de
+wall-clock contra os 169 s da que falhou; a jornada 3/25 rodada sozinha passa em 2,6 s.
+
+Isso muda a leitura da dívida em dois pontos:
+
+1. **Não é uma jornada frágil, é um padrão.** As cinco que caem são exatamente as cinco
+   que passam por um `EntityPicker`; as cinco que passam não usam nenhum. O defeito não
+   está espalhado — está concentrado na espera do seletor assíncrono, e isso torna a
+   segunda correção provável (teto de espera próprio para o `EntityPicker`) mais
+   promissora que a primeira.
+2. **A escala não é estável.** Uma ocorrência, depois uma, agora cinco. Um gate que
+   reprova 5 de 10 jornadas por carga não é um flake tolerável: é um gate que vai ser
+   ignorado na terceira vez que reprovar sem motivo, e aí ele deixou de existir.
+
+O wall-clock maior na execução que falhou (169 s contra 140 s) é a confirmação direta da
+hipótese de carga — a máquina estava mais lenta nas duas pontas ao mesmo tempo.
+
 **Spec-alvo:** 110 ou 120 — a auditoria que perguntar se os gates ainda mordem pelo motivo
-certo.
+certo. Com a terceira ocorrência, isto passa de «observar» para «corrigir»: a correção do
+`EntityPicker` deve entrar na primeira das duas que abrir.

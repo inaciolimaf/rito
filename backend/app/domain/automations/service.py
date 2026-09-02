@@ -219,13 +219,20 @@ class AutomationService:
             # Regra 13: passou de 20, deixou de ser regra e virou programa.
             raise AutomationLimitError(f"Uma automação aceita no máximo {MAX_ACTIONS} ações.")
         for entrada in actions:
-            if entrada.action_kind not in _ACTIONS:
-                raise UnknownActionKindError(entrada.action_kind)
-            if entrada.delay_kind not in _DELAYS:
-                raise UnknownActionKindError(entrada.delay_kind)
-            validate_condition(entrada.condition)
-            if entrada.action_kind == ActionKind.LLM_DECISION.value:
-                validate_decision_config(entrada.action_config, entrada.branches)
+            _validar_acao(entrada)
+
+
+def _validar_acao(entrada: ActionInput) -> None:
+    """Uma ação da automação: tipo, atraso, condição e — se for decisão — a configuração
+    da IA. Tudo verificado ANTES de salvar, porque erro de configuração tem de aparecer
+    para quem configura, não numa execução silenciosa seis semanas depois."""
+    if entrada.action_kind not in _ACTIONS:
+        raise UnknownActionKindError(entrada.action_kind)
+    if entrada.delay_kind not in _DELAYS:
+        raise UnknownActionKindError(entrada.delay_kind)
+    validate_condition(entrada.condition)
+    if entrada.action_kind == ActionKind.LLM_DECISION.value:
+        validate_decision_config(entrada.action_config, entrada.branches)
 
 
 __all__ = [

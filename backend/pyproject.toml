@@ -65,11 +65,17 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RET", "PTH", "ERA", "TID", "ICN", "A
 ignore = ["B008"]
 
 [tool.ruff.lint.mccabe]
-# Spec 106, primeiro degrau. A spec pede 6 no fim, alcançado em três passos (10 → 8 → 6):
-# cada degrau é um `pyproject.toml` verde, o que entrega gate funcionando em todos eles em
-# vez de uma spec grande que não fecha e deixa o `select` sem `C90` por mais um ciclo.
+# Spec 106, teto final. Chegou aqui em três degraus (10 → 8 → 6), cada um um
+# `pyproject.toml` verde e commitado: gate funcionando desde o primeiro passo, em vez de
+# uma spec grande que não fecha e deixa o `select` sem `C90` por mais um ciclo.
+#
+# 6 é apertado de propósito. Na prática, uma função que passa dele está fazendo duas
+# coisas — e as 55 que foram simplificadas para chegar aqui viraram, quase sempre, uma
+# tabela de despacho ou um par de funções nomeadas. Zero `# noqa: C901` no projeto; o teto
+# é 3, e o meta-teste em `tests/meta/test_final_audit.py` o vigia.
+#
 # Este número SÓ DESCE. Subi-lo é afrouxar o gate e exige spec própria.
-max-complexity = 8
+max-complexity = 6
 
 [tool.ruff.lint.per-file-ignores]
 # CLAUDE.md §9: migration commitada não se edita. As duas ocorrências de ERA001

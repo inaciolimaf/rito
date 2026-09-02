@@ -124,6 +124,30 @@ def _to_next_action(lawsuit_id: uuid.UUID, action: NextAction) -> NextActionResp
     )
 
 
+def _http_error_for(
+    exc: ClarificationNeeded | SqlRejected | LLMNotConfiguredError | FeatureDisabledError,
+) -> HTTPException:
+    """As três recusas do text-to-SQL, cada uma com o status que o cliente espera.
+
+    `ClarificationNeeded` é a única com formato próprio: pela convenção do projeto
+    (`app/core/errors.py`), chaves extras no `detail` viram membros de extensão do
+    `problem+json`, e é assim que a dúvida do modelo chega à tela sem inventar um formato
+    de erro novo. As outras duas são 422 (o SQL não passou) e 409 (a feature não está
+    disponível) — e a diferença importa: 422 é «reformule», 409 é «não adianta insistir».
+    """
+    if isinstance(exc, ClarificationNeeded):
+        return HTTPException(
+            status_code=422,
+            detail={
+                "detail": "Preciso de um esclarecimento antes de consultar.",
+                "clarification": exc.question,
+            },
+        )
+    if isinstance(exc, SqlRejected):
+        return HTTPException(status_code=422, detail=exc.reason)
+    return HTTPException(status_code=409, detail=_UNAVAILABLE)
+
+
 @router.post("/analytics/ask")
 async def ask_metrics(
     payload: AskRequest,
@@ -148,21 +172,8 @@ async def ask_metrics(
             payload.confirm_sql,
             has_financial_access=current_user.financial_access != FinancialAccess.NONE,
         )
-    except ClarificationNeeded as exc:
-        # Convenção do projeto (app/core/errors.py): chaves extras no `detail` viram
-        # membros de extensão do problem+json — é assim que a dúvida chega à tela sem
-        # inventar um formato de erro novo.
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "detail": "Preciso de um esclarecimento antes de consultar.",
-                "clarification": exc.question,
-            },
-        ) from exc
-    except SqlRejected as exc:
-        raise HTTPException(status_code=422, detail=exc.reason) from exc
-    except (LLMNotConfiguredError, FeatureDisabledError) as exc:
-        raise HTTPException(status_code=409, detail=_UNAVAILABLE) from exc
+    except (ClarificationNeeded, SqlRejected, LLMNotConfiguredError, FeatureDisabledError) as exc:
+        raise _http_error_for(exc) from exc
 
     try:
         resultado = await service.run_sql(

@@ -565,6 +565,61 @@ class BiTimeFeesRepository:
 # ---- Spec 077 — BI: Custos ----------------------------------------------------------
 
 
+def _cost_conditions(
+    outcome: LawsuitOutcome | None, from_year: int | None, to_year: int | None
+) -> list[ColumnElement[bool]]:
+    """Filtros do custo por processo (regras 4 a 7).
+
+    O ano vem de `archived_date` e, sem arquivamento, cai para o de `created_at` — é o que
+    faz um processo em andamento entrar no recorte do ano em que nasceu, em vez de sumir do
+    relatório até ser arquivado.
+    """
+    year_expr = func.coalesce(
+        func.extract("year", Lawsuit.archived_date),
+        func.extract("year", Lawsuit.created_at),
+    )
+    conditions: list[ColumnElement[bool]] = []
+    if outcome is not None:
+        conditions.append(Lawsuit.outcome == outcome)
+    if from_year is not None:
+        conditions.append(year_expr >= from_year)
+    if to_year is not None:
+        conditions.append(year_expr <= to_year)
+    return conditions
+
+
+def _cycle_days() -> tuple[Any, Any, Any, Any]:
+    """Dias em cada etapa do ciclo, e o ciclo inteiro (regras 6 e 10).
+
+    Etapa ainda não alcançada devolve NULL — e some da média pelo próprio `AVG`, em vez de
+    entrar como zero e puxar o resultado para baixo. É a diferença entre «este processo
+    passou zero dias em execução» e «este processo ainda não chegou lá».
+
+    Processo aberto conta até HOJE (`coalesce` com `current_date`): sem isso, o custo do
+    que está em andamento ficaria fora do relatório justamente enquanto ele acontece.
+    """
+    today = func.current_date()
+    created_day = Lawsuit.created_at.cast(Date)
+    return (
+        func.coalesce(Lawsuit.closure_date, today) - created_day,
+        case(
+            (
+                Lawsuit.closure_date.is_not(None),
+                func.coalesce(Lawsuit.transit_date, today) - Lawsuit.closure_date,
+            ),
+            else_=None,
+        ),
+        case(
+            (
+                Lawsuit.transit_date.is_not(None),
+                func.coalesce(Lawsuit.archived_date, today) - Lawsuit.transit_date,
+            ),
+            else_=None,
+        ),
+        func.coalesce(Lawsuit.archived_date, today) - created_day,
+    )
+
+
 class BiCostsRepository:
     """Agregações do BI de Custos (spec 077).
 
@@ -699,17 +754,7 @@ class BiCostsRepository:
         cai para o ano de `created_at`."""
         direct = self._direct_costs_cte()
         allocated = self._allocated_costs_cte()
-        year_expr = func.coalesce(
-            func.extract("year", Lawsuit.archived_date),
-            func.extract("year", Lawsuit.created_at),
-        )
-        conditions: list[ColumnElement[bool]] = []
-        if outcome is not None:
-            conditions.append(Lawsuit.outcome == outcome)
-        if from_year is not None:
-            conditions.append(year_expr >= from_year)
-        if to_year is not None:
-            conditions.append(year_expr <= to_year)
+        conditions = _cost_conditions(outcome, from_year, to_year)
         stmt = (
             select(
                 Lawsuit.id,
@@ -765,24 +810,7 @@ class BiCostsRepository:
         vira NULL via NULLIF — nunca divisão por zero (regra 8)."""
         direct = self._direct_costs_cte()
         allocated = self._allocated_costs_cte()
-        today = func.current_date()
-        created_day = Lawsuit.created_at.cast(Date)
-        prospecting_days = func.coalesce(Lawsuit.closure_date, today) - created_day
-        production_days = case(
-            (
-                Lawsuit.closure_date.is_not(None),
-                func.coalesce(Lawsuit.transit_date, today) - Lawsuit.closure_date,
-            ),
-            else_=None,
-        )
-        execution_days = case(
-            (
-                Lawsuit.transit_date.is_not(None),
-                func.coalesce(Lawsuit.archived_date, today) - Lawsuit.transit_date,
-            ),
-            else_=None,
-        )
-        full_cycle_days = func.coalesce(Lawsuit.archived_date, today) - created_day
+        prospecting_days, production_days, execution_days, full_cycle_days = _cycle_days()
         total_cost = func.coalesce(direct.c.direct_cost, 0) + func.coalesce(
             allocated.c.points_cost, 0
         )

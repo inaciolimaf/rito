@@ -21,6 +21,7 @@ e o contexto é o mesmo dos dois lados — que é a premissa inteira da regra 1.
 
 import logging
 import time
+from contextvars import Token
 from typing import Any
 
 from opentelemetry.trace import SpanKind, Status, StatusCode
@@ -66,6 +67,53 @@ def route_template(scope: Scope) -> str | None:
         return caminho
     marcadores = {str(valor): f"{{{nome}}}" for nome, valor in params.items()}
     return "/".join(marcadores.get(segmento, segmento) for segmento in caminho.split("/"))
+
+
+def _record_and_log(request: Request, scope: Scope, status_code: int, *, duration_s: float) -> None:
+    """Métrica e linha de log da requisição concluída (spec 121).
+
+    Rodava no `finally` do `__call__`, com 27 linhas dentro de um bloco que já era o mais
+    longo do backend — e é trabalho de PÓS-requisição, não de despacho: sai daqui inteiro.
+    """
+    template = route_template(scope)
+    rota = template or request.url.path
+    route_var.set(rota)
+    metrics.record_http_request(
+        method=request.method,
+        # Requisição que não casou rota nenhuma (404, varredura de robô) entra na métrica
+        # sob um rótulo só. Rotular pelo caminho pedido deixaria a cardinalidade da série
+        # nas mãos de quem faz a requisição.
+        route=template or UNMATCHED_ROUTE,
+        status=status_code,
+        duration_s=duration_s,
+    )
+    # Regra 9: a linha de requisição não carrega stack — nem quando deu 500. O stack já
+    # saiu no log de erro do handler, com a exceção inteira; repeti-lo aqui dobraria o
+    # volume sem acrescentar informação.
+    logger.info(
+        "requisição concluída",
+        extra={
+            "method": request.method,
+            "route": rota,
+            "status": status_code,
+            "duration_ms": int(duration_s * 1000),
+            "query_count": current_query_count(),
+        },
+    )
+
+
+def _reset_context(tokens: tuple[Token[Any], ...]) -> None:
+    """Devolve as cinco variáveis de contexto ao valor de antes desta requisição.
+
+    A ordem espelha a de `tokens`, montada na entrada. Resetar é obrigatório mesmo quando
+    a requisição estourou: sem isso o `request_id` da requisição morta vazaria para a
+    próxima que reusar a mesma task do event loop.
+    """
+    request_id_var.reset(tokens[0])
+    route_var.reset(tokens[1])
+    query_counter_var.reset(tokens[2])
+    tenant_id_var.reset(tokens[3])
+    user_id_var.reset(tokens[4])
 
 
 class ObservabilityMiddleware:
@@ -116,34 +164,5 @@ class ObservabilityMiddleware:
                     # o processor no `on_end` — daí o status precisar estar posto aqui.
                     span.set_status(Status(StatusCode.ERROR))
         finally:
-            duracao_s = time.perf_counter() - started
-            template = route_template(scope)
-            rota = template or request.url.path
-            route_var.set(rota)
-            metrics.record_http_request(
-                method=request.method,
-                # Requisição que não casou rota nenhuma (404, varredura de robô) entra na
-                # métrica sob um rótulo só. Rotular pelo caminho pedido deixaria a
-                # cardinalidade da série nas mãos de quem faz a requisição.
-                route=template or UNMATCHED_ROUTE,
-                status=status_code,
-                duration_s=duracao_s,
-            )
-            # Regra 9: a linha de requisição não carrega stack — nem quando deu 500. O
-            # stack já saiu no log de erro do handler, com a exceção inteira; repeti-lo
-            # aqui dobraria o volume sem acrescentar informação.
-            logger.info(
-                "requisição concluída",
-                extra={
-                    "method": request.method,
-                    "route": rota,
-                    "status": status_code,
-                    "duration_ms": int(duracao_s * 1000),
-                    "query_count": current_query_count(),
-                },
-            )
-            request_id_var.reset(tokens[0])
-            route_var.reset(tokens[1])
-            query_counter_var.reset(tokens[2])
-            tenant_id_var.reset(tokens[3])
-            user_id_var.reset(tokens[4])
+            _record_and_log(request, scope, status_code, duration_s=time.perf_counter() - started)
+            _reset_context(tokens)

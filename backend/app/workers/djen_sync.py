@@ -19,8 +19,11 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from app.core.bootstrap import migrations_url
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.db import create_engine_from_url, create_session_factory
 from app.core.locks import RedisSyncLock
 from app.core.redis import create_redis_client
@@ -30,7 +33,7 @@ from app.domain.monitored_terms.sync import TermSyncService
 from app.integrations.djen import DjenClient
 from app.integrations.djen.source import DjenPublicationSource
 from app.integrations.http.audit import DbAuditSink, SafeAuditSink
-from app.integrations.http.client import create_http_client
+from app.integrations.http.client import ResilientHttpClient, create_http_client
 from app.integrations.http.types import HostPolicy
 from app.integrations.messaging.registry import create_messaging_channels
 from app.workers.celery_app import celery_app
@@ -40,23 +43,54 @@ logger = logging.getLogger(__name__)
 _DJEN_HOST = "comunicaapi.pje.jus.br"
 
 
-async def run_due_syncs(term_id: uuid.UUID | None = None) -> dict[str, int]:
-    """Executa a varredura. Recebe a infra de produção montada na hora (o worker
-    roda fora do ciclo de request); devolve contadores para o resultado da task."""
-    settings = get_settings()
-    url = migrations_url("a varredura cross-tenant do DJEN")
-    engine = create_engine_from_url(url)
-    session_factory = create_session_factory(engine)
-    redis = create_redis_client()
-    http = create_http_client(
+async def _terms_to_sync(session: AsyncSession, term_id: uuid.UUID | None) -> list[MonitoredTerm]:
+    """Quais termos esta execução varre.
+
+    Com `term_id`, é a varredura sob demanda de UM termo — e só se ele estiver ativo:
+    disparar à mão não contorna o desligamento feito pelo escritório.
+
+    Sem ele, é a varredura agendada, e ela junta dois conjuntos: os que venceram o
+    intervalo e os que ficaram com execução ABERTA. O segundo é o que faz uma varredura
+    interrompida no meio (deploy, timeout) ser retomada em vez de esquecida — daí a
+    deduplicação por id, que evita varrer duas vezes quem está nos dois.
+    """
+    repository = MonitoredTermRepository(session)
+    if term_id is not None:
+        term = await session.get(MonitoredTerm, term_id)
+        return [term] if term is not None and term.is_active else []
+    selected = list(await repository.list_due(datetime.now(UTC)))
+    due_ids = {term.id for term in selected}
+    return selected + [
+        term for term in await repository.list_with_open_run() if term.id not in due_ids
+    ]
+
+
+def _djen_http_client(
+    settings: Settings, redis: Redis, session_factory: async_sessionmaker[AsyncSession]
+) -> ResilientHttpClient:
+    """O cliente HTTP do DJEN, com a política de rate limit do host.
+
+    Regra 8: o limite mora na camada 041, por host e global entre workers — a task não
+    paraleliza por termo além disso. É por isso que a política vai no cliente e não no
+    laço: quem segura a vazão é o token bucket no Redis, não a estrutura do worker.
+    """
+    return create_http_client(
         redis=redis,
         audit=SafeAuditSink(DbAuditSink(session_factory)),
-        # Regra 8: o rate limit do DJEN mora na camada 041, por host, global
-        # entre workers — a task não paraleliza por termo além disso.
         policies={
             _DJEN_HOST: HostPolicy(rate_limit_per_minute=settings.djen_rate_limit_per_minute)
         },
     )
+
+
+async def run_due_syncs(term_id: uuid.UUID | None = None) -> dict[str, int]:
+    """Executa a varredura. Recebe a infra de produção montada na hora (o worker
+    roda fora do ciclo de request); devolve contadores para o resultado da task."""
+    settings = get_settings()
+    engine = create_engine_from_url(migrations_url("a varredura cross-tenant do DJEN"))
+    session_factory = create_session_factory(engine)
+    redis = create_redis_client()
+    http = _djen_http_client(settings, redis, session_factory)
     try:
         source = DjenPublicationSource(
             DjenClient(
@@ -68,16 +102,7 @@ async def run_due_syncs(term_id: uuid.UUID | None = None) -> dict[str, int]:
         lock = RedisSyncLock(redis)
 
         async with session_factory() as session, session.begin():
-            repository = MonitoredTermRepository(session)
-            if term_id is not None:
-                term = await session.get(MonitoredTerm, term_id)
-                selected = [term] if term is not None and term.is_active else []
-            else:
-                selected = list(await repository.list_due(datetime.now(UTC)))
-                due_ids = {term.id for term in selected}
-                selected += [
-                    term for term in await repository.list_with_open_run() if term.id not in due_ids
-                ]
+            selected = await _terms_to_sync(session, term_id)
 
         by_tenant: dict[uuid.UUID, list[MonitoredTerm]] = {}
         for term in selected:

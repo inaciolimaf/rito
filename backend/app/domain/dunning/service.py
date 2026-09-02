@@ -167,6 +167,32 @@ class DunningService:
                     )
         return sent
 
+    async def _skipped(
+        self,
+        transaction_id: uuid.UUID,
+        *,
+        rule_id: uuid.UUID | None,
+        channel: DunningChannel,
+        motivo: str,
+    ) -> DunningAttempt:
+        """Regra 5: silêncio nunca.
+
+        Uma cobrança que não sai vira tentativa `SKIPPED` com o motivo escrito, não uma
+        linha ausente. O escritório precisa poder perguntar «por que este cliente não foi
+        cobrado?» e ter resposta — e «não tem WhatsApp cadastrado» é uma resposta.
+        """
+        return await self.attempts.create(
+            DunningAttempt(
+                tenant_id=self.tenant_id,
+                transaction_id=transaction_id,
+                rule_id=rule_id,
+                channel=channel,
+                sent_to="",
+                status=DunningStatus.SKIPPED,
+                error=motivo,
+            )
+        )
+
     async def _attempt_send(
         self,
         row: OverdueRow,
@@ -180,17 +206,13 @@ class DunningService:
         contact = self._resolve_contact(channel, row)
         days_overdue = (today - transaction.due_date).days
 
-        if contact is None:  # regra 5: sem contato do canal — silêncio nunca
-            attempt = DunningAttempt(
-                tenant_id=self.tenant_id,
-                transaction_id=transaction.id,
+        if contact is None:
+            return await self._skipped(
+                transaction.id,
                 rule_id=rule_id,
                 channel=channel,
-                sent_to="",
-                status=DunningStatus.SKIPPED,
-                error="Cliente sem contato cadastrado para este canal.",
+                motivo="Cliente sem contato cadastrado para este canal.",
             )
-            return await self.attempts.create(attempt)
 
         tenant = await self.session.get(Tenant, self.tenant_id)
         tenant = not_none(tenant, "o tenant da sessão atual sempre existe")

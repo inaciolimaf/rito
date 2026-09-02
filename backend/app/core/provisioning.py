@@ -79,34 +79,33 @@ async def seed_global_catalogs(conn: AsyncConnection) -> SeedResult:
     return SeedResult(legal_agents=inseridos)
 
 
-async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[str, int]:
-    """Regra 8: a taxonomia padrão do escritório novo.
+# Uma função por taxonomia (spec 121). Antes eram sete blocos no corpo de
+# `provision_tenant`, 126 linhas seguidas — a maior função do backend. Cada uma devolve
+# quantas linhas criou, e o `provision_tenant` virou a lista do que um escritório novo
+# ganha, legível de uma vez.
+#
+# Todas são `ON CONFLICT DO NOTHING` (regra 8): rodar duas vezes não duplica, o que torna
+# o provisionamento seguro de repetir quando morre no meio.
+#
+# Spec 115: os valores viajam como arrays LIGADOS via `unnest`, não interpolados no SQL.
+# Nenhum vem de fora — são constantes de migration —, mas a forma da interpolação é a da
+# injeção, e um apóstrofo num nome de taxonomia («Ação de Cobrança d'Água») quebraria a
+# query.
 
-    Roda com a conexão de superusuário (é criação de tenant, anterior a qualquer sessão
-    de usuário), e todo `INSERT` é `ON CONFLICT DO NOTHING` — rodar duas vezes no mesmo
-    escritório não duplica nada, o que torna a operação segura de repetir quando um
-    provisionamento morre no meio.
-    """
-    criados: dict[str, int] = {}
 
-    # Spec 115: as seis inserções montavam a lista `VALUES` interpolando os nomes do
-    # catálogo direto no SQL, com aspas postas à mão (`f"('{nome}')"`). Nenhum valor vem
-    # de fora — são constantes de uma migration —, mas a FORMA é a da injeção, e bastava
-    # um apóstrofo num nome de taxonomia (`"Ação de Cobrança d'Água"`) para quebrar a
-    # query. `unnest` de arrays LIGADOS faz o mesmo serviço sem construir SQL: o driver
-    # manda os valores por fora do texto, e o problema deixa de existir em vez de ser
-    # silenciado.
-    grupos = list(tenant_catalog.action_groups())
+async def _seed_action_groups(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     resultado = await conn.execute(
         text("""
             INSERT INTO action_groups (tenant_id, name)
             SELECT :tenant, g.name FROM unnest(CAST(:grupos AS text[])) AS g(name)
             ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
             """),
-        {"tenant": tenant_id, "grupos": grupos},
+        {"tenant": tenant_id, "grupos": list(tenant_catalog.action_groups())},
     )
-    criados["action_groups"] = resultado.rowcount or 0
+    return resultado.rowcount or 0
 
+
+async def _seed_lawsuit_types(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     tipos = list(tenant_catalog.lawsuit_types())
     resultado = await conn.execute(
         text("""
@@ -124,10 +123,12 @@ async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[
             "grupos": [grupo for _tipo, grupo in tipos],
         },
     )
-    criados["lawsuit_types"] = resultado.rowcount or 0
+    return resultado.rowcount or 0
 
-    # `position` vem da ordem da lista: as 59 etapas têm ordem definida pela 015, e
-    # embaralhá-las mudaria o funil que o escritório vê na primeira abertura do CRM.
+
+async def _seed_stages(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
+    """`position` vem da ordem da lista: as 59 etapas têm ordem definida pela 015, e
+    embaralhá-las mudaria o funil que o escritório vê na primeira abertura do CRM."""
     etapas = list(enumerate(tenant_catalog.stages(), start=1))
     resultado = await conn.execute(
         text("""
@@ -148,8 +149,10 @@ async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[
             "posicoes": [pos for pos, _ in etapas],
         },
     )
-    criados["stages"] = resultado.rowcount or 0
+    return resultado.rowcount or 0
 
+
+async def _seed_customer_origins(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     resultado = await conn.execute(
         text("""
             INSERT INTO customer_origins (tenant_id, name)
@@ -158,8 +161,10 @@ async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[
             """),
         {"tenant": tenant_id, "origens": list(tenant_catalog.customer_origins())},
     )
-    criados["customer_origins"] = resultado.rowcount or 0
+    return resultado.rowcount or 0
 
+
+async def _seed_task_types(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     tarefas = list(tenant_catalog.task_types())
     resultado = await conn.execute(
         text("""
@@ -179,8 +184,10 @@ async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[
             "sistemicas": [sistemica for _n, _p, sistemica in tarefas],
         },
     )
-    criados["task_types"] = resultado.rowcount or 0
+    return resultado.rowcount or 0
 
+
+async def _seed_financial_categories(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     categorias = list(tenant_catalog.financial_categories())
     resultado = await conn.execute(
         text("""
@@ -200,8 +207,11 @@ async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[
             "grupos": [grupo for _n, _t, grupo in categorias],
         },
     )
-    criados["financial_categories"] = resultado.rowcount or 0
+    return resultado.rowcount or 0
 
+
+async def _seed_default_cost_center(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
+    """Um centro de custo padrão para o escritório poder lançar despesa no primeiro dia."""
     resultado = await conn.execute(
         text("""
             INSERT INTO cost_centers (tenant_id, name, is_default)
@@ -210,6 +220,23 @@ async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[
             """),
         {"tenant": tenant_id},
     )
-    criados["cost_centers"] = resultado.rowcount or 0
+    return resultado.rowcount or 0
 
-    return criados
+
+async def provision_tenant(conn: AsyncConnection, tenant_id: uuid.UUID) -> dict[str, int]:
+    """Regra 8: a taxonomia padrão do escritório novo.
+
+    Roda com a conexão de superusuário (é criação de tenant, anterior a qualquer sessão
+    de usuário), e todo `INSERT` é `ON CONFLICT DO NOTHING` — rodar duas vezes no mesmo
+    escritório não duplica nada, o que torna a operação segura de repetir quando um
+    provisionamento morre no meio.
+    """
+    return {
+        "action_groups": await _seed_action_groups(conn, tenant_id),
+        "lawsuit_types": await _seed_lawsuit_types(conn, tenant_id),
+        "stages": await _seed_stages(conn, tenant_id),
+        "customer_origins": await _seed_customer_origins(conn, tenant_id),
+        "task_types": await _seed_task_types(conn, tenant_id),
+        "financial_categories": await _seed_financial_categories(conn, tenant_id),
+        "cost_centers": await _seed_default_cost_center(conn, tenant_id),
+    }

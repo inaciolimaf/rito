@@ -59,6 +59,8 @@ Configuração: `backend/pyproject.toml`, `[tool.ruff.lint] select`.
 | `max-statements` (PLR0915) | **50** | 50 (padrão da regra) | 109 |
 | `max-args` (PLR0913) | **8** | 8 (padrão é 5; 8 é o joelho da curva medida) | 116 |
 
+O teto de **linhas por função** não está aqui porque o Ruff não tem essa regra — `PLR0915` conta statements, que é outra métrica. Ele é meta-teste; ver a seção 5.
+
 ### Tetos de silenciamento
 
 | Marcador | Teto | Hoje | Travado por |
@@ -140,6 +142,7 @@ estoura.
 | Imagem de produção | não-root, multi-stage, sem toolchain, healthcheck | `test_deploy_image.py` | 099 |
 | Gate do runner | `run-tests.sh` falha quando uma suíte falha ou o orçamento estoura | `test_runner_gate.py` | 009 |
 | Auditoria final | `type: ignore` e `# noqa` sem justificativa, TODO órfão, `as any`, PII em fixture, spec × ROADMAP, dívida com alvo no futuro | `test_final_audit.py` | 100 |
+| Tamanho de função | função de `app/` acima de **50** linhas LÍQUIDAS de corpo (docstring, decorador e assinatura fora); teto de 5 exceções versionadas | `test_tamanho_de_funcao.py` | 121 |
 | Registro de gates | este arquivo listando todo gate que existe | `test_registro_de_gates.py` | 120 |
 
 ---

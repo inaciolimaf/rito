@@ -20,7 +20,7 @@ from app.domain.posts.exceptions import (
     SquadNotFoundError,
     TaskTypeNotFoundError,
 )
-from app.domain.posts.models import PostRecurrence
+from app.domain.posts.models import Post, PostRecurrence
 from app.domain.posts.recurrence_service import RecurrenceService
 from app.domain.posts.schemas import (
     AssigneeResponse,
@@ -62,38 +62,47 @@ def _to_recurrence_response(recurrence: PostRecurrence) -> RecurrenceResponse:
     )
 
 
+def _redacted_response(post: Post) -> PostResponse:
+    """Regra 8: presença sem conteúdo.
+
+    Quem não é envolvido vê que existe uma tarefa privada naquele processo — metadado de
+    existência, porque escondê-la por completo faria a contagem da lista não fechar — e
+    nada mais. Nenhum campo real vaza: tudo aqui é o valor neutro do tipo.
+    """
+    return PostResponse(
+        id=post.id,
+        lawsuit_id=post.lawsuit_id,
+        task_type_id=None,
+        task_type_name="Tarefa privada",
+        created_by=None,
+        scheduled_date=None,
+        scheduled_time=None,
+        end_date=None,
+        end_time=None,
+        deadline_date=None,
+        all_day=False,
+        location=None,
+        comments=None,
+        reward_snapshot=0,
+        is_important=False,
+        is_urgent=False,
+        is_future=False,
+        is_private=True,
+        show_in_schedule=False,
+        all_completed=False,
+        recurrence_id=None,
+        redacted=True,
+        assignees=[],
+        created_at=post.created_at,
+        updated_at=post.updated_at,
+    )
+
+
 def _to_response(detail: PostDetail) -> PostResponse:
-    post = detail.post
+    """A tarefa como a API a devolve — inteira, ou só a sombra dela (regra 8)."""
     if detail.redacted:
-        # Regra 8: presença sem conteúdo — o não envolvido vê que existe uma tarefa
-        # privada (metadados de existência), nada mais.
-        return PostResponse(
-            id=post.id,
-            lawsuit_id=post.lawsuit_id,
-            task_type_id=None,
-            task_type_name="Tarefa privada",
-            created_by=None,
-            scheduled_date=None,
-            scheduled_time=None,
-            end_date=None,
-            end_time=None,
-            deadline_date=None,
-            all_day=False,
-            location=None,
-            comments=None,
-            reward_snapshot=0,
-            is_important=False,
-            is_urgent=False,
-            is_future=False,
-            is_private=True,
-            show_in_schedule=False,
-            all_completed=False,
-            recurrence_id=None,
-            redacted=True,
-            assignees=[],
-            created_at=post.created_at,
-            updated_at=post.updated_at,
-        )
+        return _redacted_response(detail.post)
+    post = detail.post
     return PostResponse(
         id=post.id,
         lawsuit_id=post.lawsuit_id,

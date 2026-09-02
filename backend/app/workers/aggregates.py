@@ -106,17 +106,70 @@ async def _maybe_alert_slow_refresh(conn: AsyncConnection, name: str, duration_m
     )
 
 
-async def refresh_aggregate(name: str, url: str | None = None) -> RefreshOutcome:
-    """Refresh logado de UMA view. Em falha, registra o erro no log e em
-    `last_error` (mantendo `last_refresh_at` anterior — o dado velho continua
-    servindo, regra 7) e PROPAGA a exceção; quem decide seguir em frente é o
-    orquestrador (`refresh_due_aggregates`) ou o endpoint de refresh manual."""
+def _refresh_url(name: str, url: str | None) -> str:
+    """A URL do refresh, com o nome da view já validado contra a allowlist.
+
+    As duas recusas ficam juntas porque as duas são «não dá para nem começar»: view fora do
+    `MATERIALIZED_VIEWS` seria identificador vindo de lugar nenhum, e sem
+    `MIGRATIONS_DATABASE_URL` não há conexão de superusuário para dar `REFRESH`.
+    """
     if name not in _KNOWN_VIEWS:
         raise ValueError(f"View não registrada em MATERIALIZED_VIEWS: {name!r}")
     resolved = url or get_settings().migrations_database_url
     if resolved is None:
         raise RuntimeError("MIGRATIONS_DATABASE_URL não configurada para o refresh.")
-    engine = create_engine_from_url(resolved)
+    return resolved
+
+
+async def _record_failure(conn: AsyncConnection, name: str, log_id: int, exc: Exception) -> None:
+    """Regra 7: a falha é registrada nos DOIS lugares e o dado velho continua servindo.
+
+    `last_refresh_at` não é tocado de propósito — a view ainda tem o conteúdo da última
+    execução boa, e quem lê o painel precisa saber que ele está velho, não que sumiu.
+    """
+    await conn.execute(
+        text(
+            "UPDATE aggregate_refresh_log SET finished_at = now(), error = :error "
+            "WHERE id = :log_id"
+        ),
+        {"error": str(exc)[:500], "log_id": log_id},
+    )
+    await conn.execute(
+        text("UPDATE aggregate_registry SET last_error = :error WHERE name = :name"),
+        {"error": str(exc)[:500], "name": name},
+    )
+
+
+async def _record_success(
+    conn: AsyncConnection, name: str, log_id: int, rows_affected: int, duration_ms: int
+) -> None:
+    """Fecha o log e atualiza o registry — inclusive limpando o `last_error` anterior.
+
+    Limpar é o par de `_record_failure`: sem isso, uma view que falhou uma vez carregaria
+    o erro para sempre no painel, mesmo depois de voltar a atualizar.
+    """
+    await conn.execute(
+        text(
+            "UPDATE aggregate_refresh_log "
+            "SET finished_at = now(), rows_affected = :rows WHERE id = :log_id"
+        ),
+        {"rows": rows_affected, "log_id": log_id},
+    )
+    await conn.execute(
+        text(
+            "UPDATE aggregate_registry SET last_refresh_at = now(), "
+            "last_refresh_duration_ms = :duration, last_error = NULL WHERE name = :name"
+        ),
+        {"duration": duration_ms, "name": name},
+    )
+
+
+async def refresh_aggregate(name: str, url: str | None = None) -> RefreshOutcome:
+    """Refresh logado de UMA view. Em falha, registra o erro no log e em
+    `last_error` (mantendo `last_refresh_at` anterior — o dado velho continua
+    servindo, regra 7) e PROPAGA a exceção; quem decide seguir em frente é o
+    orquestrador (`refresh_due_aggregates`) ou o endpoint de refresh manual."""
+    engine = create_engine_from_url(_refresh_url(name, url))
     try:
         conn = await engine.connect()
         try:
@@ -131,17 +184,7 @@ async def refresh_aggregate(name: str, url: str | None = None) -> RefreshOutcome
             try:
                 await _refresh_view(conn, name)
             except Exception as exc:
-                await conn.execute(
-                    text(
-                        "UPDATE aggregate_refresh_log SET finished_at = now(), error = :error "
-                        "WHERE id = :log_id"
-                    ),
-                    {"error": str(exc)[:500], "log_id": log_id},
-                )
-                await conn.execute(
-                    text("UPDATE aggregate_registry SET last_error = :error WHERE name = :name"),
-                    {"error": str(exc)[:500], "name": name},
-                )
+                await _record_failure(conn, name, log_id, exc)
                 raise
             duration_ms = int((monotonic() - started) * 1000)
             # `# noqa: S608`: `name` é validado contra `_KNOWN_VIEWS` na entrada de
@@ -150,20 +193,7 @@ async def refresh_aggregate(name: str, url: str | None = None) -> RefreshOutcome
             rows_affected = (
                 await conn.execute(text(f"SELECT count(*) FROM {name}"))  # noqa: S608
             ).scalar_one()
-            await conn.execute(
-                text(
-                    "UPDATE aggregate_refresh_log "
-                    "SET finished_at = now(), rows_affected = :rows WHERE id = :log_id"
-                ),
-                {"rows": rows_affected, "log_id": log_id},
-            )
-            await conn.execute(
-                text(
-                    "UPDATE aggregate_registry SET last_refresh_at = now(), "
-                    "last_refresh_duration_ms = :duration, last_error = NULL WHERE name = :name"
-                ),
-                {"duration": duration_ms, "name": name},
-            )
+            await _record_success(conn, name, log_id, rows_affected, duration_ms)
             if duration_ms > SLOW_REFRESH_ALERT_SECONDS * 1000:
                 await _maybe_alert_slow_refresh(conn, name, duration_ms)
             return RefreshOutcome(name=name, duration_ms=duration_ms, rows_affected=rows_affected)

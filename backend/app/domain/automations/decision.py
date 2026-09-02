@@ -284,10 +284,7 @@ class DecisionRunner:
         runner.commit_usage = False
 
         ferramentas = self._context_tools(actor, config)
-        historico = [
-            Message(role="system", content=_SYSTEM_PROMPT),
-            Message(role="user", content=_question_with_context(config, run, nomes)),
-        ]
+        historico = _opening_history(config, run, nomes)
         tool_runner = ToolRunner(
             ToolContext(session=self.session, tenant_id=self.tenant_id, user=actor)
         )
@@ -307,53 +304,21 @@ class DecisionRunner:
                 modelo = resposta.model
                 total_tokens, custo = _accumulated_usage(resposta.usage, total_tokens, custo)
                 if not resposta.tool_calls:
-                    ramo, confianca, raciocinio = parse_decision(resposta.content, branches=nomes)
-                    if not raciocinio:
-                        # Regra 4: sem explicação não é decisão auditável, e uma decisão
-                        # não auditável não vale mais que o padrão.
-                        return _fallback(
-                            padrao,
-                            "O modelo decidiu sem explicar, e decisão sem raciocínio não é "
-                            "auditável.",
-                            DecisionOutcome(
-                                branch=ramo or padrao,
-                                confidence=confianca,
-                                reasoning="",
-                                fell_back=False,
-                                model=modelo,
-                                tokens_used=total_tokens,
-                                cost_usd=custo,
-                            ),
-                        )
-                    await self._charge(automation, custo)
-                    return DecisionOutcome(
-                        branch=ramo or "",
-                        confidence=confianca,
-                        reasoning=raciocinio,
-                        fell_back=False,
-                        model=modelo,
-                        tokens_used=total_tokens,
-                        cost_usd=custo,
-                        context_summary=", ".join(usados) or None,
+                    decisao = _decision_from_response(
+                        resposta.content,
+                        branches=nomes,
+                        default_branch=padrao,
+                        usage=_Spent(modelo, total_tokens, custo, usados),
                     )
+                    if not decisao.fell_back:
+                        await self._charge(automation, custo)
+                    return decisao
                 historico, chamadas = await self._run_tools(
                     tool_runner, historico, resposta.tool_calls
                 )
                 usados.extend(chamadas)
             await self._charge(automation, custo)
-            return _fallback(
-                padrao,
-                "O modelo continuou pedindo contexto e não decidiu.",
-                DecisionOutcome(
-                    branch=padrao,
-                    confidence=None,
-                    reasoning="",
-                    fell_back=False,
-                    model=modelo,
-                    tokens_used=total_tokens,
-                    cost_usd=custo,
-                ),
-            )
+            return _out_of_rounds(padrao, _Spent(modelo, total_tokens, custo, usados))
         except Exception as exc:
             motivo = str(exc) if isinstance(exc, LLMError) else f"{type(exc).__name__}: {exc}"
             return _fallback(padrao, f"A IA não respondeu: {motivo}", None)
@@ -467,6 +432,83 @@ class DecisionRunner:
         return decisao
 
 
+@dataclass(frozen=True, slots=True)
+class _Spent:
+    """O que a conversa consumiu até agora — modelo efetivo, tokens, custo e ferramentas.
+
+    Quatro valores que andam juntos por toda `_ask` e entram inteiros em todo
+    `DecisionOutcome`. Como objeto, `_decision_from_response` recebe um parâmetro em vez de
+    quatro, e não há como montar um desfecho com o custo de uma volta e os tokens de outra.
+    """
+
+    model: str
+    tokens: int
+    cost: Decimal
+    tools_used: list[str]
+
+
+def _out_of_rounds(default_branch: str, usage: _Spent) -> DecisionOutcome:
+    """O modelo gastou as voltas de ferramenta e não decidiu (spec 094, MAX_TOOL_ROUNDS).
+
+    Cai no padrão como qualquer fallback, mas o consumo vai junto: as voltas foram pagas,
+    e o orçamento da automação precisa saber disso mesmo sem decisão.
+    """
+    return _fallback(
+        default_branch,
+        "O modelo continuou pedindo contexto e não decidiu.",
+        DecisionOutcome(
+            branch=default_branch,
+            confidence=None,
+            reasoning="",
+            fell_back=False,
+            model=usage.model,
+            tokens_used=usage.tokens,
+            cost_usd=usage.cost,
+        ),
+    )
+
+
+def _decision_from_response(
+    content: str | None,
+    *,
+    branches: list[str],
+    default_branch: str,
+    usage: _Spent,
+) -> DecisionOutcome:
+    """A resposta do modelo virada decisão — ou o fallback, quando ela não se sustenta.
+
+    Regra 4: sem explicação não é decisão auditável, e uma decisão não auditável não vale
+    mais que o padrão. O `fell_back` do retorno é o que diz ao chamador se deve cobrar o
+    orçamento: fallback não gerou decisão, e cobrar por ele seria pagar duas vezes pela
+    mesma pergunta.
+    """
+    ramo, confianca, raciocinio = parse_decision(content, branches=branches)
+    if not raciocinio:
+        return _fallback(
+            default_branch,
+            "O modelo decidiu sem explicar, e decisão sem raciocínio não é auditável.",
+            DecisionOutcome(
+                branch=ramo or default_branch,
+                confidence=confianca,
+                reasoning="",
+                fell_back=False,
+                model=usage.model,
+                tokens_used=usage.tokens,
+                cost_usd=usage.cost,
+            ),
+        )
+    return DecisionOutcome(
+        branch=ramo or "",
+        confidence=confianca,
+        reasoning=raciocinio,
+        fell_back=False,
+        model=usage.model,
+        tokens_used=usage.tokens,
+        cost_usd=usage.cost,
+        context_summary=", ".join(usage.tools_used) or None,
+    )
+
+
 def _accumulated_usage(usage: Usage, tokens: int, custo: Decimal) -> tuple[int, Decimal]:
     """O consumo acumulado depois de mais uma volta.
 
@@ -494,6 +536,19 @@ def _fallback(padrao: str, motivo: str, anterior: DecisionOutcome | None) -> Dec
         cost_usd=anterior.cost_usd if anterior else None,
         context_summary=anterior.context_summary if anterior else None,
     )
+
+
+def _opening_history(config: dict[str, Any], run: AutomationRun, nomes: list[str]) -> list[Message]:
+    """As duas mensagens que abrem a conversa: a instrução do sistema e a pergunta.
+
+    Separadas de `_ask` na spec 121. A ordem importa e é a de sempre — o `system` primeiro,
+    porque é ele que declara que o conteúdo do evento é DADO e nunca instrução (regra 3 da
+    094, e a defesa contra injeção via corpo de intimação).
+    """
+    return [
+        Message(role="system", content=_SYSTEM_PROMPT),
+        Message(role="user", content=_question_with_context(config, run, nomes)),
+    ]
 
 
 def _question_with_context(config: dict[str, Any], run: AutomationRun, nomes: list[str]) -> str:

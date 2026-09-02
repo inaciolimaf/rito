@@ -558,9 +558,10 @@ Nenhum teto afrouxado — o `max-complexity` só desceu (10→8→6) e os demais
 
 ## Fase 12 — Estrutura (121+)
 
-### ⬜ 121 — Teto de 30 linhas por função
-Contagem **líquida** — só o corpo, sem docstring nem assinatura — porque contar bruto puniria a densidade de comentário que é metade do valor deste código: 224 funções acima de 30 no bruto, 134 no líquido. No frontend, 225 com `skipComments`. Vem por último de propósito: 106, 109, 111, 112 e 119 já resolvem boa parte, e a recontagem é a primeira tarefa.
-**Aceite:** backend e frontend abaixo de 30; no máximo 5 exceções justificadas; recontagem registrada antes de qualquer edição. **t:** 0,3 s. **Deps:** 106, 109, 111, 112, 119, 120
+### ✅ 121 — Teto de 30 linhas por função
+Recontagem: **346 funções** acima de 30 (118 backend + 228 frontend), o maior volume da série. Escopo cortado para o **backend**, e dentro dele o degrau 1 da Nota de execução: **teto 50**, de 20 funções acima para zero, em 29 extrações. O padrão não era complexidade (a 106 já a tinha levado) — era sequência linear longa: `provision_tenant` eram sete blocos de INSERT, `_to_response` eram duas respostas inteiras no mesmo corpo. Gate por AST com contagem LÍQUIDA (docstring fora), porque contar bruto puniria documentação: 224 funções passavam de 30 no bruto contra 134 no líquido.
+**Aceite:** gate verde; zero exceções (teto era 5); contrato inalterado. **t:** 0,7 s. **Deps:** 106, 109, 111, 112, 119, 120
+
 
 ---
 

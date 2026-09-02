@@ -73,6 +73,39 @@ def _to_filter_params(
     )
 
 
+def _publication_from(parsed: ParsedCommunication, tenant_id: uuid.UUID) -> Publication:
+    """A intimação como ela chega do DJEN — cópia campo a campo, sem regra.
+
+    Vinte e cinco atribuições sem decisão nenhuma no meio: extraídas de `register` na spec
+    121 porque elas empurravam a função para 63 linhas e escondiam o que ela de fato faz —
+    recusar duplicata, gravar, e desdobrar destinatários e advogados.
+    """
+    return Publication(
+        tenant_id=tenant_id,
+        external_id=parsed.external_id,
+        hash=parsed.hash,
+        availability_date=parsed.availability_date,
+        court_code=parsed.court_code,
+        communication_type=parsed.communication_type,
+        document_type=parsed.document_type,
+        organ_name=parsed.organ_name,
+        organ_id=parsed.organ_id,
+        body=parsed.body,
+        process_number=parsed.process_number,
+        medium=parsed.medium,
+        medium_full=parsed.medium_full,
+        class_name=parsed.class_name,
+        class_code=parsed.class_code,
+        communication_number=parsed.communication_number,
+        link=parsed.link,
+        status=parsed.status,
+        is_active=parsed.is_active,
+        cancellation_reason=parsed.cancellation_reason,
+        cancelled_at=parsed.cancelled_at,
+        raw_payload=parsed.raw_payload,
+    )
+
+
 class PublicationService:
     """Registro de publicações capturadas (spec 042) + listagem/leitura da tela de
     intimações (spec 048). A sincronização em lote é da spec 044."""
@@ -90,30 +123,7 @@ class PublicationService:
         if await self.repository.get_by_hash(parsed.hash) is not None:
             raise PublicationAlreadyExistsError
 
-        publication = Publication(
-            tenant_id=self.tenant_id,
-            external_id=parsed.external_id,
-            hash=parsed.hash,
-            availability_date=parsed.availability_date,
-            court_code=parsed.court_code,
-            communication_type=parsed.communication_type,
-            document_type=parsed.document_type,
-            organ_name=parsed.organ_name,
-            organ_id=parsed.organ_id,
-            body=parsed.body,
-            process_number=parsed.process_number,
-            medium=parsed.medium,
-            medium_full=parsed.medium_full,
-            class_name=parsed.class_name,
-            class_code=parsed.class_code,
-            communication_number=parsed.communication_number,
-            link=parsed.link,
-            status=parsed.status,
-            is_active=parsed.is_active,
-            cancellation_reason=parsed.cancellation_reason,
-            cancelled_at=parsed.cancelled_at,
-            raw_payload=parsed.raw_payload,
-        )
+        publication = _publication_from(parsed, self.tenant_id)
         await self.repository.create(publication)
         for recipient in parsed.recipients:
             self.session.add(

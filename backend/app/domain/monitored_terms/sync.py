@@ -177,9 +177,13 @@ class TermSyncService:
             if acquired and self.lock is not None:
                 await self.lock.release(f"rito:djen_sync:{term.id}")
 
-    async def _execute(self, term: MonitoredTerm, now: datetime) -> TermSyncRun:
-        # Sync manual da 043 abre a run sem processar — a varredura consome a
-        # run aberta em vez de criar outra (descoberta registrada na spec 043).
+    async def _open_run(self, term: MonitoredTerm, now: datetime) -> TermSyncRun:
+        """A execução desta varredura — a aberta que já existia, ou uma nova.
+
+        Sync manual da 043 abre a run sem processar, e a varredura agendada CONSOME essa
+        run em vez de criar outra: sem isso, pedir sync à mão e deixar o agendador rodar
+        em seguida produziria duas execuções para o mesmo trabalho.
+        """
         run = await self.runs.get_running(term.id)
         if run is None:
             run = TermSyncRun(tenant_id=self.tenant_id, term_id=term.id, started_at=now)
@@ -187,24 +191,37 @@ class TermSyncService:
         term.status = TermStatus.SINCRONIZANDO
         term.last_sync_at = now
         await self._commit()
+        return run
 
+    async def _sync_windows(self, term: MonitoredTerm, run: TermSyncRun, now: datetime) -> None:
+        """Varre do último dia capturado até hoje, em janelas de `MAX_WINDOW_DAYS`.
+
+        Spec 114, regra 3: a janela é em dias do ESCRITÓRIO, não em dias UTC. `now`
+        continua sendo o instante (carimbo de `started_at`/`last_sync_at`, e a costura por
+        onde os testes de caos injetam relógio torto); o que muda é em que fuso esse
+        instante vira «dia». Com `now.date()`, a partir das 21h de Brasília o Rito pedia ao
+        DJEN as publicações de AMANHÃ. O `DTZ` não pega este caso: `datetime.now(UTC)` tem
+        fuso, só que o fuso errado para a pergunta.
+
+        Cada janela comita: interrupção no meio deixa o que já entrou (regra 1) e o
+        `last_captured_date` diz por onde retomar.
+        """
+        fuso = Clock(await AccountRepository(self.session).timezone()).timezone
+        today = now.astimezone(fuso).date()
+        start = self._window_start(term, today)
+        while start <= today:
+            end = min(start + timedelta(days=MAX_WINDOW_DAYS), today)
+            await self._sync_window(term, run, start, end)
+            term.last_captured_date = end
+            await self._commit()
+            start = end + timedelta(days=1)
+
+    async def _execute(self, term: MonitoredTerm, now: datetime) -> TermSyncRun:
+        # Sync manual da 043 abre a run sem processar — a varredura consome a
+        # run aberta em vez de criar outra (descoberta registrada na spec 043).
+        run = await self._open_run(term, now)
         try:
-            # Spec 114, regra 3: a janela de busca é em dias do ESCRITÓRIO, não em dias
-            # UTC. `now` continua sendo o instante (carimbo de `started_at` e
-            # `last_sync_at`, e a costura por onde os testes de caos injetam relógio
-            # torto); o que muda é em que fuso esse instante é convertido para «dia».
-            # `now.date()` pedia ao DJEN as publicações de amanhã a partir das 21h de
-            # Brasília. O `DTZ` não pega este caso: `datetime.now(UTC)` TEM fuso, só que
-            # o fuso errado para a pergunta.
-            fuso = Clock(await AccountRepository(self.session).timezone()).timezone
-            today = now.astimezone(fuso).date()
-            start = self._window_start(term, today)
-            while start <= today:
-                end = min(start + timedelta(days=MAX_WINDOW_DAYS), today)
-                await self._sync_window(term, run, start, end)
-                term.last_captured_date = end
-                await self._commit()
-                start = end + timedelta(days=1)
+            await self._sync_windows(term, run, now)
         except Exception as exc:
             # Regra 9: rollback descarta a página em andamento — as páginas já
             # commitadas ficam e o re-run não as duplica (regra 1). O rollback

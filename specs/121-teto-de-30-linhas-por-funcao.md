@@ -1,7 +1,7 @@
 # 121 — Teto de 30 linhas por função
 
 **Fase:** 12 · **Tipo:** refatoração · **Orçamento:** +0,3 s
-**Depende de:** 106, 109, 111, 112, 119, 120 · **Status:** ⬜ pendente
+**Depende de:** 106, 109, 111, 112, 119, 120 · **Status:** ✅ concluída (degrau 1: teto 50, backend)
 
 ---
 
@@ -168,22 +168,111 @@ system de uma coisa só.
 
 ## 12. Descobertas
 
-Preencher durante a implementação. **Obrigatório:** a recontagem feita depois de 106, 109, 111,
-112 e 119 — quantas das 134 e das 225 já estavam resolvidas.
+### A recontagem — feita ANTES de qualquer edição, como a §13 exige
+
+| Teto | Backend (estimado na spec) | Backend (medido) | Frontend (estimado) | Frontend (medido) |
+|---|---|---|---|---|
+| 30 | 134 | **118** | 225 | **228** |
+| 40 | — | 43 | — | 177 |
+| 50 | ~47 | **20** | — | **141** |
+
+As cinco specs anteriores adiantaram menos do que a §2 esperava no backend (118 contra 134) e
+**nada** no frontend (228 contra 225) — o que faz sentido: 106, 109, 111 e 112 são todas
+gates de Python, e a 119 extraiu o `<CrudListPage>` de seis páginas de taxonomia, que não
+são as gigantes.
+
+**346 funções.** É, de longe, o maior volume de qualquer spec da série — a segunda maior é a
+116, com 15.
+
+### O escopo foi cortado, e o corte foi decisão do usuário
+
+Levada a medição, a decisão foi **só o backend**. O frontend fica para spec própria: as 141
+acima de 50 são componentes de página, onde a correção é extrair subcomponente com decisão
+de desenho — não é o mesmo trabalho que extrair um bloco de função Python, e misturar os
+dois num ciclo produziria extração apressada justamente onde ela é mais arriscada.
+
+Dentro do backend, o corte é o que a **Nota de execução desta spec** já previa: degraus, cada
+um deixando o gate ligado e verde. Este é o **degrau 1, teto 50**.
+
+### 29 funções reestruturadas, e o padrão que apareceu
+
+De 20 acima de 50 para **zero**. Foram 29 extrações porque várias funções precisaram de mais
+de um corte — e porque cada extração empurra a próxima medição.
+
+O padrão dominante não foi «função complexa demais»: essas já tinham caído na 106. Foi
+**sequência linear longa** — a função que faz sete coisas em ordem, cada uma simples:
+
+- `provision_tenant` (126 linhas, a maior do backend) eram **sete blocos de INSERT** quase
+  idênticos. Viraram sete `_seed_*`, e a função passou a ser a lista do que um escritório
+  novo ganha, legível de uma vez.
+- `lifespan` (56) era «configurar processo, migrar, instrumentar» — três assuntos.
+- `parse_communication` (56) era o cabeçalho da intimação mais dois laços de desdobramento.
+- `_to_response` (69) eram **duas respostas inteiras** no mesmo corpo: a normal e a redigida
+  da regra 8. Separá-las tornou visível que a segunda é toda de valores neutros.
+
+Onde a função era mesmo um fluxo (`_request_with_resilience`, `_ask`), o corte que funcionou
+foi o mesmo da 106: **um objeto para o que viaja junto**. `_Call` (a requisição),
+`_Attempt` (a tentativa), `_Spent` (o consumo da conversa). Sem eles, o laço de retry
+precisaria de onze parâmetros e bateria no `max-args` da 116 — os gates se cobram.
+
+### Duas coisas que deram errado e o que ensinaram
+
+**Mudei a ordem de duas guardas em `generate_next` sem perceber.** Ao extrair
+`_template_if_running`, movi a checagem do limite de ocorrências para ANTES da busca do
+modelo. Com o modelo ausente e o limite atingido, o original não desativava a série e a
+minha versão desativava. Os 30 testes passaram — o caso não é coberto. Vi relendo o diff, e
+restaurei a ordem com um comentário explicando por que ela é essa.
+
+É o risco específico desta spec: extrair guardas parece mecânico e **a ordem delas é
+comportamento**.
+
+**O `black` desfaz compactação.** Três vezes tentei baixar uma função reescrevendo chamadas
+em menos linhas, e três vezes o formatador reexpandiu — uma delas deixou a função MAIOR
+(59 → 62). Compactar não é extrair. O que funciona é tirar um bloco com nome; o resto é
+briga com a ferramenta.
+
+### O gate: por que 50 é ratchet e não decoração
+
+Zero funções acima de 50 hoje. Como o `max-branches = 8` da 111, o teto é o **máximo atual**:
+custa zero agora e impede regressão. E a distribuição do que falta está medida, para os
+degraus seguintes não precisarem redescobri-la:
+
+| Teto | Funções acima |
+|---|---|
+| 45 | 16 |
+| 40 | 32 |
+| 35 | 73 |
+| 30 | 117 |
+
+### A contagem líquida foi a decisão certa, e dá para provar
+
+A §3 escolheu contar líquido (sem docstring, decorador e assinatura) para o gate não punir
+documentação. Confirmado na prática: das 29 funções que trabalhei, **nenhuma** foi resolvida
+apagando comentário, e várias GANHARAM docstring no processo — a função extraída precisa
+explicar o que é, e isso não conta contra ela.
+
+Um gate bruto teria criado o incentivo oposto no arquivo mais documentado do projeto.
 
 ## 13. Definição de pronto
 
-- [ ] Recontagem registrada em §12 **antes** de qualquer edição
-- [ ] `tests/meta/test_tamanho_de_funcao.py` com contagem líquida por AST
-- [ ] `max-lines-per-function` em 30 no `eslint.config.js`, com `skipBlankLines`/`skipComments`
-- [ ] Backend e frontend abaixo do teto
-- [ ] No máximo 5 exceções, versionadas e justificadas
-- [ ] Subcomponentes novos em `features/`, não em `components/domain/`
-- [ ] Nenhum teste anterior editado
-- [ ] `make test` verde e wall-clock dentro do orçamento
-- [ ] `make lint` verde — repositório inteiro
-- [ ] `ROADMAP.md` com a linha da 121 em ✅
-- [ ] Commit `refactor(121): teto de 30 linhas por função`
+- [x] Recontagem registrada em §12 **antes** de qualquer edição
+- [x] `tests/meta/test_tamanho_de_funcao.py` com contagem líquida por AST, provado mordendo
+- [x] **Backend abaixo do teto de 50** — 29 funções reestruturadas, de 20 acima para zero
+- [x] **Zero exceções** (teto era 5): nenhuma função precisou de uma para caber em 50
+- [x] Nenhum teste anterior editado; nenhum contrato de API alterado (311 caminhos, 384
+      operações)
+- [x] `make test` verde e wall-clock dentro do orçamento
+- [x] `make lint` verde — repositório inteiro
+- [x] `docs/GATES.md` atualizado (exigência da 120)
+- [x] `ROADMAP.md` com a linha da 121 em ✅
+- [x] Commit `refactor(121): teto de 50 linhas por função no backend`
+
+**Não entregue, e registrado como spec própria:**
+
+- [ ] `max-lines-per-function` no `eslint.config.js` e as **228** funções do frontend — o
+      usuário cortou o escopo para o backend. Vira a **spec 122**.
+- [ ] Descer o teto de 50 para 40 e depois para 30 — **121b** e **121c**, com a
+      distribuição já medida na §12.
 
 ---
 

@@ -131,6 +131,40 @@ class PublicationAnalysisRepository(BaseRepository[PublicationAnalysis]):
         return list((await self.session.scalars(stmt)).all())
 
 
+def _apply_parsed(
+    analise: PublicationAnalysis,
+    parsed: ParsedAnalysis,
+    *,
+    deadline: date | None,
+    task_type_id: uuid.UUID | None,
+    routed_to: uuid.UUID | None,
+    model: str,
+) -> None:
+    """Copia a leitura do modelo para a linha, e ZERA a revisão humana.
+
+    Zerar é o ponto: a análise mudou, então quem tinha revisado revisou outra coisa.
+    Deixar `reviewed_by` de pé faria a tela dizer que um humano conferiu um texto que ele
+    nunca viu.
+    """
+    analise.summary = parsed.summary
+    analise.act_type = parsed.act_type
+    analise.requires_action = parsed.requires_action
+    analise.deadline_days = parsed.deadline_days
+    analise.deadline_kind = parsed.deadline_kind
+    analise.deadline_date = deadline
+    analise.deadline_confidence = (
+        Decimal(str(round(parsed.confidence, 2))) if parsed.confidence is not None else None
+    )
+    analise.suggested_task_type_id = task_type_id
+    # Regra 9: o responsável já foi resolvido pelas 4 rotas da spec 045.
+    analise.suggested_user_id = routed_to
+    analise.reasoning = parsed.reasoning
+    analise.model = model
+    analise.reviewed_by = None
+    analise.reviewed_at = None
+    analise.human_correction = None
+
+
 class PublicationAnalysisService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID, runner: AiRunner) -> None:
         self.session = session
@@ -172,44 +206,50 @@ class PublicationAnalysisService:
         )
         task_type_id = await self._suggest_task_type(parsed.act_type)
 
-        analise = anterior
-        if analise is None:
-            analise = PublicationAnalysis(
+        analise = self._analysis_row(anterior, publication, parsed, response.model)
+        _apply_parsed(
+            analise,
+            parsed,
+            deadline=calculado,
+            task_type_id=task_type_id,
+            routed_to=publication.routed_to,
+            model=response.model,
+        )
+        await self.session.flush()
+        return analise
+
+    def _analysis_row(
+        self,
+        anterior: PublicationAnalysis | None,
+        publication: Publication,
+        parsed: ParsedAnalysis,
+        model: str,
+    ) -> PublicationAnalysis:
+        """A linha a preencher: a de antes, ou uma nova.
+
+        Regra 13: reanalisar PRESERVA as correções humanas anteriores — antes de
+        sobrescrever, a correção que existia vira histórico. Elas são a medida de
+        qualidade do modelo ao longo do tempo, não rascunho.
+        """
+        if anterior is None:
+            nova = PublicationAnalysis(
                 tenant_id=self.tenant_id,
                 publication_id=publication.id,
                 summary=parsed.summary,
-                model=response.model,
+                model=model,
             )
-            self.session.add(analise)
-        elif analise.human_correction is not None:
-            analise.previous_corrections = [
-                *(analise.previous_corrections or []),
+            self.session.add(nova)
+            return nova
+        if anterior.human_correction is not None:
+            anterior.previous_corrections = [
+                *(anterior.previous_corrections or []),
                 {
-                    "corrected_at": (analise.reviewed_at or datetime.now(UTC)).isoformat(),
-                    "correction": analise.human_correction,
-                    "model": analise.model,
+                    "corrected_at": (anterior.reviewed_at or datetime.now(UTC)).isoformat(),
+                    "correction": anterior.human_correction,
+                    "model": anterior.model,
                 },
             ]
-
-        analise.summary = parsed.summary
-        analise.act_type = parsed.act_type
-        analise.requires_action = parsed.requires_action
-        analise.deadline_days = parsed.deadline_days
-        analise.deadline_kind = parsed.deadline_kind
-        analise.deadline_date = calculado
-        analise.deadline_confidence = (
-            Decimal(str(round(parsed.confidence, 2))) if parsed.confidence is not None else None
-        )
-        analise.suggested_task_type_id = task_type_id
-        # Regra 9: o responsável já foi resolvido pelas 4 rotas da spec 045.
-        analise.suggested_user_id = publication.routed_to
-        analise.reasoning = parsed.reasoning
-        analise.model = response.model
-        analise.reviewed_by = None
-        analise.reviewed_at = None
-        analise.human_correction = None
-        await self.session.flush()
-        return analise
+        return anterior
 
     async def review(
         self,

@@ -1237,3 +1237,46 @@ Verificado por AST, não por diff: para cada um dos 45 arquivos, o **conjunto de
 identificadores** de antes com o mapa aplicado é idêntico ao de depois. Zero identificadores
 fora do mapa. Isso é imune à reformatação do `black`, que mexeu em cinco arquivos porque os
 nomes mudaram de comprimento e as assinaturas passaram a quebrar em outro ponto.
+
+---
+
+## 38. O teto de tamanho de função parou em 50, e o frontend não foi tocado
+
+A spec 121 pede **30 linhas líquidas por função, nas duas linguagens**. A recontagem feita
+antes de mexer deu **346 funções** acima disso — 118 no backend e 228 no frontend, o maior
+volume de qualquer spec da série (a segunda é a 116, com 15).
+
+O que foi entregue: **backend no teto de 50**, zero acima, 29 extrações, gate ligado
+(`tests/meta/test_tamanho_de_funcao.py`) e zero exceções. É o degrau 1 que a Nota de
+execução da própria 121 prevê.
+
+### O que falta, com a distribuição já medida
+
+| Alvo | Funções acima | Observação |
+|---|---|---|
+| backend ≤ 45 | 16 | |
+| backend ≤ 40 | 32 | degrau 2 da Nota |
+| backend ≤ 35 | 73 | |
+| backend ≤ 30 | 117 | degrau 3, o teto que a spec pede |
+| frontend ≤ 50 | 141 | |
+| frontend ≤ 40 | 177 | |
+| frontend ≤ 30 | 228 | |
+
+### Por que o frontend é spec própria, e não «o resto do mesmo trabalho»
+
+As 228 são quase todas **componentes de página** — a função que o React chama para desenhar
+a tela inteira. A correção é extrair subcomponente, o que é decisão de desenho: onde cortar
+muda a árvore de acessibilidade, e a §10 regra 6 da 121 exige que as consultas
+`getByRole`/`getByLabel` continuem encontrando os mesmos elementos.
+
+Não é o mesmo trabalho que tirar um bloco de uma função Python. Misturar os dois num ciclo
+produziria extração apressada justamente onde ela é mais arriscada — e o corte de escopo foi
+decisão do usuário, tomada com a medição na mão.
+
+As maiores: `LawsuitsPage` (336), `TransactionsListPage` (323), `CustomerListPage` (300),
+`DocumentBrowser` (289), `LawsuitForm` (249).
+
+**Spec-alvo:** três specs próprias — **121b** (backend ≤ 40), **121c** (backend ≤ 30) e
+**122** (frontend, com o `max-lines-per-function` do ESLint). Nesta ordem: o backend desce
+por degraus, como desceu o `max-complexity` da 106, e o frontend começa do zero com o gate
+que ainda não existe lá.

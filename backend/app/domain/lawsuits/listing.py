@@ -376,6 +376,76 @@ class LawsuitListingRepository:
             .scalar_subquery()
         )
 
+    async def _page_ids(
+        self,
+        conditions: list[ColumnElement[bool]],
+        *,
+        sort_column: InstrumentedAttribute[datetime],
+        descending: bool,
+        cursor: tuple[datetime, uuid.UUID] | None,
+        limit: int,
+    ) -> tuple[list[uuid.UUID], int]:
+        """Os ids da página e o total do filtro, numa query só (spec 098, regra 1).
+
+        O total sai por função de janela na PRÓPRIA query da página: é o mesmo conjunto de
+        linhas, e um `SELECT count(*)` separado percorreria a mesma faixa duas vezes. Os
+        dois JOINs continuam porque os filtros podem referenciar etapa e tipo de ação — e
+        são tabelas de dezenas de linhas.
+        """
+        stmt = (
+            select(Lawsuit.id, sort_column, func.count().over().label("total"))
+            .select_from(Lawsuit)
+            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+            .join(Stage, Stage.id == Lawsuit.stage_id)
+        )
+        for condition in conditions:
+            stmt = stmt.where(condition)
+        stmt = paginate_keyset(
+            stmt,
+            sort_column=sort_column,
+            id_column=Lawsuit.id,
+            descending=descending,
+            cursor=cursor,
+            limit=limit,
+        )
+        linhas = (await self.session.execute(stmt)).all()
+        # Página vazia é filtro sem resultado — a janela não existe e zero é o total.
+        total = int(linhas[0].total) if linhas else 0
+        return [linha[0] for linha in linhas], total
+
+    def _labels_query(
+        self,
+        ids: list[uuid.UUID],
+        parties: Any,
+        sort_column: InstrumentedAttribute[datetime],
+        descending: bool,
+    ) -> Select[Any]:
+        """A segunda metade do JOIN DIFERIDO: os rótulos das 20 linhas já escolhidas.
+
+        A ordenação precisa ser REPETIDA aqui: `IN` não preserva ordem nenhuma, e a página
+        sairia embaralhada em relação ao cursor que a produziu — bug que só aparece na
+        segunda página, que é o pior lugar para descobrir.
+        """
+        ordem = sort_column.desc() if descending else sort_column.asc()
+        desempate = Lawsuit.id.desc() if descending else Lawsuit.id.asc()
+        return (
+            select(
+                Lawsuit,
+                LawsuitType.name,
+                ActionGroup.name,
+                Stage.name,
+                parties.c.parties,
+                parties.c.parties_total,
+                self._last_movement_title().label("last_movement_title"),
+            )
+            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+            .join(ActionGroup, ActionGroup.id == LawsuitType.action_group_id)
+            .join(Stage, Stage.id == Lawsuit.stage_id)
+            .outerjoin(parties, parties.c.lawsuit_id == Lawsuit.id)
+            .where(Lawsuit.id.in_(ids))
+            .order_by(ordem, desempate)
+        )
+
     async def list_filtered(
         self,
         *,
@@ -400,56 +470,17 @@ class LawsuitListingRepository:
         # com `LIMIT` vira leitura de índice), e os quatro JOINs de rótulo caem sobre as
         # 20 linhas escolhidas.
         sort_column = Lawsuit.created_at
-        # O total do filtro sai por função de janela na PRÓPRIA query da página: é o
-        # mesmo conjunto de linhas, e um `SELECT count(*)` separado percorreria a mesma
-        # faixa duas vezes. Os dois JOINs continuam porque os filtros podem referenciar
-        # etapa e tipo de ação — e são tabelas de dezenas de linhas.
-        pagina_stmt = (
-            select(Lawsuit.id, sort_column, func.count().over().label("total"))
-            .select_from(Lawsuit)
-            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
-            .join(Stage, Stage.id == Lawsuit.stage_id)
+        ids_da_pagina, total = await self._page_ids(
+            conditions, sort_column=sort_column, descending=descending, cursor=cursor, limit=limit
         )
-        for condition in conditions:
-            pagina_stmt = pagina_stmt.where(condition)
-        pagina_stmt = paginate_keyset(
-            pagina_stmt,
-            sort_column=sort_column,
-            id_column=Lawsuit.id,
-            descending=descending,
-            cursor=cursor,
-            limit=limit,
-        )
-        linhas_da_pagina = (await self.session.execute(pagina_stmt)).all()
-        # Página vazia é filtro sem resultado — a janela não existe e zero é o total.
-        total = int(linhas_da_pagina[0].total) if linhas_da_pagina else 0
-        ids_da_pagina = [linha[0] for linha in linhas_da_pagina]
         if not ids_da_pagina:
             return [], total
 
-        stmt = (
-            select(
-                Lawsuit,
-                LawsuitType.name,
-                ActionGroup.name,
-                Stage.name,
-                parties.c.parties,
-                parties.c.parties_total,
-                self._last_movement_title().label("last_movement_title"),
+        rows = (
+            await self.session.execute(
+                self._labels_query(ids_da_pagina, parties, sort_column, descending)
             )
-            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
-            .join(ActionGroup, ActionGroup.id == LawsuitType.action_group_id)
-            .join(Stage, Stage.id == Lawsuit.stage_id)
-            .outerjoin(parties, parties.c.lawsuit_id == Lawsuit.id)
-            .where(Lawsuit.id.in_(ids_da_pagina))
-        )
-        # A ordenação precisa ser repetida: `IN` não preserva ordem nenhuma, e a página
-        # sairia embaralhada em relação ao cursor que a produziu.
-        ordem = sort_column.desc() if descending else sort_column.asc()
-        desempate = Lawsuit.id.desc() if descending else Lawsuit.id.asc()
-        stmt = stmt.order_by(ordem, desempate)
-
-        rows = (await self.session.execute(stmt)).all()
+        ).all()
         items = [
             LawsuitListRow(
                 lawsuit=row[0],

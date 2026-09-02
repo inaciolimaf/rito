@@ -123,6 +123,65 @@ class AiInsightRepository(BaseRepository[AiInsight]):
         return (await self.session.scalars(stmt)).first()
 
 
+def _recommendation(sinais: dict[str, Any], lawsuit_id: uuid.UUID) -> NextAction:
+    """Regra 6: cinco sinais, uma recomendação — decidida por REGRA, não por modelo.
+
+    A ordem das checagens é a ordem da urgência real do escritório: prazo primeiro, porque
+    prazo perdido não se recupera; dinheiro por último, porque cobrança espera um dia.
+    Trocar a ordem muda o produto, não o estilo — daí ela estar aqui sozinha, legível de
+    cima a baixo, separada da coleta dos sinais.
+    """
+
+    if sinais["overdue_tasks"]:
+        return NextAction(
+            action="Concluir as tarefas em atraso",
+            reason=(f"{sinais['overdue_tasks']} tarefa(s) com prazo vencido neste processo."),
+            signals=sinais,
+        )
+    if sinais["deadline_in_days"] is not None and sinais["deadline_in_days"] <= DEADLINE_RISK_DAYS:
+        return NextAction(
+            action="Cumprir o prazo mais próximo",
+            reason=f"Há prazo vencendo em {sinais['deadline_in_days']} dia(s).",
+            signals=sinais,
+        )
+    if (
+        sinais["days_without_movement"] is not None
+        and sinais["days_without_movement"] >= STAGNATION_DAYS
+    ):
+        return NextAction(
+            action="Movimentar o processo",
+            reason=(
+                f"Sem movimentação há {sinais['days_without_movement']} dias, "
+                f"parado na etapa {sinais['stage']}."
+            ),
+            signals=sinais,
+            suggested_tool="create_task",
+            suggested_arguments={"lawsuit_id": str(lawsuit_id)},
+        )
+    if not sinais["open_tasks"]:
+        return NextAction(
+            action="Definir a próxima tarefa",
+            reason=(
+                f"O processo está na etapa {sinais['stage']} e não tem nenhuma tarefa "
+                "em aberto — ninguém está com ele."
+            ),
+            signals=sinais,
+            suggested_tool="create_task",
+            suggested_arguments={"lawsuit_id": str(lawsuit_id)},
+        )
+    if sinais["overdue_amount"]:
+        return NextAction(
+            action="Cobrar o valor em atraso",
+            reason=f"Há R$ {sinais['overdue_amount']:.2f} vencidos neste processo.",
+            signals=sinais,
+        )
+    return NextAction(
+        action="Seguir o plano atual",
+        reason="Sem prazo próximo, sem atraso e com tarefa em andamento.",
+        signals=sinais,
+    )
+
+
 class AnalyticsService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID, runner: AiRunner) -> None:
         self.session = session
@@ -267,60 +326,8 @@ class AnalyticsService:
         porque prazo perdido não se recupera; dinheiro por último, porque cobrança
         espera um dia.
         """
-        hoje = today
-        sinais = await self._signals(lawsuit_id, hoje)
-
-        if sinais["overdue_tasks"]:
-            return NextAction(
-                action="Concluir as tarefas em atraso",
-                reason=(f"{sinais['overdue_tasks']} tarefa(s) com prazo vencido neste processo."),
-                signals=sinais,
-            )
-        if (
-            sinais["deadline_in_days"] is not None
-            and sinais["deadline_in_days"] <= DEADLINE_RISK_DAYS
-        ):
-            return NextAction(
-                action="Cumprir o prazo mais próximo",
-                reason=f"Há prazo vencendo em {sinais['deadline_in_days']} dia(s).",
-                signals=sinais,
-            )
-        if (
-            sinais["days_without_movement"] is not None
-            and sinais["days_without_movement"] >= STAGNATION_DAYS
-        ):
-            return NextAction(
-                action="Movimentar o processo",
-                reason=(
-                    f"Sem movimentação há {sinais['days_without_movement']} dias, "
-                    f"parado na etapa {sinais['stage']}."
-                ),
-                signals=sinais,
-                suggested_tool="create_task",
-                suggested_arguments={"lawsuit_id": str(lawsuit_id)},
-            )
-        if not sinais["open_tasks"]:
-            return NextAction(
-                action="Definir a próxima tarefa",
-                reason=(
-                    f"O processo está na etapa {sinais['stage']} e não tem nenhuma tarefa "
-                    "em aberto — ninguém está com ele."
-                ),
-                signals=sinais,
-                suggested_tool="create_task",
-                suggested_arguments={"lawsuit_id": str(lawsuit_id)},
-            )
-        if sinais["overdue_amount"]:
-            return NextAction(
-                action="Cobrar o valor em atraso",
-                reason=f"Há R$ {sinais['overdue_amount']:.2f} vencidos neste processo.",
-                signals=sinais,
-            )
-        return NextAction(
-            action="Seguir o plano atual",
-            reason="Sem prazo próximo, sem atraso e com tarefa em andamento.",
-            signals=sinais,
-        )
+        sinais = await self._signals(lawsuit_id, today)
+        return _recommendation(sinais, lawsuit_id)
 
     async def _signals(self, lawsuit_id: uuid.UUID, hoje: date) -> dict[str, Any]:
         row = (

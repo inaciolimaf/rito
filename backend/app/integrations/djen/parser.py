@@ -132,24 +132,21 @@ def normalize_process_number(value: Any) -> str | None:
     return digits or None
 
 
-def parse_communication(item: dict[str, Any]) -> ParsedCommunication:
-    unknown = sorted(set(item) - _KNOWN_FIELDS)
-    if unknown:
-        logger.warning("djen: campos desconhecidos no item %s: %s", item.get("id"), unknown)
-
-    external_id = _to_int(item.get("id"))
-    hash_ = _to_str(item.get("hash"))
-    availability = _to_date(item.get("data_disponibilizacao"))
-    if external_id is None or hash_ is None or availability is None:
-        raise DjenParseError(
-            f"item sem id/hash/data_disponibilizacao utilizável: id={item.get('id')!r}"
-        )
-
-    recipients = [
+def _parse_recipients(item: dict[str, Any]) -> list[ParsedRecipient]:
+    """As partes da intimação. Entrada que não é objeto é descartada em silêncio: o DJEN
+    já devolveu lista com `null` no meio, e derrubar a intimação inteira por causa de um
+    destinatário malformado perderia o prazo que ela carrega."""
+    return [
         ParsedRecipient(name=_to_str(r.get("nome")) or "", pole=_to_str(r.get("polo")))
         for r in item.get("destinatarios") or []
         if isinstance(r, dict)
     ]
+
+
+def _parse_lawyers(item: dict[str, Any]) -> list[ParsedLawyer]:
+    """Os advogados, que vêm aninhados um nível: cada entrada tem o vínculo e, dentro
+    dele, o objeto `advogado`. Todo campo é opcional — é a OAB que casa a intimação com o
+    escritório (spec 043), e ela às vezes vem vazia."""
     lawyers = []
     for entry in item.get("destinatarioadvogados") or []:
         if not isinstance(entry, dict):
@@ -163,6 +160,24 @@ def parse_communication(item: dict[str, Any]) -> ParsedCommunication:
                 oab_state=_to_str(lawyer.get("uf_oab")),
             )
         )
+    return lawyers
+
+
+def parse_communication(item: dict[str, Any]) -> ParsedCommunication:
+    unknown = sorted(set(item) - _KNOWN_FIELDS)
+    if unknown:
+        logger.warning("djen: campos desconhecidos no item %s: %s", item.get("id"), unknown)
+
+    external_id = _to_int(item.get("id"))
+    hash_ = _to_str(item.get("hash"))
+    availability = _to_date(item.get("data_disponibilizacao"))
+    if external_id is None or hash_ is None or availability is None:
+        raise DjenParseError(
+            f"item sem id/hash/data_disponibilizacao utilizável: id={item.get('id')!r}"
+        )
+
+    recipients = _parse_recipients(item)
+    lawyers = _parse_lawyers(item)
 
     return ParsedCommunication(
         external_id=external_id,

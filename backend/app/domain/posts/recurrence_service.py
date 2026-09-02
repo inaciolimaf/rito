@@ -88,22 +88,36 @@ class RecurrenceService:
             occurrences_created=recurrence.occurrences_created,
         )
 
-    async def generate_next(self, recurrence: PostRecurrence) -> Post | None:
-        """Gera a próxima ocorrência da série (regras 1, 2, 6, 9). Devolve None quando
-        a série encerrou (limite atingido — regra 6) ou a data já existe (guarda de
-        idempotência entre conclusão e worker)."""
+    async def _template_if_running(self, recurrence: PostRecurrence) -> Post | None:
+        """O post-modelo da série, ou `None` quando a série não deve gerar mais nada.
+
+        Regra 6: o limite de ocorrências encerra a série pelo que vier primeiro — e
+        encerrar significa DESLIGAR, não apenas devolver nada. Uma série que atingiu o teto
+        e continua ativa seria consultada para sempre pelo worker.
+        """
         if not recurrence.is_active:
             return None
         template = await self.posts.get_by_id(recurrence.template_post_id)
-        if template is None or template.scheduled_date is None:
+        # A busca do modelo vem ANTES do teto de propósito: série cujo modelo sumiu não é
+        # desligada aqui. Desligar sem modelo mudaria o estado de uma série que nem chegou
+        # a ser avaliada — e a ordem original é a que os testes da 034 exercitam.
+        if template is None:
             return None
         if (
             recurrence.max_occurrences is not None
             and recurrence.occurrences_created >= recurrence.max_occurrences
         ):
-            # Regra 6: atingiu o limite de ocorrências — encerra pelo que veio primeiro.
             recurrence.is_active = False
             await self.session.flush()
+            return None
+        return template
+
+    async def generate_next(self, recurrence: PostRecurrence) -> Post | None:
+        """Gera a próxima ocorrência da série (regras 1, 2, 6, 9). Devolve None quando
+        a série encerrou (limite atingido — regra 6) ou a data já existe (guarda de
+        idempotência entre conclusão e worker)."""
+        template = await self._template_if_running(recurrence)
+        if template is None or template.scheduled_date is None:
             return None
         anchor = template.scheduled_date
         candidate = next_occurrence(

@@ -13,6 +13,8 @@ import random
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from dataclasses import dataclass
+from typing import NoReturn
 
 import httpx
 from opentelemetry.trace import SpanKind
@@ -55,6 +57,69 @@ def _default_jitter() -> float:
     """
     # Aleatoriedade de espaçamento, não de segredo — ver a docstring acima.
     return random.uniform(0.5, 1.5)  # noqa: S311
+
+
+@dataclass(frozen=True, slots=True)
+class _Attempt:
+    """O que identifica UMA tentativa, para auditoria e log (spec 121).
+
+    Sete valores que viajam juntos do começo ao fim de uma chamada e não são decisão de
+    ninguém — são a identidade dela. Como objeto, `_settle` recebe um parâmetro em vez de
+    sete, e o log e o registro de auditoria passam a receber comprovadamente os mesmos
+    dados, em vez de dois conjuntos montados à mão.
+    """
+
+    method: str
+    url: str
+    parsed: httpx.URL
+    host: str
+    tenant_id: uuid.UUID | None
+    duration_ms: int
+    number: int
+
+
+def _raise_exhausted(
+    url: str,
+    breaker: CircuitBreaker,
+    last_status: int | None,
+    last_error: BaseException | None,
+) -> NoReturn:
+    """Todas as tentativas falharam: conta como falha do host e sobe o último estado real.
+
+    O status vem antes do erro de propósito: se a última tentativa CHEGOU ao servidor e
+    tomou 503, isso é mais informativo para quem lê o log do que o timeout de duas
+    tentativas atrás. `on_failure` aqui é o que abre o circuito depois de N falhas
+    seguidas — e é o único ponto onde ele é chamado, porque sair pelo `_settle` é sucesso.
+    """
+    breaker.on_failure()
+    if last_status is not None:
+        raise HttpStatusError(url, last_status)
+    raise HttpRequestError(
+        url, not_none(last_error, "sem status e sem erro o laço teria retornado antes")
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _Call:
+    """A requisição que o chamador pediu — imutável e igual em todas as tentativas.
+
+    Separa o QUE se pede (isto) de COMO se pede (a política) e de o QUE ACONTECEU (o
+    `_Attempt`). Sem isso, o laço de retry precisaria de onze parâmetros.
+    """
+
+    method: str
+    url: str
+    parsed: httpx.URL
+    host: str
+    tenant_id: uuid.UUID | None
+    params: dict[str, str] | None
+    content: bytes | None
+
+    def attempt(self, duration_ms: int, number: int) -> "_Attempt":
+        """Esta chamada, na tentativa `number`, que levou `duration_ms`."""
+        return _Attempt(
+            self.method, self.url, self.parsed, self.host, self.tenant_id, duration_ms, number
+        )
 
 
 class ResilientHttpClient:
@@ -207,6 +272,100 @@ class ResilientHttpClient:
         pedido = self._parse_retry_after(retry_after)
         await self._sleep(pedido if pedido is not None else self._backoff(policy, attempt))
 
+    async def _settle(
+        self,
+        attempt: _Attempt,
+        *,
+        breaker: CircuitBreaker,
+        cache_key: str,
+        raw: httpx.Response,
+        body: bytes,
+    ) -> HttpResponse:
+        """A resposta final: sucesso, 304, ou 4xx não retentável.
+
+        Regra 1: 4xx exceto 429 nunca é retentado — volta para o chamador decidir. Chegar
+        aqui é o que fecha o circuito do host (`on_success`), e é o único caminho em que
+        isso acontece: quem sai pelo laço saiu por falha.
+        """
+        breaker.on_success()
+        response = await self._finalize(attempt.method, cache_key, raw, body)
+        await self._record_success_sampled(
+            attempt.tenant_id,
+            attempt.host,
+            attempt.method,
+            attempt.parsed.path,
+            attempt.duration_ms,
+            attempt.number,
+            raw.status_code,
+        )
+        logger.info(
+            "http_request host=%s method=%s path=%s status=%s duration_ms=%d attempt=%d",
+            attempt.host,
+            attempt.method,
+            attempt.parsed.path,
+            raw.status_code,
+            attempt.duration_ms,
+            attempt.number,
+        )
+        return response
+
+    async def _send(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: dict[str, str],
+        params: dict[str, str] | None,
+        content: bytes | None,
+        timeout_s: float,
+    ) -> tuple[httpx.Response, bytes]:
+        """Uma ida à rede, com o corpo já lido e validado pelo teto da regra 9.
+
+        Resposta e corpo saem juntos porque `_read_body` pode recusar (corpo grande) — e
+        aí a exceção precisa subir de dentro do MESMO `try` da tentativa, para virar
+        retentativa em vez de erro do chamador.
+        """
+        raw = await self._client.request(
+            method,
+            url,
+            headers=headers,
+            params=params,
+            content=content,
+            timeout=timeout_s,  # regra 10: timeout sempre explícito
+        )
+        return raw, await self._read_body(raw, url)
+
+    def _elapsed_ms(self, started: float) -> int:
+        """Milissegundos desde `started`, pelo relógio injetável do cliente."""
+        return int((self._clock() - started) * 1000)
+
+    async def _failed_attempt(
+        self,
+        attempt: _Attempt,
+        *,
+        policy: HostPolicy,
+        total_attempts: int,
+        motivo: str,
+        retry_after: str | None = None,
+    ) -> None:
+        """Registra a tentativa que falhou e espera até a próxima.
+
+        Os dois caminhos de retentativa — erro de transporte e status retentável — faziam
+        exatamente isto, com os mesmos sete argumentos escritos duas vezes. A única
+        diferença real é o `retry_after`, que só existe quando houve resposta com
+        cabeçalho para ler.
+        """
+        await self._record_failure(
+            attempt.tenant_id,
+            attempt.host,
+            attempt.method,
+            attempt.parsed.path,
+            attempt.duration_ms,
+            attempt.number,
+            motivo,
+        )
+        await self._wait_before_retry(policy, attempt.number, total_attempts, retry_after)
+
     async def _request_with_resilience(
         self,
         method: str,
@@ -222,7 +381,29 @@ class ResilientHttpClient:
         breaker = self._breaker_for(host, policy)
         await self._check_gate(host, policy, breaker)
         cache_key, request_headers = await self._prepare_request(method, url, headers)
+        return await self._retry_loop(
+            _Call(method, url, parsed, host, tenant_id, params, content),
+            policy=policy,
+            breaker=breaker,
+            cache_key=cache_key,
+            request_headers=request_headers,
+        )
 
+    async def _retry_loop(
+        self,
+        call: _Call,
+        *,
+        policy: HostPolicy,
+        breaker: CircuitBreaker,
+        cache_key: str,
+        request_headers: dict[str, str],
+    ) -> HttpResponse:
+        """As N tentativas, com o estado da última guardado para quando acabarem.
+
+        `last_status` e `last_error` são o que sobe quando o laço termina sem resposta
+        final — e são reatribuídos a cada volta de propósito: o que interessa a quem lê o
+        erro é o ÚLTIMO estado real, não o primeiro.
+        """
         last_error: BaseException | None = None
         last_status: int | None = None
         total_attempts = 1 + policy.max_retries
@@ -230,69 +411,44 @@ class ResilientHttpClient:
         for attempt in range(1, total_attempts + 1):
             started = self._clock()
             try:
-                raw = await self._client.request(
-                    method,
-                    url,
+                raw, body = await self._send(
+                    call.method,
+                    call.url,
                     headers=request_headers,
-                    params=params,
-                    content=content,
-                    timeout=policy.timeout_s,  # regra 10: timeout sempre explícito
+                    params=call.params,
+                    content=call.content,
+                    timeout_s=policy.timeout_s,
                 )
-                body = await self._read_body(raw, url)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 # Regra 1: erro de transporte é transitório — retenta.
-                duration_ms = int((self._clock() - started) * 1000)
-                last_error = exc
-                last_status = None
-                await self._record_failure(
-                    tenant_id, host, method, parsed.path, duration_ms, attempt, str(exc)
+                last_error, last_status = exc, None
+                await self._failed_attempt(
+                    call.attempt(self._elapsed_ms(started), attempt),
+                    policy=policy,
+                    total_attempts=total_attempts,
+                    motivo=str(exc),
                 )
-                await self._wait_before_retry(policy, attempt, total_attempts)
                 continue
 
-            duration_ms = int((self._clock() - started) * 1000)
             last_error = None
             last_status = raw.status_code
+            feita = call.attempt(self._elapsed_ms(started), attempt)
 
             if raw.status_code in policy.retry_on:
-                await self._record_failure(
-                    tenant_id,
-                    host,
-                    method,
-                    parsed.path,
-                    duration_ms,
-                    attempt,
-                    f"status {raw.status_code}",
-                )
-                await self._wait_before_retry(
-                    policy, attempt, total_attempts, raw.headers.get("retry-after")
+                await self._failed_attempt(
+                    feita,
+                    policy=policy,
+                    total_attempts=total_attempts,
+                    motivo=f"status {raw.status_code}",
+                    retry_after=raw.headers.get("retry-after"),
                 )
                 continue
 
-            # Resposta final (sucesso, 304 ou 4xx não retentável — regra 1: 4xx
-            # exceto 429 nunca é retentado, volta para o chamador decidir).
-            breaker.on_success()
-            response = await self._finalize(method, cache_key, raw, body)
-            await self._record_success_sampled(
-                tenant_id, host, method, parsed.path, duration_ms, attempt, raw.status_code
+            return await self._settle(
+                feita, breaker=breaker, cache_key=cache_key, raw=raw, body=body
             )
-            logger.info(
-                "http_request host=%s method=%s path=%s status=%s duration_ms=%d attempt=%d",
-                host,
-                method,
-                parsed.path,
-                raw.status_code,
-                duration_ms,
-                attempt,
-            )
-            return response
 
-        # Esgotou as tentativas: conta como falha do host para o breaker.
-        breaker.on_failure()
-        if last_status is not None:
-            raise HttpStatusError(url, last_status)
-        last_error = not_none(last_error, "sem status e sem erro o laço teria retornado antes")
-        raise HttpRequestError(url, last_error)
+        _raise_exhausted(call.url, breaker, last_status, last_error)
 
     async def _read_body(self, raw: httpx.Response, url: str) -> bytes:
         # Regra 9: rejeita corpo grande — primeiro pelo header (antes de baixar),

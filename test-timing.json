@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 171,
+  "last_measured_wall_clock_seconds": 158,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -398,6 +398,10 @@
     "120": {
       "wall_clock_seconds": 171,
       "notes": "Auditoria dos gates de estrutura (111-119) e entrega do docs/GATES.md. 1613 backend (1605 da 110 + 8 do test_registro_de_gates.py) + 313 frontend + 10 e2e. Nenhum teto afrouxado: conferido no git log -p, o max-complexity so desceu (10->8->6) e os demais nunca mudaram. Auditoria de proxy: em tres dos cinco itens havia verificacao exaustiva melhor que a amostragem pedida — zero testes com nome que promete comportamento e assercao so de status 2xx, zero import de integracao dentro de funcao em service, zero pagina de listagem criada depois da 119. Divida 33 FECHADA: a causa das jornadas e2e caindo sob carga nao era o EntityPicker, era o e2e ser a unica das tres suites sem teto de worker (pytest capado em 3, vitest em 1, playwright em undefined = um por nucleo). Divida 37 FECHADA por decisao do usuario: 88 simbolos privados renomeados para ingles, 217 ocorrencias em 45 arquivos, verificado por AST (conjunto de identificadores antes com o mapa aplicado == depois, zero fora do mapa). Divida 28 tentada e REVERTIDA: a correcao prescrita quebra o teste. As duas medicoes finais (195 s e 171 s) foram sob carga externa de outro projeto do usuario — a instrumentacao de CPU e carga da 110 respondeu isso em um comando, na primeira vez que foi util."
+    },
+    "121": {
+      "wall_clock_seconds": 158,
+      "notes": "Teto de linhas por funcao, degrau 1: backend em 50 linhas LIQUIDAS de corpo (docstring, decorador e assinatura fora). 1616 backend (1615 da 120 + 3 do test_tamanho_de_funcao.py) + 313 frontend + 10 e2e. Recontagem ANTES de mexer, como a §13 exige: 346 funcoes acima de 30 (118 backend + 228 frontend), o maior volume da serie — a spec estimava 134 + 225. Escopo cortado para o BACKEND por decisao do usuario; o frontend vira spec 122. De 20 funcoes acima de 50 para ZERO, em 29 extracoes, zero excecoes (o teto era 5). O padrao dominante nao era complexidade (a 106 ja a tinha levado) mas sequencia linear longa: provision_tenant eram sete blocos de INSERT identicos, _to_response eram duas respostas inteiras no mesmo corpo. Onde a funcao era mesmo fluxo (_request_with_resilience, _ask), o corte foi objeto para o que viaja junto — _Call, _Attempt, _Spent —, e sem eles o laco de retry bateria no max-args da 116. Contagem liquida confirmada como a decisao certa: nenhuma das 29 foi resolvida apagando comentario, e varias ganharam docstring. Dois erros meus: inverti a ordem de duas guardas em generate_next (comportamento, restaurado) e tentei tres vezes baixar funcao compactando chamadas, que o black desfaz — uma vez deixando a funcao MAIOR. Falta medido para os degraus seguintes: 16 acima de 45, 32 acima de 40, 117 acima de 30."
     }
   },
   "specs_concluidas": 100

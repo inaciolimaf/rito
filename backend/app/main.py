@@ -8,7 +8,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
 from app.core.bootstrap import ensure_valid
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.db import create_engine, create_engine_from_url, create_session_factory
 from app.core.errors import (
     handle_budget_exceeded,
@@ -86,35 +86,52 @@ from app.public.router import docs_router as public_docs_router
 from app.public.router import router as public_api_router
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    settings = get_settings()
+def _configure_process(settings: Settings) -> None:
+    """O que precisa existir antes da primeira requisição.
+
+    Spec 099, regras 5 e 6: configuração incompleta derruba o processo AQUI, com a lista
+    inteira do que falta — nunca no meio da requisição de alguém.
+
+    Spec 097: o provider de trace é global ao processo e precisa existir antes de o engine
+    ser instrumentado — na ordem inversa, o primeiro span nasceria órfão.
+    """
     configure_logging(settings.log_level)
-    # Spec 099, regras 5 e 6: configuração incompleta derruba o processo AQUI, com a
-    # lista inteira do que falta — nunca no meio da requisição de alguém.
     ensure_valid(settings)
-    # Spec 097: o provider de trace é global ao processo e precisa existir antes da
-    # primeira requisição — instrumentar o engine sem provider criaria span órfão.
-    exporter = build_span_exporter(settings.otel_exporter_otlp_endpoint)
     configure_tracing(
         service_name=settings.otel_service_name,
         sample_ratio=settings.otel_sample_ratio,
-        exporter=exporter,
+        exporter=build_span_exporter(settings.otel_exporter_otlp_endpoint),
     )
 
+
+async def _run_boot_migrations(settings: Settings) -> None:
+    """Spec 099, regras 3, 4 e 7: migrations no boot, sob trava, e catálogo global
+    reafirmado — idempotente.
+
+    Falha de migration impede a aplicação de subir, de propósito: servir requisição com
+    esquema velho é pior que não servir. Desligável por `RUN_MIGRATIONS_ON_BOOT=false`
+    para quem prefere aplicar num job separado antes do rolling.
+
+    Engine PRÓPRIO, descartado no `finally`: a URL de migration é a de superusuário, e ela
+    não pode sobreviver ao boot nem ser reusada pelo pool das requisições.
+    """
+    if not (settings.run_migrations_on_boot and settings.migrations_database_url):
+        return
+    migrations_engine = create_engine_from_url(settings.migrations_database_url)
+    try:
+        await upgrade_with_lock(migrations_engine)
+        async with migrations_engine.begin() as conn:
+            await seed_global_catalogs(conn)
+    finally:
+        await migrations_engine.dispose()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    settings = get_settings()
+    _configure_process(settings)
     engine = create_engine()
-    # Spec 099, regras 3 e 4: migrations no boot, sob trava, e falha de migration impede
-    # a aplicação de subir. Desligável por `RUN_MIGRATIONS_ON_BOOT=false` para quem
-    # prefere aplicar num job separado antes do rolling.
-    if settings.run_migrations_on_boot and settings.migrations_database_url:
-        migrations_engine = create_engine_from_url(settings.migrations_database_url)
-        try:
-            await upgrade_with_lock(migrations_engine)
-            # Regra 7: catálogo global reafirmado no boot, idempotente.
-            async with migrations_engine.begin() as conn:
-                await seed_global_catalogs(conn)
-        finally:
-            await migrations_engine.dispose()
+    await _run_boot_migrations(settings)
 
     # Spec 097, regra 6: contagem de queries por requisição, sempre — é barata (um
     # `+= 1`) e a métrica de queries/request depende dela.

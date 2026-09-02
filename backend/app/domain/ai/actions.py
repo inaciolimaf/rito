@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.tools.base import ToolContext
-from app.ai.tools.write import WriteToolDef, get_write_tool
+from app.ai.tools.write import Executed, WriteToolDef, get_write_tool
 from app.core.repository import BaseRepository
 from app.domain.ai.models import AiAction, AiActionStatus, AiAuditLog
 from app.domain.users.models import User
@@ -154,6 +154,39 @@ class AiActionService:
 
     # ------------------------------------------------------------- decidir
 
+    def _mark_executed(
+        self,
+        action: AiAction,
+        executed: Executed,
+        *,
+        user: User,
+        model: str,
+    ) -> None:
+        """Fecha a ação como executada e grava a trilha de auditoria (regra 7).
+
+        Antes e depois no MESMO registro: sem o par, «a IA mudou o responsável» não diz de
+        quem para quem, e a auditoria não serve para desfazer nem para explicar. O modelo e
+        o thread entram junto porque a pergunta que se faz meses depois é «qual modelo fez
+        isso, e em qual conversa».
+        """
+        action.status = AiActionStatus.EXECUTED.value
+        action.affected_id = executed.affected_id
+        action.executed_at = datetime.now(UTC)
+        self.session.add(
+            AiAuditLog(
+                tenant_id=self.tenant_id,
+                action_id=action.id,
+                user_id=user.id,
+                tool_name=action.tool_name,
+                affected_type=action.affected_type or "unknown",
+                affected_id=executed.affected_id,
+                before_state=action.before_state,
+                after_state=executed.after_state,
+                model=model,
+                thread_id=action.thread_id,
+            )
+        )
+
     async def approve(
         self, action: AiAction, *, user: User, model: str = "desconhecido"
     ) -> AiAction:
@@ -188,24 +221,7 @@ class AiActionService:
             await self.session.flush()
             return action
 
-        action.status = AiActionStatus.EXECUTED.value
-        action.affected_id = executed.affected_id
-        action.executed_at = datetime.now(UTC)
-        # Regra 7: o que a IA gravou, com antes e depois, o modelo e o thread.
-        self.session.add(
-            AiAuditLog(
-                tenant_id=self.tenant_id,
-                action_id=action.id,
-                user_id=user.id,
-                tool_name=action.tool_name,
-                affected_type=action.affected_type or "unknown",
-                affected_id=executed.affected_id,
-                before_state=action.before_state,
-                after_state=executed.after_state,
-                model=model,
-                thread_id=action.thread_id,
-            )
-        )
+        self._mark_executed(action, executed, user=user, model=model)
         await self.session.flush()
         return action
 

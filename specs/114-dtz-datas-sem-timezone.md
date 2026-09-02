@@ -111,8 +111,60 @@ resultado — o relógio é injetado.
 
 ## 10. Descobertas
 
-Preencher durante a implementação. **Obrigatório:** a lista dos testes existentes que
-precisaram ser reescritos por dependerem do fuso do servidor.
+**Recontagem (01/09/2026, HEAD `946ad91`):** 96 chamadas, não 90 — **56 em `app/`** (a spec
+dizia 54) e **40 em `tests/`** (dizia 36). Todas `DTZ011`; `DTZ005` continua em zero.
+
+**Existem DOIS `DEFAULT_TIMEZONE`.** A regra 4 assume um. Além de
+`app/domain/account/models.py:13`, há uma cópia em `app/domain/schedule/service.py:20`, com
+comentário próprio explicando o mesmo fallback. A regra 7 já mandava unificar as duas
+implementações de fuso; o que ela não sabia é que a duplicação começa na constante. A cópia
+do `schedule` sai e passa a importar de `account/models.py`.
+O literal em `account/schemas.py:13` **fica**: é um dos 8 valores de `ALLOWED_TIMEZONES`,
+o conjunto de opções válidas, não um fallback duplicado. Passa a ser escrito referenciando
+`DEFAULT_TIMEZONE` para que a regra 4 valha ao pé da letra.
+
+### O relógio não pode custar uma query — medido
+
+A spec manda injetar o relógio por `Depends` (bloco B) e não diz de onde ele tira o fuso. O
+caminho óbvio — repositório da conta, como `schedule/service.py:86` e
+`reports/access_service.py:89` já fazem — **quebra o gate de orçamento de queries do
+`CLAUDE.md` §11**. Contagem real de hoje, medida zerando os tetos de
+`tests/integration/test_query_budget.py`:
+
+| Endpoint | Queries | Teto | Folga |
+|---|---|---|---|
+| `/api/v1/customers/stats` | **5** | 5 | **zero** |
+| `/api/v1/customers` | **3** | 3 | **zero** |
+| `/api/v1/lawsuits` | 3 | 3 | zero |
+| `/api/v1/transactions/stats` | 4 | 5 | 1 |
+| `/api/v1/lawsuits/stats` | 4 | 5 | 1 |
+
+`customers/repository.py` tem 3 `date.today()` e é justamente quem atende os dois endpoints
+sem folga. Uma query a mais para descobrir o fuso reprova o gate.
+
+**Descartados, e por quê:**
+
+- *Cache em processo ou no Redis (`core/cache.py`).* Funciona em regime, mas o gate passaria
+  porque a fixture do teste aquece o cache, não porque o custo sumiu — a primeira requisição
+  depois de todo deploy pagaria 6 queries em `/customers/stats` e o gate nunca veria. Gate que
+  só mede o caminho quente é gate que mente.
+- *Resolver no preâmbulo de RLS*, que o orçamento explicitamente não conta. Seria esconder a
+  query do gate em vez de não fazê-la. O preâmbulo é plumbing de sessão; `accounts` é tabela
+  de domínio.
+- *Subir o teto de `/customers/stats` para 6.* Afrouxa um gate do §11, e teto que sobe pede
+  spec própria.
+
+**Escolhido: o fuso vem junto do principal autenticado.** Toda requisição já carrega o
+usuário do token — é a primeira das 3 queries de uma listagem. `accounts` tem uma linha por
+tenant, então buscar o fuso ali é um `JOIN` na query que já existe, não uma query nova. A
+contagem não muda em endpoint nenhum, não há cache, não há valor velho, e «hoje» passa a ser
+uma propriedade do contexto autenticado — resolvida onde o contexto é construído.
+
+Worker e task do Celery não têm requisição nem usuário; esses resolvem a conta explicitamente
+e ficam fora do gate, que só mede rota HTTP.
+
+**Obrigatório, ainda a preencher:** a lista dos testes existentes que precisaram ser
+reescritos por dependerem do fuso do servidor.
 
 ## 11. Definição de pronto
 

@@ -156,6 +156,77 @@ jobs:
           uv run --with pip-audit pip-audit --strict -r /tmp/reqs.txt
           cd ../frontend && npm audit --audit-level=high
 
+      # Spec 117: cobertura em passo PRÓPRIO, nunca dentro do `make test`. Instrumentar
+      # o interpretador e o v8 custa tempo, e o wall-clock está em 288 s de 300 s — pôr
+      # cobertura dentro do orçamento seria gastar a margem que a 105 comprou. O piso
+      # mora na config de cada suíte (backend/pyproject.toml [tool.coverage.report]
+      # fail_under, frontend/vite.config.ts test.coverage.thresholds), fonte única do
+      # número; aqui só rodamos. `app/workers/*` fica fora da medição do backend, com
+      # justificativa no pyproject.toml e o meta-teste de corpo fino que a torna honesta
+      # (tests/meta/test_workers_finos.py).
+      - name: Cobertura — piso da spec 117
+        shell: bash
+        run: |
+          cd backend
+          # O template de teste é migrado ANTES do pytest, como o scripts/run-tests.sh
+          # faz: `pytest_configure` roda em todo worker do xdist, e o advisory lock que
+          # deveria serializar o preparo é solto junto com a conexão que o pediu. Com o
+          # template já em head, `_template_esta_pronto` devolve True em todos eles e
+          # ninguém corre para criar o mesmo banco.
+          MIGRATIONS_DATABASE_URL="$TEST_MIGRATIONS_DATABASE_URL" uv run alembic upgrade head
+          # Os relatórios vão para /tmp, fora do checkout: nenhum artefato de cobertura
+          # precisa de linha no .gitignore para não sujar `git status` de quem rodar o
+          # mesmo comando na máquina.
+          uv run pytest -n 3 --cov=app --cov-report=term --cov-report=json:/tmp/cov-backend.json
+          cd ../frontend
+          # json-summary só para o passo de publicação abaixo; o piso quem aplica é o
+          # `thresholds` do vite.config.ts.
+          npm run test:coverage -- \
+            --coverage.reporter=text-summary --coverage.reporter=json-summary \
+            --coverage.reportsDirectory=/tmp/cov-frontend
+
+      # Separado e `always()` porque o número interessa MAIS quando o gate reprova: os
+      # dois relatórios são escritos antes da checagem de piso, então existem mesmo
+      # quando o passo acima falha.
+      - name: Publica a cobertura medida
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Cobertura (spec 117)"
+            python3 - <<'PY'
+          import json, pathlib
+
+          def pct(path, leitura):
+              arquivo = pathlib.Path(path)
+              if not arquivo.exists():
+                  return None
+              return leitura(json.loads(arquivo.read_text()))
+
+          backend = pct("/tmp/cov-backend.json", lambda d: d["totals"]["percent_covered"])
+          frontend = pct(
+              "/tmp/cov-frontend/coverage-summary.json",
+              lambda d: d["total"]["statements"]["pct"],
+          )
+          def fmt(valor):
+              return "não medido" if valor is None else f"{valor:.2f}%"
+
+          pisos = json.loads(pathlib.Path("coverage.json").read_text())
+          linhas = [
+              "| Suíte | Recorte | Medido | Piso |",
+              "|---|---|---|---|",
+              f"| backend | `app/` sem `workers/` | {fmt(backend)} "
+              f"| {pisos['backend']['floor_percent']}% |",
+              f"| frontend | statements de `src/` | {fmt(frontend)} "
+              f"| {pisos['frontend']['floor_percent']}% |",
+              "",
+              "Piso é piso: sobe com a medição, nunca desce sem spec própria (117, regra 7).",
+              "Quando a medição subir, atualize `coverage.json` **e** os dois pisos na config.",
+          ]
+          print("\n".join(linhas))
+          PY
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # Spec 099: a imagem de produção é CONSTRUÍDA e posta de pé no CI. `docker build`
       # leva mais que a suíte inteira e não caberia no orçamento de 300 s do `make test`;
       # as propriedades estáticas (não-root, sem toolchain, healthcheck em liveness) têm

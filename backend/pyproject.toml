@@ -143,6 +143,33 @@ markers = [
     "commits: precisa de commit real — sessão fora da transação de teste (spec 105)",
 ]
 
+[tool.coverage.run]
+# Spec 117, regra 4: `app/workers/*` fica FORA da medição de cobertura — e a exclusão só
+# vale acompanhada do meta-teste da regra 5 (`tests/meta/test_workers_finos.py`). As duas
+# coisas ou nenhuma.
+#
+# Por quê: nenhum teste importa worker. Chamar uma varredura por tenant monta a infra de
+# produção e abre um engine por tenant — leva minutos, e é o mesmo motivo pelo qual o
+# `disallow_untyped_decorators` já é exceção aqui. Os corpos das tasks são finos de
+# propósito: montam infra e despacham; a regra de negócio mora nos services, exercitada
+# direto pelos testes. Medir `workers/` seria medir 735 statements de wiring e deixar o
+# piso do que importa 2 pontos mais baixo do que ele é.
+#
+# O risco da exclusão é conhecido: `workers/` viraria o esconderijo natural de código que
+# alguém não quis testar. Quem impede isso é o meta-teste, que trava por AST o tamanho de
+# cada função de task.
+omit = ["app/workers/*"]
+
+[tool.coverage.report]
+# Spec 117, regras 2 e 7: piso = valor MEDIDO, arredondado para baixo. Nunca um alvo
+# redondo aspiracional — um número que ninguém atinge reprova o PR de quem não causou o
+# problema, e o gate morre desligado na semana seguinte. Piso é piso: sobe quando a
+# medição sobe, nunca desce. Baixar exige spec própria, igual ao orçamento de wall-clock.
+#
+# Só morde em execução com `--cov` (o passo próprio de cobertura no CI). O `make test` não
+# instrumenta nada e continua sem pagar por isto.
+fail_under = 91
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

@@ -528,9 +528,12 @@ Sete funções acima de 6 returns; três são o mesmo resolvedor de variável de
 `max-args = 8`, escolhido pelo joelho da curva medida (112 violações em 5, 14 em 8). O padrão dominante é repositório de listagem recebendo cada filtro solto, em quatro contextos — vira objeto de filtro tipado.
 **Aceite:** gate verde; nenhum query param de rota mudou de nome, tipo ou default. **t:** 0 s. **Deps:** 106, 111, 112
 
-### ⬜ 117 — Piso de cobertura
+### ✅ 117 — Piso de cobertura
 Em 100 specs ninguém nunca soube a cobertura do Rito. Medida: backend 89,1% (91,1% sem `workers/`), frontend 55,0% de statements. Piso no valor medido, passo próprio de CI fora dos 300 s, `workers/` excluído com justificativa **e** meta-teste de corpo fino.
 **Aceite:** os dois pisos travados no medido; `coverage.json` versionado; nenhum teste de feature escrito nesta spec. **t:** 0 s. **Deps:** 009
+Backend confirmou a spec (89,15 / 91,16 / workers 31,84). **O frontend caiu**: 55,03 → 53,37%, porque `src/` cresceu 2.831 statements e só 1.106 vieram cobertos; 94 dos 380 arquivos estão em 0%. Remedido depois da 118 e da 119: backend 91,16% (inalterado — a refatoração de camada não deixou buraco), frontend **53,98%** (subiu, as extrações da 119 apagaram statements duplicados não cobertos). Pisos: **91** e **53**.
+A regra dos 15 statements por função de worker não cabia — cinco já nascem entre 19 e 34, todas wiring. Virou **catraca**: nenhuma cresce, e o teste também falha se uma encolher sem atualizar o baseline.
+Dois achados que viraram dívida: a trava do preparo do template não trava nada (**29**) e a suíte fica vermelha depois das 21h de Brasília (**30**).
 
 ### ✅ 118 — Gate de camadas: os sintomas de SOLID que dá para verificar
 Três checagens de AST para as regras que o §5 declara e ninguém verifica — e que já são violadas em 16 lugares: 2 routers com `select()`, 14 routers importando `repository`, e o `datajud` sem interface (o `djen` tem `source.py`, o `datajud` não).

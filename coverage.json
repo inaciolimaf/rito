@@ -1,0 +1,46 @@
+{
+  "_leia_me": "Spec 117. Vizinho do test-timing.json: o piso de cobertura fica no histórico do git, como o wall-clock já fica. Piso é PISO — sobe quando a medição sobe, nunca desce (regra 7). Baixar exige spec própria com justificativa. Os pisos que o CI aplica vivem em backend/pyproject.toml ([tool.coverage.report] fail_under) e frontend/vite.config.ts (test.coverage.thresholds); este arquivo é o registro, não a fonte de verdade do gate.",
+  "backend": {
+    "floor_percent": 91,
+    "metric": "statements",
+    "scope": "app/ sem app/workers/ — a exclusão e sua justificativa estão no pyproject.toml (regra 4), travadas pelo meta-teste tests/meta/test_workers_finos.py (regra 5)",
+    "last_measured_percent": 91.16,
+    "last_measured_at": "2026-09-01",
+    "statements": 19161,
+    "missing": 1858,
+    "nota_remedicao": "Remedido em 01/09/2026 sobre a árvore com 107, 108, 118 e 119 já integradas: 91,16% — o mesmo valor da árvore limpa. A refatoração router→service da 118 moveu código entre camadas sem deixar buraco de cobertura."
+  },
+  "frontend": {
+    "floor_percent": 53,
+    "metric": "statements",
+    "scope": "src/**/*.{ts,tsx} sem testes, mocks e src/test/ (include/exclude do vite.config.ts)",
+    "last_measured_percent": 53.98,
+    "last_measured_at": "2026-09-01",
+    "statements": 26899,
+    "covered": 14521,
+    "branches_percent": 75.21,
+    "functions_percent": 51.56,
+    "nota": "Branches e functions são medidos e publicados, mas NÃO são gate (spec 117 §6: dois números novos ao mesmo tempo é um a mais do que se consegue defender).",
+    "nota_remedicao": "Remedido depois da 119: 53,37% → 53,98%. Subiu porque as extrações de <CrudListPage>/<ImageUploader> apagaram statements duplicados não cobertos e os componentes novos entraram com teste. O piso continua 53 (medido, arredondado para baixo)."
+  },
+  "specs": {
+    "117": {
+      "measured_at": "2026-09-01",
+      "commit": "c496a3e",
+      "backend": {
+        "app_inteiro_percent": 89.15,
+        "app_sem_workers_percent": 91.16,
+        "so_workers_percent": 31.84,
+        "statements": 21665,
+        "missing": 2351
+      },
+      "frontend": {
+        "statements_percent": 53.37,
+        "branches_percent": 74.33,
+        "functions_percent": 50.94,
+        "lines_percent": 53.37
+      },
+      "notes": "Primeira medição travada como gate. O backend confirmou o número da spec (89,1% / 91,1% / 31,8% em 44469bd). O frontend CAIU de 55,03% para 53,37%: o código de src/ cresceu de 24.380 para 27.211 statements (+2.831) enquanto o coberto subiu só +1.106 — as specs 101-105 entregaram tela com menos teste do que a média. A assimetria da spec (backend 91, frontend 53) segue sendo o achado: o gate tem dente do lado que ninguém estava olhando. A margem do frontend é de 0,37 pp — a próxima tela sem teste reprova o PR, que é exatamente o serviço que o piso presta."
+    }
+  }
+}

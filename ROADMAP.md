@@ -500,8 +500,8 @@ Achado: **nenhum teste exercita `TesseractOcr`** — o único teste de OCR usa u
 Eram quatro acima de 50 statements; a 106 resolveu três. Sobrou `create_app` (70), que o `C901` nunca ia alcançar — complexidade ciclomática **1**, sem um único `if`. As 61 chamadas a `include_router` viraram a tabela `_ROUTERS`, e a ordem de registro (que é semântica) virou meta-teste.
 **Aceite:** gate verde; meta-teste de ordem de middleware e inventário de rotas. **t:** 0 s. **Deps:** 106
 
-### ⬜ 110 — 🔧 REFATORAÇÃO — Orçamento e gates
-Pente fino em 101 e 104–109. Auditar faixa de specs de qualidade é diferente de auditar features: o risco não é código ruim ter entrado, é gate ligado ter deixado de morder. Confere que o wall-clock voltou, que a contagem de `noqa` não cresceu e que nenhum gate foi silenciado por arquivo em vez de corrigido na origem.
+### ✅ 110 — 🔧 REFATORAÇÃO — Orçamento e gates
+Wall-clock em **138 s** (alvo ≤ 200 s), e o gate passou a registrar tempo de CPU e carga — sem isso, os 434 s de uma execução por carga externa eram indistinguíveis de projeto lento. Suíte inteira em ordem invertida: 1.603/1.603 (`pytest-randomly` não está instalado, então isso nunca tinha sido testado). Dívida 35 resolvida: um banco de Redis por worker do xdist, o análogo do que a 105 fez com o Postgres. Zero asserções removidas pelas sete specs auditadas, verificado no `git log`.
 **Aceite:** wall-clock ≤ 200 s; suíte rodada em ordem invertida ao menos uma vez; sem mudança de comportamento. **t:** −. **Deps:** 101, 104–109
 
 ### ✅ 111 — PLR0912: ramos demais

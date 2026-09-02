@@ -13,10 +13,13 @@ worker é o que devolve a independência que a transação longa tirou.
 
 import asyncio
 import contextlib
+import fcntl
 import os
 import subprocess
 import sys
-from collections.abc import AsyncGenerator, AsyncIterator
+import tempfile
+from collections.abc import AsyncGenerator, AsyncIterator, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -27,8 +30,6 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
-# Uma trava só, compartilhada por todos os workers, para o preparo do template.
-_TEMPLATE_LOCK_KEY = 105_2026
 
 
 def _with_database(url: str, name: str) -> str:
@@ -85,6 +86,51 @@ def _template_esta_pronto(template_url: str, head: str) -> bool:
     return bool(versao["version_num"] == head and tenants["total"] == 0)
 
 
+@contextmanager
+def _trava_do_template(template_url: str) -> Iterator[None]:
+    """Exclusão mútua entre workers durante o preparo do template (dívida 29).
+
+    ## O que estava quebrado
+
+    A versão anterior usava `pg_advisory_lock`, que é trava de **sessão**: ela vive
+    enquanto a conexão viver. Mas quem a tomava era `_psql`, que abre uma conexão e a
+    FECHA no `finally` — a trava morria no instante seguinte ao ser tomada, e o
+    `pg_advisory_unlock` do fim rodava numa conexão nova, sem trava nenhuma. O Postgres
+    respondia `false` e emitia aviso; o retorno era descartado e ninguém lia.
+
+    Ficou cem specs sem morder porque o `run-tests.sh` roda `alembic upgrade head` sobre o
+    template ANTES do pytest: quando os workers chegam aqui, `_template_esta_pronto` já é
+    `True` para todos e ninguém entra no bloco protegido. Com template novo, os N workers
+    entram juntos, todos fazem `DROP`/`CREATE DATABASE` e disparam N `alembic upgrade`
+    concorrentes sobre o mesmo banco — `UniqueViolationError` em migration, e a suíte cai
+    antes do primeiro teste.
+
+    ## Por que trava de arquivo, e não a do banco
+
+    Manter a trava do Postgres viva exigiria que TODO o bloco protegido — a checagem, o
+    `DROP`/`CREATE` e o `alembic` — rodasse dentro do mesmo `asyncio.run` da conexão que a
+    detém. Os helpers deste arquivo (`_psql`, `_template_esta_pronto`) abrem cada um o seu
+    `asyncio.run`, e aninhá-los é erro em tempo de execução; converter todos para async
+    seria uma reescrita do preparo por causa de uma trava.
+
+    `flock` faz o mesmo serviço aqui: os workers do xdist são sempre processos locais de
+    UMA execução do pytest, e o bloqueio é entre eles. O limite honesto é que duas máquinas
+    apontando para o mesmo Postgres não se veriam — cenário que não existe, porque o
+    template é local por definição e o nome do banco vem da URL de teste da própria
+    máquina.
+
+    O arquivo leva o nome do banco: dois templates diferentes (spec exclusiva, por exemplo)
+    não se bloqueiam à toa.
+    """
+    trava = Path(tempfile.gettempdir()) / f"rito-template-{_database_name(template_url)}.lock"
+    with trava.open("w") as arquivo:
+        fcntl.flock(arquivo, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(arquivo, fcntl.LOCK_UN)
+
+
 def _preparar_template(maintenance_url: str, template_url: str) -> None:
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -93,8 +139,7 @@ def _preparar_template(maintenance_url: str, template_url: str) -> None:
     assert head is not None, "alembic sem head — migrations não foram encontradas"
     nome = _database_name(template_url)
 
-    _psql(maintenance_url, f"SELECT pg_advisory_lock({_TEMPLATE_LOCK_KEY})")
-    try:
+    with _trava_do_template(template_url):
         if _template_esta_pronto(template_url, head):
             return
         _psql(
@@ -109,8 +154,6 @@ def _preparar_template(maintenance_url: str, template_url: str) -> None:
             check=True,
             capture_output=True,
         )
-    finally:
-        _psql(maintenance_url, f"SELECT pg_advisory_unlock({_TEMPLATE_LOCK_KEY})")
 
 
 def _banco_do_worker(config: pytest.Config, template_url: str) -> str | None:
@@ -123,6 +166,41 @@ def _banco_do_worker(config: pytest.Config, template_url: str) -> str | None:
     if worker is None and config.getoption("numprocesses", None):
         return None
     return f"{_database_name(template_url)}_{worker or 'master'}"
+
+
+def _redis_url_do_worker() -> str:
+    """Um banco de Redis por worker do xdist (spec 110, dívida 35).
+
+    A spec 105 deu a cada worker uma cópia própria do Postgres, e o `ROLLBACK` por teste
+    passou a garantir isolamento — mas só no Postgres. O Redis continuou sendo **um banco
+    para todos**, e o que mora nele é justamente estado que atravessa requisições: o token
+    bucket do rate limit por host (spec 041, regra 4) e o circuito do breaker.
+
+    O sintoma era um teste de limite recebendo 200 onde esperava 429, porque outro worker
+    tinha gastado a janela do mesmo host — e a chave é o host, não o tenant, então o RLS
+    não ajuda. Passava sozinho, passava na maioria das execuções, e reprovava quando a
+    distribuição entre workers calhava mal.
+
+    Redis tem 16 bancos numerados; `gw0` fica no 15, `gw1` no 14, e assim por diante — de
+    trás para a frente para não esbarrar no 0, que é o padrão de quem esquecer de
+    configurar. Acima de 16 workers não há banco para todos, e aí é melhor falhar dizendo
+    isso do que voltar a compartilhar em silêncio.
+
+    `TEST_REDIS_URL` continua mandando quando alguém a exporta: quem aponta para outro
+    Redis está dizendo o que quer, e essa escolha é mais específica que este cálculo.
+    """
+    explicito = os.environ.get("TEST_REDIS_URL")
+    if explicito:
+        return explicito
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "")
+    indice = int(worker.removeprefix("gw")) if worker.startswith("gw") else 0
+    if indice > 15:
+        raise RuntimeError(
+            f"xdist com {indice + 1} workers, mas o Redis só tem 16 bancos: os workers "
+            "acima do 16 compartilhariam estado (dívida 35). Reduza PYTEST_WORKERS ou "
+            "exporte TEST_REDIS_URL apontando para outra instância."
+        )
+    return f"redis://localhost:6379/{15 - indice}"
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -141,7 +219,7 @@ def pytest_configure(config: pytest.Config) -> None:
         "TEST_MIGRATIONS_DATABASE_URL",
         "postgresql+asyncpg://rito:rito@localhost:5432/rito_test",
     )
-    os.environ["REDIS_URL"] = os.environ.get("TEST_REDIS_URL", "redis://localhost:6379/15")
+    os.environ["REDIS_URL"] = _redis_url_do_worker()
     # Spec 099, regra 3: a aplicação aplica migrations no boot. Em teste, quem migra é o
     # `scripts/run-tests.sh`, UMA vez por sessão (spec 009, regra 3) — deixar cada
     # `lifespan` de teste correr `alembic upgrade head` custaria segundos por teste e

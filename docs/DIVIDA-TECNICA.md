@@ -661,11 +661,14 @@ inclui a montagem.
 o teste quer medir. Subir o `testTimeout` do arquivo é o contorno preguiçoso: esconde o
 sintoma e o próximo host mais frio o traz de volta.
 
-**Spec-alvo:** 110 — a refatoração cujo objeto é exatamente gate que deixou de morder.
+**Spec-alvo:** 120. A 110 olhou para ela e não a corrigiu: o conserto é reestruturar um
+teste de front-end (separar montagem de interação), e a 110 é auditoria de orçamento e
+gates do BACK-END — mexer no Vitest ali seria escopo emprestado. O diagnóstico continua
+válido e o caminho está escrito acima.
 
 ---
 
-## 29. A trava do preparo do template é solta antes de proteger qualquer coisa
+## 29. ~~A trava do preparo do template é solta antes de proteger qualquer coisa~~ — RESOLVIDO na spec 110
 
 Achada no ciclo da spec 117, ao rodar a suíte com um template exclusivo — que é
 exatamente o que o `docs/PLANO-ONDAS-106-121.md` §2.2 manda um agente fazer para não
@@ -702,9 +705,27 @@ conexão aberta em `_preparar_template` e mantida do `pg_advisory_lock` até o
 `pg_advisory_unlock`, com `_psql` usada só para o resto. Alternativa mais simples e talvez
 melhor: `pg_advisory_lock` numa conexão própria mantida viva pelo escopo do `with`.
 
-**Spec-alvo:** 110 — é auditoria da 105, e este é o caso exemplar de gate que só parece
+**Spec-alvo (original):** 110 — auditoria da 105, e o caso exemplar de gate que só parece
 funcionar porque o caminho que o exercita nunca é tomado.
 
+**RESOLVIDA na spec 110.** `tests/conftest.py::_trava_do_template` passou a usar `flock`
+sobre um arquivo nomeado pelo banco de template, e a trava agora vive pelo tempo do bloco
+protegido — que é o que faltava.
+
+Trocar o mecanismo (e não só consertar o uso) foi decisão medida: manter
+`pg_advisory_lock` exigiria que a checagem, o `DROP`/`CREATE DATABASE` e o `alembic`
+rodassem dentro do mesmo `asyncio.run` da conexão que detém a trava, e os helpers do
+arquivo abrem cada um o seu — aninhá-los é erro em tempo de execução. Converter todos para
+async seria reescrever o preparo por causa de uma trava. O limite honesto do `flock` está
+escrito na docstring: duas máquinas contra o mesmo Postgres não se veriam, cenário que não
+existe porque o template é local por definição.
+
+Verificado com o cenário que a dívida descreve: `DROP DATABASE rito_test`, depois
+`pytest -n 3`. Os três workers entraram juntos, o template foi reconstruído uma vez, e a
+suíte passou (372/372). E a trava foi conferida bloqueando de fato — um segundo processo
+com `LOCK_NB` recebe `BlockingIOError`.
+
+O `_TEMPLATE_LOCK_KEY`, que não protegia mais nada, saiu junto.
 ---
 
 ## 30. ~~A suíte backend fica vermelha depois das 21h de Brasília~~ — RESOLVIDO na spec 114
@@ -779,7 +800,38 @@ da correção.
    muda comportamento de produção e precisa de migration, então é decisão própria.
 3. Desempate por algo determinístico no teste (nome), o que enfraquece o que ele afirma.
 
-**Spec-alvo:** 110 — auditoria da 105, que é de onde o efeito colateral veio.
+**Spec-alvo (original):** 110 — auditoria da 105, de onde o efeito colateral veio.
+
+### O levantamento que faltava, feito na spec 110
+
+A dívida dizia: «Escopo real, ainda não medido: qualquer teste que dependa de `created_at`
+distinto entre linhas criadas no mesmo teste está sujeito ao mesmo empate. O levantamento
+faz parte da correção.»
+
+Levantamento feito. Os candidatos são os testes que afirmam ORDEM entre linhas que eles
+mesmos criam:
+
+| Teste | Situação |
+|---|---|
+| `test_customers_listing::test_ordenacao_por_created_at_desc_por_padrao` | **era o único quebrado**; corrigido na 106, escreve o próprio `created_at` |
+| `test_customers_listing` (mais 2 pontos) | já escreviam `created_at` explicitamente |
+| `test_lawsuit_timeline::test_ordenacao_estavel_com_mesmo_timestamp` | **imune por desenho**: injeta `_BASE_TIME` e existe justamente para afirmar o desempate com timestamps iguais |
+| `test_documents::test_ordenacao_por_nome_data_tamanho_tipo` | não depende de `created_at` distinto — ordena por nome, tamanho e tipo |
+| `test_base_repository_crud::test_list_paginated_ordena_por_id_e_pagina_por_cursor` | ordena por `id`, não por data |
+
+Confirmado empiricamente: os candidatos rodados **cinco vezes seguidas**, 24 testes cada,
+verdes nas cinco. O risco do lado dos TESTES está medido e hoje é **nulo**.
+
+**O que continua aberto é a causa raiz**, e ela é de produção: `server_default=func.now()`
+devolve o instante da TRANSAÇÃO. Fora do teste isso raramente importa (cada request é uma
+transação), mas qualquer operação que crie várias linhas numa transação só — importação em
+lote, provisionamento, geração de parcelas — nasce com `created_at` idêntico, e a
+ordenação por data dessas linhas fica no desempate por UUID.
+
+Trocar para `statement_timestamp()` muda comportamento de produção e pede migration.
+
+**Spec-alvo:** spec própria de correção, junto das dívidas 34 e 36 — as três são «o
+comportamento certo depende de uma decisão de produto», não de refatoração.
 
 ### Parcialmente atacada na spec 106 — a causa raiz CONTINUA
 
@@ -913,9 +965,26 @@ Duas correções possíveis, para a spec que atacar isto:
 2. **Reprovar só na segunda medição consecutiva acima do teto.** Um estouro isolado vira
    aviso; dois seguidos viram falha. Mantém o gate honesto sem torná-lo folclore.
 
-**Spec-alvo:** 110 ou 120 — a auditoria que perguntar se os gates ainda mordem pelo motivo
-certo. Com a terceira ocorrência isto já passava de «observar» para «corrigir»; com a
-quarta, são DUAS correções: o `EntityPicker` e a medição do orçamento.
+**PARCIALMENTE RESOLVIDA na spec 110 — a metade do diagnóstico.** O
+`scripts/run-tests.sh` passou a registrar, em toda execução, **o tempo de CPU das três
+suítes**, o número de núcleos e a carga no início e no fim:
+
+```
+wall-clock: 138s (orçamento: 300s)
+cpu das suítes: 396s | núcleos: 12 | carga: 0.98 -> 3.94
+```
+
+E, quando o gate reprova, ele diz o que olhar: *CPU normal com wall-clock alto = máquina
+disputada, não projeto lento.* Na execução de 434 s que motivou este registro, esse par de
+números teria resolvido a dúvida em um segundo — hoje sabemos que o normal é ~396 s de CPU.
+
+**A métrica do gate NÃO mudou**, de propósito: o `CLAUDE.md` §3 promete wall-clock, que é o
+que o desenvolvedor espera de fato, e trocá-la por tempo de CPU alteraria a promessa da
+constituição. Essa troca continua em aberto e é decisão do usuário — ver §10 da spec 110.
+
+**Continua aberta a metade do `EntityPicker`**: as jornadas que caem sob carga são as cinco
+que passam por ele, e o teto de espera próprio para o seletor assíncrono ainda não foi
+feito. **Spec-alvo:** 120.
 
 ---
 
@@ -977,7 +1046,7 @@ errada em endpoint público documentado.
 
 ---
 
-## 35. Um teste de caos só passa dependendo de quem roda junto
+## 35. ~~Estado do Redis sobrevive ao teste que o criou~~ — RESOLVIDO na spec 110
 
 `tests/integration/test_resilience_chaos.py::test_datajud_ganha_historico_de_execucao_sucesso_e_erro`
 passa sozinho (2,5 s), passa na suíte completa, e **falha** neste recorte:
@@ -1030,5 +1099,80 @@ tocado a mesma chave.
 (`PYTEST_XDIST_WORKER`) no ambiente de teste, como a 105 fez com o banco. O isolamento por
 transação resolveu o Postgres e deixou o Redis de fora.
 
-**Spec-alvo:** 110 ou 120 — mesma auditoria da dívida 33, que já vai olhar isolamento e
-gates. As três têm a mesma raiz: estado que sobrevive ao teste que o criou.
+**RESOLVIDA na spec 110.** `tests/conftest.py::_redis_url_do_worker` dá a cada worker do
+xdist um **banco de Redis próprio** (`gw0` → 15, `gw1` → 14, …), que é o análogo exato do
+que a 105 fez com o Postgres. Acima de 16 workers a função **recusa** com mensagem, em vez
+de voltar a compartilhar em silêncio — o modo de falhar que criou esta dívida.
+
+Dois meta-testes em `test_isolamento_transacional.py` travam o resultado: o mapeamento é
+injetor para os 16 bancos, e a suíte nunca cai no banco 0 (o padrão de quem esqueceu de
+configurar, que seria o Redis de desenvolvimento).
+
+Registro para quem vier: a suíte inteira em ordem INVERTIDA passou 1.603/1.603 antes desta
+correção, o que confirma que a dívida era de **paralelismo**, não de ordem. `pytest-randomly`
+não está instalado, então a ordem é determinística e uma inversão manual continua valendo
+como verificação de tempos em tempos.
+
+---
+
+## 36. `conditions._compare` decide como `lte` quando não reconhece o operador
+
+Encontrado na spec 111, registrado aqui pela auditoria da 110.
+
+```python
+def _compare(operador: str, atual: Any, esperado: Any) -> bool:
+    ...
+    if operador == "gt":  return bool(esquerda > direita)
+    if operador == "lt":  return bool(esquerda < direita)
+    if operador == "gte": return bool(esquerda >= direita)
+    return bool(esquerda <= direita)      # <- qualquer outra coisa
+```
+
+Hoje não há defeito ativo: `OPERATORS` declara nove e os nove estão implementados, e o
+`test_todo_operador_declarado_tem_implementacao` (spec 111) impede que um décimo entre sem
+implementação. **O buraco é o caminho, não o estado.**
+
+Se o teste for apagado ou contornado, um operador novo passa a decidir por «menor ou
+igual» — silenciosamente, dentro de uma automação, num produto que vende prazo processual.
+É o pior formato de defeito do projeto: não levanta, não loga, decide errado.
+
+**Não corrigido na 110** porque trocar o fallback por um erro explícito **muda
+comportamento**, e a 110 é refatoração. A correção é de uma linha (`raise` ou devolver
+`False`, que é como `evaluate` já trata condição inválida), mas a decisão entre as duas
+é de produto: condição malformada deve derrubar a automação ou fazê-la não rodar?
+
+**Spec-alvo:** spec própria de correção, junto da dívida 34 — as duas são «responde errado
+em silêncio» e cabem no mesmo ciclo.
+
+---
+
+## 37. Identificadores em português e inglês lado a lado
+
+O `CLAUDE.md` §9 manda: «código e identificadores em **inglês**; UI, mensagens ao usuário e
+specs em **português**».
+
+A spec 106 extraiu ~50 funções auxiliares e nomeou **todas em português** (`_executar_passo`,
+`_aguardar_retentativa`, `_uso_somado`, `_eventos_do_progresso`). Está commitado e verde. As
+specs seguintes seguiram o §9 onde a spec de origem nomeava explicitamente: `main.py` (109)
+e `core/invariants.py` (115) estão em inglês.
+
+O resultado é `main.py` com `_register_routers` ao lado de `engine.py` com `_executar_passo`,
+no mesmo repositório e às vezes no mesmo fluxo de leitura.
+
+**Não resolvido na 110** porque não é «barato»: renomear ~50 símbolos é um diff enorme, sem
+mudança de comportamento e sem ganho até que a decisão seja tomada. E a decisão não é
+técnica — é de quem lê o código todo dia.
+
+**As duas saídas, e o que cada uma custa:**
+
+1. **Seguir o §9 e renomear.** Consistente com a constituição. Diff grande, num único
+   commit mecânico, e as docstrings (que são e continuam em português) passam a explicar
+   nomes em inglês — o que é o padrão da maioria dos projetos brasileiros.
+2. **Emendar o §9 para admitir português em auxiliar privado.** Reconhece o que o código já
+   é, e tem um argumento real a favor: `_aguardar_retentativa` e `_marcar_espera` descrevem
+   regra de negócio jurídica, que é pensada e discutida em português.
+
+O que NÃO se pode é deixar como está sem decidir, porque aí cada spec nova escolhe sozinha
+e a inconsistência cresce.
+
+**Spec-alvo:** 120, a próxima refatoração — com a decisão tomada antes, não durante.

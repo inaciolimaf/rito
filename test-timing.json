@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 146,
+  "last_measured_wall_clock_seconds": 133,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -390,6 +390,10 @@
     "115": {
       "wall_clock_seconds": 146,
       "notes": "Familia S (bandit) no select. 4.122 achados, 4.069 deles S101 em teste (per-file-ignores para tests/ e scripts/, mais S105/S106/S107/S603/S607 pelo mesmo motivo, e S608 em alembic/versions por causa do §9). Sobraram 72 reais. 1603 backend (1596 da 113 + 7: 4 unitarios de not_none, incluindo um que roda o mesmo programa com e sem python -O para provar a tese da spec, 1 meta de zero assert em app/ por AST, e 2 meta do teto de 6 noqa S* com justificativa) + 313 frontend + 10 e2e. 47 assert de producao (a spec estimava 44), NENHUM virado noqa: 32 para app/core/invariants.py::not_none (checa e devolve, o unico ramo morto do projeto e o da propria funcao), 9 para ConfigurationError, 1 para FileNotFoundError, 3 para _como nos handlers de erro do FastAPI, e 1 apagado por ser exaustividade de tabela (padrao da 111). Dos 9 S608 de app/, a §4 diagnosticou errado: 6 eram interpolacao de LITERAL em provisioning.py e viraram unnest de arrays ligados; 1 era falso positivo em prosa de mensagem de erro (reescrita, sem noqa); 1 virou make_interval por bind; so 1 e identificador de verdade, com allowlist. Achado de metodo: por o if de validacao dentro dos workers quebrou C901 e PLR0912 em djen_sync, e o conserto (helper migrations_url compartilhado) encolheu tres corpos de task. Divida 35 confirmada: o token bucket de rate limit vive no Redis, e global entre workers do xdist e nao participa do ROLLBACK da 105."
+    },
+    "110": {
+      "wall_clock_seconds": 133,
+      "notes": "Auditoria de orcamento e gates das sete specs 101+104-109. Wall-clock 133 s contra o alvo de <=200 s desta spec; import app.main em 2,2 s (teto 9), coleta em 1,57 s, template com zero linhas. 1605 backend (1603 da 115 + 2 meta de isolamento de Redis entre workers do xdist) + 313 frontend + 10 e2e. O gate passou a registrar tempo de CPU e carga: 389-396 s de CPU em 12 nucleos, a linha de base que faltava para interpretar o wall-clock — na execucao de 434 s da divida 33 esse par teria resolvido a duvida. A METRICA do gate nao mudou (o CLAUDE.md §3 promete wall-clock); a troca por tempo de CPU fica como decisao do usuario. Dois defeitos no proprio codigo de medicao, achados por conferir o numero contra execucao real: a substituicao de comando roda numa subshell e o times reporta os filhos DELA (sempre zero), e o locale pt_BR imprime virgula decimal que o awk le como zero. Suite inteira em ordem INVERTIDA: 1603/1603 em 197,5 s — e pytest-randomly nao esta instalado, entao isso nunca tinha sido testado. Zero assercoes removidas pelas sete specs, verificado no git log. Zero codigo morto (a primeira varredura acusou 19, todos falso positivo de funcao decorada). Dividas 29 e 35 resolvidas, 33 pela metade, 31 com o levantamento feito, 36 e 37 registradas."
     }
   },
   "specs_concluidas": 100

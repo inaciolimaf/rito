@@ -78,6 +78,19 @@ main() {
 	local start_time
 	start_time=$(date +%s)
 
+	# Spec 110 (dívida 33): o gate mede tempo de PAREDE, que é o que o desenvolvedor
+	# espera — e é também o que sofre com vizinho barulhento. Numa medição de setembro/2026
+	# a MESMA árvore deu 434 s e 140 s em execuções seguidas, porque havia outro processo
+	# pesado na máquina. Um gate que varia 3x por causa de quem mais está usando o laptop
+	# não separa «o projeto ficou lento» de «a máquina estava ocupada» — e a primeira vez
+	# que ele reprovar sem motivo, alguém aumenta o teto.
+	#
+	# A métrica NÃO mudou (isso alteraria o que o CLAUDE.md §3 promete). O que mudou é que
+	# agora a execução registra com o que competiu: carga no início e tempo de CPU
+	# consumido. Quem lê a falha consegue dizer qual dos dois casos era.
+	local load_start
+	load_start=$(cut -d" " -f1 /proc/loadavg 2>/dev/null || echo "?")
+
 	local pids=()
 	local logs_dir
 	logs_dir="$(mktemp -d)"
@@ -103,13 +116,38 @@ main() {
 		fi
 	done
 
-	local end_time elapsed
+	local end_time elapsed load_end cpu_filhos nucleos
 	end_time=$(date +%s)
 	elapsed=$((end_time - start_time))
+	load_end=$(cut -d" " -f1 /proc/loadavg 2>/dev/null || echo "?")
+	nucleos=$(nproc 2>/dev/null || echo "?")
+	# `times` devolve o CPU acumulado dos processos filhos: a segunda linha é
+	# "<user> <sys>", em minutos e segundos. É o custo real das três suítes, imune a
+	# quanto a máquina estava ocupada — o número que diz se o PROJETO ficou mais lento.
+	#
+	# Redirecionado para arquivo, e não capturado com `$(...)`: a substituição de comando
+	# roda numa SUBSHELL, e ali `times` reporta os filhos DELA (nenhum), devolvendo sempre
+	# zero. Redirecionar a saída do builtin acontece na shell atual, que é quem tem os
+	# filhos. Medido: a primeira versão imprimia `cpu=0s` com as suítes rodando.
+	# O `tr` troca a vírgula decimal por ponto: em locale pt_BR o `times` imprime
+	# "0m0,195s", e o awk lê "0,195s" como ZERO. A primeira versão deste bloco reportava
+	# `cpu=0s` sempre, e só apareceu porque o número foi conferido contra uma execução real.
+	times >"$logs_dir/times.txt"
+	cpu_filhos=$(tail -1 "$logs_dir/times.txt" | tr ',' '.' | awk '{
+		split($1, u, "m"); split($2, s, "m")
+		printf "%.0f", (u[1] * 60 + u[2]) + (s[1] * 60 + s[2])
+	}')
+
 	echo "wall-clock: ${elapsed}s (orçamento: ${budget_seconds}s)"
+	echo "cpu das suítes: ${cpu_filhos}s | núcleos: ${nucleos} | carga: ${load_start} -> ${load_end}"
 
 	if [ "$elapsed" -gt "$budget_seconds" ]; then
 		echo "FALHA: wall-clock de ${elapsed}s excedeu o orçamento de ${budget_seconds}s"
+		# Dívida 33: antes de aumentar o teto, olhe estes dois números. CPU dentro do
+		# normal com wall-clock estourado significa que a máquina estava disputada, não
+		# que o projeto engordou — reexecute numa máquina ociosa antes de concluir.
+		echo "         cpu=${cpu_filhos}s carga_inicial=${load_start} núcleos=${nucleos}"
+		echo "         CPU normal + wall-clock alto = máquina disputada, não projeto lento."
 		overall_status=1
 	fi
 

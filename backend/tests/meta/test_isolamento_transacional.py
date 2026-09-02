@@ -16,6 +16,7 @@ import re
 import uuid
 from pathlib import Path
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
@@ -177,3 +178,53 @@ def _head_do_alembic() -> str:
     ).get_current_head()
     assert head is not None
     return head
+
+
+# ---------------------------------------------------------------- spec 110, dívida 35
+#
+# A 105 isolou o Postgres (um banco por worker + ROLLBACK por teste) e deixou o Redis de
+# fora. O que mora no Redis é justamente estado que atravessa requisições — token bucket
+# do rate limit por host, circuito do breaker — e a chave é o HOST, não o tenant, então
+# nem o RLS nem a transação ajudam.
+
+
+def test_cada_worker_do_xdist_usa_um_banco_de_redis_proprio() -> None:
+    """Dois workers nunca compartilham banco (spec 110).
+
+    O mapeamento é testado como função pura porque, dentro de uma execução, cada processo
+    só enxerga o próprio worker — não dá para observar a colisão de dentro dela. O que se
+    pode afirmar é que a regra que atribui os bancos é injetora, e é isso que o teste faz.
+    """
+    from tests.conftest import _redis_url_do_worker
+
+    original = os.environ.pop("TEST_REDIS_URL", None)
+    anterior = os.environ.get("PYTEST_XDIST_WORKER")
+    try:
+        urls = []
+        for i in range(16):
+            os.environ["PYTEST_XDIST_WORKER"] = f"gw{i}"
+            urls.append(_redis_url_do_worker())
+        assert len(set(urls)) == 16, f"workers compartilhando banco de Redis: {urls}"
+
+        # E acima de 16 a regra RECUSA, em vez de voltar a compartilhar em silêncio —
+        # que é o modo de falhar que criou a dívida 35.
+        os.environ["PYTEST_XDIST_WORKER"] = "gw16"
+        with pytest.raises(RuntimeError, match="16 bancos"):
+            _redis_url_do_worker()
+    finally:
+        if original is not None:
+            os.environ["TEST_REDIS_URL"] = original
+        if anterior is None:
+            os.environ.pop("PYTEST_XDIST_WORKER", None)
+        else:
+            os.environ["PYTEST_XDIST_WORKER"] = anterior
+
+
+def test_o_redis_em_uso_nao_e_o_banco_zero() -> None:
+    """Banco 0 é o padrão de quem esqueceu de configurar.
+
+    Se a suíte cair nele, o sinal é que `pytest_configure` não rodou ou que alguém
+    exportou `REDIS_URL` por fora — e aí os testes estariam mexendo no Redis de
+    desenvolvimento, que é pior que compartilhar entre workers.
+    """
+    assert not os.environ["REDIS_URL"].endswith("/0")

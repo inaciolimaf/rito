@@ -5,6 +5,21 @@ on:
     branches: [main]
   pull_request:
 
+# Um push novo no mesmo ramo cancela o anterior. Sem isto, uma sequência de commits
+# empilha execuções que já nasceram obsoletas — e a suíte deste projeto leva ~15 min de
+# runner (banco, MinIO, browsers do Playwright, três suítes e seis gates).
+# `main` fica de FORA do cancelamento: lá cada commit é um estado publicado, e é
+# justamente o histórico de verde/vermelho de `main` que diz quando algo quebrou.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# Menor privilégio: este workflow só LÊ o repositório. Ele não abre PR, não publica
+# release, não escreve comentário — o resumo de cobertura e de wall-clock vai para o
+# `$GITHUB_STEP_SUMMARY`, que é arquivo local do runner e não precisa de token.
+permissions:
+  contents: read
+
 env:
   APP_ENV: test
   SECRET_KEY: ci-secret-key-not-for-production
@@ -30,8 +45,15 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    # CLAUDE.md §3: as 3 suítes rodam concorrentes; make test falha se o wall-clock
-    # total passar de 120s. Esse job só existe para reproduzir esse gate no CI.
+    # CLAUDE.md §3: as 3 suítes rodam concorrentes; `make test` falha se o wall-clock
+    # total passar de **300 s** (`TEST_WALL_CLOCK_BUDGET_SECONDS` em `scripts/run-tests.sh`).
+    # Este job existe para reproduzir esse gate no CI.
+    #
+    # O teto do JOB é outra coisa e vale para o resto: instalação, browsers, build de
+    # produção, cobertura e imagem Docker. Sem ele, um passo travado (um `apt` esperando
+    # rede, um serviço que nunca fica saudável) roda até o limite padrão de 6 HORAS,
+    # segurando runner e escondendo a falha atrás de um job que parece só lento.
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
@@ -89,6 +111,10 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           version: "latest"
+          # O npm já era cacheado (`setup-node` abaixo); o Python não era, e é o ambiente
+          # maior dos dois. A chave sai do lockfile: muda a dependência, muda o cache.
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
 
       - name: Instala Python 3.12
         uses: actions/setup-python@v5
@@ -115,6 +141,17 @@ jobs:
         working-directory: e2e
         run: npm ci
 
+      # O download do Chromium é ~130 MB a cada execução. A chave inclui a VERSÃO do
+      # Playwright (via lockfile): browser é acoplado à versão da biblioteca, e um cache
+      # que sobrevivesse a um upgrade daria um par incompatível — falha obscura no e2e.
+      - name: Cache dos browsers do Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+
+      # `--with-deps` continua: as bibliotecas de sistema são `apt`, não cacheáveis aqui.
+      # Com o browser em cache o passo só instala essas, em segundos.
       - name: Instala browsers do Playwright
         working-directory: e2e
         run: npx playwright install --with-deps chromium

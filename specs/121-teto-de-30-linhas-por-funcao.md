@@ -194,6 +194,22 @@ dois num ciclo produziria extração apressada justamente onde ela é mais arris
 Dentro do backend, o corte é o que a **Nota de execução desta spec** já previa: degraus, cada
 um deixando o gate ligado e verde. Este é o **degrau 1, teto 50**.
 
+### O frontend saiu do escopo, e depois saiu de vez
+
+O corte inicial foi de prioridade: as 228 do frontend são componentes de página, onde
+extrair subcomponente é decisão de desenho e a §10 regra 6 exige que a árvore de
+acessibilidade não mude. Misturar isso com extração de função Python num ciclo produziria
+pressa justamente onde o risco é maior.
+
+Depois de entregue o backend, o usuário decidiu que **o frontend não terá esse gate** — nem
+a regra do ESLint, nem spec para ela. Registrado na dívida 38 como **escopo recusado**, e
+não como pendência, para ninguém reabrir a discussão daqui a seis meses achando que ficou
+esquecido.
+
+O que fica desta spec sobre o frontend é só a medição, como informação: 228 funções acima de
+30, as maiores sendo `LawsuitsPage` (336), `TransactionsListPage` (323) e `CustomerListPage`
+(300).
+
 ### 29 funções reestruturadas, e o padrão que apareceu
 
 De 20 acima de 50 para **zero**. Foram 29 extrações porque várias funções precisaram de mais
@@ -267,10 +283,14 @@ Um gate bruto teria criado o incentivo oposto no arquivo mais documentado do pro
 - [x] `ROADMAP.md` com a linha da 121 em ✅
 - [x] Commit `refactor(121): teto de 50 linhas por função no backend`
 
-**Não entregue, e registrado como spec própria:**
+**Escopo do frontend RECUSADO pelo usuário** — não é pendência:
 
-- [ ] `max-lines-per-function` no `eslint.config.js` e as **228** funções do frontend — o
-      usuário cortou o escopo para o backend. Vira a **spec 122**.
+- ~~`max-lines-per-function` no `eslint.config.js` e as 228 funções do frontend~~ — o
+  usuário decidiu **não ter** teto de tamanho de função no frontend. Nem a regra, nem spec
+  para ela. A §5 B e a §10 regra 2 desta spec ficam sem efeito.
+
+**Não entregue, e adiado por degraus:**
+
 - [ ] Descer o teto de 50 para 40 e depois para 30 — **121b** e **121c**, com a
       distribuição já medida na §12.
 

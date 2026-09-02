@@ -559,7 +559,7 @@ Nenhum teto afrouxado — o `max-complexity` só desceu (10→8→6) e os demais
 ## Fase 12 — Estrutura (121+)
 
 ### ✅ 121 — Teto de 30 linhas por função
-Recontagem: **346 funções** acima de 30 (118 backend + 228 frontend), o maior volume da série. Escopo cortado para o **backend**, e dentro dele o degrau 1 da Nota de execução: **teto 50**, de 20 funções acima para zero, em 29 extrações. O padrão não era complexidade (a 106 já a tinha levado) — era sequência linear longa: `provision_tenant` eram sete blocos de INSERT, `_to_response` eram duas respostas inteiras no mesmo corpo. Gate por AST com contagem LÍQUIDA (docstring fora), porque contar bruto puniria documentação: 224 funções passavam de 30 no bruto contra 134 no líquido.
+Recontagem: **346 funções** acima de 30 (118 backend + 228 frontend), o maior volume da série. O **frontend saiu do escopo por decisão** — não haverá teto de tamanho de função lá, nem spec para isso (dívida 38). No backend, o degrau 1 da Nota de execução: **teto 50**, de 20 funções acima para zero, em 29 extrações. O padrão não era complexidade (a 106 já a tinha levado) — era sequência linear longa: `provision_tenant` eram sete blocos de INSERT, `_to_response` eram duas respostas inteiras no mesmo corpo. Gate por AST com contagem LÍQUIDA (docstring fora), porque contar bruto puniria documentação: 224 funções passavam de 30 no bruto contra 134 no líquido.
 **Aceite:** gate verde; zero exceções (teto era 5); contrato inalterado. **t:** 0,7 s. **Deps:** 106, 109, 111, 112, 119, 120
 
 

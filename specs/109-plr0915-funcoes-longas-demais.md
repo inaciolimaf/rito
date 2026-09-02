@@ -45,7 +45,7 @@ volume sem ramificação, e a saída é extrair blocos nomeados, não achatar ma
 
 - Tamanho de função **em linhas**. `PLR0915` conta statements, que é a métrica melhor: um
   `dict` literal de 40 linhas é 1 statement, e está certo que seja.
-- `max-lines-per-function` no ESLint. Spec futura.
+- ~~`max-lines-per-function` no ESLint. Spec futura.~~ **Não haverá.** Decidido ao fechar a 121: o frontend não terá teto de tamanho de função, nem spec para isso. Ver dívida 38.
 - Reescrever a regra de negócio de `advance` ou do resolvedor de condições da listagem.
 
 ## 5. Modelo de dados / API / Front-end

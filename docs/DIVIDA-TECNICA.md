@@ -1240,43 +1240,33 @@ nomes mudaram de comprimento e as assinaturas passaram a quebrar em outro ponto.
 
 ---
 
-## 38. O teto de tamanho de função parou em 50, e o frontend não foi tocado
+## 38. O teto de tamanho de função do backend parou em 50
 
-A spec 121 pede **30 linhas líquidas por função, nas duas linguagens**. A recontagem feita
-antes de mexer deu **346 funções** acima disso — 118 no backend e 228 no frontend, o maior
-volume de qualquer spec da série (a segunda é a 116, com 15).
-
-O que foi entregue: **backend no teto de 50**, zero acima, 29 extrações, gate ligado
-(`tests/meta/test_tamanho_de_funcao.py`) e zero exceções. É o degrau 1 que a Nota de
-execução da própria 121 prevê.
+A spec 121 pede **30 linhas líquidas por função**. A recontagem feita antes de mexer deu
+**118 funções** acima disso no backend — e o degrau 1 (teto 50) foi entregue: zero acima,
+29 extrações, gate ligado em `tests/meta/test_tamanho_de_funcao.py`, zero exceções.
 
 ### O que falta, com a distribuição já medida
 
-| Alvo | Funções acima | Observação |
-|---|---|---|
-| backend ≤ 45 | 16 | |
-| backend ≤ 40 | 32 | degrau 2 da Nota |
-| backend ≤ 35 | 73 | |
-| backend ≤ 30 | 117 | degrau 3, o teto que a spec pede |
-| frontend ≤ 50 | 141 | |
-| frontend ≤ 40 | 177 | |
-| frontend ≤ 30 | 228 | |
+| Alvo | Funções acima |
+|---|---|
+| ≤ 45 | 16 |
+| ≤ 40 | 32 |
+| ≤ 35 | 73 |
+| ≤ 30 | 117 |
 
-### Por que o frontend é spec própria, e não «o resto do mesmo trabalho»
+Descer por degraus é o método que a Nota de execução da 121 prescreve e que o
+`max-complexity` da 106 já validou: cada degrau é um gate ligado e verde, em vez de uma
+spec grande que não fecha e deixa o teto inexistente por mais um ciclo.
 
-As 228 são quase todas **componentes de página** — a função que o React chama para desenhar
-a tela inteira. A correção é extrair subcomponente, o que é decisão de desenho: onde cortar
-muda a árvore de acessibilidade, e a §10 regra 6 da 121 exige que as consultas
-`getByRole`/`getByLabel` continuem encontrando os mesmos elementos.
+### O frontend está FORA — por decisão, não por falta de tempo
 
-Não é o mesmo trabalho que tirar um bloco de uma função Python. Misturar os dois num ciclo
-produziria extração apressada justamente onde ela é mais arriscada — e o corte de escopo foi
-decisão do usuário, tomada com a medição na mão.
+A 121 previa o mesmo teto no frontend, com a regra `max-lines-per-function` do ESLint. A
+medição chegou a ser feita (228 funções acima de 30, quase todas componentes de página), e
+**o usuário decidiu não ter esse gate**: nem a regra, nem spec para ela.
 
-As maiores: `LawsuitsPage` (336), `TransactionsListPage` (323), `CustomerListPage` (300),
-`DocumentBrowser` (289), `LawsuitForm` (249).
+Fica registrado para não ser redescoberto: **não é dívida, é escopo recusado.** Quem ler
+esta entrada no futuro não deve abrir spec para o frontend — a ausência do gate ali é
+deliberada.
 
-**Spec-alvo:** três specs próprias — **121b** (backend ≤ 40), **121c** (backend ≤ 30) e
-**122** (frontend, com o `max-lines-per-function` do ESLint). Nesta ordem: o backend desce
-por degraus, como desceu o `max-complexity` da 106, e o frontend começa do zero com o gate
-que ainda não existe lá.
+**Spec-alvo:** **121b** (backend ≤ 40) e **121c** (backend ≤ 30).

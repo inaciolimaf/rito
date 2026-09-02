@@ -14,6 +14,7 @@ from typing import Any, Literal
 from sqlalchemy import ColumnElement, Row, Select, and_, func, literal, or_, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.selectable import ScalarSelect, Subquery
 
 from app.core.listing import QuickViews, date_range, datetime_range, paginate_keyset
@@ -213,79 +214,104 @@ def _party_exists(extra: ColumnElement[bool]) -> ColumnElement[bool]:
     return stmt.exists()
 
 
+def _so_digitos(valor: str) -> str:
+    return "".join(character for character in valor if character.isdigit())
+
+
+def _busca_textual(q: str) -> ColumnElement[bool]:
+    """Regra 5: nome de parte (sem acento, case-insensitive — mesmo padrão da busca de
+    contatos da spec 019), número, protocolo e pasta, num único texto."""
+    pattern = f"%{q}%"
+    lowered = func.unaccent(func.lower(literal(q)))
+    party_pattern = func.concat("%", lowered, "%")
+    digits = _so_digitos(q)
+    return or_(
+        _party_exists(func.unaccent(func.lower(Customer.name)).ilike(party_pattern)),
+        Lawsuit.protocol_number.ilike(pattern),
+        Lawsuit.folder.ilike(pattern),
+        Lawsuit.process_number.ilike(f"%{digits}%") if digits else text("false"),
+    )
+
+
+# Filtros que são só «coluna IN (valores)» — tabela em vez de uma cadeia de `if`, porque
+# filtro novo desta forma passa a ser uma linha aqui (spec 106). Os que têm lógica de
+# verdade (busca textual, documento, número do processo, estagnação) continuam explícitos
+# abaixo: escondê-los numa tabela junto com os triviais é que seria perder informação.
+_FILTROS_IN: tuple[tuple[str, InstrumentedAttribute[Any]], ...] = (
+    ("action_group_ids", LawsuitType.action_group_id),
+    ("lawsuit_type_ids", Lawsuit.lawsuit_type_id),
+    ("step_ids", Stage.step_id),
+    ("stage_ids", Lawsuit.stage_id),
+    ("court_ids", Lawsuit.court_id),
+    ("court_system_ids", Lawsuit.court_system_id),
+    ("user_ids", Lawsuit.user_id),
+    ("contingencies", Lawsuit.contingency),
+)
+
+# Filtros que são só «coluna ILIKE %texto%».
+_FILTROS_ILIKE: tuple[tuple[str, InstrumentedAttribute[Any]], ...] = (
+    ("protocol_number", Lawsuit.protocol_number),
+    ("folder", Lawsuit.folder),
+    ("notes", Lawsuit.notes),
+)
+
+# Intervalos de data/hora: (coluna, atributo do início, atributo do fim, helper).
+_FILTROS_INTERVALO: tuple[tuple[InstrumentedAttribute[Any], str, str, Any], ...] = (
+    (Lawsuit.created_at, "created_from", "created_to", datetime_range),
+    (Lawsuit.process_date, "process_date_from", "process_date_to", date_range),
+    (Lawsuit.closure_date, "closure_from", "closure_to", date_range),
+    (Lawsuit.transit_date, "transit_from", "transit_to", date_range),
+    (Lawsuit.archived_date, "archived_from", "archived_to", date_range),
+)
+
+
+def _condicoes_de_parte(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
+    """As que atravessam `lawsuit_parties` — `EXISTS` correlacionado, nunca `JOIN`, para
+    um processo com três partes não aparecer três vezes."""
+    condicoes: list[ColumnElement[bool]] = []
+    if filters.customer_id is not None:
+        condicoes.append(_party_exists(LawsuitParty.customer_id == filters.customer_id))
+    if filters.identification:
+        # Regra 6: CPF/CNPJ de qualquer parte — o documento é guardado só com dígitos.
+        condicoes.append(
+            _party_exists(Customer.identification == _so_digitos(filters.identification))
+        )
+    if filters.origin_ids:
+        condicoes.append(_party_exists(Customer.origin_id.in_(filters.origin_ids)))
+    if filters.customer_type:
+        condicoes.append(_party_exists(Customer.type == filters.customer_type))
+    return condicoes
+
+
 def _build_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
     conditions: list[ColumnElement[bool]] = []
 
     view_condition = LAWSUIT_VIEWS.predicate(filters.view)
     if view_condition is not None:
         conditions.append(view_condition)
-
     if filters.q:
-        # Regra 5: nome de parte (sem acento, case-insensitive — mesmo padrão da busca
-        # de contatos da spec 019), número, protocolo e pasta — um único texto.
-        pattern = f"%{filters.q}%"
-        lowered = func.unaccent(func.lower(literal(filters.q)))
-        party_pattern = func.concat("%", lowered, "%")
-        digits = "".join(character for character in filters.q if character.isdigit())
-        conditions.append(
-            or_(
-                _party_exists(func.unaccent(func.lower(Customer.name)).ilike(party_pattern)),
-                Lawsuit.protocol_number.ilike(pattern),
-                Lawsuit.folder.ilike(pattern),
-                Lawsuit.process_number.ilike(f"%{digits}%") if digits else text("false"),
-            )
-        )
-    if filters.customer_id is not None:
-        conditions.append(_party_exists(LawsuitParty.customer_id == filters.customer_id))
-    if filters.identification:
-        # Regra 6: CPF/CNPJ de qualquer parte — o documento é guardado só com dígitos.
-        digits = "".join(c for c in filters.identification if c.isdigit())
-        conditions.append(_party_exists(Customer.identification == digits))
-    if filters.process_number:
-        digits = "".join(c for c in filters.process_number if c.isdigit())
-        if digits:
-            conditions.append(Lawsuit.process_number.ilike(f"%{digits}%"))
-    if filters.protocol_number:
-        conditions.append(Lawsuit.protocol_number.ilike(f"%{filters.protocol_number}%"))
-    if filters.folder:
-        conditions.append(Lawsuit.folder.ilike(f"%{filters.folder}%"))
-    if filters.notes:
-        conditions.append(Lawsuit.notes.ilike(f"%{filters.notes}%"))
+        conditions.append(_busca_textual(filters.q))
+    if filters.process_number and (digits := _so_digitos(filters.process_number)):
+        conditions.append(Lawsuit.process_number.ilike(f"%{digits}%"))
 
-    if filters.action_group_ids:
-        conditions.append(LawsuitType.action_group_id.in_(filters.action_group_ids))
-    if filters.lawsuit_type_ids:
-        conditions.append(Lawsuit.lawsuit_type_id.in_(filters.lawsuit_type_ids))
-    if filters.step_ids:
-        conditions.append(Stage.step_id.in_(filters.step_ids))
-    if filters.stage_ids:
-        conditions.append(Lawsuit.stage_id.in_(filters.stage_ids))
-    if filters.court_ids:
-        conditions.append(Lawsuit.court_id.in_(filters.court_ids))
-    if filters.court_system_ids:
-        conditions.append(Lawsuit.court_system_id.in_(filters.court_system_ids))
-    if filters.user_ids:
-        conditions.append(Lawsuit.user_id.in_(filters.user_ids))
-    if filters.contingencies:
-        conditions.append(Lawsuit.contingency.in_(filters.contingencies))
-    if filters.origin_ids:
-        conditions.append(_party_exists(Customer.origin_id.in_(filters.origin_ids)))
-    if filters.customer_type:
-        conditions.append(_party_exists(Customer.type == filters.customer_type))
+    conditions += _condicoes_de_parte(filters)
+    conditions += [
+        coluna.in_(valores)
+        for atributo, coluna in _FILTROS_IN
+        if (valores := getattr(filters, atributo))
+    ]
+    conditions += [
+        coluna.ilike(f"%{valor}%")
+        for atributo, coluna in _FILTROS_ILIKE
+        if (valor := getattr(filters, atributo))
+    ]
+    for coluna, inicio, fim, helper in _FILTROS_INTERVALO:
+        conditions += helper(coluna, getattr(filters, inicio), getattr(filters, fim))
 
-    conditions += datetime_range(Lawsuit.created_at, filters.created_from, filters.created_to)
-    conditions += date_range(
-        Lawsuit.process_date, filters.process_date_from, filters.process_date_to
-    )
-    conditions += date_range(Lawsuit.closure_date, filters.closure_from, filters.closure_to)
-    conditions += date_range(Lawsuit.transit_date, filters.transit_from, filters.transit_to)
-    conditions += date_range(Lawsuit.archived_date, filters.archived_from, filters.archived_to)
     if filters.archived is not None:
         conditions.append(Lawsuit.is_archived.is_(filters.archived))
-    if filters.display_stagnant == "stagnant":
-        conditions.append(Lawsuit.is_stagnant.is_(True))
-    elif filters.display_stagnant == "active":
-        conditions.append(Lawsuit.is_stagnant.is_(False))
+    if filters.display_stagnant in ("stagnant", "active"):
+        conditions.append(Lawsuit.is_stagnant.is_(filters.display_stagnant == "stagnant"))
 
     return conditions
 

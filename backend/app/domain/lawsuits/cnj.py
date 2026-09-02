@@ -4,6 +4,7 @@ Módulo puro (spec 025 §10): sem FastAPI, sem SQLAlchemy, sem I/O — só parsi
 validação do dígito verificador (módulo 97 base 10, ISO 7064) e inferência de tribunal.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -117,41 +118,60 @@ def parse_cnj(value: str) -> CNJNumber:
     )
 
 
+def _regional(prefixo: str, court: str, teto: int) -> str | None:
+    """`TRF1`..`TRF6`, `TRT1`..`TRT24` — região fora da faixa não existe no catálogo."""
+    regiao = int(court)
+    return f"{prefixo}{regiao}" if 1 <= regiao <= teto else None
+
+
+def _eleitoral(court: str) -> str | None:
+    uf = _UFS_BY_CNJ_TR.get(int(court))
+    return f"TRE-{uf}" if uf else None
+
+
+def _estadual(court: str) -> str | None:
+    uf = _UFS_BY_CNJ_TR.get(int(court))
+    if uf is None:
+        return None
+    # O DF tem tribunal único para Distrito Federal e Territórios.
+    return "TJDFT" if uf == "DF" else f"TJ{uf}"
+
+
+def _militar_estadual(court: str) -> str | None:
+    """Só três estados têm justiça militar própria (MG, RS e SP)."""
+    uf = _UFS_BY_CNJ_TR.get(int(court))
+    return f"TJM-{uf}" if uf in ("MG", "RS", "SP") else None
+
+
+# Regra 7: segmento do CNJ → como o código do tribunal sai do TR. Tabela em vez de cadeia
+# de `if segment == N` (spec 106) — cada segmento é uma linha, e a superior (o tribunal de
+# cúpula do segmento, quando TR é "00") fica ao lado da regional, que é como a regra é
+# realmente escrita na resolução do CNJ.
+_SEGMENTOS: dict[int, tuple[str | None, Callable[[str], str | None] | None]] = {
+    1: ("STF", None),
+    2: ("CNJ", None),
+    3: ("STJ", None),
+    4: (None, lambda court: _regional("TRF", court, 6)),
+    5: ("TST", lambda court: _regional("TRT", court, 24)),
+    6: ("TSE", _eleitoral),
+    7: ("STM", None),
+    8: (None, _estadual),
+    9: (None, _militar_estadual),
+}
+
+
 def infer_court_code(number: CNJNumber) -> str | None:
     """Código do tribunal no catálogo (spec 021) a partir de J+TR (regra 7).
 
     Retorna None quando a combinação não tem correspondência — sem invalidar o número.
     """
-    segment, court = number.segment, number.court
-    if segment == 1:
-        return "STF"
-    if segment == 2:
-        return "CNJ"
-    if segment == 3:
-        return "STJ"
-    if segment == 4:
-        region = int(court)
-        return f"TRF{region}" if 1 <= region <= 6 else None
-    if segment == 5:
-        if court == "00":
-            return "TST"
-        region = int(court)
-        return f"TRT{region}" if 1 <= region <= 24 else None
-    if segment == 6:
-        if court == "00":
-            return "TSE"
-        uf = _UFS_BY_CNJ_TR.get(int(court))
-        return f"TRE-{uf}" if uf else None
-    if segment == 7:
-        return "STM"
-    if segment == 8:
-        uf = _UFS_BY_CNJ_TR.get(int(court))
-        if uf is None:
-            return None
-        return "TJDFT" if uf == "DF" else f"TJ{uf}"
-    if segment == 9:
-        uf = _UFS_BY_CNJ_TR.get(int(court))
-        if uf not in ("MG", "RS", "SP"):
-            return None
-        return f"TJM-{uf}"
-    return None
+    entrada = _SEGMENTOS.get(number.segment)
+    if entrada is None:
+        return None
+    cupula, regional = entrada
+    if regional is None:
+        return cupula
+    if cupula is not None and number.court == "00":
+        return cupula
+    codigo: str | None = regional(number.court)
+    return codigo

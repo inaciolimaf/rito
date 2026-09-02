@@ -781,6 +781,21 @@ da correção.
 
 **Spec-alvo:** 110 — auditoria da 105, que é de onde o efeito colateral veio.
 
+### Parcialmente atacada na spec 106 — a causa raiz CONTINUA
+
+O teste de ordenação de contatos foi corrigido no ciclo do degrau 1 da 106, porque ele
+reprovava o `make test` em metade das execuções e travava o gate. A correção foi a opção 1
+da lista acima: **o teste passou a escrever os `created_at` que afirma**, em vez de
+depender do relógio do banco — mesmo princípio da spec 114, quem afirma sobre tempo injeta
+o tempo. Cinco execuções seguidas verdes, contra ~50% antes.
+
+**Isso não fecha a dívida.** O que foi corrigido é uma manifestação; o mecanismo continua
+inteiro: `func.now()` segue devolvendo o instante de início da transação, a transação
+segue sendo uma só por teste (spec 105), e **qualquer outro teste que dependa de
+`created_at` distinto entre linhas criadas no mesmo teste continua sujeito ao mesmo
+empate** — só ainda não deu azar. O levantamento de quais são esses testes segue sendo
+trabalho da correção, e é a parte que ninguém fez.
+
 
 ---
 

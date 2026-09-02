@@ -1,11 +1,12 @@
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from httpx import AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.core.rls import set_tenant_context
 from app.core.tokens import create_access_token
 from app.domain.users.models import UserRole
 from tests.clock import hoje
@@ -334,13 +335,33 @@ async def test_customer_inexistente_no_check_duplicate_nao_conflita_com_stats(
 
 
 async def test_ordenacao_por_created_at_desc_por_padrao(
-    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
     headers = _auth_header(gestor)
     origin_id = await _create_origin(client, headers, "Origem")
     first_id = await _create_customer(client, headers, origin_id, name="Primeiro")
     second_id = await _create_customer(client, headers, origin_id, name="Segundo")
+
+    # Dívida 31: `created_at` é `server_default=func.now()`, e no PostgreSQL `now()` é o
+    # instante de início da TRANSAÇÃO. Como a spec 105 roda o teste inteiro dentro de uma
+    # transação só, os dois contatos nasciam com o MESMO `created_at`, o keyset
+    # desempatava por UUID v4 e este teste virava cara ou coroa — acertava o veredito por
+    # acaso em metade das execuções, o que é pior que não existir.
+    # Quem afirma sobre tempo injeta o tempo (mesma regra da spec 114): as datas passam a
+    # ser escritas aqui, e aí a ordenação que o teste cobra é a de verdade.
+    async with app_session_factory() as session, session.begin():
+        await set_tenant_context(session, gestor.tenant_id)
+        await session.execute(
+            text("UPDATE customers SET created_at = :quando WHERE id = :id"),
+            {"quando": datetime(2026, 1, 1, 10, 0, tzinfo=UTC), "id": uuid.UUID(first_id)},
+        )
+        await session.execute(
+            text("UPDATE customers SET created_at = :quando WHERE id = :id"),
+            {"quando": datetime(2026, 1, 2, 10, 0, tzinfo=UTC), "id": uuid.UUID(second_id)},
+        )
 
     response = await client.get("/api/v1/customers", headers=headers)
 

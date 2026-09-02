@@ -60,9 +60,16 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RET", "PTH", "ERA", "TID", "ICN", "ASYNC", "DTZ"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RET", "PTH", "ERA", "TID", "ICN", "ASYNC", "DTZ", "C90"]
 # B008: Depends()/Header() em default de parâmetro é o idioma padrão do FastAPI.
 ignore = ["B008"]
+
+[tool.ruff.lint.mccabe]
+# Spec 106, primeiro degrau. A spec pede 6 no fim, alcançado em três passos (10 → 8 → 6):
+# cada degrau é um `pyproject.toml` verde, o que entrega gate funcionando em todos eles em
+# vez de uma spec grande que não fecha e deixa o `select` sem `C90` por mais um ciclo.
+# Este número SÓ DESCE. Subi-lo é afrouxar o gate e exige spec própria.
+max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
 # CLAUDE.md §9: migration commitada não se edita. As duas ocorrências de ERA001

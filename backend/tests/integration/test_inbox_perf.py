@@ -72,7 +72,21 @@ async def perf_seed() -> AsyncGenerator[PerfSeed]:
             {"u": user_id, "t": tenant_id, "e": f"{user_id}@perf.local"},
         )
         group_id, lawsuit_type_id = uuid.uuid4(), uuid.uuid4()
-        stage_id = await conn.scalar(text("SELECT id FROM stages LIMIT 1"))
+        # A fixture cria TUDO o que usa. Isto aqui era
+        # `SELECT id FROM stages LIMIT 1` — catava a etapa de outro tenant, e só
+        # funcionava enquanto sobrava resíduo de teste anterior no banco. Desde que a
+        # spec 105 deu um banco limpo por worker não sobra nada, e o `SELECT` passou a
+        # devolver `None`, estourando o NOT NULL de `lawsuits.stage_id` no setup. Além
+        # de frágil, era errado: `stages` é tabela por tenant, com RLS.
+        stage_id = uuid.uuid4()
+        step_id = await conn.scalar(text("SELECT id FROM steps ORDER BY id LIMIT 1"))
+        await conn.execute(
+            text(
+                "INSERT INTO stages (id, tenant_id, step_id, name) "
+                "VALUES (:s, :t, :st, 'Etapa Perf')"
+            ),
+            {"s": stage_id, "t": tenant_id, "st": step_id},
+        )
         task_type_id = uuid.uuid4()
         await conn.execute(
             text("INSERT INTO action_groups (id, tenant_id, name) VALUES (:g, :t, 'Perf')"),
@@ -171,6 +185,9 @@ async def perf_seed() -> AsyncGenerator[PerfSeed]:
         await conn.execute(text("DELETE FROM post_users WHERE tenant_id = :t"), {"t": tenant_id})
         await conn.execute(text("DELETE FROM posts WHERE tenant_id = :t"), {"t": tenant_id})
         await conn.execute(text("DELETE FROM lawsuits WHERE tenant_id = :t"), {"t": tenant_id})
+        # A etapa é criada pela própria fixture agora; sai depois dos processos que a
+        # referenciam e antes do tenant que a referencia.
+        await conn.execute(text("DELETE FROM stages WHERE tenant_id = :t"), {"t": tenant_id})
         await conn.execute(text("DELETE FROM task_types WHERE tenant_id = :t"), {"t": tenant_id})
         await conn.execute(text("DELETE FROM customers WHERE tenant_id = :t"), {"t": tenant_id})
         await conn.execute(text("DELETE FROM lawsuit_types WHERE tenant_id = :t"), {"t": tenant_id})

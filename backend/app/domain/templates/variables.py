@@ -7,6 +7,7 @@ só regex + string, testável sem banco (regra dos 3 usos não se aplica aqui: a
 separação é para permitir teste unitário rápido, não repetição de UI)."""
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -95,129 +96,145 @@ def _address(
     return ", ".join(parts) if parts else None
 
 
-def _resolve_customer(scope: VariableScope, field: str) -> str | None:
-    customer = scope.customer
-    if customer is None:
+# Um registro por entidade, no lugar de quatro cadeias de `if campo == "x"` (spec 106).
+# O ganho não é o número do lint: é que acrescentar variável ao catálogo passa a ser uma
+# entrada de tabela, ao lado das outras, em vez de mais um `if` no meio de vinte — e o
+# `VARIABLE_CATALOG` logo abaixo já era uma tabela, então as duas metades finalmente têm
+# a mesma forma. Cada resolvedor recebe a entidade já validada como não-nula e o escopo,
+# porque parte dos campos vem de nomes desnormalizados que moram no escopo, não na linha.
+
+_CustomerField = Callable[[Customer, "VariableScope"], str | None]
+_LawsuitField = Callable[[Lawsuit, "VariableScope"], str | None]
+_AccountField = Callable[[Account, "VariableScope"], str | None]
+_UserField = Callable[[User, "VariableScope"], str | None]
+
+
+def _cnj_formatado(lawsuit: Lawsuit, _scope: "VariableScope") -> str | None:
+    """`process_number` é guardado só em dígitos (spec 025, regra 9) — a máscara é de
+    apresentação, e um documento é sempre apresentação. Número inválido sai como está:
+    documento em branco seria pior que documento com o número cru."""
+    if not lawsuit.process_number:
         return None
-    if field == "nome_completo":
-        return customer.name
-    if field == "cpf_cnpj":
-        return customer.identification
-    if field == "rg":
-        return customer.document
-    if field == "data_nascimento":
-        return format_date_br(customer.birthdate) if customer.birthdate else None
-    if field == "data_nascimento_extenso":
-        return format_date_extenso(customer.birthdate) if customer.birthdate else None
-    if field == "estado_civil":
-        return scope.customer_marital_status_name
-    if field == "nacionalidade":
-        return customer.nationality
-    if field == "profissao":
-        return customer.occupation
-    if field == "endereco":
-        return _address(
-            customer.street, customer.region, customer.city, customer.state, customer.postal_code
+    try:
+        return format_cnj(parse_cnj(lawsuit.process_number))
+    except CNJValidationError:
+        return lawsuit.process_number
+
+
+_CUSTOMER_FIELDS: dict[str, _CustomerField] = {
+    "nome_completo": lambda c, _s: c.name,
+    "cpf_cnpj": lambda c, _s: c.identification,
+    "rg": lambda c, _s: c.document,
+    "data_nascimento": lambda c, _s: format_date_br(c.birthdate) if c.birthdate else None,
+    "data_nascimento_extenso": (
+        lambda c, _s: format_date_extenso(c.birthdate) if c.birthdate else None
+    ),
+    "estado_civil": lambda _c, s: s.customer_marital_status_name,
+    "nacionalidade": lambda c, _s: c.nationality,
+    "profissao": lambda c, _s: c.occupation,
+    "endereco": lambda c, _s: _address(c.street, c.region, c.city, c.state, c.postal_code),
+    "email": lambda c, _s: c.email,
+    "telefone": lambda c, _s: c.cellphone or c.phone,
+    "nome_mae": lambda c, _s: c.mother_name,
+    "representante_nome": lambda c, _s: c.rep_name,
+    "representante_cpf_cnpj": lambda c, _s: c.rep_identification,
+    "representante_rg": lambda c, _s: c.rep_document,
+    "representante_endereco": (
+        lambda c, _s: _address(c.rep_street, c.rep_region, c.rep_city, c.rep_state, None)
+    ),
+}
+
+_LAWSUIT_FIELDS: dict[str, _LawsuitField] = {
+    "numero_cnj": _cnj_formatado,
+    "tipo_acao": lambda _l, s: s.lawsuit_type_name,
+    "tribunal": lambda _l, s: s.lawsuit_court_name,
+    "comarca": lambda lawsuit, _s: lawsuit.county,
+    "vara": lambda lawsuit, _s: lawsuit.court_division,
+    "fase": lambda _l, s: s.lawsuit_step_name,
+    "responsavel": lambda _l, s: s.lawsuit_responsible_name,
+    "valor_honorarios": (
+        lambda lawsuit, _s: (
+            format_money_br(lawsuit.fees_value) if lawsuit.fees_value is not None else None
         )
-    if field == "email":
-        return customer.email
-    if field == "telefone":
-        return customer.cellphone or customer.phone
-    if field == "nome_mae":
-        return customer.mother_name
-    if field == "representante_nome":
-        return customer.rep_name
-    if field == "representante_cpf_cnpj":
-        return customer.rep_identification
-    if field == "representante_rg":
-        return customer.rep_document
-    if field == "representante_endereco":
-        return _address(
-            customer.rep_street, customer.rep_region, customer.rep_city, customer.rep_state, None
+    ),
+    "valor_honorarios_extenso": (
+        lambda lawsuit, _s: (
+            format_money_extenso(lawsuit.fees_value) if lawsuit.fees_value is not None else None
         )
-    return None
+    ),
+    "valor_causa": (
+        lambda lawsuit, _s: (
+            format_money_br(lawsuit.case_value) if lawsuit.case_value is not None else None
+        )
+    ),
+    "valor_causa_extenso": (
+        lambda lawsuit, _s: (
+            format_money_extenso(lawsuit.case_value) if lawsuit.case_value is not None else None
+        )
+    ),
+    "data_ajuizamento": (
+        lambda lawsuit, _s: (format_date_br(lawsuit.filing_date) if lawsuit.filing_date else None)
+    ),
+    "data_ajuizamento_extenso": (
+        lambda lawsuit, _s: (
+            format_date_extenso(lawsuit.filing_date) if lawsuit.filing_date else None
+        )
+    ),
+    "data_arquivamento": (
+        lambda lawsuit, _s: (
+            format_date_br(lawsuit.archived_date) if lawsuit.archived_date else None
+        )
+    ),
+    "data_arquivamento_extenso": (
+        lambda lawsuit, _s: (
+            format_date_extenso(lawsuit.archived_date) if lawsuit.archived_date else None
+        )
+    ),
+    "resultado": lambda lawsuit, _s: lawsuit.outcome.value if lawsuit.outcome else None,
+}
+
+_ACCOUNT_FIELDS: dict[str, _AccountField] = {
+    "razao_social": lambda a, _s: a.name,
+    "cnpj": lambda a, _s: a.identification,
+    "endereco": lambda a, _s: _address(a.street, a.region, a.city, a.state, a.postal_code),
+    "telefone": lambda a, _s: a.phone,
+    "email": lambda a, _s: a.email,
+    "site": lambda a, _s: a.site,
+}
+
+_USER_FIELDS: dict[str, _UserField] = {
+    "nome": lambda u, _s: u.name,
+    "cargo": lambda _u, s: s.user_occupation_name,
+    "cpf": lambda u, _s: u.identification,
+    "oab": lambda u, _s: u.number_oab,
+    "celular": lambda u, _s: u.cellphone,
+}
+
+
+def _resolve_customer(scope: VariableScope, field: str) -> str | None:
+    if scope.customer is None:
+        return None
+    resolvedor = _CUSTOMER_FIELDS.get(field)
+    return resolvedor(scope.customer, scope) if resolvedor else None
 
 
 def _resolve_lawsuit(scope: VariableScope, field: str) -> str | None:
-    lawsuit = scope.lawsuit
-    if lawsuit is None:
+    if scope.lawsuit is None:
         return None
-    if field == "numero_cnj":
-        # process_number é guardado só em dígitos (spec 025, regra 9) — a máscara é
-        # de apresentação, e um documento é sempre apresentação.
-        if not lawsuit.process_number:
-            return None
-        try:
-            return format_cnj(parse_cnj(lawsuit.process_number))
-        except CNJValidationError:
-            return lawsuit.process_number
-    if field == "tipo_acao":
-        return scope.lawsuit_type_name
-    if field == "tribunal":
-        return scope.lawsuit_court_name
-    if field == "comarca":
-        return lawsuit.county
-    if field == "vara":
-        return lawsuit.court_division
-    if field == "fase":
-        return scope.lawsuit_step_name
-    if field == "responsavel":
-        return scope.lawsuit_responsible_name
-    if field == "valor_honorarios":
-        return format_money_br(lawsuit.fees_value) if lawsuit.fees_value is not None else None
-    if field == "valor_honorarios_extenso":
-        return format_money_extenso(lawsuit.fees_value) if lawsuit.fees_value is not None else None
-    if field == "valor_causa":
-        return format_money_br(lawsuit.case_value) if lawsuit.case_value is not None else None
-    if field == "valor_causa_extenso":
-        return format_money_extenso(lawsuit.case_value) if lawsuit.case_value is not None else None
-    if field == "data_ajuizamento":
-        return format_date_br(lawsuit.filing_date) if lawsuit.filing_date else None
-    if field == "data_ajuizamento_extenso":
-        return format_date_extenso(lawsuit.filing_date) if lawsuit.filing_date else None
-    if field == "data_arquivamento":
-        return format_date_br(lawsuit.archived_date) if lawsuit.archived_date else None
-    if field == "data_arquivamento_extenso":
-        return format_date_extenso(lawsuit.archived_date) if lawsuit.archived_date else None
-    if field == "resultado":
-        return lawsuit.outcome.value if lawsuit.outcome else None
-    return None
+    resolvedor = _LAWSUIT_FIELDS.get(field)
+    return resolvedor(scope.lawsuit, scope) if resolvedor else None
 
 
 def _resolve_escritorio(scope: VariableScope, field: str) -> str | None:
-    account = scope.account
-    if account is None:
+    if scope.account is None:
         return None
-    if field == "razao_social":
-        return account.name
-    if field == "cnpj":
-        return account.identification
-    if field == "endereco":
-        return _address(
-            account.street, account.region, account.city, account.state, account.postal_code
-        )
-    if field == "telefone":
-        return account.phone
-    if field == "email":
-        return account.email
-    if field == "site":
-        return account.site
-    return None
+    resolvedor = _ACCOUNT_FIELDS.get(field)
+    return resolvedor(scope.account, scope) if resolvedor else None
 
 
 def _resolve_usuario(scope: VariableScope, field: str) -> str | None:
-    user = scope.user
-    if field == "nome":
-        return user.name
-    if field == "cargo":
-        return scope.user_occupation_name
-    if field == "cpf":
-        return user.identification
-    if field == "oab":
-        return user.number_oab
-    if field == "celular":
-        return user.cellphone
-    return None
+    resolvedor = _USER_FIELDS.get(field)
+    return resolvedor(scope.user, scope) if resolvedor else None
 
 
 _RESOLVERS = {

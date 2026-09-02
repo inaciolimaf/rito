@@ -777,36 +777,55 @@ class TransactionSeriesService:
     ) -> list[Transaction]:
         """Regra 7: `scope=future` afeta as não pagas com vencimento a partir de hoje;
         `scope=all` afeta todas as não pagas. Parcela/ocorrência paga nunca muda."""
-        if payload.category_id is not None:
-            transactions_for_kind = await self.transactions.list_by_series(series.id)
-            kind = transactions_for_kind[0].kind if transactions_for_kind else None
-            category = await FinancialCategoryRepository(self.session).get_by_id(
-                payload.category_id
-            )
-            if category is None:
-                raise TransactionCategoryNotFoundError
-            expected = EntryType.RECEITA if kind is TransactionKind.RECEITA else EntryType.DESPESA
-            if kind is not TransactionKind.TRANSFERENCIA and category.type != expected:
-                raise TransactionCategoryTypeMismatchError(category.type)
+        await self._validar_categoria_da_serie(series, payload)
 
         updated: list[Transaction] = []
         for transaction in await self.transactions.list_by_series(series.id):
-            if transaction.payment_date is not None:
+            if self._fora_do_escopo(transaction, scope, today):
                 continue
-            if scope == "future" and transaction.due_date < today:
-                continue
-            if payload.amount is not None:
-                transaction.amount = payload.amount
-            if payload.category_id is not None:
-                transaction.category_id = payload.category_id
-            if payload.cost_center_id is not None:
-                transaction.cost_center_id = payload.cost_center_id
-            if payload.description is not None:
-                transaction.description = TransactionService._normalize_description(
-                    payload.description
-                )
+            self._aplicar_alteracoes(transaction, payload)
             updated.append(transaction)
         return updated
+
+    async def _validar_categoria_da_serie(
+        self, series: TransactionSeries, payload: TransactionSeriesUpdateRequest
+    ) -> None:
+        """Categoria nova tem que combinar com o tipo da série (receita/despesa).
+
+        Transferência é a exceção: ela não tem categoria de entrada nem de saída, então
+        não há tipo a conferir.
+        """
+        if payload.category_id is None:
+            return
+        transactions_for_kind = await self.transactions.list_by_series(series.id)
+        kind = transactions_for_kind[0].kind if transactions_for_kind else None
+        category = await FinancialCategoryRepository(self.session).get_by_id(payload.category_id)
+        if category is None:
+            raise TransactionCategoryNotFoundError
+        expected = EntryType.RECEITA if kind is TransactionKind.RECEITA else EntryType.DESPESA
+        if kind is not TransactionKind.TRANSFERENCIA and category.type != expected:
+            raise TransactionCategoryTypeMismatchError(category.type)
+
+    @staticmethod
+    def _fora_do_escopo(transaction: Transaction, scope: str, today: date) -> bool:
+        """Regra 7: paga nunca muda; `scope=future` só mexe daqui para frente."""
+        if transaction.payment_date is not None:
+            return True
+        return scope == "future" and transaction.due_date < today
+
+    @staticmethod
+    def _aplicar_alteracoes(
+        transaction: Transaction, payload: TransactionSeriesUpdateRequest
+    ) -> None:
+        """Campo omitido no payload não é campo apagado — só sobrescreve o que veio."""
+        if payload.amount is not None:
+            transaction.amount = payload.amount
+        if payload.category_id is not None:
+            transaction.category_id = payload.category_id
+        if payload.cost_center_id is not None:
+            transaction.cost_center_id = payload.cost_center_id
+        if payload.description is not None:
+            transaction.description = TransactionService._normalize_description(payload.description)
 
     async def delete_series(self, series: TransactionSeries, scope: str) -> None:
         """Regra 8: `scope=all` com alguma parcela paga → erro (estornar antes);

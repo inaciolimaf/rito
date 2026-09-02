@@ -188,16 +188,130 @@ class AutomationEngine:
 
     # ----------------------------------------------------------------- executar
 
-    async def advance(
-        self, run: AutomationRun, *, automation: Automation | None = None
-    ) -> AutomationRun:
-        """Executa da posição atual até o fim, um passo que espere, ou uma falha."""
+    async def _pular_se_necessario(
+        self,
+        run: AutomationRun,
+        action: AutomationAction,
+        dono_do_ramo: dict[int, tuple[int, str]],
+    ) -> bool:
+        """Duas razões para não executar um passo, e as duas ficam REGISTRADAS.
+
+        Regra 6 da 092: o suporte precisa poder responder «por que a tarefa não foi
+        criada?». Um passo que some sem rastro é pior que um passo que falha.
+        """
+        pertence = dono_do_ramo.get(action.position)
+        if pertence is not None:
+            decisao_pos, nome_do_ramo = pertence
+            escolhido = (run.scratch or {}).get(str(decisao_pos))
+            if escolhido != nome_do_ramo:
+                await self._record_step(
+                    run,
+                    action,
+                    StepStatus.SKIPPED,
+                    detail={"branch": nome_do_ramo, "chosen": escolhido},
+                )
+                run.next_position = action.position + 1
+                return True
+
+        if not evaluate(action.condition, run.trigger_payload or {}):
+            await self._record_step(
+                run, action, StepStatus.SKIPPED, detail={"condition": action.condition}
+            )
+            run.next_position = action.position + 1
+            return True
+        return False
+
+    async def _executar_decisao(
+        self,
+        run: AutomationRun,
+        action: AutomationAction,
+        automation: Automation,
+        autor: User,
+    ) -> None:
+        """Spec 094: a decisão NUNCA levanta — pior caso, cai no ramo padrão.
+
+        Por isso ela roda fora do `try/except` das outras ações: não há falha de decisão
+        para tratar, só uma escolha registrada.
+        """
+        outcome = await DecisionRunner(self).decide(
+            run=run, action=action, automation=automation, actor=autor
+        )
+        run.scratch = {**(run.scratch or {}), str(action.position): outcome.branch}
+        await self._record_step(
+            run,
+            action,
+            StepStatus.DONE,
+            detail={
+                "branch": outcome.branch,
+                "confidence": outcome.confidence,
+                "fell_back": outcome.fell_back,
+            },
+        )
+        run.actions_completed += 1
+        run.next_position = action.position + 1
+        await self.session.flush()
+
+    async def _contexto_da_execucao(
+        self, run: AutomationRun, automation: Automation | None
+    ) -> tuple[Automation, User] | AutomationRun:
+        """A automação e o autor sob os quais a execução roda.
+
+        Autor apagado é a única forma de a execução não começar: as ações agem em nome
+        de alguém, e sem esse alguém não há permissão a respeitar. Devolve o `run` já
+        falhado nesse caso, pelo mesmo padrão de união discriminada de `_executar_acao`.
+        """
         if automation is None:
             automation = await self.session.get(Automation, run.automation_id)
         assert automation is not None
         autor = await self.session.get(User, automation.created_by)
         if autor is None:  # pragma: no cover - FK garante
             return await self._fail(run, "Autor da automação não existe mais.")
+        return automation, autor
+
+    async def _executar_acao(
+        self,
+        run: AutomationRun,
+        action: AutomationAction,
+        automation: Automation,
+        autor: User,
+    ) -> AutomationRun | dict[str, Any]:
+        """Roda uma ação. Devolve o detalhe do passo quando deu certo, ou o próprio `run`
+        quando a execução TERMINA aqui — esperando condição ou falhando.
+
+        A união discriminada em vez de tupla é de propósito: `isinstance` estreita o tipo
+        no chamador, e o detalhe do sucesso nunca precisa ser tratado como opcional.
+
+        O `SAVEPOINT` é pelo mesmo motivo da 084: parte das validações só falha no BANCO
+        (FK, constraint), e sem ele a transação abortada levaria junto o registro da
+        própria falha — que é justamente o que o usuário precisa ler.
+        """
+        try:
+            async with self.session.begin_nested():
+                detalhe = await self._execute(run, action, automation=automation, actor=autor)
+        except ConditionNotMet:
+            # `wait_condition` não satisfeita não é falha: a automação "quando o processo
+            # for arquivado, avise" pode esperar meses, e é para isso que ela existe.
+            run.status = RunStatus.WAITING.value
+            run.next_position = action.position
+            run.next_action_at = self.now() + CONDITION_POLL
+            await self.session.flush()
+            return run
+        except Exception as exc:  # noqa: BLE001 - erro do domínio vira registro
+            # Regra 9: a falha interrompe e fica registrada; o que já rodou permanece.
+            await self._record_step(
+                run, action, StepStatus.FAILED, error=f"{type(exc).__name__}: {exc}"
+            )
+            return await self._fail(run, f"{type(exc).__name__}: {exc}")
+        return detalhe
+
+    async def advance(
+        self, run: AutomationRun, *, automation: Automation | None = None
+    ) -> AutomationRun:
+        """Executa da posição atual até o fim, um passo que espere, ou uma falha."""
+        contexto = await self._contexto_da_execucao(run, automation)
+        if isinstance(contexto, AutomationRun):
+            return contexto
+        automation, autor = contexto
 
         acoes = await self._actions_of(automation)
         ja_feitos = await self._steps_of(run)
@@ -210,29 +324,7 @@ class AutomationEngine:
             if action.position in ja_feitos:
                 continue
 
-            pertence = dono_do_ramo.get(action.position)
-            if pertence is not None:
-                decisao_pos, nome_do_ramo = pertence
-                escolhido = (run.scratch or {}).get(str(decisao_pos))
-                if escolhido != nome_do_ramo:
-                    # Ramo não escolhido: pula e REGISTRA (mesma razão da regra 6 da
-                    # 092 — o que não rodou precisa ser explicável).
-                    await self._record_step(
-                        run,
-                        action,
-                        StepStatus.SKIPPED,
-                        detail={"branch": nome_do_ramo, "chosen": escolhido},
-                    )
-                    run.next_position = action.position + 1
-                    continue
-
-            if not evaluate(action.condition, run.trigger_payload or {}):
-                # Regra 6: pulado é registrado. O suporte precisa poder responder
-                # "por que a tarefa não foi criada?".
-                await self._record_step(
-                    run, action, StepStatus.SKIPPED, detail={"condition": action.condition}
-                )
-                run.next_position = action.position + 1
+            if await self._pular_se_necessario(run, action, dono_do_ramo):
                 continue
 
             espera = await self._wait_for(run, action)
@@ -244,49 +336,13 @@ class AutomationEngine:
                 return run
 
             if action.action_kind == ActionKind.LLM_DECISION.value:
-                # Spec 094: a decisão NUNCA levanta — pior caso, cai no ramo padrão.
-                # Por isso ela roda fora do try/except das outras ações: não há falha
-                # de decisão para tratar, só uma escolha registrada.
-                outcome = await DecisionRunner(self).decide(
-                    run=run, action=action, automation=automation, actor=autor
-                )
-                run.scratch = {**(run.scratch or {}), str(action.position): outcome.branch}
-                await self._record_step(
-                    run,
-                    action,
-                    StepStatus.DONE,
-                    detail={
-                        "branch": outcome.branch,
-                        "confidence": outcome.confidence,
-                        "fell_back": outcome.fell_back,
-                    },
-                )
-                run.actions_completed += 1
-                run.next_position = action.position + 1
-                await self.session.flush()
+                await self._executar_decisao(run, action, automation, autor)
                 continue
 
-            try:
-                # SAVEPOINT pelo mesmo motivo da 084: parte das validações só falha no
-                # BANCO (FK, constraint), e sem ele a transação abortada levaria junto o
-                # registro da própria falha — que é o que o usuário precisa ler.
-                async with self.session.begin_nested():
-                    detalhe = await self._execute(run, action, automation=automation, actor=autor)
-            except ConditionNotMet:
-                # `wait_condition` não satisfeita não é falha: a automação "quando o
-                # processo for arquivado, avise" pode esperar meses, e é para isso que
-                # ela existe.
-                run.status = RunStatus.WAITING.value
-                run.next_position = action.position
-                run.next_action_at = self.now() + CONDITION_POLL
-                await self.session.flush()
-                return run
-            except Exception as exc:  # noqa: BLE001 - erro do domínio vira registro
-                # Regra 9: a falha interrompe e fica registrada; o que já rodou permanece.
-                await self._record_step(
-                    run, action, StepStatus.FAILED, error=f"{type(exc).__name__}: {exc}"
-                )
-                return await self._fail(run, f"{type(exc).__name__}: {exc}")
+            resultado = await self._executar_acao(run, action, automation, autor)
+            if isinstance(resultado, AutomationRun):
+                return resultado
+            detalhe = resultado
 
             await self._record_step(run, action, StepStatus.DONE, detail=detalhe)
             run.actions_completed += 1

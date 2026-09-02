@@ -158,9 +158,15 @@ class GraphRuntime:
         assert result is not None  # _drive_iter sempre encerra com um GraphResult
         return result
 
-    async def _drive_iter(
+    async def _preparar_execucao(
         self, thread: AiThread, state: dict[str, Any]
-    ) -> AsyncIterator[StepEvent | GraphResult]:
+    ) -> tuple[AsyncIterator[dict[str, Any]], float]:
+        """Monta o grafo, marca o thread como RUNNING e devolve o iterador e o prazo.
+
+        Extraído de `_drive_iter` (spec 106): é prelúdio, acontece uma vez, e estava
+        misturado com o laço que roda N vezes. `self.deps` só é `None` fora dos testes —
+        em produção o runner monta as dependências antes de chegar aqui.
+        """
         graph = get_graph(thread.graph_name)
         deps = self.deps or GraphDeps(
             tenant_id=self.tenant_id,
@@ -172,9 +178,15 @@ class GraphRuntime:
         compiled = graph.build(deps)
         thread.status = ThreadStatus.RUNNING.value
         await self.session.flush()
+        return (
+            compiled.astream(state, stream_mode="updates").__aiter__(),
+            time.monotonic() + self.run_timeout_s,
+        )
 
-        deadline = time.monotonic() + self.run_timeout_s
-        iterator = compiled.astream(state, stream_mode="updates").__aiter__()
+    async def _drive_iter(
+        self, thread: AiThread, state: dict[str, Any]
+    ) -> AsyncIterator[StepEvent | GraphResult]:
+        iterator, deadline = await self._preparar_execucao(thread, state)
 
         while True:
             started = time.monotonic()
@@ -203,40 +215,63 @@ class GraphRuntime:
                 return
 
             duration_ms = int((time.monotonic() - started) * 1000)
-            for node, delta in update.items():
-                state = {**state, **(delta or {})}
-                thread.step_count += 1
-                if thread.step_count > self.max_steps:
-                    yield await self._fail(
-                        thread,
-                        state,
-                        "limite",
-                        f"execução passou de {self.max_steps} passos",
-                        StepLimitError(),
-                        count_step=False,
-                    )
-                    return
-                kind = "interrupt" if state.get(PENDING_ACTION_KEY) else "node"
-                await self._record_step(
-                    thread,
-                    node=str(node),
-                    kind=kind,
-                    output=delta,
-                    duration_ms=duration_ms,
-                    state=state,
-                )
-                yield StepEvent(
-                    step=thread.step_count,
-                    node=str(node),
-                    kind=kind,
-                    output=truncate_payload(delta),
-                    duration_ms=duration_ms,
-                )
-                if state.get(PENDING_ACTION_KEY):
-                    yield await self._interrupt(thread, state)
+            async for novo_state, evento in self._passos_do_update(
+                thread, state, update, duration_ms
+            ):
+                state = novo_state
+                yield evento
+                # `GraphResult` no meio do laço é sempre um desfecho — limite de passos
+                # estourado ou interrupção esperando confirmação humana.
+                if isinstance(evento, GraphResult):
                     return
 
         yield await self._finish(thread, state)
+
+    async def _passos_do_update(
+        self,
+        thread: AiThread,
+        state: dict[str, Any],
+        update: dict[str, Any],
+        duration_ms: int,
+    ) -> AsyncIterator[tuple[dict[str, Any], StepEvent | GraphResult]]:
+        """Um update do grafo pode trazer vários nós; este gerador emite um evento por nó.
+
+        Extraído de `_drive_iter` na spec 106. Devolve o estado junto com o evento porque
+        cada nó reescreve o estado, e quem itera precisa do valor novo para o próximo —
+        um gerador não tem como devolver valor de retorno e continuar rendendo.
+        """
+        for node, delta in update.items():
+            state = {**state, **(delta or {})}
+            thread.step_count += 1
+            if thread.step_count > self.max_steps:
+                yield state, await self._fail(
+                    thread,
+                    state,
+                    "limite",
+                    f"execução passou de {self.max_steps} passos",
+                    StepLimitError(),
+                    count_step=False,
+                )
+                return
+            kind = "interrupt" if state.get(PENDING_ACTION_KEY) else "node"
+            await self._record_step(
+                thread,
+                node=str(node),
+                kind=kind,
+                output=delta,
+                duration_ms=duration_ms,
+                state=state,
+            )
+            yield state, StepEvent(
+                step=thread.step_count,
+                node=str(node),
+                kind=kind,
+                output=truncate_payload(delta),
+                duration_ms=duration_ms,
+            )
+            if state.get(PENDING_ACTION_KEY):
+                yield state, await self._interrupt(thread, state)
+                return
 
     async def _ensure_not_cancelled(self, thread: AiThread) -> None:
         """Cancelamento vem de OUTRA request, então o valor em memória não serve — a

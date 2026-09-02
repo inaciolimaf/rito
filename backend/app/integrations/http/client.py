@@ -115,6 +115,54 @@ class ResilientHttpClient:
                 method, url, parsed, host, headers, params, content, tenant_id
             )
 
+    async def _verificar_portao(
+        self, host: str, policy: HostPolicy, breaker: CircuitBreaker
+    ) -> None:
+        """As duas recusas que acontecem ANTES de tocar a rede (spec 106).
+
+        Estavam no corpo de `_request_com_resiliencia`, misturadas com o laço de retry —
+        e são de outra natureza: aqui não há tentativa nenhuma, a requisição simplesmente
+        não acontece.
+        """
+        # Regra 5: circuito aberto falha imediato, sem tocar a rede.
+        if not breaker.allow():
+            raise CircuitOpenError(host)
+        # Regra 4: rate limit por host, global entre workers (token bucket no Redis).
+        if policy.rate_limit_per_minute is None:
+            return
+        if self._redis is None:
+            raise RuntimeError(f"política de {host} exige Redis para rate limit")
+        allowed = await check_and_increment(
+            self._redis,
+            f"http_rate:{host}",
+            limit=policy.rate_limit_per_minute,
+            window_seconds=_RATE_LIMIT_WINDOW_S,
+        )
+        if not allowed:
+            raise RateLimitExceededError(host)
+
+    async def _preparar_requisicao(
+        self, method: str, url: str, headers: dict[str, str] | None
+    ) -> tuple[str, dict[str, str]]:
+        """Chave de cache e cabeçalhos de revalidação condicional.
+
+        Só GET tem cache; e o `If-None-Match`/`If-Modified-Since` só entra quando o
+        chamador não mandou o seu — quem pediu explicitamente manda mais que o cache.
+        """
+        request_headers = dict(headers or {})
+        if self._cache is None or method != "GET":
+            return "", request_headers
+        cache_key = cache_key_for(method, url)
+        cached = await self._cache.get(cache_key)
+        if cached is None:
+            return cache_key, request_headers
+        ja_enviados = {nome.lower() for nome in request_headers}
+        if cached.etag and "if-none-match" not in ja_enviados:
+            request_headers["If-None-Match"] = cached.etag
+        if cached.last_modified and "if-modified-since" not in ja_enviados:
+            request_headers["If-Modified-Since"] = cached.last_modified
+        return cache_key, request_headers
+
     async def _request_com_resiliencia(
         self,
         method: str,
@@ -128,38 +176,8 @@ class ResilientHttpClient:
     ) -> HttpResponse:
         policy = self._policy_for(host)
         breaker = self._breaker_for(host, policy)
-
-        # Regra 5: circuito aberto falha imediato, sem tocar a rede.
-        if not breaker.allow():
-            raise CircuitOpenError(host)
-
-        # Regra 4: rate limit por host, global entre workers (token bucket no Redis).
-        if policy.rate_limit_per_minute is not None:
-            if self._redis is None:
-                raise RuntimeError(f"política de {host} exige Redis para rate limit")
-            allowed = await check_and_increment(
-                self._redis,
-                f"http_rate:{host}",
-                limit=policy.rate_limit_per_minute,
-                window_seconds=_RATE_LIMIT_WINDOW_S,
-            )
-            if not allowed:
-                raise RateLimitExceededError(host)
-
-        request_headers = dict(headers or {})
-        cache_key = ""
-        if self._cache is not None and method == "GET":
-            cache_key = cache_key_for(method, url)
-            cached = await self._cache.get(cache_key)
-            if cached is not None:
-                # Regra implícita do escopo: revalidação condicional com os
-                # validadores que o servidor deu da última vez.
-                if cached.etag and "if-none-match" not in {k.lower() for k in request_headers}:
-                    request_headers["If-None-Match"] = cached.etag
-                if cached.last_modified and "if-modified-since" not in {
-                    k.lower() for k in request_headers
-                }:
-                    request_headers["If-Modified-Since"] = cached.last_modified
+        await self._verificar_portao(host, policy, breaker)
+        cache_key, request_headers = await self._preparar_requisicao(method, url, headers)
 
         last_error: BaseException | None = None
         last_status: int | None = None

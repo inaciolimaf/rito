@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy import ColumnElement, Row, Select, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import InstrumentedAttribute, aliased
 
 from app.core.listing import paginate_keyset
 from app.core.repository import BaseRepository
@@ -279,28 +279,32 @@ class TransactionRepository(BaseRepository[Transaction]):
         """Refatoração 060 (duplicação): condições compartilhadas por `list_filtered` e
         `totals_filtered` — o rodapé da listagem soma no banco com o MESMO filtro da
         página, nunca reduzindo `amount` no cliente (regra do audit numérico)."""
-        conditions: list[ColumnElement[bool]] = []
-        if kind is not None:
-            conditions.append(Transaction.kind == kind)
-        if customer_id is not None:
-            conditions.append(Transaction.customer_id == customer_id)
-        if lawsuit_id is not None:
-            conditions.append(Transaction.lawsuit_id == lawsuit_id)
-        if status == "paid":
-            conditions.append(Transaction.payment_date.is_not(None))
-        elif status == "open":
-            conditions.append(Transaction.payment_date.is_(None))
+        # Spec 106: os filtros de igualdade viram tabela; os que têm semântica própria
+        # (status, intervalo, texto, interno) continuam explícitos logo abaixo.
+        igualdades: tuple[tuple[Any, InstrumentedAttribute[Any]], ...] = (
+            (kind, Transaction.kind),
+            (customer_id, Transaction.customer_id),
+            (lawsuit_id, Transaction.lawsuit_id),
+        )
+        conditions: list[ColumnElement[bool]] = [
+            coluna == valor for valor, coluna in igualdades if valor is not None
+        ]
+        # Regra 9 (spec 058): "all" é o padrão dos dois ternários — só filtra quando
+        # pedido de propósito, e um valor desconhecido não filtra nada.
+        if status in ("paid", "open"):
+            conditions.append(
+                Transaction.payment_date.is_not(None)
+                if status == "paid"
+                else Transaction.payment_date.is_(None)
+            )
+        if internal in ("true", "false"):
+            conditions.append(Transaction.is_internal.is_(internal == "true"))
         if due_from is not None:
             conditions.append(Transaction.due_date >= due_from)
         if due_to is not None:
             conditions.append(Transaction.due_date <= due_to)
         if q:
             conditions.append(Transaction.description.ilike(f"%{q}%"))
-        # Regra 9 (spec 058): filtro padrão é "all" — só filtra quando pedido de propósito.
-        if internal == "true":
-            conditions.append(Transaction.is_internal.is_(True))
-        elif internal == "false":
-            conditions.append(Transaction.is_internal.is_(False))
         return conditions
 
     async def list_filtered(

@@ -60,9 +60,35 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RET", "PTH", "ERA", "TID", "ICN", "ASYNC", "DTZ", "C90"]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "B",
+    "SIM",
+    "RET",
+    "PTH",
+    "ERA",
+    "TID",
+    "ICN",
+    "ASYNC",
+    "DTZ",
+    "C90",
+    "PLR0915",
+]
 # B008: Depends()/Header() em default de parâmetro é o idioma padrão do FastAPI.
 ignore = ["B008"]
+
+[tool.ruff.lint.pylint]
+# Spec 109. `max-statements` no padrão da regra (50) — o `C901` da 106 mede DECISÕES e
+# este mede TAMANHO, e as duas coisas são independentes: `create_app` tinha complexidade
+# ciclomática 1 (nenhum `if`) e 70 statements, e nenhum gate a alcançava.
+#
+# 50 é o teto de entrada, não o final: a medição da spec mostra 2 funções acima de 45, 3
+# acima de 40 e 10 acima de 30. Descer é trabalho de spec própria, pelo mesmo método de
+# degraus da 106 — e, como lá, este número SÓ DESCE.
+max-statements = 50
 
 [tool.ruff.lint.mccabe]
 # Spec 106, teto final. Chegou aqui em três degraus (10 → 8 → 6), cada um um

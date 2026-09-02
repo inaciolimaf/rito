@@ -1,7 +1,7 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -146,9 +146,97 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await engine.dispose()
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="Rito", version=__version__, lifespan=lifespan)
+# Prefixo da API interna. A pública (spec 095) tem o seu, declarado no próprio router.
+_API_V1 = "/api/v1"
 
+# A ordem desta tabela É a ordem de registro, e no FastAPI ordem de registro é semântica:
+# a primeira rota que casa vence. Duas posições aqui são deliberadas e estão comentadas
+# abaixo — trocá-las quebra rota sem quebrar nenhum teste de módulo, porque o handler
+# errado responde com um erro plausível em vez de estourar. `tests/meta/test_app_registry.py`
+# trava as duas.
+#
+# A tabela substitui 61 chamadas sequenciais a `include_router` (spec 109): a ordem passa a
+# ser um dado que se lê de uma vez, e não uma propriedade emergente de uma sequência longa.
+_ROUTERS: tuple[tuple[APIRouter, str], ...] = (
+    (health_router, ""),
+    # Spec 095: a API pública tem prefixo próprio e versão no caminho (regra 12).
+    (public_api_router, ""),
+    (public_docs_router, ""),
+    (auth_router, _API_V1),
+    (account_router, _API_V1),
+    (users_router, _API_V1),
+    (occupations_router, _API_V1),
+    (invitations_router, _API_V1),
+    (squads_router, _API_V1),
+    (action_groups_router, _API_V1),
+    (lawsuit_types_router, _API_V1),
+    (steps_router, _API_V1),
+    (stages_router, _API_V1),
+    (customer_origins_router, _API_V1),
+    (customers_router, _API_V1),
+    (marital_statuses_router, _API_V1),
+    (states_router, _API_V1),
+    (cities_router, _API_V1),
+    (courts_router, _API_V1),
+    (court_systems_router, _API_V1),
+    (lawsuits_router, _API_V1),
+    (lawsuit_sharing_router, _API_V1),
+    (partnerships_router, _API_V1),
+    (crm_router, _API_V1),
+    (task_types_router, _API_V1),
+    (financial_router, _API_V1),
+    (dunning_router, _API_V1),
+    (api_tokens_router, _API_V1),
+    (automations_router, _API_V1),
+    (search_router, _API_V1),
+    (webhooks_router, _API_V1),
+    (documents_router, _API_V1),
+    (document_extraction_router, _API_V1),
+    (templates_router, _API_V1),
+    # inbox ANTES de posts: /posts/bulk/* perderia para /posts/{post_id}/* no match
+    # por ordem de registro ("bulk" não parseia como uuid → 422).
+    (inbox_router, _API_V1),
+    (posts_router, _API_V1),
+    (comments_router, _API_V1),
+    (attachments_router, _API_V1),
+    (notifications_router, _API_V1),
+    (schedule_router, _API_V1),
+    # Feed iCal público por token (spec 037 §5) — fora de /api/v1 por decisão da spec.
+    (ical_router, ""),
+    (workflows_router, _API_V1),
+    (goals_router, _API_V1),
+    (taskscore_router, _API_V1),
+    # Análise por IA antes do router de intimações: `/publications/analysis/estimate`
+    # perderia para `/publications/{publication_id}` por ordem de registro.
+    (publication_analysis_router, _API_V1),
+    (publications_router, _API_V1),
+    (monitored_terms_router, _API_V1),
+    (integration_alerts_router, _API_V1),
+    (integrations_router, _API_V1),
+    (reports_router, _API_V1),
+    (bi_router, _API_V1),
+    (aggregates_router, _API_V1),
+    (ai_router, _API_V1),
+    (ai_actions_router, _API_V1),
+    (ai_copilot_router, _API_V1),
+    (ai_editor_router, _API_V1),
+    (ai_analytics_router, _API_V1),
+    (ai_lawsuit_actions_router, _API_V1),
+    (legal_agents_router, _API_V1),
+    (agent_generations_router, _API_V1),
+    (ai_threads_router, _API_V1),
+)
+
+
+def _register_middlewares(app: FastAPI) -> None:
+    """A pilha de middleware, de dentro para fora.
+
+    No Starlette **o último adicionado é o mais externo**, então esta ordem de chamada é o
+    inverso da ordem de execução: `PublicApiMiddleware` vê a requisição primeiro e a
+    resposta por último; o CORS é o mais interno. Mudar isso muda quais respostas ganham
+    cabeçalho de CORS — inclusive as de erro, que é justamente quando o navegador do
+    cliente precisa delas para exibir a mensagem em vez de um erro de origem.
+    """
     settings = get_settings()
     app.add_middleware(
         CORSMiddleware,
@@ -161,79 +249,31 @@ def create_app() -> FastAPI:
     # Spec 095: headers de limite e log de requisição da API pública.
     app.add_middleware(PublicApiMiddleware)
 
+
+def _register_error_handlers(app: FastAPI) -> None:
+    """Os quatro tratadores que transformam exceção em `application/problem+json` (§9).
+
+    O de `Exception` é o último de propósito: ele é a rede embaixo dos outros três, e
+    registrá-lo antes não mudaria nada — o FastAPI escolhe pelo tipo mais específico —,
+    mas ler a lista de cima para baixo passaria a impressão errada de precedência.
+    """
     app.add_exception_handler(BudgetExceededError, handle_budget_exceeded)
     app.add_exception_handler(RequestValidationError, handle_validation_error)
     app.add_exception_handler(StarletteHTTPException, handle_http_exception)
     app.add_exception_handler(Exception, handle_unhandled_exception)
 
-    app.include_router(health_router)
-    # Spec 095: a API pública tem prefixo próprio e versão no caminho (regra 12).
-    app.include_router(public_api_router)
-    app.include_router(public_docs_router)
-    app.include_router(auth_router, prefix="/api/v1")
-    app.include_router(account_router, prefix="/api/v1")
-    app.include_router(users_router, prefix="/api/v1")
-    app.include_router(occupations_router, prefix="/api/v1")
-    app.include_router(invitations_router, prefix="/api/v1")
-    app.include_router(squads_router, prefix="/api/v1")
-    app.include_router(action_groups_router, prefix="/api/v1")
-    app.include_router(lawsuit_types_router, prefix="/api/v1")
-    app.include_router(steps_router, prefix="/api/v1")
-    app.include_router(stages_router, prefix="/api/v1")
-    app.include_router(customer_origins_router, prefix="/api/v1")
-    app.include_router(customers_router, prefix="/api/v1")
-    app.include_router(marital_statuses_router, prefix="/api/v1")
-    app.include_router(states_router, prefix="/api/v1")
-    app.include_router(cities_router, prefix="/api/v1")
-    app.include_router(courts_router, prefix="/api/v1")
-    app.include_router(court_systems_router, prefix="/api/v1")
-    app.include_router(lawsuits_router, prefix="/api/v1")
-    app.include_router(lawsuit_sharing_router, prefix="/api/v1")
-    app.include_router(partnerships_router, prefix="/api/v1")
-    app.include_router(crm_router, prefix="/api/v1")
-    app.include_router(task_types_router, prefix="/api/v1")
-    app.include_router(financial_router, prefix="/api/v1")
-    app.include_router(dunning_router, prefix="/api/v1")
-    app.include_router(api_tokens_router, prefix="/api/v1")
-    app.include_router(automations_router, prefix="/api/v1")
-    app.include_router(search_router, prefix="/api/v1")
-    app.include_router(webhooks_router, prefix="/api/v1")
-    app.include_router(documents_router, prefix="/api/v1")
-    app.include_router(document_extraction_router, prefix="/api/v1")
-    app.include_router(templates_router, prefix="/api/v1")
-    # inbox ANTES de posts: /posts/bulk/* perderia para /posts/{post_id}/* no match
-    # por ordem de registro ("bulk" não parseia como uuid → 422).
-    app.include_router(inbox_router, prefix="/api/v1")
-    app.include_router(posts_router, prefix="/api/v1")
-    app.include_router(comments_router, prefix="/api/v1")
-    app.include_router(attachments_router, prefix="/api/v1")
-    app.include_router(notifications_router, prefix="/api/v1")
-    app.include_router(schedule_router, prefix="/api/v1")
-    # Feed iCal público por token (spec 037 §5) — fora de /api/v1 por decisão da spec.
-    app.include_router(ical_router)
-    app.include_router(workflows_router, prefix="/api/v1")
-    app.include_router(goals_router, prefix="/api/v1")
-    app.include_router(taskscore_router, prefix="/api/v1")
-    # Análise por IA antes do router de intimações: `/publications/analysis/estimate`
-    # perderia para `/publications/{publication_id}` por ordem de registro.
-    app.include_router(publication_analysis_router, prefix="/api/v1")
-    app.include_router(publications_router, prefix="/api/v1")
-    app.include_router(monitored_terms_router, prefix="/api/v1")
-    app.include_router(integration_alerts_router, prefix="/api/v1")
-    app.include_router(integrations_router, prefix="/api/v1")
-    app.include_router(reports_router, prefix="/api/v1")
-    app.include_router(bi_router, prefix="/api/v1")
-    app.include_router(aggregates_router, prefix="/api/v1")
-    app.include_router(ai_router, prefix="/api/v1")
-    app.include_router(ai_actions_router, prefix="/api/v1")
-    app.include_router(ai_copilot_router, prefix="/api/v1")
-    app.include_router(ai_editor_router, prefix="/api/v1")
-    app.include_router(ai_analytics_router, prefix="/api/v1")
-    app.include_router(ai_lawsuit_actions_router, prefix="/api/v1")
-    app.include_router(legal_agents_router, prefix="/api/v1")
-    app.include_router(agent_generations_router, prefix="/api/v1")
-    app.include_router(ai_threads_router, prefix="/api/v1")
 
+def _register_routers(app: FastAPI) -> None:
+    """Registra `_ROUTERS` na ordem em que a tabela as declara."""
+    for router, prefix in _ROUTERS:
+        app.include_router(router, prefix=prefix)
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="Rito", version=__version__, lifespan=lifespan)
+    _register_middlewares(app)
+    _register_error_handlers(app)
+    _register_routers(app)
     return app
 
 

@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 140,
+  "last_measured_wall_clock_seconds": 142,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -366,6 +366,10 @@
     "106": {
       "wall_clock_seconds": 140,
       "notes": "Gate de complexidade ciclomática em 6 (C901), descido em três degraus (10 -> 8 -> 6). 1576 backend (1556 da 105 + 20: 2 meta do teto de 3 `# noqa: C901` e da justificativa de cada um; os outros 18 vieram das specs 114 e do próprio ciclo) + 313 frontend + 10 e2e. Refatoração: nenhuma asserção de teste editada em nenhum dos três degraus, e o OpenAPI ficou idêntico ao baseline (311 caminhos, 384 operações, JSON parseado igual) nas quatro verificações. Eram 50 funções acima de 6 e não as 41 previstas; 55 foram simplificadas ao todo, porque cada degrau produziu resto para o seguinte (helper extraído com complexidade 7 passava no gate 8). Zero `# noqa: C901` no projeto, contra o teto de 3 que a spec autorizava. Custo de teste ~0,1 s: os 2 meta-testes são varredura de regex sobre `app/` e `tests/`. Wall-clock 140 s de 300 s. A execução anterior deu 169 s com 5 jornadas e2e reprovando por carga (dívida 33, terceira ocorrência) — mesma árvore, execução seguinte 10/10."
+    },
+    "109": {
+      "wall_clock_seconds": 136,
+      "notes": "PLR0915 (statements demais) no select, teto default de 50. 1580 backend (1576 da 106 + 4 meta de fiação do app: ordem dos três middlewares, as duas ordens de rota deliberadas, todo router importado registrado, e nenhuma rota fora de /api/v1 sem exceção declarada) + 313 frontend + 10 e2e. Eram 4 funções acima de 50; a 106 resolveu 3 — sobrou create_app (70), que o C901 nunca ia alcançar porque sua complexidade ciclomática é 1. A decomposição proposta pela spec não passava no próprio gate (_register_routers teria 61 statements), então as 61 chamadas a include_router viraram a tabela _ROUTERS. Contrato inalterado: 311 caminhos, 384 operações, e a ORDEM dos 311 idêntica à do HEAD limpo — verificada em git worktree, porque o dump de referência foi gravado com sort_keys=True e não guarda ordem. Os 4 meta-testes custam 2,0 s e foram provados mordendo, um defeito de cada vez. Wall-clock 136 s de 300 s."
     }
   },
   "specs_concluidas": 100

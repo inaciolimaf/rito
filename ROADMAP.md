@@ -496,8 +496,8 @@ Duas ocorrências de `ASYNC240` — `integrations/ocr/tesseract.py:61` e um test
 A spec dizia que `anyio` era "o padrão que `integrations/storage/s3.py` já usa"; não é — `s3.py` usa `asyncio.to_thread`, da stdlib. Seguir a letra teria criado o padrão novo que a spec dizia evitar, e ainda com import direto de `anyio`, que não é dependência declarada. Ficou `asyncio.to_thread` nos dois pontos.
 Achado: **nenhum teste exercita `TesseractOcr`** — o único teste de OCR usa um `FakeOcr`. A linha corrigida não tem cobertura. Material para a 117.
 
-### ⬜ 109 — PLR0915: funções longas demais
-Quatro funções acima de 50 statements. `create_app` (70) é sequência linear e quebra de graça; as outras três já são alvo da 106.
+### ✅ 109 — PLR0915: funções longas demais
+Eram quatro acima de 50 statements; a 106 resolveu três. Sobrou `create_app` (70), que o `C901` nunca ia alcançar — complexidade ciclomática **1**, sem um único `if`. As 61 chamadas a `include_router` viraram a tabela `_ROUTERS`, e a ordem de registro (que é semântica) virou meta-teste.
 **Aceite:** gate verde; meta-teste de ordem de middleware e inventário de rotas. **t:** 0 s. **Deps:** 106
 
 ### ⬜ 110 — 🔧 REFATORAÇÃO — Orçamento e gates

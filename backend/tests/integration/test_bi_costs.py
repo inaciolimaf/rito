@@ -12,6 +12,7 @@ rateio e clientes novos são tempo real. Cada teste trabalha num tenant próprio
 import uuid
 from calendar import monthrange
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from typing import TypedDict
 
@@ -138,13 +139,25 @@ async def _create_lawsuit_with_customer(
     return str(lawsuit["id"]), customer_id
 
 
+@dataclass(frozen=True, slots=True)
+class _Contas:
+    """As coordenadas contábeis de uma despesa: para onde ela vai no plano de contas.
+
+    Spec 116: os três ids viajavam soltos em catorze chamadas, e `cost_center_id`/
+    `account_id` eram literalmente sempre os mesmos — só a categoria mudava. Um objeto
+    encurta as catorze e deixa óbvio que os três andam juntos.
+    """
+
+    category_id: str
+    cost_center_id: str
+    account_id: str
+
+
 async def _add_expense(
     client: AsyncClient,
     headers: dict[str, str],
+    contas: _Contas,
     *,
-    category_id: str,
-    cost_center_id: str,
-    account_id: str,
     amount: str,
     due_date: date = _TODAY,
     lawsuit_id: str | None = None,
@@ -155,9 +168,9 @@ async def _add_expense(
     lançamento de controle (spec 058, fora do custo)."""
     payload: dict[str, object] = {
         "kind": "DESPESA",
-        "debit_account_id": account_id,
-        "category_id": category_id,
-        "cost_center_id": cost_center_id,
+        "debit_account_id": contas.account_id,
+        "category_id": contas.category_id,
+        "cost_center_id": contas.cost_center_id,
         "amount": amount,
         "due_date": str(due_date),
         "is_internal": internal,
@@ -210,9 +223,7 @@ async def test_cac_e_marketing_dividido_por_clientes_novos(
     await _add_expense(
         client,
         factory.headers,
-        category_id=marketing_id,
-        cost_center_id=cost_center_id,
-        account_id=account_id,
+        _Contas(marketing_id, cost_center_id, account_id),
         amount="600.00",
     )
     for _ in range(3):
@@ -237,9 +248,7 @@ async def test_custo_por_ponto_e_custo_fixo_dividido_por_pontos(
     await _add_expense(
         client,
         factory.headers,
-        category_id=folha_id,
-        cost_center_id=cost_center_id,
-        account_id=account_id,
+        _Contas(folha_id, cost_center_id, account_id),
         amount="1000.00",
     )
     lawsuit_id = await factory.create()
@@ -269,9 +278,7 @@ async def test_custo_fixo_soma_apenas_grupos_2_3_5_7(
         await _add_expense(
             client,
             factory.headers,
-            category_id=category_id,
-            cost_center_id=cost_center_id,
-            account_id=account_id,
+            _Contas(category_id, cost_center_id, account_id),
             amount=amount,
         )
     for group_id, amount in ((4, "888.00"), (6, "999.00"), (8, "777.00")):
@@ -281,9 +288,7 @@ async def test_custo_fixo_soma_apenas_grupos_2_3_5_7(
         await _add_expense(
             client,
             factory.headers,
-            category_id=category_id,
-            cost_center_id=cost_center_id,
-            account_id=account_id,
+            _Contas(category_id, cost_center_id, account_id),
             amount=amount,
         )
     await _refresh()
@@ -306,9 +311,7 @@ async def test_custo_direto_por_lawsuit_id(client: AsyncClient, factory: Lawsuit
         await _add_expense(
             client,
             factory.headers,
-            category_id=category_id,
-            cost_center_id=cost_center_id,
-            account_id=account_id,
+            _Contas(category_id, cost_center_id, account_id),
             amount=amount,
             lawsuit_id=lawsuit_a,
             customer_id=customer_a,
@@ -317,9 +320,7 @@ async def test_custo_direto_por_lawsuit_id(client: AsyncClient, factory: Lawsuit
     await _add_expense(
         client,
         factory.headers,
-        category_id=category_id,
-        cost_center_id=cost_center_id,
-        account_id=account_id,
+        _Contas(category_id, cost_center_id, account_id),
         amount="999.00",
     )
 
@@ -342,18 +343,14 @@ async def test_custo_alocado_soma_direto_mais_rateio(
     await _add_expense(
         client,
         factory.headers,
-        category_id=folha_id,
-        cost_center_id=cost_center_id,
-        account_id=account_id,
+        _Contas(folha_id, cost_center_id, account_id),
         amount="800.00",
     )
     lawsuit_id, customer_id = await _create_lawsuit_with_customer(factory)
     await _add_expense(
         client,
         factory.headers,
-        category_id=custas_id,
-        cost_center_id=cost_center_id,
-        account_id=account_id,
+        _Contas(custas_id, cost_center_id, account_id),
         amount="100.00",
         lawsuit_id=lawsuit_id,
         customer_id=customer_id,
@@ -382,9 +379,7 @@ async def test_processo_em_andamento_entra_no_calculo(
     await _add_expense(
         client,
         factory.headers,
-        category_id=category_id,
-        cost_center_id=cost_center_id,
-        account_id=account_id,
+        _Contas(category_id, cost_center_id, account_id),
         amount="50.00",
         lawsuit_id=lawsuit_id,
         customer_id=customer_id,
@@ -408,9 +403,7 @@ async def test_mes_sem_pontos_custo_por_ponto_nulo(
     await _add_expense(
         client,
         factory.headers,
-        category_id=folha_id,
-        cost_center_id=cost_center_id,
-        account_id=account_id,
+        _Contas(folha_id, cost_center_id, account_id),
         amount="500.00",
     )
     await _refresh()
@@ -446,17 +439,13 @@ async def test_interno_e_transferencia_fora_do_custo(
     await _add_expense(
         client,
         factory.headers,
-        category_id=folha_id,
-        cost_center_id=cost_center_id,
-        account_id=account_a,
+        _Contas(folha_id, cost_center_id, account_a),
         amount="500.00",
     )
     await _add_expense(
         client,
         factory.headers,
-        category_id=folha_id,
-        cost_center_id=cost_center_id,
-        account_id=account_a,
+        _Contas(folha_id, cost_center_id, account_a),
         amount="300.00",
         internal=True,
     )
@@ -522,9 +511,7 @@ async def test_tenant_a_nao_ve_custos_de_tenant_b(
     await _add_expense(
         client,
         factory_a.headers,
-        category_id=folha_id,
-        cost_center_id=cost_center_id,
-        account_id=account_id,
+        _Contas(folha_id, cost_center_id, account_id),
         amount="900.00",
     )
     await _refresh()

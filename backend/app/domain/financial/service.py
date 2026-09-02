@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import RecurrencePeriod, RecurrenceWeek, next_occurrence, shift_month
+from app.core.listing import Page
 from app.core.repository import decode_cursor, encode_cursor
 from app.core.transfer import count_references, reassign_references, validated_transfer
 from app.domain.customers.repository import CustomerRepository
@@ -53,6 +54,7 @@ from app.domain.financial.repository import (
     DreGroupRepository,
     FinancialCategoryRepository,
     FinancialInstitutionRepository,
+    TransactionQuery,
     TransactionRepository,
     TransactionSeriesRepository,
     TransactionTotals,
@@ -65,6 +67,7 @@ from app.domain.financial.schemas import (
     FinancialCategoryCreateRequest,
     FinancialCategoryUpdateRequest,
     TransactionCreateRequest,
+    TransactionListParams,
     TransactionRow,
     TransactionSeriesUpdateRequest,
     TransactionUpdateRequest,
@@ -372,15 +375,8 @@ class TransactionService:
 
     async def list_transactions(
         self,
+        params: TransactionListParams,
         *,
-        kind: TransactionKind | None,
-        customer_id: uuid.UUID | None,
-        lawsuit_id: uuid.UUID | None,
-        status: str | None,
-        due_from: date | None,
-        due_to: date | None,
-        q: str | None,
-        internal: str | None = None,
         cursor: str | None = None,
         limit: int = 50,
     ) -> tuple[list[TransactionRow], str | None]:
@@ -397,16 +393,8 @@ class TransactionService:
             decodificado = (date.fromisoformat(valor), cursor_id)
         itens = list(
             await self.transactions.list_filtered(
-                kind=kind,
-                customer_id=customer_id,
-                lawsuit_id=lawsuit_id,
-                status=status,
-                due_from=due_from,
-                due_to=due_to,
-                q=q,
-                internal=internal,
-                cursor=decodificado,
-                limit=limit,
+                filters=_consulta(params),
+                page=Page(cursor=decodificado, limit=limit),
             )
         )
         proximo = None
@@ -415,30 +403,16 @@ class TransactionService:
             proximo = encode_cursor(ultimo.due_date.isoformat(), ultimo.id)
         return itens, proximo
 
-    async def totals(
-        self,
-        *,
-        kind: TransactionKind | None,
-        customer_id: uuid.UUID | None,
-        lawsuit_id: uuid.UUID | None,
-        status: str | None,
-        due_from: date | None,
-        due_to: date | None,
-        q: str | None,
-        internal: str | None = None,
-    ) -> TransactionTotals:
+    async def totals(self, params: TransactionListParams) -> TransactionTotals:
         """Rodapé da listagem (spec 059 §7 regra 9) — mesmo filtro de `list_transactions`,
-        somado no banco (auditoria numérica, spec 060: zero cálculo de dinheiro no front)."""
-        return await self.transactions.totals_filtered(
-            kind=kind,
-            customer_id=customer_id,
-            lawsuit_id=lawsuit_id,
-            status=status,
-            due_from=due_from,
-            due_to=due_to,
-            q=q,
-            internal=internal,
-        )
+        somado no banco (auditoria numérica, spec 060: zero cálculo de dinheiro no front).
+
+        «Mesmo filtro» virou literal na spec 116: o chamador passa o MESMO
+        `TransactionListParams` para os dois métodos, e a tradução para a linguagem da
+        consulta acontece aqui, uma vez para cada — em vez de repetir oito nomes de
+        parâmetro nos dois lugares e torcer para não trocar nenhum.
+        """
+        return await self.transactions.totals_filtered(_consulta(params))
 
     async def get(self, transaction_id: uuid.UUID) -> TransactionRow | None:
         return await self.transactions.get_by_id_detail(transaction_id)
@@ -843,3 +817,25 @@ class TransactionSeriesService:
                 if transaction.payment_date is None:
                     await self.transactions.delete(transaction)
             series.is_active = False
+
+
+def _consulta(params: TransactionListParams) -> TransactionQuery:
+    """Traduz os query params da listagem para a linguagem do repositório (spec 116).
+
+    A tradução vive no service, e não no router, porque o `TransactionQuery` é tipo de
+    repositório e router que importa repositório é violação de camada (CLAUDE.md §5) — o
+    `test_camadas.py` reprova. Mesmo desenho de `customers/service.py::_consulta`.
+
+    A única regra aqui: `"all"` é como o HTTP diz «não filtre», e o repositório diz isso
+    com `None`.
+    """
+    return TransactionQuery(
+        kind=params.kind,
+        customer_id=params.customer_id,
+        lawsuit_id=params.lawsuit_id,
+        status=params.status_,
+        due_from=params.due_from,
+        due_to=params.due_to,
+        q=params.q,
+        internal=None if params.internal == "all" else params.internal,
+    )

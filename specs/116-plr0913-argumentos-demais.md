@@ -1,7 +1,7 @@
 # 116 — PLR0913: argumentos demais
 
 **Fase:** 11 · **Tipo:** refatoração · **Orçamento:** +0 s (gate de lint)
-**Depende de:** 106, 111, 112 · **Status:** ⬜ pendente
+**Depende de:** 106, 111, 112 · **Status:** ✅ concluída
 
 ---
 
@@ -112,18 +112,127 @@ repassa isso para baixo. O `test_public_api_contract.py` e o snapshot de rotas s
 
 ## 9. Descobertas
 
-Preencher durante a implementação — em especial, se o objeto de filtro comum apareceu e onde
-ele mora.
+### A calibragem se confirmou
+
+Recontagem sobre `5fdb537`: 126 / 50 / 31 / **15** / 6 / 3 nos tetos 5 / 6 / 7 / 8 / 10 / 12 —
+praticamente igual à medição de 28/08 (que dava 112 / 48 / 30 / 14 / 5 / 3; a diferença são
+rotas novas). O joelho em 8 continua sendo o joelho. Foi a primeira spec desta leva em que o
+gate **não** chegou verde: 15 funções de verdade para resolver.
+
+### O objeto de filtro comum apareceu — e o que subiu foi a PAGINAÇÃO, não o filtro
+
+A §4 previa «possivelmente um tipo base comum, já que `BaseRepository` existe desde a 003».
+Apareceu, mas não onde a spec apontava. Os *filtros* não sobem: contatos filtram por
+aniversário, lançamentos por vencimento, tarefas por prazo — não há denominador comum
+honesto, e forçar um daria um objeto com quinze campos opcionais dos quais cada listagem usa
+cinco.
+
+O que sobe é o outro lado: `sort`, `descending`, `cursor` e `limit` são **os mesmos quatro em
+toda listagem**, porque são o contrato do §6 do `CLAUDE.md`. Viraram `Page`, em
+`app/core/listing.py`, ao lado do `paginate_keyset` que já os consumia. Cinco repetições do
+mesmo quarteto, muito além da regra dos 3 usos.
+
+Ficou uma separação que a assinatura antiga não tinha: **o que filtrar** e **como paginar**
+são duas perguntas, e agora são dois parâmetros.
+
+### Um objeto de filtro por contexto, e a razão de não reusar o schema
+
+Nasceram `CustomerQuery`, `TransactionQuery` e `TaskQuery` — no repositório, não no
+`schemas.py`. A tentação era passar o `CustomerFilters` (que já existia) direto para baixo, e
+ela **quebraria**: o schema declara `birthdays: Literal["day", "month"]`, e a rota pública de
+aniversariantes manda `"month:<n>"`. Construir o schema com esse valor levantaria erro de
+validação onde hoje há resposta errada — mudança de comportamento, proibida aqui.
+
+Isso não foi um obstáculo, foi um achado: o tipo separado tornou VISÍVEL um descasamento que
+o `str | None` solto escondia. Ver a **dívida 34** — a rota pública de aniversariantes não
+filtra nada e devolve os primeiros mil contatos do escritório. É anterior a toda esta leva
+(conferido em `da213af`); não foi corrigida aqui porque 116 é refatoração.
+
+### O ganho maior foi no financeiro, e é de correção, não de forma
+
+`TransactionQuery` unificou o mesmo octeto de filtros que aparecia em **cinco** assinaturas.
+A regra 9 da spec 059 exige que o rodapé de somatórios use *exatamente* o mesmo filtro da
+página. Com oito parâmetros soltos, «o mesmo filtro» era uma convenção que dependia de alguém
+repetir oito nomes certos em dois lugares — e o router os repetia, literalmente, em duas
+chamadas seguidas. Agora é o mesmo objeto passado duas vezes. A classe de bug «o rodapé soma
+um recorte diferente do que a tabela mostra» deixou de ser possível.
+
+### A armadilha do alias, que quase entrou em produção
+
+Para as rotas, o padrão é `filtros: Modelo = Depends()`: o FastAPI expande os campos em query
+params. Funcionou em cinco rotas e **falhou numa**, silenciosamente.
+
+Num modelo usado como dependência, o FastAPI monta a assinatura da rota dinamicamente e usa o
+alias como NOME DE PARÂMETRO — o que ele não consegue fazer quando o alias é palavra
+reservada do Python. Aí ele cai, sem avisar, no nome do campo:
+
+```
+alias="status" -> query param `status`   (funciona)
+alias="from"   -> query param `from_`    (vira o nome do campo)
+alias="class"  -> query param `a_`       (idem)
+```
+
+`GET /reports/tabular/{report_key}?from=...` existe desde a spec 070. O param teria virado
+`from_`, a rota continuaria respondendo 200, e o filtro de data simplesmente deixaria de
+existir. Nenhum teste de rota que confere status pegaria.
+
+Quem pegou foi o **diff de query params contra o baseline**, que é a razão de tirá-lo antes
+de encostar no código. A correção é declarar os `Query(...)` numa dependência de **função**
+(`report_scope`), não como campo de modelo. E virou teste permanente: nenhum query param do
+projeto pode terminar em `_`, porque ninguém batiza um assim de propósito.
+
+### O `Depends()` também revelou uma rota que aceitava o que não usava
+
+`GET /publications/counts` construía um `PublicationFilters` completo mas só preenchia sete
+dos dez campos — os três toggles são o que ela CONTA, não o que ela filtra (§8 da 048). Com
+`Depends()` no tipo completo, ela passaria a publicar `linked`/`cancelled`/`read` como query
+params que não fazem nada.
+
+Daí a divisão em `PublicationScope` (o recorte) e `PublicationFilters(PublicationScope)` (o
+recorte mais os toggles). O tipo passou a dizer o que cada rota aceita, em vez de a rota
+ignorar campos em silêncio.
+
+### Duas exceções, e por que elas são as certas
+
+O teto de 2 `# noqa: PLR0913` foi usado inteiro, e nos dois casos em que o cheiro que a regra
+procura não está presente:
+
+1. **`ResilientHttpClient.__init__`** (11) — são dependências injetadas, e injetar é a única
+   coisa que o construtor faz. Cinco existem para o teste substituir tempo e acaso; agrupá-las
+   obrigaria a editar 15 chamadas de teste para tornar `sleep=_no_sleep` mais verboso.
+2. **`make_publication`** (10) — construtor de dado de teste. Os opcionais são o que cada caso
+   varia um de cada vez («como as outras, mas cancelada»). O objeto que os agrupasse não teria
+   nome que descrevesse nada: ele seria «os argumentos».
+
+Havia um terceiro candidato, `_add_expense` em `test_bi_costs.py`, e ele tinha correção
+estrutural de verdade: `cost_center_id` e `account_id` eram **literalmente sempre os mesmos**
+nas catorze chamadas, e só a categoria variava. Viraram `_Contas`, e as catorze chamadas
+ficaram três linhas mais curtas cada. Foi o que manteve o teto em 2 — e a diferença entre as
+três decisões é a mesma pergunta: agrupar dá um nome a alguma coisa, ou só encurta a lista?
+
+### O gate de camadas pegou uma violação minha
+
+O `make test` reprovou em `test_camadas.py::test_nenhum_router_importa_repositorio`: eu tinha
+feito o router do financeiro construir um `TransactionQuery`, que é tipo de repositório.
+
+O gate estava certo, e a correção mostrou onde a tradução deve morar: **no service**, que é
+quem faz a ponte entre HTTP e domínio (§5). Foi exatamente o desenho que `customers/service.py`
+já usava com o `_consulta` — eu tinha acertado por lá e escorregado aqui, e um meta-teste
+escrito há dezenas de specs me devolveu à consistência sem discussão. É o argumento a favor
+desse tipo de teste em uma frase.
 
 ## 10. Definição de pronto
 
-- [ ] `PLR0913` no `select` com `max-args = 8`
-- [ ] As 14 resolvidas; no máximo 2 `noqa` justificados
-- [ ] Nenhum `per-file-ignores`
-- [ ] Objetos de filtro tipados, sem `dict[str, Any]`
-- [ ] Nenhum query param de rota mudou de nome, tipo ou default
-- [ ] Nenhum teste anterior editado
-- [ ] `make test` verde e wall-clock dentro do orçamento
-- [ ] `make lint` verde — repositório inteiro
-- [ ] `ROADMAP.md` com a linha da 116 em ✅
-- [ ] Commit `refactor(116): argumentos demais`
+- [x] `PLR0913` no `select` com `max-args = 8`, provado reprovando uma função de 9
+- [x] As 15 (não 14) resolvidas; exatamente 2 `noqa`, justificados e travados por meta-teste
+- [x] Nenhum `per-file-ignores`
+- [x] Objetos de filtro tipados (`dataclass` frozen e modelos Pydantic), sem `dict[str, Any]`
+- [x] **Nenhum query param de rota mudou de nome, tipo, default ou obrigatoriedade** — 276
+      operações comparadas com o baseline, zero divergência; 311 caminhos, 384 operações, e a
+      ordem de registro idêntica
+- [x] Nenhum teste anterior editado — nenhuma asserção tocada; `_add_expense` teve a própria
+      assinatura melhorada, e é helper, não caso de teste
+- [x] `make test` verde e wall-clock dentro do orçamento
+- [x] `make lint` verde — repositório inteiro
+- [x] `ROADMAP.md` com a linha da 116 em ✅
+- [x] Commit `refactor(116): argumentos demais`

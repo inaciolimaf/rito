@@ -211,3 +211,29 @@ class TimesheetResponse(BaseModel):
     user_id: uuid.UUID
     month: date
     days: list[TimesheetDayResponse]
+
+
+class ReportScopeParams(BaseModel):
+    """Os quatro query params que as duas rotas tabulares compartilham (spec 116).
+
+    Simples `BaseModel`, sem `Field(alias=...)`. Motivo medido na spec 116: num modelo
+    usado como dependência, o FastAPI monta a assinatura da rota dinamicamente e usa o
+    alias como NOME DE PARÂMETRO — o que ele não pode fazer quando o alias é palavra
+    reservada do Python. Aí ele silenciosamente cai no nome do campo:
+
+        alias="status" -> query param `status`   (funciona)
+        alias="from"   -> query param `from_`    (vira o nome do campo)
+        alias="class"  -> query param `a_`       (idem)
+
+    O param `from` é o que o cliente manda desde a spec 070; trocá-lo por `from_` faria a
+    filtragem parar sem erro nenhum. O diff de query params desta spec pegou isso — e é
+    exatamente o tipo de regressão que um teste de rota que só confere status 200 não vê.
+
+    Por isso quem declara os `Query(...)` é a dependência `report_scope` do router, que os
+    mantém exatamente como estavam, e este modelo só carrega os valores para baixo.
+    """
+
+    from_: date | None = None
+    to: date | None = None
+    user_id: uuid.UUID | None = None
+    action_group_id: uuid.UUID | None = None

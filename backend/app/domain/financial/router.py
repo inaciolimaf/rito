@@ -92,6 +92,7 @@ from app.domain.financial.schemas import (
     SeriesPreviewResponse,
     TransactionChartResponse,
     TransactionCreateRequest,
+    TransactionListParams,
     TransactionListResponse,
     TransactionResponse,
     TransactionRow,
@@ -601,46 +602,20 @@ _TRANSACTION_VALIDATION_ERRORS = (
 
 @router.get("/transactions")
 async def list_transactions(
-    kind: TransactionKind | None = Query(default=None),
-    customer_id: uuid.UUID | None = Query(default=None),
-    lawsuit_id: uuid.UUID | None = Query(default=None),
-    status_: Literal["paid", "open"] | None = Query(default=None, alias="status"),
-    due_from: date | None = Query(default=None),
-    due_to: date | None = Query(default=None),
-    q: str | None = Query(default=None),
-    internal: Literal["true", "false", "all"] = Query(default="all"),
+    params: TransactionListParams = Depends(),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=100),
     current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> TransactionListResponse:
     service = TransactionService(session=session, tenant_id=current_user.tenant_id)
-    internal_filter = None if internal == "all" else internal
     # Spec 098, regra 3: a rota devolvia TODOS os lançamentos do escritório, sem limite
     # nenhum. O contrato de listagem do CLAUDE.md §6 já previa o `next_cursor` — o
     # schema tinha o campo desde a 056, sempre nulo.
-    rows, next_cursor = await service.list_transactions(
-        kind=kind,
-        customer_id=customer_id,
-        lawsuit_id=lawsuit_id,
-        status=status_,
-        due_from=due_from,
-        due_to=due_to,
-        q=q,
-        internal=internal_filter,
-        cursor=cursor,
-        limit=limit,
-    )
-    totals = await service.totals(
-        kind=kind,
-        customer_id=customer_id,
-        lawsuit_id=lawsuit_id,
-        status=status_,
-        due_from=due_from,
-        due_to=due_to,
-        q=q,
-        internal=internal_filter,
-    )
+    rows, next_cursor = await service.list_transactions(params, cursor=cursor, limit=limit)
+    # Regra 9 da 059: o rodapé soma o MESMO filtro da página. Agora é o mesmo objeto, não
+    # oito nomes repetidos que alguém pode trocar sem que nada reclame.
+    totals = await service.totals(params)
     return TransactionListResponse(
         items=[_transaction_to_response(row) for row in rows],
         next_cursor=next_cursor,

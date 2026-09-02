@@ -9,6 +9,7 @@ Regras do contrato de listagem (CLAUDE.md §6) que este módulo ancora:
 
 import uuid
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import date, datetime, time
 from typing import Any
 
@@ -58,6 +59,28 @@ def unaccented_contains(column: Column, query: str) -> Predicate:
     """
     padrao = func.concat("%", func.unaccent(func.lower(literal(query))), "%")
     return func.unaccent(func.lower(column)).ilike(padrao)
+
+
+@dataclass(frozen=True, slots=True)
+class Page:
+    """Os quatro parâmetros de paginação do contrato de listagem (CLAUDE.md §6).
+
+    Spec 116: `sort`, `descending`, `cursor` e `limit` apareciam soltos na assinatura de
+    toda listagem — em contatos, financeiro, tarefas, intimações e relatórios. Cinco
+    repetições do mesmo quarteto é muito além da regra dos 3 usos do §6, e o custo não era
+    só o tamanho da assinatura: quem lia `list_filtered(...)` não conseguia separar «o que
+    filtrar» de «como paginar» sem contar os parâmetros um a um.
+
+    O cursor é `Any` no valor de ordenação de propósito: cada listagem ordena por uma
+    coluna de tipo diferente (`created_at`, `name`, `due_date`), e é o `paginate_keyset`
+    quem sabe converter — parametrizar por tipo aqui só empurraria o `Any` para o
+    chamador, que é onde ele atrapalha mais.
+    """
+
+    sort: str = "created_at"
+    descending: bool = True
+    cursor: tuple[Any, uuid.UUID] | None = None
+    limit: int = 20
 
 
 def paginate_keyset[StmtT: Select[Any]](

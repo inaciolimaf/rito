@@ -12,7 +12,7 @@ from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.posts.creation import resolve_assignees, validate_references
 from app.domain.posts.detail import AssigneeDetail, PostDetail, build_detail
 from app.domain.posts.models import Post
-from app.domain.posts.repository import PostRepository
+from app.domain.posts.repository import PostRepository, TaskQuery
 from app.domain.posts.schemas import PostFlagsRequest, PostUpdateRequest
 from app.domain.posts.visibility import is_involved
 from app.domain.squads.repository import SquadRepository
@@ -82,30 +82,17 @@ class PostService:
         return details
 
     async def search(
-        self,
-        *,
-        viewer_id: uuid.UUID,
-        date_from: date | None = None,
-        date_to: date | None = None,
-        by_deadline: bool = False,
-        assignee_id: uuid.UUID | None = None,
-        lawsuit_id: uuid.UUID | None = None,
-        task_type_id: uuid.UUID | None = None,
-        only_open: bool = True,
-        limit: int = 20,
+        self, filters: TaskQuery, *, viewer_id: uuid.UUID, limit: int = 20
     ) -> list[PostDetail]:
         """Busca de tarefas com a regra 8 da 033 aplicada: tarefa privada de terceiro
-        não aparece — nem para o agente de IA de um colega (spec 083, regra 3)."""
-        posts = await self.posts.search(
-            date_from=date_from,
-            date_to=date_to,
-            by_deadline=by_deadline,
-            assignee_id=assignee_id,
-            lawsuit_id=lawsuit_id,
-            task_type_id=task_type_id,
-            only_open=only_open,
-            limit=limit,
-        )
+        não aparece — nem para o agente de IA de um colega (spec 083, regra 3).
+
+        `viewer_id` fica FORA do `TaskQuery` de propósito: ele não é um filtro que o
+        chamador escolhe, é quem está perguntando — e é ele que decide o que a regra 8
+        esconde. Misturá-lo aos filtros abriria a porta para alguém "filtrar" por outro
+        usuário e ver o que não pode.
+        """
+        posts = await self.posts.search(filters, limit=limit)
         lines_by_post = await self.posts.assignee_lines_for([post.id for post in posts])
         names = await self.task_types.names_for({post.task_type_id for post in posts})
         details: list[PostDetail] = []

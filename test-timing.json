@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 140,
+  "last_measured_wall_clock_seconds": 138,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -378,6 +378,10 @@
     "112": {
       "wall_clock_seconds": 140,
       "notes": "PLR0911 (returns demais) no select, teto padrao de 6. Zero violacoes: as sete da spec ja tinham caido na 106, e a §3 dela tinha acertado o diagnostico (os tres resolvedores de variables.py viraram um registro). 1592 backend (1591 da 111 + 1: build_variable_map chamada de verdade, com escopo vazio e User em memoria, comparada com o catalogo que /api/v1/template-variables publica) + 313 frontend + 10 e2e. Nenhuma linha de app/ alterada. Achado: este gate esta DOMINADO pelo C901 — as cinco funcoes com 6 returns tem complexidade ciclomatica exatamente 6, e nao foi possivel construir uma funcao que violasse PLR0911(6) e passasse no C901(6). Descer para 5 foi recusado: obrigaria a trocar clausula de guarda por saida unica. A execucao anterior deu 434 s e reprovou no gate de orcamento por carga EXTERNA (outra sessao do Claude Code e Chrome na mesma maquina, load average 4,7-6,3); backend levou 283 s contra os ~92 s habituais. Dividida 33, quarta ocorrencia."
+    },
+    "116": {
+      "wall_clock_seconds": 138,
+      "notes": "PLR0913 (argumentos demais) no select, max-args=8 (o joelho da curva: 126/50/31/15/6/3 nos tetos 5/6/7/8/10/12). Primeira desta leva com trabalho real: 15 funcoes acima de 8. 1596 backend (1591 da 112 + 5: teto de 2 noqa PLR0913 e justificativa de cada um, nenhum query param terminado em _ (a armadilha do alias reservado), e o snapshot de query params das cinco rotas de listagem reescritas) + 313 frontend + 10 e2e. O tipo comum que subiu foi a PAGINACAO — Page em core/listing.py, o quarteto sort/descending/cursor/limit do §6 repetido cinco vezes — e nao o filtro. Nasceram CustomerQuery, TransactionQuery e TaskQuery no repositorio; as rotas passaram a receber filtros por Depends(). Contrato inalterado: 276 operacoes com os mesmos query params, 311 caminhos, 384 operacoes, ordem identica. Dois achados: a armadilha do alias de palavra reservada no Depends() de modelo (o param from viraria from_ em silencio, pego pelo diff) e a divida 34 (rota publica de aniversariantes nao filtra nada). O meta-teste de camadas pegou uma violacao minha (router importando repositorio) e a correcao mostrou que a traducao mora no service."
     }
   },
   "specs_concluidas": 100

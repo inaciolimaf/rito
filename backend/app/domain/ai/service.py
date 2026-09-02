@@ -159,6 +159,25 @@ class AiUsageService:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class CallOutcome:
+    """O que aconteceu numa chamada ao provedor — o que `ai_usage` registra (regra 6).
+
+    Spec 116: `_record` recebia nove parâmetros, e seis deles descreviam o MESMO evento.
+    A separação que o objeto torna visível é entre o que a chamada PEDIU (feature, usuário,
+    mensagens) e o que ela DEU (modelo efetivo, status, consumo, latência, erro, resposta) —
+    e ela importa porque o modelo efetivo pode não ser o pedido: no fallback da regra 5 o
+    `model` aqui é o de reserva, enquanto a `feature` continua sendo a mesma.
+    """
+
+    model: str
+    status: str
+    usage: Usage
+    latency_ms: int
+    error: str | None = None
+    response: LLMResponse | None = None
+
+
 class AiRunner:
     """Executa uma chamada de LLM de uma feature, com fallback e contabilidade.
 
@@ -230,15 +249,16 @@ class AiRunner:
         """
         if feature.fallback_model is None:
             await self._record(
+                CallOutcome(
+                    model=feature.model,
+                    status=STATUS_ERROR,
+                    usage=Usage(),
+                    latency_ms=_elapsed_ms(started),
+                    error=str(first_error),
+                ),
                 feature=feature,
-                model=feature.model,
-                status=STATUS_ERROR,
-                usage=Usage(),
-                latency_ms=_elapsed_ms(started),
                 user_id=user_id,
-                error=str(first_error),
                 messages=messages,
-                response=None,
             )
             await self._commit_usage()
             raise first_error
@@ -247,28 +267,31 @@ class AiRunner:
             response = await self._call(feature, messages, tools, feature.fallback_model)
         except LLMError as fallback_error:
             await self._record(
+                CallOutcome(
+                    model=feature.fallback_model,
+                    status=STATUS_ERROR,
+                    usage=Usage(),
+                    latency_ms=_elapsed_ms(started),
+                    error=f"{first_error} | fallback: {fallback_error}",
+                ),
                 feature=feature,
-                model=feature.fallback_model,
-                status=STATUS_ERROR,
-                usage=Usage(),
-                latency_ms=_elapsed_ms(started),
                 user_id=user_id,
-                error=f"{first_error} | fallback: {fallback_error}",
                 messages=messages,
-                response=None,
             )
             await self._commit_usage()
             raise
         await self._record(
+            CallOutcome(
+                model=feature.fallback_model,
+                status=STATUS_FALLBACK,
+                usage=response.usage,
+                latency_ms=_elapsed_ms(started),
+                error=str(first_error),
+                response=response,
+            ),
             feature=feature,
-            model=feature.fallback_model,
-            status=STATUS_FALLBACK,
-            usage=response.usage,
-            latency_ms=_elapsed_ms(started),
             user_id=user_id,
-            error=str(first_error),
             messages=messages,
-            response=response,
         )
         return response
 
@@ -306,15 +329,16 @@ class AiRunner:
             )
 
         await self._record(
+            CallOutcome(
+                model=feature.model,
+                status=STATUS_OK,
+                usage=response.usage,
+                latency_ms=_elapsed_ms(started),
+                response=response,
+            ),
             feature=feature,
-            model=feature.model,
-            status=STATUS_OK,
-            usage=response.usage,
-            latency_ms=_elapsed_ms(started),
             user_id=user_id,
-            error=None,
             messages=messages,
-            response=response,
         )
         if use_cache:
             await self.budget.store(
@@ -374,17 +398,18 @@ class AiRunner:
                 yield chunk
         finally:
             await self._record(
+                CallOutcome(
+                    model=feature.model,
+                    status=STATUS_ERROR if erro else STATUS_OK,
+                    # O protocolo só manda o uso no fim, e nem sempre manda: sem número
+                    # confiável, estimar por caractere é melhor que gravar zero.
+                    usage=Usage(completion_tokens=recebido // 4),
+                    latency_ms=_elapsed_ms(started),
+                    error=erro,
+                ),
                 feature=feature,
-                model=feature.model,
-                status=STATUS_ERROR if erro else STATUS_OK,
-                # O protocolo só manda o uso no fim, e nem sempre manda: sem número
-                # confiável, estimar por caractere é melhor que gravar zero.
-                usage=Usage(completion_tokens=recebido // 4),
-                latency_ms=_elapsed_ms(started),
                 user_id=user_id,
-                error=erro,
                 messages=messages,
-                response=None,
             )
 
     async def _call(
@@ -421,19 +446,15 @@ class AiRunner:
 
     async def _record(
         self,
+        outcome: CallOutcome,
         *,
         feature: ResolvedFeature,
-        model: str,
-        status: str,
-        usage: Usage,
-        latency_ms: int,
         user_id: uuid.UUID | None,
-        error: str | None,
         messages: Sequence[Message],
-        response: LLMResponse | None,
     ) -> AiUsage:
         """Regra 6: todo uso é registrado, inclusive o que falhou.
         Regra 13: conteúdo só entra com opt-in explícito do tenant."""
+        model, usage = outcome.model, outcome.usage
         custo = self._cost_for(model, usage)
         # Spec 097, regra 6: tokens e custo de LLM também viram métrica. Aqui, e não no
         # provider, porque este é o único ponto por onde TODA chamada passa — inclusive
@@ -454,12 +475,14 @@ class AiRunner:
                 prompt_tokens=usage.prompt_tokens,
                 completion_tokens=usage.completion_tokens,
                 cost_usd=custo,
-                latency_ms=latency_ms,
-                status=status,
-                error=error[:_MAX_ERROR_LENGTH] if error else None,
+                latency_ms=outcome.latency_ms,
+                status=outcome.status,
+                error=outcome.error[:_MAX_ERROR_LENGTH] if outcome.error else None,
                 prompt=_render_prompt(messages) if feature.store_prompts else None,
                 response_text=(
-                    (response.content if response else None) if feature.store_prompts else None
+                    (outcome.response.content if outcome.response else None)
+                    if feature.store_prompts
+                    else None
                 ),
             )
         )

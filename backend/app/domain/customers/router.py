@@ -14,7 +14,7 @@ from app.core.image_processing import InvalidImageError
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsError
-from app.domain.customers.models import Customer, PersonType
+from app.domain.customers.models import Customer
 from app.domain.customers.schemas import (
     BirthdayItemResponse,
     CheckDuplicateResponse,
@@ -133,16 +133,10 @@ def _item_to_response(customer: Customer) -> CustomerListItemResponse:
 
 @customers_router.get("")
 async def list_customers(
-    q: str | None = Query(default=None),
-    type_: PersonType | None = Query(default=None, alias="type"),
-    state: str | None = Query(default=None),
-    city: str | None = Query(default=None),
-    origin_id: uuid.UUID | None = Query(default=None),
-    created_from: date | None = Query(default=None),
-    created_to: date | None = Query(default=None),
-    has_active_lawsuit: bool | None = Query(default=None),
-    birthdays: Literal["day", "month"] | None = Query(default=None),
-    archived: bool = Query(default=False),
+    # Os dez filtros chegam como um objeto só (spec 116). O FastAPI expande os campos do
+    # modelo em query params com os MESMOS nomes, tipos e defaults — o `CustomerFilters`
+    # já era construído logo abaixo, campo a campo; agora ele é construído na porta.
+    filters: CustomerFilters = Depends(),
     sort: Literal["name", "created_at"] = Query(default="created_at"),
     order: Literal["asc", "desc"] = Query(default="desc"),
     cursor: str | None = Query(default=None),
@@ -152,18 +146,6 @@ async def list_customers(
     clock: Clock = Depends(get_clock),
 ) -> CustomerListResponse:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id)
-    filters = CustomerFilters(
-        q=q,
-        type=type_,
-        state=state,
-        city=city,
-        origin_id=origin_id,
-        created_from=created_from,
-        created_to=created_to,
-        has_active_lawsuit=has_active_lawsuit,
-        birthdays=birthdays,
-        archived=archived,
-    )
     items, next_cursor, total = await service.list_customers(
         today=clock.today(), filters=filters, sort=sort, order=order, cursor=cursor, limit=limit
     )

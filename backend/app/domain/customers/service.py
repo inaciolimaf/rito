@@ -6,11 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.cache import Cache, cached_json, invalidate, tenant_key
 from app.core.image_processing import extension_for, process_image
+from app.core.listing import Page
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsError
 from app.domain.customers.export import build_pdf, build_xlsx
 from app.domain.customers.models import Customer, MaritalStatus, PersonType
-from app.domain.customers.repository import CustomerRepository, MaritalStatusRepository
+from app.domain.customers.repository import (
+    CustomerQuery,
+    CustomerRepository,
+    MaritalStatusRepository,
+)
 from app.domain.customers.schemas import (
     CountedItem,
     CustomerCreateRequest,
@@ -151,20 +156,8 @@ class CustomerService:
         decoded_cursor = decode_cursor(cursor) if cursor else None
         items, total = await self.customers.list_filtered(
             today=today,
-            query=filters.q,
-            person_type=filters.type,
-            state=filters.state,
-            city=filters.city,
-            origin_id=filters.origin_id,
-            created_from=filters.created_from,
-            created_to=filters.created_to,
-            has_active_lawsuit=filters.has_active_lawsuit,
-            birthdays=filters.birthdays,
-            archived=filters.archived,
-            sort=sort,
-            descending=order == "desc",
-            cursor=decoded_cursor,
-            limit=limit,
+            filters=_consulta(filters),
+            page=Page(sort=sort, descending=order == "desc", cursor=decoded_cursor, limit=limit),
         )
         next_cursor = None
         if len(items) == limit:
@@ -240,16 +233,28 @@ class CustomerService:
         # Regra 7: respeita os filtros ativos, não a página visível; teto de 50.000 linhas.
         items, _total = await self.customers.list_filtered(
             today=today,
-            query=filters.q,
-            person_type=filters.type,
-            state=filters.state,
-            city=filters.city,
-            origin_id=filters.origin_id,
-            created_from=filters.created_from,
-            created_to=filters.created_to,
-            has_active_lawsuit=filters.has_active_lawsuit,
-            birthdays=filters.birthdays,
-            archived=filters.archived,
-            limit=_EXPORT_ROW_CAP,
+            filters=_consulta(filters),
+            page=Page(limit=_EXPORT_ROW_CAP),
         )
         return build_xlsx(list(items)) if format_ == "xlsx" else build_pdf(list(items))
+
+
+def _consulta(filters: CustomerFilters) -> CustomerQuery:
+    """Traduz o filtro da API para a linguagem do repositório (spec 116).
+
+    Os nomes divergem porque as duas camadas falam línguas diferentes — `q`/`type` são
+    query params, `query`/`person_type` são critérios de consulta. A tradução vive aqui, no
+    service, porque é ele quem faz a ponte entre HTTP e domínio (CLAUDE.md §5).
+    """
+    return CustomerQuery(
+        query=filters.q,
+        person_type=filters.type,
+        state=filters.state,
+        city=filters.city,
+        origin_id=filters.origin_id,
+        created_from=filters.created_from,
+        created_to=filters.created_to,
+        has_active_lawsuit=filters.has_active_lawsuit,
+        birthdays=filters.birthdays,
+        archived=filters.archived,
+    )

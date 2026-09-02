@@ -43,7 +43,13 @@ async def setup(
     return PubSetup(client, app_session_factory, gestor, headers)
 
 
-async def make_publication(
+# `# noqa: PLR0913` (2 de 2 que a spec 116 autoriza): construtor de dado de teste. Os oito
+# opcionais são os campos que os casos deste arquivo variam UM DE CADA VEZ — «uma intimação
+# como as outras, mas cancelada», «…, mas de outro tribunal». Agrupá-los num objeto trocaria
+# `make_publication(f, t, is_active=False)` por duas linhas em cada uma das dezenas de
+# chamadas, e o objeto não teria nome que descrevesse nada: ele seria «os argumentos».
+# O cheiro que o PLR0913 procura — função fazendo coisas demais — não está aqui.
+async def make_publication(  # noqa: PLR0913
     factory: SessionFactory,
     tenant_id: uuid.UUID,
     *,

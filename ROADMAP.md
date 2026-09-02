@@ -527,8 +527,8 @@ Fecha a **dívida 30** (a suíte deixou de depender da hora: de 12 falhas para 0
 3.880 violações, das quais 3.827 são `assert` em teste — `per-file-ignores` resolve. Sobram 53 reais, sendo 44 `assert` em código de produção, que somem sob `python -O`.
 **Aceite:** nenhum `assert` em `app/`; quoting de identificador centralizado; todo `noqa: S*` justificado. **t:** 0,5 s. **Deps:** 113
 
-### ⬜ 116 — PLR0913: argumentos demais
-`max-args = 8`, escolhido pelo joelho da curva medida (112 violações em 5, 14 em 8). O padrão dominante é repositório de listagem recebendo cada filtro solto, em quatro contextos — vira objeto de filtro tipado.
+### ✅ 116 — PLR0913: argumentos demais
+A primeira desta leva que chegou com trabalho de verdade: 15 funções acima de 8. O tipo comum que subiu foi a PAGINAÇÃO (`Page` em `core/listing.py`, o quarteto do §6 repetido cinco vezes), não o filtro — filtros não têm denominador comum honesto. Nasceram `CustomerQuery`, `TransactionQuery` e `TaskQuery`; as rotas passaram a receber os filtros por `Depends()`. Contrato inalterado: 276 operações com os mesmos query params.
 **Aceite:** gate verde; nenhum query param de rota mudou de nome, tipo ou default. **t:** 0 s. **Deps:** 106, 111, 112
 
 ### ✅ 117 — Piso de cobertura

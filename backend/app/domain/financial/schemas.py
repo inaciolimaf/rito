@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.schemas import JsonDecimal
 from app.domain.financial.models import (
@@ -420,3 +420,25 @@ class FinancialReportExportRequest(BaseModel):
     format: Literal["xlsx", "pdf"]
 
     model_config = {"populate_by_name": True}
+
+
+class TransactionListParams(BaseModel):
+    """Os oito filtros de `GET /transactions` como um objeto (spec 116).
+
+    Espelha exatamente os query params que a rota já aceitava — `status` e `internal` como
+    `Literal` porque é assim que a API valida entrada, enquanto o `TransactionQuery` do
+    repositório usa `str | None`, que é o que a consulta entende. A tradução entre os dois
+    é uma linha na rota, e é lá que ela deve estar: schema é contrato HTTP, query é
+    domínio.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    kind: TransactionKind | None = None
+    customer_id: uuid.UUID | None = None
+    lawsuit_id: uuid.UUID | None = None
+    status_: Literal["paid", "open"] | None = Field(default=None, alias="status")
+    due_from: date | None = None
+    due_to: date | None = None
+    q: str | None = None
+    internal: Literal["true", "false", "all"] = "all"

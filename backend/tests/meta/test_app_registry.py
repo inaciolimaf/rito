@@ -159,3 +159,128 @@ def test_apenas_as_rotas_declaradas_ficam_fora_da_api_v1() -> None:
     ), "rota fora de /api/v1 sem exceção declarada (prefixo esquecido?):\n  " + "\n  ".join(
         inesperadas
     )
+
+
+# ---------------------------------------------------------------- spec 116
+#
+# A 116 trocou dezenas de query params soltos por modelos passados via `Depends()`. A troca
+# tem uma armadilha que só aparece no OpenAPI, nunca num teste de rota que confere 200.
+
+# Palavras reservadas que já foram usadas como nome de query param no projeto, ou que
+# apareceriam naturalmente. `from` é o caso real: `GET /reports/tabular/{key}?from=...`
+# existe desde a spec 070.
+_ALIASES_RESERVADOS = {"from", "class", "import", "in", "for", "is", "not", "and", "or"}
+
+
+def test_nenhum_query_param_ficou_com_sufixo_de_underscore() -> None:
+    """A armadilha do alias reservado (spec 116).
+
+    Num modelo Pydantic usado como dependência, o FastAPI monta a assinatura da rota
+    dinamicamente e usa o **alias** como nome do parâmetro — o que ele não consegue fazer
+    quando o alias é palavra reservada do Python. Aí ele cai, em silêncio, no nome do
+    campo:
+
+        alias="status" -> query param `status`   (funciona)
+        alias="from"   -> query param `from_`    (vira o nome do campo)
+
+    O estrago é mudo: a rota continua respondendo 200, o cliente continua mandando `from`,
+    e o filtro simplesmente para de existir. Aconteceu de verdade nesta spec, com
+    `GET /reports/tabular/{report_key}`, e foi o diff de query params que pegou.
+
+    Um nome de parâmetro terminado em `_` é sempre esse acidente: ninguém batiza um query
+    param assim de propósito.
+    """
+    ofensores = [
+        f"{metodo.upper()} {caminho} -> {parametro['name']}"
+        for caminho, ops in app.openapi()["paths"].items()
+        for metodo, op in ops.items()
+        if isinstance(op, dict)
+        for parametro in op.get("parameters", [])
+        if parametro["name"].endswith("_")
+    ]
+    assert ofensores == [], (
+        "query param terminado em `_` — quase certamente um alias de palavra reservada "
+        "que o FastAPI não conseguiu usar. Declare o `Query(alias=...)` numa dependência "
+        "de FUNÇÃO, não como campo de modelo:\n  " + "\n  ".join(ofensores)
+    )
+
+
+def test_query_params_das_rotas_de_listagem() -> None:
+    """As seis rotas que a spec 116 reescreveu continuam aceitando os mesmos parâmetros.
+
+    Lista escrita à mão, no mesmo espírito do `CONTRATO` de `test_public_api_contract.py`:
+    gerar a expectativa a partir do código faria o teste concordar com qualquer coisa.
+
+    São exatamente as rotas cujos filtros deixaram de ser parâmetros soltos e passaram a
+    chegar como objeto — a operação que, feita errado, renomeia ou apaga um query param
+    sem quebrar nada mais.
+    """
+    esperado = {
+        "/api/v1/customers": {
+            "q",
+            "type",
+            "state",
+            "city",
+            "origin_id",
+            "created_from",
+            "created_to",
+            "has_active_lawsuit",
+            "birthdays",
+            "archived",
+            "sort",
+            "order",
+            "cursor",
+            "limit",
+        },
+        "/api/v1/publications": {
+            "interval",
+            "date_from",
+            "date_to",
+            "user_id",
+            "customer_id",
+            "court_code",
+            "process_number",
+            "linked",
+            "cancelled",
+            "read",
+            "cursor",
+            "limit",
+        },
+        # Os três toggles NÃO entram aqui: nesta rota eles são o que se conta (§8 da 048).
+        "/api/v1/publications/counts": {
+            "interval",
+            "date_from",
+            "date_to",
+            "user_id",
+            "customer_id",
+            "court_code",
+            "process_number",
+        },
+        "/api/v1/transactions": {
+            "kind",
+            "customer_id",
+            "lawsuit_id",
+            "status",
+            "due_from",
+            "due_to",
+            "q",
+            "internal",
+            "cursor",
+            "limit",
+        },
+        "/api/v1/reports/tabular/{report_key}": {
+            "report_key",
+            "from",
+            "to",
+            "user_id",
+            "action_group_id",
+            "cursor",
+            "limit",
+        },
+    }
+    caminhos = app.openapi()["paths"]
+    for caminho, nomes in esperado.items():
+        atual = {p["name"] for p in caminhos[caminho]["get"]["parameters"]}
+        assert (
+            atual == nomes
+        ), f"{caminho}: sumiram {sorted(nomes - atual)}, surgiram {sorted(atual - nomes)}"

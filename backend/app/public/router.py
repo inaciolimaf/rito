@@ -19,10 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.clock import Clock
 from app.core.deps import get_file_storage
+from app.core.listing import Page
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.account.repository import AccountRepository
 from app.domain.customers.models import Customer
-from app.domain.customers.repository import CustomerRepository
+from app.domain.customers.repository import CustomerQuery, CustomerRepository
 from app.domain.customers.schemas import CustomerCreateRequest
 from app.domain.customers.service import CustomerService
 from app.domain.documents.models import Document
@@ -246,9 +247,8 @@ async def list_customers(
 ) -> PublicCustomerPage:
     items, total = await CustomerRepository(session).list_filtered(
         today=Clock(await AccountRepository(session).timezone()).today(),
-        query=query,
-        cursor=_decode(cursor),
-        limit=limit,
+        filters=CustomerQuery(query=query),
+        page=Page(cursor=_decode(cursor), limit=limit),
     )
     pagina = _page(
         [_to_customer(item) for item in items],
@@ -296,8 +296,11 @@ async def list_birthdays(
     alvo = month or Clock(await AccountRepository(session).timezone()).today().month
     items, total = await CustomerRepository(session).list_filtered(
         today=Clock(await AccountRepository(session).timezone()).today(),
-        birthdays=f"month:{alvo}",
-        limit=1000,
+        # `"month:<n>"` NÃO é reconhecido pelo filtro, que só aceita "day" ou "month" —
+        # esta rota devolve todos os contatos, não os aniversariantes. É a dívida 34,
+        # anterior a esta spec e preservada aqui porque 116 é refatoração. Não copie.
+        filters=CustomerQuery(birthdays=f"month:{alvo}"),
+        page=Page(limit=1000),
     )
     return PublicCustomerPage(
         items=[_to_customer(item) for item in items], next_cursor=None, total=total

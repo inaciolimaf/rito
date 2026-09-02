@@ -42,7 +42,13 @@ _RATE_LIMIT_WINDOW_S = 60
 
 
 class ResilientHttpClient:
-    def __init__(
+    # `# noqa: PLR0913` (1 dos 2 que a spec 116 autoriza): estes onze parâmetros não são uma
+    # função fazendo coisas demais — são as dependências injetadas de um cliente, e injetar
+    # é a única coisa que este construtor faz. Cinco delas existem para o TESTE substituir
+    # tempo e acaso (`sleep`, `jitter`, `clock`, `rng`, taxa de amostragem); agrupá-las num
+    # objeto obrigaria a editar 15 chamadas de teste — que a §10 desta spec proíbe — para
+    # tornar `sleep=_no_sleep` mais verboso. O cheiro que o PLR0913 procura é outro.
+    def __init__(  # noqa: PLR0913
         self,
         *,
         transport: httpx.AsyncBaseTransport | None = None,

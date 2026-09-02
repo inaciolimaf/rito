@@ -15,6 +15,7 @@ from app.ai.tools.base import MAX_ROWS, ToolContext, ToolError, tool, truncate_r
 from app.core.permissions import FinancialAccess
 from app.domain.financial.dashboard import get_dashboard_stats
 from app.domain.financial.models import TransactionKind
+from app.domain.financial.schemas import TransactionListParams
 from app.domain.financial.service import TransactionService
 from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.lawsuits.service import LawsuitService
@@ -54,13 +55,15 @@ async def search_transactions(ctx: ToolContext, params: SearchTransactionsInput)
     # limite que ela mesma aplicaria — antes ela recebia a base inteira do escritório
     # para descartar tudo menos as primeiras linhas.
     rows, _cursor = await service.list_transactions(
-        kind=params.kind,
-        customer_id=params.customer_id,
-        lawsuit_id=params.lawsuit_id,
-        status=params.status,
-        due_from=params.due_from,
-        due_to=params.due_to,
-        q=params.query,
+        TransactionListParams(
+            kind=params.kind,
+            customer_id=params.customer_id,
+            lawsuit_id=params.lawsuit_id,
+            status_=params.status,
+            due_from=params.due_from,
+            due_to=params.due_to,
+            q=params.query,
+        ),
         limit=params.limit + 1,
     )
     items, truncated = truncate_rows(rows, params.limit)

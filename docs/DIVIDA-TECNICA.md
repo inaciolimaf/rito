@@ -916,3 +916,61 @@ Duas correções possíveis, para a spec que atacar isto:
 **Spec-alvo:** 110 ou 120 — a auditoria que perguntar se os gates ainda mordem pelo motivo
 certo. Com a terceira ocorrência isto já passava de «observar» para «corrigir»; com a
 quarta, são DUAS correções: o `EntityPicker` e a medição do orçamento.
+
+---
+
+## 34. `GET /api/public/v1/customers/birthdays` não filtra aniversariantes
+
+**Bug de comportamento, não dívida de forma.** Encontrado ao ler `customers/repository.py`
+para a spec 116; anterior a toda a leva 106–116 (conferido em `da213af`, antes da 106 — a
+lógica era a mesma, escrita como `if/elif`).
+
+A rota pública monta o filtro assim (`app/public/router.py`):
+
+```python
+alvo = month or Clock(...).today().month
+items, total = await CustomerRepository(session).list_filtered(
+    today=..., birthdays=f"month:{alvo}", limit=1000,
+)
+```
+
+E o filtro só reconhece dois valores exatos (`app/domain/customers/repository.py`):
+
+```python
+def _filtro_de_aniversario(birthdays: str | None, today: date) -> list[ColumnElement[bool]]:
+    if birthdays not in ("day", "month"):
+        return []
+```
+
+`"month:3"` não é `"month"`. O filtro devolve lista vazia, e a rota responde **os primeiros
+1.000 contatos do escritório** — não os aniversariantes.
+
+São dois defeitos empilhados:
+
+1. **O filtro nunca é aplicado**, pelo descasamento acima.
+2. **O parâmetro `month` é decorativo.** Mesmo que o valor casasse, `_filtro_de_aniversario`
+   compara com `today.month`, não com o mês pedido. Pedir dezembro em setembro devolveria
+   os aniversariantes de setembro.
+
+Não é vazamento entre escritórios — o RLS continua valendo e o escopo `read:customers` é o
+mesmo. É resposta errada: quem integra pelo endpoint «aniversariantes do mês» para disparar
+mensagem de parabéns manda parabéns para o escritório inteiro.
+
+**Por que passou:** o `/api/v1/customers/birthdays` interno é testado com `scope=day|month` e
+funciona. O público só tem o teste de contrato (`test_public_api_contract.py`), que confere
+que a rota EXISTE e responde — nunca que ela filtra. Rota testada por existência é rota não
+testada.
+
+**Não corrigido na 116 de propósito:** a 116 é refatoração, e corrigir isto muda
+comportamento. A 116 fez a incompatibilidade ficar VISÍVEL — o `CustomerQuery` do repositório
+tem `birthdays: str | None` justamente porque o `CustomerFilters` da API
+(`Literal["day","month"] | None`) não consegue expressar o `"month:3"` que a rota pública
+manda. O tipo agora denuncia o descasamento que o `str` escondia.
+
+**Correção:** dar ao repositório um filtro de aniversário que aceite mês explícito
+(`_filtro_de_aniversario(escopo, mes, today)`), fazer a rota pública passar `alvo`, e cobrir
+as duas rotas com teste que crie um aniversariante e um não-aniversariante e afirme que só o
+primeiro volta.
+
+**Spec-alvo:** spec própria de correção, não uma de refatoração. Prioridade alta: é resposta
+errada em endpoint público documentado.

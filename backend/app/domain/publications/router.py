@@ -1,7 +1,5 @@
 import uuid
 from collections.abc import Mapping
-from datetime import date
-from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +30,7 @@ from app.domain.publications.schemas import (
     PublicationMetricsResponse,
     PublicationRecipientResponse,
     PublicationResponse,
+    PublicationScope,
 )
 from app.domain.publications.service import PublicationDetail, PublicationService
 from app.domain.users.models import User
@@ -153,34 +152,13 @@ async def import_publication(
 
 @router.get("")
 async def list_publications(
-    interval: Literal["today", "3d", "7d", "custom"] = Query(default="7d"),
-    date_from: date | None = Query(default=None),
-    date_to: date | None = Query(default=None),
-    user_id: uuid.UUID | None = Query(default=None),
-    customer_id: uuid.UUID | None = Query(default=None),
-    court_code: str | None = Query(default=None),
-    process_number: str | None = Query(default=None),
-    linked: bool | None = Query(default=None),
-    cancelled: bool | None = Query(default=None),
-    read: bool | None = Query(default=None),
+    filters: PublicationFilters = Depends(),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=100),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     clock: Clock = Depends(get_clock),
 ) -> PublicationListResponse:
-    filters = PublicationFilters(
-        interval=interval,
-        date_from=date_from,
-        date_to=date_to,
-        user_id=user_id,
-        customer_id=customer_id,
-        court_code=court_code,
-        process_number=process_number,
-        linked=linked,
-        cancelled=cancelled,
-        read=read,
-    )
     service = PublicationService(session=session, tenant_id=current_user.tenant_id)
     rows, next_cursor, total = await service.list_publications(
         filters=filters,
@@ -196,28 +174,18 @@ async def list_publications(
 
 @router.get("/counts")
 async def get_publication_counts(
-    interval: Literal["today", "3d", "7d", "custom"] = Query(default="7d"),
-    date_from: date | None = Query(default=None),
-    date_to: date | None = Query(default=None),
-    user_id: uuid.UUID | None = Query(default=None),
-    customer_id: uuid.UUID | None = Query(default=None),
-    court_code: str | None = Query(default=None),
-    process_number: str | None = Query(default=None),
+    scope: PublicationScope = Depends(),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     clock: Clock = Depends(get_clock),
 ) -> PublicationCountsResponse:
     """Regra do §8: total/não vinculadas/canceladas/não lidas numa query só —
-    os toggles (`linked`/`cancelled`/`read`) não entram aqui, são o que se conta."""
-    filters = PublicationFilters(
-        interval=interval,
-        date_from=date_from,
-        date_to=date_to,
-        user_id=user_id,
-        customer_id=customer_id,
-        court_code=court_code,
-        process_number=process_number,
-    )
+    os toggles (`linked`/`cancelled`/`read`) não entram aqui, são o que se conta.
+
+    O tipo do parâmetro é `PublicationScope` justamente por isso: esta rota não aceita os
+    toggles, e usar o `PublicationFilters` completo os publicaria como query params que
+    não fazem nada."""
+    filters = PublicationFilters(**scope.model_dump())
     service = PublicationService(session=session, tenant_id=current_user.tenant_id)
     counts = await service.get_counts(
         filters=filters, current_user_id=current_user.id, today=clock.today()

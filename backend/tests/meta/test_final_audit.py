@@ -477,8 +477,8 @@ def test_nenhum_date_today_em_app() -> None:
 TETO_DE_NOQA_C901 = 3
 
 
-def _noqa_c901(raiz: Path) -> list[tuple[Path, int, list[str]]]:
-    """Onde `C901` está silenciado, com as linhas de contexto de cada ocorrência.
+def _noqa_da_regra(raiz: Path, regra: str) -> list[tuple[Path, int, list[str]]]:
+    """Onde `regra` está silenciada, com as linhas de contexto de cada ocorrência.
 
     Este arquivo fica de fora da varredura porque ele PRECISA escrever o marcador para
     falar dele: o exemplo no comentário do regex e as duas mensagens de falha abaixo
@@ -494,8 +494,14 @@ def _noqa_c901(raiz: Path) -> list[tuple[Path, int, list[str]]]:
             continue
         linhas = caminho.read_text().splitlines()
         for i, linha in enumerate(linhas):
-            # `# noqa: C901` e `# noqa: B008, C901` — mas não `C9010`, que não existe.
-            if re.search(r"#\s*noqa:[^#]*\bC901\b", linha):
+            # `# noqa: <regra>` e `# noqa: B008, <regra>` — mas não um sufixo maior.
+            if not re.search(rf"#\s*noqa:[^#]*\b{regra}\b", linha):
+                continue
+            # Só conta marcador REAL, que o Ruff exige na mesma linha do código que ele
+            # silencia — logo sempre há código antes do `#`. Sem esta condição, a própria
+            # justificativa (que precisa escrever `# noqa: XXX` para falar dele) seria
+            # contada, e cada silenciamento valeria dois.
+            if linha.split("#", 1)[0].strip():
                 achados.append((caminho, i, linhas))
     return achados
 
@@ -507,7 +513,7 @@ def test_noqa_c901_dentro_do_teto() -> None:
     teto numérico é o que separa «esta função é irredutível» de «não quis mexer»: sem ele,
     a primeira função difícil vira precedente e o gate morre por mil silenciamentos.
     """
-    achados = _noqa_c901(APP) + _noqa_c901(BACKEND / "tests")
+    achados = _todos_os_noqa("C901")
     locais = [f"{c.relative_to(RAIZ)}:{i + 1}" for c, i, _ in achados]
     assert len(achados) <= TETO_DE_NOQA_C901, (
         f"{len(achados)} `# noqa: C901` no projeto, teto é {TETO_DE_NOQA_C901}. "
@@ -524,7 +530,44 @@ def test_todo_noqa_c901_tem_justificativa() -> None:
     """
     ofensores = [
         f"{caminho.relative_to(RAIZ)}:{i + 1}"
-        for caminho, i, linhas in _noqa_c901(APP) + _noqa_c901(BACKEND / "tests")
+        for caminho, i, linhas in _todos_os_noqa("C901")
         if not tem_justificativa(linhas, i)
     ]
     assert ofensores == [], "`# noqa: C901` sem justificativa:\n  " + "\n  ".join(ofensores)
+
+
+def _todos_os_noqa(regra: str) -> list[tuple[Path, int, list[str]]]:
+    """A varredura completa: `app/` e `tests/`."""
+    return _noqa_da_regra(APP, regra) + _noqa_da_regra(BACKEND / "tests", regra)
+
+
+# Spec 116 §7, regra 5. Dois, não zero: o `PLR0913` conta argumentos, e há duas formas
+# legítimas de ter muitos que a regra não sabe distinguir — o construtor que só injeta
+# dependências, e o construtor de dado de teste com um opcional por variação de caso. Duas
+# é pouco o bastante para que cada uma precise ser defendida por escrito.
+TETO_DE_NOQA_PLR0913 = 2
+
+
+def test_noqa_plr0913_dentro_do_teto() -> None:
+    """§7 regra 5 da 116: o furo do gate de argumentos é contado."""
+    achados = _todos_os_noqa("PLR0913")
+    locais = [f"{c.relative_to(RAIZ)}:{i + 1}" for c, i, _ in achados]
+    assert len(achados) <= TETO_DE_NOQA_PLR0913, (
+        f"{len(achados)} `# noqa: PLR0913` no projeto, teto é {TETO_DE_NOQA_PLR0913}. "
+        "Agrupe os argumentos num objeto tipado ou abra spec para discutir o teto:\n  "
+        + "\n  ".join(locais)
+    )
+
+
+def test_todo_noqa_plr0913_tem_justificativa() -> None:
+    """E cada um dos dois diz por que agrupar pioraria o código.
+
+    «São muitos mesmo» não é justificativa; «são dependências injetadas, e agrupá-las
+    obrigaria 15 testes a construir um objeto para trocar uma função» é.
+    """
+    ofensores = [
+        f"{caminho.relative_to(RAIZ)}:{i + 1}"
+        for caminho, i, linhas in _todos_os_noqa("PLR0913")
+        if not tem_justificativa(linhas, i)
+    ]
+    assert ofensores == [], "`# noqa: PLR0913` sem justificativa:\n  " + "\n  ".join(ofensores)

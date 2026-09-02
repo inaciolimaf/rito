@@ -21,6 +21,7 @@ from app.domain.reports.schemas import (
     ProductivityResponse,
     ReportKey,
     ReportListResponse,
+    ReportScopeParams,
     TimesheetDayResponse,
     TimesheetResponse,
     WeeklyChartResponse,
@@ -133,13 +134,40 @@ def _resolve_tabular_scope(
     return requested_user_id
 
 
-@router.get("/tabular/{report_key}")
-async def get_tabular_report(
-    report_key: ReportKey,
+def report_scope(
     from_: date | None = Query(default=None, alias="from"),
     to: date | None = Query(default=None),
     user_id: uuid.UUID | None = Query(default=None),
     action_group_id: uuid.UUID | None = Query(default=None),
+) -> ReportScopeParams:
+    """Dependência que junta os quatro query params compartilhados pelas duas rotas
+    tabulares. As declarações `Query(...)` ficam AQUI, e não no modelo, porque o FastAPI
+    ignora o alias de campo em modelo-dependência — ver `ReportScopeParams`."""
+    return ReportScopeParams(from_=from_, to=to, user_id=user_id, action_group_id=action_group_id)
+
+
+def _filtros_do_escopo(
+    scope: ReportScopeParams, current_user: User, report_key: ReportKey
+) -> ReportFilters:
+    """Query params -> filtro, com o recorte de permissão aplicado no meio.
+
+    O `user_id` que sai daqui NÃO é necessariamente o que entrou: `_resolve_tabular_scope`
+    força o próprio usuário quando ele não pode ver o relatório dos outros. As duas rotas
+    tabulares faziam essa mesma conversão em duplicata (spec 116) — e é o tipo de
+    duplicata que dói, porque esquecê-la numa das duas vaza dado entre colegas.
+    """
+    return ReportFilters(
+        from_=scope.from_,
+        to=scope.to,
+        user_id=_resolve_tabular_scope(current_user, report_key, scope.user_id),
+        action_group_id=scope.action_group_id,
+    )
+
+
+@router.get("/tabular/{report_key}")
+async def get_tabular_report(
+    report_key: ReportKey,
+    scope: ReportScopeParams = Depends(report_scope),
     cursor: str | None = Query(default=None),
     limit: int = Query(default=_DEFAULT_TABULAR_LIMIT, ge=1, le=100),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
@@ -148,10 +176,7 @@ async def get_tabular_report(
 ) -> ReportListResponse:
     if report_key not in REPORT_KEYS:
         raise HTTPException(status_code=404, detail="Relatório desconhecido.")
-    scope_user_id = _resolve_tabular_scope(current_user, report_key, user_id)
-    filters = ReportFilters(
-        from_=from_, to=to, user_id=scope_user_id, action_group_id=action_group_id
-    )
+    filters = _filtros_do_escopo(scope, current_user, report_key)
     service = TabularReportService(session=session, tenant_id=current_user.tenant_id)
     return await service.fetch(report_key, filters, cursor=cursor, limit=limit, today=clock.today())
 
@@ -160,20 +185,14 @@ async def get_tabular_report(
 async def export_tabular_report(
     report_key: ReportKey,
     format_: Literal["xlsx", "pdf"] = Query(alias="format"),
-    from_: date | None = Query(default=None, alias="from"),
-    to: date | None = Query(default=None),
-    user_id: uuid.UUID | None = Query(default=None),
-    action_group_id: uuid.UUID | None = Query(default=None),
+    scope: ReportScopeParams = Depends(report_scope),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     clock: Clock = Depends(get_clock),
 ) -> Response:
     if report_key not in REPORT_KEYS:
         raise HTTPException(status_code=404, detail="Relatório desconhecido.")
-    scope_user_id = _resolve_tabular_scope(current_user, report_key, user_id)
-    filters = ReportFilters(
-        from_=from_, to=to, user_id=scope_user_id, action_group_id=action_group_id
-    )
+    filters = _filtros_do_escopo(scope, current_user, report_key)
     service = TabularReportService(session=session, tenant_id=current_user.tenant_id)
     content = await service.export(report_key, filters, format_=format_, today=clock.today())
     return Response(content=content, media_type=_MIME_TYPES[format_])

@@ -9,7 +9,7 @@ from sqlalchemy import ColumnElement, Row, Select, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute, aliased
 
-from app.core.listing import paginate_keyset
+from app.core.listing import Page, paginate_keyset
 from app.core.repository import BaseRepository
 from app.domain.customers.models import Customer
 from app.domain.financial.models import (
@@ -221,6 +221,30 @@ class TransactionTotals:
     count: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class TransactionQuery:
+    """Os oito filtros da listagem financeira (specs 058, 059 e 098).
+
+    Este conjunto aparecia solto em CINCO assinaturas — `_filter_conditions`,
+    `list_filtered`, `totals_filtered` no repositório, e `list_transactions`/`totals` no
+    service. Cinco repetições do mesmo octeto, muito além da regra dos 3 usos do §6.
+
+    Que ele seja UM objeto tem valor além do tamanho da assinatura: a regra 9 da 059 exige
+    que o rodapé de somatórios use **exatamente** o mesmo filtro da página. Com oito
+    parâmetros soltos, «o mesmo filtro» era uma convenção que dependia de alguém repetir os
+    oito nomes certos nos dois lugares; agora é o mesmo valor passado duas vezes.
+    """
+
+    kind: TransactionKind | None = None
+    customer_id: uuid.UUID | None = None
+    lawsuit_id: uuid.UUID | None = None
+    status: str | None = None
+    due_from: date | None = None
+    due_to: date | None = None
+    q: str | None = None
+    internal: str | None = None
+
+
 class TransactionRepository(BaseRepository[Transaction]):
     model = Transaction
 
@@ -265,61 +289,43 @@ class TransactionRepository(BaseRepository[Transaction]):
         return self._row_to_transaction_row(row) if row is not None else None
 
     @staticmethod
-    def _filter_conditions(
-        *,
-        kind: TransactionKind | None,
-        customer_id: uuid.UUID | None,
-        lawsuit_id: uuid.UUID | None,
-        status: str | None,
-        due_from: date | None,
-        due_to: date | None,
-        q: str | None,
-        internal: str | None,
-    ) -> list[ColumnElement[bool]]:
+    def _filter_conditions(f: TransactionQuery) -> list[ColumnElement[bool]]:
         """Refatoração 060 (duplicação): condições compartilhadas por `list_filtered` e
         `totals_filtered` — o rodapé da listagem soma no banco com o MESMO filtro da
         página, nunca reduzindo `amount` no cliente (regra do audit numérico)."""
         # Spec 106: os filtros de igualdade viram tabela; os que têm semântica própria
         # (status, intervalo, texto, interno) continuam explícitos logo abaixo.
         igualdades: tuple[tuple[Any, InstrumentedAttribute[Any]], ...] = (
-            (kind, Transaction.kind),
-            (customer_id, Transaction.customer_id),
-            (lawsuit_id, Transaction.lawsuit_id),
+            (f.kind, Transaction.kind),
+            (f.customer_id, Transaction.customer_id),
+            (f.lawsuit_id, Transaction.lawsuit_id),
         )
         conditions: list[ColumnElement[bool]] = [
             coluna == valor for valor, coluna in igualdades if valor is not None
         ]
         # Regra 9 (spec 058): "all" é o padrão dos dois ternários — só filtra quando
         # pedido de propósito, e um valor desconhecido não filtra nada.
-        if status in ("paid", "open"):
+        if f.status in ("paid", "open"):
             conditions.append(
                 Transaction.payment_date.is_not(None)
-                if status == "paid"
+                if f.status == "paid"
                 else Transaction.payment_date.is_(None)
             )
-        if internal in ("true", "false"):
-            conditions.append(Transaction.is_internal.is_(internal == "true"))
-        if due_from is not None:
-            conditions.append(Transaction.due_date >= due_from)
-        if due_to is not None:
-            conditions.append(Transaction.due_date <= due_to)
-        if q:
-            conditions.append(Transaction.description.ilike(f"%{q}%"))
+        if f.internal in ("true", "false"):
+            conditions.append(Transaction.is_internal.is_(f.internal == "true"))
+        if f.due_from is not None:
+            conditions.append(Transaction.due_date >= f.due_from)
+        if f.due_to is not None:
+            conditions.append(Transaction.due_date <= f.due_to)
+        if f.q:
+            conditions.append(Transaction.description.ilike(f"%{f.q}%"))
         return conditions
 
     async def list_filtered(
         self,
         *,
-        kind: TransactionKind | None = None,
-        customer_id: uuid.UUID | None = None,
-        lawsuit_id: uuid.UUID | None = None,
-        status: str | None = None,
-        due_from: date | None = None,
-        due_to: date | None = None,
-        q: str | None = None,
-        internal: str | None = None,
-        cursor: tuple[date, uuid.UUID] | None = None,
-        limit: int = 50,
+        filters: TransactionQuery = TransactionQuery(),
+        page: Page = Page(limit=50),
     ) -> Sequence[TransactionRow]:
         """Spec 098, regra 3: keyset por `(due_date, id)`.
 
@@ -328,51 +334,22 @@ class TransactionRepository(BaseRepository[Transaction]):
         `len()` da lista inteira. Com 200 mil lançamentos a rota levava 14 segundos, e o
         `next_cursor: None` do schema estava lá desde a 056 esperando por isto.
         """
-        conditions = self._filter_conditions(
-            kind=kind,
-            customer_id=customer_id,
-            lawsuit_id=lawsuit_id,
-            status=status,
-            due_from=due_from,
-            due_to=due_to,
-            q=q,
-            internal=internal,
-        )
+        conditions = self._filter_conditions(filters)
         stmt = paginate_keyset(
             self._select_with_names().where(*conditions),
             sort_column=Transaction.due_date,
             id_column=Transaction.id,
             descending=True,
-            cursor=cursor,
-            limit=limit,
+            cursor=page.cursor,
+            limit=page.limit,
         )
         rows = (await self.session.execute(stmt)).all()
         return [self._row_to_transaction_row(row) for row in rows]
 
-    async def totals_filtered(
-        self,
-        *,
-        kind: TransactionKind | None = None,
-        customer_id: uuid.UUID | None = None,
-        lawsuit_id: uuid.UUID | None = None,
-        status: str | None = None,
-        due_from: date | None = None,
-        due_to: date | None = None,
-        q: str | None = None,
-        internal: str | None = None,
-    ) -> TransactionTotals:
+    async def totals_filtered(self, filters: TransactionQuery) -> TransactionTotals:
         """Rodapé da listagem (spec 059 regra 9) — somado no banco com o MESMO filtro
         da página (não a página visível), nunca no frontend (auditoria numérica, 060)."""
-        conditions = self._filter_conditions(
-            kind=kind,
-            customer_id=customer_id,
-            lawsuit_id=lawsuit_id,
-            status=status,
-            due_from=due_from,
-            due_to=due_to,
-            q=q,
-            internal=internal,
-        )
+        conditions = self._filter_conditions(filters)
         is_receita = Transaction.kind == TransactionKind.RECEITA
         is_despesa = Transaction.kind == TransactionKind.DESPESA
         is_open = Transaction.payment_date.is_(None)

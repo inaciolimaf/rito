@@ -76,6 +76,7 @@ select = [
     "DTZ",
     "C90",
     "PLR0911",
+    "PLR0913",
     "PLR0912",
     "PLR0915",
 ]
@@ -83,6 +84,19 @@ select = [
 ignore = ["B008"]
 
 [tool.ruff.lint.pylint]
+# Spec 116. `max-args` em 8, e não nos 5 do padrão. É o joelho da curva, medido:
+#
+#   teto |  5  |  6  |  7  |  8  | 10 | 12
+#   total| 126 |  50 |  31 |  15 |  6 |  3
+#
+# Abaixo de 8 o número explode por causa do `Depends()` do FastAPI — 43 das 126 violações a
+# 5 são rotas legítimas, onde cada dependência injetada conta como argumento. Essas não são
+# o defeito que a regra procura. Em 8, o que sobra tem assinatura longa de verdade.
+#
+# Sem `per-file-ignores` para `router.py`: seis rotas ficaram acima de 8 e receberam o mesmo
+# tratamento do resto. Silenciar a camada inteira esconderia a rota que tinha 17 parâmetros.
+max-args = 8
+
 # Spec 112. `max-returns` no padrão da regra (6). Medido em 02/09/2026: a função com mais
 # pontos de saída do projeto tem 5, e as cinco que chegam a 6 (com o teto experimental em 5)
 # têm complexidade ciclomática EXATAMENTE 6 — no teto da 106.

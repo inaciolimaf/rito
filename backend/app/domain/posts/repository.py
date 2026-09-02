@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
@@ -30,6 +31,25 @@ def _com_filtro_de_responsavel(
     return stmt.distinct()
 
 
+@dataclass(frozen=True, slots=True)
+class TaskQuery:
+    """Os filtros de busca de tarefas (spec 083 §5, `search_tasks`).
+
+    `by_deadline` é o único que não é um filtro: ele escolhe SOBRE QUAL DATA o intervalo
+    incide — prazo em vez de data da tarefa. Fica aqui porque sem ele o par
+    `date_from`/`date_to` é ambíguo, e separá-los deixaria o chamador livre para passar um
+    sem o outro.
+    """
+
+    date_from: date | None = None
+    date_to: date | None = None
+    by_deadline: bool = False
+    assignee_id: uuid.UUID | None = None
+    lawsuit_id: uuid.UUID | None = None
+    task_type_id: uuid.UUID | None = None
+    only_open: bool = True
+
+
 class PostRepository(BaseRepository[Post]):
     model = Post
 
@@ -55,36 +75,25 @@ class PostRepository(BaseRepository[Post]):
         )
         return (await self.session.scalars(stmt)).all()
 
-    async def search(
-        self,
-        *,
-        date_from: date | None,
-        date_to: date | None,
-        by_deadline: bool,
-        assignee_id: uuid.UUID | None,
-        lawsuit_id: uuid.UUID | None,
-        task_type_id: uuid.UUID | None,
-        only_open: bool,
-        limit: int,
-    ) -> Sequence[Post]:
+    async def search(self, f: TaskQuery, *, limit: int) -> Sequence[Post]:
         """Busca de tarefas por filtros (spec 083 §5, `search_tasks`).
 
         Diferente da agenda (spec 037), que só enxerga o que tem `show_in_schedule`:
         aqui o recorte é a TAREFA, com ou sem compromisso marcado.
         """
-        axis = Post.deadline_date if by_deadline else Post.scheduled_date
+        axis = Post.deadline_date if f.by_deadline else Post.scheduled_date
         stmt = select(Post).where(axis.is_not(None)).order_by(axis, Post.id).limit(limit)
         # Filtros diretos na própria tarefa — cada um é «se veio, restringe».
         diretos: tuple[tuple[Any, Any], ...] = (
-            (date_from, axis >= date_from),
-            (date_to, axis <= date_to),
-            (lawsuit_id, Post.lawsuit_id == lawsuit_id),
-            (task_type_id, Post.task_type_id == task_type_id),
+            (f.date_from, axis >= f.date_from),
+            (f.date_to, axis <= f.date_to),
+            (f.lawsuit_id, Post.lawsuit_id == f.lawsuit_id),
+            (f.task_type_id, Post.task_type_id == f.task_type_id),
         )
         for valor, condicao in diretos:
             if valor is not None:
                 stmt = stmt.where(condicao)
-        stmt = _com_filtro_de_responsavel(stmt, assignee_id=assignee_id, only_open=only_open)
+        stmt = _com_filtro_de_responsavel(stmt, assignee_id=f.assignee_id, only_open=f.only_open)
         return (await self.session.scalars(stmt)).all()
 
     async def assignees_for(self, post_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, list[User]]:

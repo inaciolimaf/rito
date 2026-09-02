@@ -1,12 +1,13 @@
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date, datetime
 
 from sqlalchemy import Case, ColumnElement, case, func, literal, or_, select
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.br_documents import strip_document_mask
-from app.core.listing import datetime_range, paginate_keyset
+from app.core.listing import Page, datetime_range, paginate_keyset
 from app.core.repository import BaseRepository
 from app.domain.customer_origins.models import CustomerOrigin
 from app.domain.customers.models import Customer, MaritalStatus, PersonType
@@ -104,6 +105,35 @@ def _filtro_de_aniversario(birthdays: str | None, today: date) -> list[ColumnEle
     return condicoes
 
 
+@dataclass(frozen=True, slots=True)
+class CustomerQuery:
+    """Os filtros de listagem de contatos, do jeito que o REPOSITÓRIO os entende.
+
+    Não é o `CustomerFilters` de `schemas.py`, e a diferença não é acidental: aquele é o
+    contrato HTTP (nomes de query param, validação de entrada) e este é a linguagem do
+    domínio. Os nomes divergem porque a API fala `q` e `type`, e uma query fala `query` e
+    `person_type`.
+
+    A divergência que importa é `birthdays`. No schema ele é `Literal["day", "month"]`; aqui
+    é `str`, porque a rota pública de aniversariantes manda `"month:<n>"` — um valor que o
+    schema não conseguiria expressar. Esse descasamento é a **dívida 34**: o filtro não
+    reconhece esse formato e devolve TODOS os contatos. A spec 116 não o consertou (é
+    refatoração), mas tornou o tipo honesto sobre ele — antes, o `str | None` solto na
+    assinatura escondia que havia duas linguagens.
+    """
+
+    query: str | None = None
+    person_type: PersonType | None = None
+    state: str | None = None
+    city: str | None = None
+    origin_id: uuid.UUID | None = None
+    created_from: date | None = None
+    created_to: date | None = None
+    has_active_lawsuit: bool | None = None
+    birthdays: str | None = None
+    archived: bool = False
+
+
 class CustomerRepository(BaseRepository[Customer]):
     model = Customer
 
@@ -123,91 +153,53 @@ class CustomerRepository(BaseRepository[Customer]):
         )
         return result.all()
 
-    def _build_filters(
-        self,
-        *,
-        query: str | None,
-        person_type: PersonType | None,
-        state: str | None,
-        city: str | None,
-        origin_id: uuid.UUID | None,
-        created_from: date | None,
-        created_to: date | None,
-        has_active_lawsuit: bool | None,
-        birthdays: str | None,
-        archived: bool,
-        today: date,
-    ) -> list[ColumnElement[bool]]:
-        filters: list[ColumnElement[bool]] = [Customer.is_archived.is_(archived)]
+    def _build_filters(self, q: CustomerQuery, today: date) -> list[ColumnElement[bool]]:
+        filters: list[ColumnElement[bool]] = [Customer.is_archived.is_(q.archived)]
 
-        if query:
-            filters.append(_busca_por_nome_ou_documento(query))
+        if q.query:
+            filters.append(_busca_por_nome_ou_documento(q.query))
         filters += _filtros_simples(
-            person_type=person_type, state=state, city=city, origin_id=origin_id
+            person_type=q.person_type, state=q.state, city=q.city, origin_id=q.origin_id
         )
-        filters += datetime_range(Customer.created_at, created_from, created_to)
-        if has_active_lawsuit is not None:
+        filters += datetime_range(Customer.created_at, q.created_from, q.created_to)
+        if q.has_active_lawsuit is not None:
             # Spec 101, regra 5: "processo ativo" é ser parte (`lawsuit_parties`) de ao
             # menos um processo não arquivado. EXISTS correlacionado, não JOIN — um
             # contato com três processos ativos não pode aparecer três vezes na listagem.
-            filters.append(_has_active_lawsuit_clause(has_active_lawsuit))
-        filters += _filtro_de_aniversario(birthdays, today)
+            filters.append(_has_active_lawsuit_clause(q.has_active_lawsuit))
+        filters += _filtro_de_aniversario(q.birthdays, today)
         return filters
 
     async def list_filtered(
         self,
         *,
-        query: str | None = None,
-        person_type: PersonType | None = None,
-        state: str | None = None,
-        city: str | None = None,
-        origin_id: uuid.UUID | None = None,
-        created_from: date | None = None,
-        created_to: date | None = None,
-        has_active_lawsuit: bool | None = None,
-        birthdays: str | None = None,
-        archived: bool = False,
+        filters: CustomerQuery = CustomerQuery(),
+        page: Page = Page(),
         # Sem default (spec 114): o filtro de aniversário depende do dia do escritório, e
         # um default aqui devolveria silenciosamente o dia do servidor.
         today: date,
-        sort: str = "created_at",
-        descending: bool = True,
-        cursor: tuple[str, uuid.UUID] | None = None,
-        limit: int = 20,
     ) -> tuple[Sequence[Customer], int]:
         """Listagem paginada (CLAUDE.md §6) — keyset, nunca offset (regra 10)."""
-        filters = self._build_filters(
-            today=today,
-            query=query,
-            person_type=person_type,
-            state=state,
-            city=city,
-            origin_id=origin_id,
-            created_from=created_from,
-            created_to=created_to,
-            has_active_lawsuit=has_active_lawsuit,
-            birthdays=birthdays,
-            archived=archived,
-        )
+        condicoes = self._build_filters(filters, today)
 
         count_stmt = select(func.count()).select_from(Customer)
-        for condition in filters:
+        for condition in condicoes:
             count_stmt = count_stmt.where(condition)
         total = (await self.session.execute(count_stmt)).scalar_one()
 
         sort_column: InstrumentedAttribute[str] | InstrumentedAttribute[datetime] = (
-            Customer.name if sort == "name" else Customer.created_at
+            Customer.name if page.sort == "name" else Customer.created_at
         )
         stmt = select(Customer)
-        for condition in filters:
+        for condition in condicoes:
             stmt = stmt.where(condition)
         stmt = paginate_keyset(
             stmt,
             sort_column=sort_column,
             id_column=Customer.id,
-            descending=descending,
-            cursor=cursor,
-            limit=limit,
+            descending=page.descending,
+            cursor=page.cursor,
+            limit=page.limit,
         )
 
         items = (await self.session.scalars(stmt)).all()

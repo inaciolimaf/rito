@@ -58,9 +58,18 @@ class LinkPublicationRequest(BaseModel):
     lawsuit_id: uuid.UUID
 
 
-class PublicationFilters(BaseModel):
-    """Filtros da tela de intimações (spec 048, §5). `interval="custom"` exige
-    `date_from`/`date_to`; os demais valores calculam o intervalo sozinhos."""
+class PublicationScope(BaseModel):
+    """O RECORTE das intimações: período e a quem/a que elas pertencem (spec 048, §5).
+
+    `interval="custom"` exige `date_from`/`date_to`; os demais valores calculam o intervalo
+    sozinhos.
+
+    Separado dos três toggles na spec 116 porque `GET /publications/counts` usa exatamente
+    estes sete e **não** os toggles — ali `linked`/`cancelled`/`read` não são filtro, são o
+    que se conta (regra do §8). Antes da separação, os dois grupos eram um só e a rota de
+    contagem simplesmente ignorava três campos; agora o tipo diz qual recorte cada rota
+    aceita, e o `Depends()` do FastAPI publica só os query params certos em cada uma.
+    """
 
     interval: Literal["today", "3d", "7d", "custom"] = "7d"
     date_from: date | None = None
@@ -69,6 +78,11 @@ class PublicationFilters(BaseModel):
     customer_id: uuid.UUID | None = None
     court_code: str | None = None
     process_number: str | None = None
+
+
+class PublicationFilters(PublicationScope):
+    """O recorte mais os três toggles da listagem."""
+
     linked: bool | None = None
     cancelled: bool | None = None
     read: bool | None = None

@@ -1,8 +1,17 @@
+import type {
+  AccountKind,
+  EntryType,
+  FinancialRecurrence,
+  TransactionKind,
+} from "@/lib/domainEnums.generated";
+
+// Reexportado para quem já importava daqui: o nome é o mesmo, a FONTE é o arquivo
+// gerado a partir dos `StrEnum` do backend (dívida 15).
+export type { AccountKind, EntryType, FinancialRecurrence, TransactionKind };
+
 import type { ListResponse } from "@/components/domain/types";
 import type { AttachmentData } from "@/features/attachments/api";
 import { apiRequest, apiRequestBlob } from "@/lib/api";
-
-export type EntryType = "RECEITA" | "DESPESA";
 
 export interface DreGroupData {
   id: number;
@@ -144,8 +153,6 @@ export async function transferCostCenters(
   });
 }
 
-export type AccountKind = "CORRENTE" | "POUPANCA" | "INVESTIMENTO" | "CARTAO_CREDITO" | "OUTRO";
-
 export interface FinancialInstitutionData {
   id: number;
   name: string;
@@ -241,8 +248,6 @@ export async function getBankAccountBalance(id: string): Promise<AccountBalance>
   return apiRequest<AccountBalance>(`/api/v1/bank-accounts/${id}/balance`);
 }
 
-export type TransactionKind = "RECEITA" | "DESPESA" | "TRANSFERENCIA";
-
 export interface TransactionData {
   id: string;
   kind: TransactionKind;
@@ -306,8 +311,6 @@ export async function listTransactions(
     `/api/v1/transactions${queryString ? `?${queryString}` : ""}`,
   );
 }
-
-export type FinancialRecurrence = "MENSAL" | "BIMESTRAL" | "TRIMESTRAL" | "SEMESTRAL" | "ANUAL";
 
 export interface TransactionFormPayload {
   kind: TransactionKind;

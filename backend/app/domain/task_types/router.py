@@ -93,20 +93,20 @@ async def list_task_types(
 ) -> TaskTypeListResponse:
     service = TaskTypeService(session=session, tenant_id=current_user.tenant_id)
 
-    async def montar() -> dict[str, object]:
+    async def build_payload() -> dict[str, object]:
         return await _list_payload(service, step_id, status_, q)
 
     # Spec 098, regra 9: só a chamada SEM filtro é cacheada — é a que todo formulário de
     # tarefa faz, e é uma chave por escritório. Cachear a filtrada multiplicaria o espaço
     # de chaves pelo produto dos filtros possíveis, com taxa de acerto perto de zero.
     if step_id is not None or status_ is not None or q:
-        return TaskTypeListResponse.model_validate(await montar())
+        return TaskTypeListResponse.model_validate(await build_payload())
     return cast(
         TaskTypeListResponse,
         await cached_json(
             redis,
             catalog_cache_key(current_user.tenant_id),
-            montar,
+            build_payload,
             decode=TaskTypeListResponse.model_validate,
         ),
     )

@@ -6,8 +6,11 @@ campo de configuração é execução de código com outro nome, e quem escreve 
 um advogado, não um programador.
 """
 
+import logging
 from collections.abc import Callable
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 OPERATORS = ("eq", "ne", "gt", "lt", "gte", "lte", "in", "exists", "empty")
 
@@ -38,8 +41,9 @@ def evaluate(condition: dict[str, Any] | None, subject: dict[str, Any]) -> bool:
     atual = _lookup(subject, campo)
 
     operacao = _OPERATORS_BY_NAME.get(operador)
-    # Operador desconhecido cai em `_compare`, que trata os de ordem (gt, lt, gte, lte)
-    # e devolve False para o que não reconhece — condição inválida não roda a ação.
+    # Operador desconhecido cai em `_compare`, que trata os de ordem (gt, lt, gte, lte) e
+    # devolve False para o que não reconhece — condição inválida não roda a ação. Isso passou
+    # a ser verdade na spec 124: até ela, `_compare` decidia como `lte` (dívida 36).
     return operacao(atual, esperado) if operacao else _compare(operador, atual, esperado)
 
 
@@ -63,6 +67,16 @@ def _same(atual: Any, esperado: Any) -> bool:
     return str(atual) == str(esperado)
 
 
+# Os quatro operadores de ORDEM, os únicos que precisam dos dois lados comparáveis entre si.
+# Tabela e não `if/elif` pelo mesmo motivo da spec 111: o que não está aqui não decide nada.
+_ORDER_BY_NAME: dict[str, Callable[[Any, Any], bool]] = {
+    "gt": lambda esquerda, direita: bool(esquerda > direita),
+    "lt": lambda esquerda, direita: bool(esquerda < direita),
+    "gte": lambda esquerda, direita: bool(esquerda >= direita),
+    "lte": lambda esquerda, direita: bool(esquerda <= direita),
+}
+
+
 def _compare(operador: str, atual: Any, esperado: Any) -> bool:
     try:
         esquerda, direita = float(atual), float(esperado)
@@ -71,13 +85,20 @@ def _compare(operador: str, atual: Any, esperado: Any) -> bool:
         if atual is None or esperado is None:
             return False
         esquerda, direita = str(atual), str(esperado)  # type: ignore[assignment]
-    if operador == "gt":
-        return bool(esquerda > direita)
-    if operador == "lt":
-        return bool(esquerda < direita)
-    if operador == "gte":
-        return bool(esquerda >= direita)
-    return bool(esquerda <= direita)
+    ordem = _ORDER_BY_NAME.get(operador)
+    if ordem is None:
+        # Dívida 36: aqui havia um `return bool(esquerda <= direita)` solto, e QUALQUER
+        # operador não reconhecido decidia como `lte` — sem levantar, sem logar, dentro de
+        # uma automação, num produto que vende prazo. O comentário do `evaluate` já dizia
+        # que este caminho devolvia False; o código é que não fazia isso.
+        #
+        # `False` e não `raise`, por consistência: condição inválida NÃO roda a ação, que é
+        # como `evaluate` já trata o resto. Derrubar a automação puniria o escritório por um
+        # dado que ele não controla — e a automação que não roda é visível no histórico de
+        # execuções, enquanto uma que roda o ramo errado não é.
+        logger.warning("Operador de condição desconhecido: %r — condição não satisfeita.", operador)
+        return False
+    return ordem(esquerda, direita)
 
 
 # Operadores de presença e igualdade (spec 106). Os de ORDEM ficam em `_compare`, porque

@@ -3,12 +3,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Boolean, Date, ForeignKey, Numeric, SmallInteger, Text, func, text
+from sqlalchemy import Boolean, Date, ForeignKey, Numeric, SmallInteger, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class PublicationAnalysis(TenantMixin, Base):
@@ -51,4 +51,4 @@ class PublicationAnalysis(TenantMixin, Base):
     previous_corrections: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB(), default=list, server_default=text("'[]'::jsonb")
     )
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

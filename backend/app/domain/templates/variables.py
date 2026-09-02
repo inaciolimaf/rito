@@ -225,14 +225,14 @@ def _resolve_lawsuit(scope: VariableScope, field: str) -> str | None:
     return resolvedor(scope.lawsuit, scope) if resolvedor else None
 
 
-def _resolve_escritorio(scope: VariableScope, field: str) -> str | None:
+def _resolve_account(scope: VariableScope, field: str) -> str | None:
     if scope.account is None:
         return None
     resolvedor = _ACCOUNT_FIELDS.get(field)
     return resolvedor(scope.account, scope) if resolvedor else None
 
 
-def _resolve_usuario(scope: VariableScope, field: str) -> str | None:
+def _resolve_user(scope: VariableScope, field: str) -> str | None:
     resolvedor = _USER_FIELDS.get(field)
     return resolvedor(scope.user, scope) if resolvedor else None
 
@@ -240,8 +240,8 @@ def _resolve_usuario(scope: VariableScope, field: str) -> str | None:
 _RESOLVERS = {
     "cliente": _resolve_customer,
     "processo": _resolve_lawsuit,
-    "escritorio": _resolve_escritorio,
-    "usuario": _resolve_usuario,
+    "escritorio": _resolve_account,
+    "usuario": _resolve_user,
 }
 
 # Regra 1: catálogo exposto pro seletor do front — (namespace, campo, rótulo).

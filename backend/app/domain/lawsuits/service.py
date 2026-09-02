@@ -106,7 +106,7 @@ def _assign_editable(lawsuit: Lawsuit, payload: LawsuitUpdateRequest) -> None:
     `lawsuit_type_id`, que dependem da validação de referências, e `stage_id`, que só muda por
     `BoardService.change_stage` porque a troca precisa gravar histórico (spec 051, regra 5).
 
-    `updated_at` recebe valor explícito mesmo tendo `onupdate=func.now()` (server-side): sem
+    `updated_at` recebe valor explícito mesmo tendo `onupdate=CRIADO_EM` (server-side): sem
     ele, o autoflush das consultas de `_with_derived` expira o atributo, e a leitura síncrona
     em `_to_response` estoura `MissingGreenlet`. Mesmo idioma de `customers.upload_photo`.
     """

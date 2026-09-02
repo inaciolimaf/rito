@@ -25,7 +25,7 @@ from app.ai.graphs.registry import register_graph
 from app.ai.runtime import GraphRuntime, RuntimeSessionLostError
 from app.core.rls import set_tenant_context
 from app.domain.ai.copilot import CopilotService
-from app.domain.ai.models import AiStep, AiThread, ThreadStatus
+from app.domain.ai.models import AiCheckpoint, AiStep, AiThread, ThreadStatus
 from app.domain.users.models import User
 from app.integrations.openrouter.types import LLMChunk, LLMResponse, ModelInfo
 from tests.integration.conftest import SeededUser, auth_header
@@ -77,9 +77,38 @@ def _slow_query(deps: GraphDeps) -> Any:
     return graph.compile()
 
 
+_GRAPH_DOIS_NOS = "test_fast_then_slow"
+
+
+def _fast_then_slow(deps: GraphDeps) -> Any:
+    """Um nó que TERMINA e outro que estoura — o cenário da dívida 27.
+
+    O grafo de um nó só não serve para prová-la: sem passo anterior, não há o que o rollback
+    da requisição possa levar embora.
+    """
+    graph = StateGraph(GraphState)
+
+    async def rapido(state: GraphState) -> dict[str, Any]:
+        del state
+        return {"output": {"passo": "um"}}
+
+    async def slow(state: GraphState) -> dict[str, Any]:
+        await _session_of(deps).execute(text(f"SELECT pg_sleep({_SLEEP_SECONDS})"))
+        del state
+        return {"output": {"nunca": "chega aqui"}}
+
+    graph.add_node("rapido", rapido)
+    graph.add_node("slow", slow)
+    graph.set_entry_point("rapido")
+    graph.add_edge("rapido", "slow")
+    graph.add_edge("slow", END)
+    return graph.compile()
+
+
 @pytest.fixture(autouse=True)
 def _register_slow_graph() -> None:
     register_graph(_Graph(_GRAPH, _slow_query))
+    register_graph(_Graph(_GRAPH_DOIS_NOS, _fast_then_slow))
 
 
 @pytest.fixture
@@ -97,14 +126,14 @@ def _fast_node_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def _committed_thread(
-    sessions: async_sessionmaker[AsyncSession], user: SeededUser
+    sessions: async_sessionmaker[AsyncSession], user: SeededUser, graph_name: str = _GRAPH
 ) -> uuid.UUID:
     async with sessions() as session, session.begin():
         await set_tenant_context(session, user.tenant_id)
         thread = AiThread(
             tenant_id=user.tenant_id,
             user_id=user.user_id,
-            graph_name=_GRAPH,
+            graph_name=graph_name,
             feature_key="copilot",
             status=ThreadStatus.PENDING.value,
         )
@@ -307,3 +336,53 @@ class _ConfiguredProvider:
 
     async def models(self) -> list[ModelInfo]:  # pragma: no cover
         return []
+
+
+@pytest.mark.commits
+async def test_passos_anteriores_sobrevivem_ao_rollback_da_requisicao(
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Dívida 27: o passo já registrado sumia quando o timeout matava a sessão.
+
+    Antes da spec 124, `_record_step` escrevia na transação de QUEM CHAMOU. Uma execução que
+    estourasse o tempo dentro de uma query gravava o passo de erro fora de banda e terminava
+    em `error` — mas os passos anteriores iam embora com o rollback dessa transação. O
+    resultado era um buraco na numeração: `ai_steps` com um único passo de erro numerado 2,
+    sem o 1. Quem auditava via o fim sem o meio, e um `ai_checkpoints` que só vale se a
+    requisição inteira der certo não é checkpoint.
+
+    Com o commit por passo, o nó que concluiu fica gravado mesmo quando o seguinte derruba a
+    sessão — que é o que «retomar de onde parou» exige para significar alguma coisa.
+    """
+    user = await make_user()
+    thread_id = await _committed_thread(app_session_factory, user, graph_name=_GRAPH_DOIS_NOS)
+
+    with pytest.raises(RuntimeSessionLostError):
+        await _run_until_timeout(app_session_factory, user, thread_id)
+
+    passos = await _steps(app_session_factory, user, thread_id)
+    nos = [(passo.step, passo.node, passo.kind) for passo in passos]
+    assert nos == [(1, "rapido", "node"), (2, "timeout", "error")], (
+        "o passo do nó que CONCLUIU não sobreviveu ao rollback da requisição — "
+        f"`_record_step` voltou a escrever na transação de quem chama (dívida 27). Veio: {nos}"
+    )
+
+    # O checkpoint do passo bom também precisa estar lá: é dele que a retomada parte.
+    async with app_session_factory() as session, session.begin():
+        await set_tenant_context(session, user.tenant_id)
+        checkpoints = list(
+            (
+                await session.scalars(
+                    select(AiCheckpoint)
+                    .where(AiCheckpoint.thread_id == thread_id)
+                    .order_by(AiCheckpoint.step)
+                )
+            ).all()
+        )
+    # O `timeout` também tem checkpoint: quem o escreve é o registro fora de banda da spec
+    # 103, e isso é anterior a esta correção. O que a dívida 27 pedia é o do nó CONCLUÍDO.
+    assert [c.node for c in checkpoints] == ["rapido", "timeout"], (
+        "sem checkpoint do nó concluído não há de onde retomar — é a metade da dívida 27 "
+        f"que o `ai_checkpoints` existe para resolver. Veio: {[c.node for c in checkpoints]}"
+    )

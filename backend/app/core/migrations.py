@@ -50,11 +50,11 @@ POLL_INTERVAL_SECONDS = 1.0
 ADVISORY_LOCK_KEY = 20260828
 
 
-def _quem_sou_eu() -> str:
+def _lock_owner_id() -> str:
     return f"{socket.gethostname()}:{os.getpid()}"
 
 
-async def _anotar_dono(conn: AsyncConnection, dono: str | None) -> None:
+async def _record_lock_owner(conn: AsyncConnection, dono: str | None) -> None:
     """Registra na tabela quem está aplicando — para quem estiver diagnosticando.
 
     Falha em silêncio quando a tabela ainda não existe: é o caso do banco novo, em que a
@@ -79,7 +79,7 @@ async def _anotar_dono(conn: AsyncConnection, dono: str | None) -> None:
         logger.debug("migration_locks ainda não existe — anotação de dono ignorada")
 
 
-async def _tentar_travar(engine: AsyncEngine, dono: str) -> AsyncConnection | None:
+async def _try_lock(engine: AsyncEngine, dono: str) -> AsyncConnection | None:
     """Toma o advisory lock. Devolve a conexão que o segura, ou `None` se outra já tem.
 
     A conexão é DEVOLVIDA e fica aberta de propósito: advisory lock de sessão vive
@@ -93,22 +93,22 @@ async def _tentar_travar(engine: AsyncEngine, dono: str) -> AsyncConnection | No
     if not tomou:
         await conn.close()
         return None
-    await _anotar_dono(conn, dono)
+    await _record_lock_owner(conn, dono)
     return conn
 
 
-async def _destravar(conn: AsyncConnection | None) -> None:
+async def _unlock(conn: AsyncConnection | None) -> None:
     """Solta a anotação e o advisory lock, e fecha a conexão que o segurava."""
     if conn is None:
         return
     try:
-        await _anotar_dono(conn, None)
+        await _record_lock_owner(conn, None)
         await conn.execute(text("SELECT pg_advisory_unlock(:chave)"), {"chave": ADVISORY_LOCK_KEY})
     finally:
         await conn.close()
 
 
-async def _versao_atual(engine: AsyncEngine) -> str | None:
+async def _current_version(engine: AsyncEngine) -> str | None:
     async with engine.connect() as conn:
         try:
             return (await conn.scalar(text("SELECT version_num FROM alembic_version"))) or None
@@ -116,7 +116,7 @@ async def _versao_atual(engine: AsyncEngine) -> str | None:
             return None
 
 
-def _aplicar_sincrono() -> None:
+def _run_alembic_upgrade() -> None:
     """`alembic upgrade head`. Síncrono porque o Alembic é síncrono — quem chama roda
     isto numa thread para não travar o event loop.
 
@@ -156,9 +156,9 @@ async def _wait_for_turn(engine: AsyncEngine) -> None:
     esperando e a outra instância está progredindo» de «estou esperando e nada acontece» —
     o segundo caso é uma instância morta segurando a trava, e o diagnóstico é outro.
     """
-    antes = await _versao_atual(engine)
+    antes = await _current_version(engine)
     await asyncio.sleep(POLL_INTERVAL_SECONDS)
-    depois = await _versao_atual(engine)
+    depois = await _current_version(engine)
     if antes != depois:
         logger.info("migrations aplicadas por outra instância", extra={"version": depois})
 
@@ -169,20 +169,20 @@ async def upgrade_with_lock(engine: AsyncEngine) -> None:
     Levanta se a migration falhar (regra 4) e se a espera estourar o tempo — nos dois
     casos o processo não sobe, que é o comportamento correto.
     """
-    dono = _quem_sou_eu()
+    dono = _lock_owner_id()
     limite = datetime.now(UTC) + LOCK_TIMEOUT
 
-    trava = await _tentar_travar(engine, dono)
+    trava = await _try_lock(engine, dono)
     while trava is None:
         if datetime.now(UTC) > limite:
             _raise_lock_timeout()
         await _wait_for_turn(engine)
-        trava = await _tentar_travar(engine, dono)
+        trava = await _try_lock(engine, dono)
 
     try:
         logger.info("aplicando migrations", extra={"lock_owner": dono})
-        await asyncio.to_thread(_aplicar_sincrono)
+        await asyncio.to_thread(_run_alembic_upgrade)
     finally:
         # Solta a trava mesmo quando a migration falha: senão a próxima tentativa
         # esperaria cinco minutos por uma instância que já morreu.
-        await _destravar(trava)
+        await _unlock(trava)

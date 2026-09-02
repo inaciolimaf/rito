@@ -51,6 +51,15 @@ class Clock:
     def timezone(self) -> ZoneInfo:
         return self._tz
 
+    @property
+    def timezone_name(self) -> str:
+        """O nome IANA do fuso, para ir dentro de SQL (`AT TIME ZONE`).
+
+        O Postgres aceita o mesmo identificador que o `zoneinfo` — é a mesma base tzdata —,
+        então o fuso do escritório atravessa a fronteira sem tabela de conversão.
+        """
+        return str(self._tz)
+
     def now(self) -> datetime:
         """Agora, com fuso — sempre aware. `datetime.now()` sem `tz` é o mesmo bug."""
         return datetime.now(tz=self._tz)

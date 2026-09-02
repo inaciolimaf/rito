@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.cli import build_parser, main
-from app.core.migrations import _destravar, _tentar_travar, upgrade_with_lock
+from app.core.migrations import _try_lock, _unlock, upgrade_with_lock
 from app.core.provisioning import provision_tenant, seed_global_catalogs
 from app.domain.legal_agents.catalog import AGENT_SEEDS
 
@@ -23,19 +23,19 @@ from app.domain.legal_agents.catalog import AGENT_SEEDS
 async def test_a_trava_impede_migration_concorrente(admin_engine: AsyncEngine) -> None:
     """Regra 3. Deploy rolling sobe N containers ao mesmo tempo, e o Alembic não tem
     proteção nenhuma contra duas instâncias aplicando a mesma migration."""
-    primeira = await _tentar_travar(admin_engine, "instancia-a")
-    segunda = await _tentar_travar(admin_engine, "instancia-b")
+    primeira = await _try_lock(admin_engine, "instancia-a")
+    segunda = await _try_lock(admin_engine, "instancia-b")
     try:
         assert primeira is not None
         assert segunda is None, "duas instâncias tomaram a trava ao mesmo tempo"
     finally:
-        await _destravar(primeira)
-        await _destravar(segunda)
+        await _unlock(primeira)
+        await _unlock(segunda)
 
     # Solta e a próxima consegue — a trava não pode ficar presa depois do deploy.
-    terceira = await _tentar_travar(admin_engine, "instancia-b")
+    terceira = await _try_lock(admin_engine, "instancia-b")
     assert terceira is not None
-    await _destravar(terceira)
+    await _unlock(terceira)
 
 
 async def test_quem_esta_com_a_trava_fica_visivel_na_tabela(
@@ -43,13 +43,13 @@ async def test_quem_esta_com_a_trava_fica_visivel_na_tabela(
 ) -> None:
     """O que a tabela dá e o advisory lock não: durante um deploy travado, dizer QUEM
     está aplicando e desde quando, sem ninguém precisar saber ler `pg_locks`."""
-    trava = await _tentar_travar(admin_engine, "instancia-visivel")
+    trava = await _try_lock(admin_engine, "instancia-visivel")
     try:
         async with admin_engine.connect() as conn:
             dono = await conn.scalar(text("SELECT locked_by FROM migration_locks WHERE id = 1"))
         assert dono == "instancia-visivel"
     finally:
-        await _destravar(trava)
+        await _unlock(trava)
 
     async with admin_engine.connect() as conn:
         assert await conn.scalar(text("SELECT locked_by FROM migration_locks WHERE id = 1")) is None
@@ -61,18 +61,18 @@ async def test_a_trava_cai_junto_com_a_conexao_de_quem_morreu(
     """O caso feio: instância morta com a trava na mão. Advisory lock de sessão morre com
     a conexão — sem isso, um `kill -9` no meio de um deploy exigiria alguém entrar no
     banco à mão para o sistema voltar a subir."""
-    trava = await _tentar_travar(admin_engine, "vai-morrer")
+    trava = await _try_lock(admin_engine, "vai-morrer")
     assert trava is not None
-    assert await _tentar_travar(admin_engine, "vizinha") is None
+    assert await _try_lock(admin_engine, "vizinha") is None
 
     # `close()` NÃO serve para simular morte: devolve a conexão ao pool, e o advisory
     # lock continua preso a ela. `invalidate()` descarta a conexão de verdade, que é o
     # que o sistema operacional faz quando o processo morre.
     await trava.invalidate()
 
-    retomada = await _tentar_travar(admin_engine, "nova")
+    retomada = await _try_lock(admin_engine, "nova")
     assert retomada is not None, "a trava não foi liberada quando a conexão caiu"
-    await _destravar(retomada)
+    await _unlock(retomada)
 
 
 async def test_a_trava_funciona_em_banco_que_ainda_nao_tem_a_tabela(
@@ -84,12 +84,12 @@ async def test_a_trava_funciona_em_banco_que_ainda_nao_tem_a_tabela(
     então não pode ser o mecanismo de exclusão. A anotação de dono some em silêncio; a
     trava continua valendo.
     """
-    from app.core.migrations import _anotar_dono
+    from app.core.migrations import _record_lock_owner
 
     async with admin_engine.connect() as conn:
         await conn.execute(text("CREATE TEMP TABLE _sem_locks (x int)"))
         # Não levanta, mesmo que a tabela não existisse.
-        await _anotar_dono(conn, "instancia-em-banco-novo")
+        await _record_lock_owner(conn, "instancia-em-banco-novo")
 
 
 async def test_migration_que_falha_propaga_e_solta_a_trava(
@@ -107,7 +107,7 @@ async def test_migration_que_falha_propaga_e_solta_a_trava(
     def explode() -> None:
         raise RuntimeError("migration quebrou")
 
-    monkeypatch.setattr("app.core.migrations._aplicar_sincrono", explode)
+    monkeypatch.setattr("app.core.migrations._run_alembic_upgrade", explode)
 
     with pytest.raises(RuntimeError, match="migration quebrou"):
         await upgrade_with_lock(admin_engine)

@@ -3,12 +3,12 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, MetaData, Numeric, Table, func
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, MetaData, Numeric, Table
 from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 # View barreira sobre a matview agility_daily (migration 071) — o filtro de tenant está
 # na definição da view, então a aplicação consulta sem WHERE de tenant (CLAUDE.md §4).
@@ -70,7 +70,7 @@ class AccessLog(TenantMixin, Base):
     )
     ip_address: Mapped[str | None] = mapped_column(INET(), default=None)
     user_agent: Mapped[str | None] = mapped_column(default=None)
-    occurred_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    occurred_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 # View barreira sobre a matview timesheet_daily (migration 073) — mesmo padrão de

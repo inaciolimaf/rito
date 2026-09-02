@@ -1,11 +1,11 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, func
+from sqlalchemy import CheckConstraint, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class Attachment(TenantMixin, Base):
@@ -26,4 +26,4 @@ class Attachment(TenantMixin, Base):
     attached_to_type: Mapped[str]
     attached_to_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True))
     uploaded_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

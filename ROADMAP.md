@@ -593,3 +593,8 @@ Segundo dos três degraus da Nota de execução da 121: o teto desce de 50 para 
 Terceiro degrau, e o alvo que a 121 pedia desde o começo. Distribuição medida em `cdeb4cc`: 73 funções acima de 35, 117 acima de 30.
 **Aceite:** gate verde em 30; no máximo 5 exceções justificadas; contrato inalterado. **t:** 0 s. **Deps:** 122
 
+
+
+### ✅ 124 — Correção das dívidas abertas da série 101–123
+As nove dívidas que a série 101–123 gerou ou herdou como pendência ativa: 15, 27, 28, 31, 32, 34, 36, 39 e 40. Sete mudam comportamento; uma migration (relógio dos carimbos e o CHECK de pagamento). Em três delas a dívida estava errada sobre a própria causa.
+**Aceite:** as nove marcadas RESOLVIDO; dois meta-testes novos provados mordendo; contrato inalterado. **t:** +6 s. **Deps:** 123

@@ -792,7 +792,7 @@ class TransactionSeriesService:
         for transaction in await self.transactions.list_by_series(series.id):
             if self._out_of_scope(transaction, scope, today):
                 continue
-            self._aplicar_alteracoes(transaction, payload)
+            self._apply_changes(transaction, payload)
             updated.append(transaction)
         return updated
 
@@ -823,9 +823,7 @@ class TransactionSeriesService:
         return scope == "future" and transaction.due_date < today
 
     @staticmethod
-    def _aplicar_alteracoes(
-        transaction: Transaction, payload: TransactionSeriesUpdateRequest
-    ) -> None:
+    def _apply_changes(transaction: Transaction, payload: TransactionSeriesUpdateRequest) -> None:
         """Campo omitido no payload não é campo apagado — só sobrescreve o que veio."""
         if payload.amount is not None:
             transaction.amount = payload.amount

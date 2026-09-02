@@ -12,7 +12,7 @@ from sqlalchemy import BigInteger, ForeignKey, Integer, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base
+from app.core.models import CRIADO_EM, Base
 
 
 class AggregateRegistry(Base):
@@ -41,7 +41,7 @@ class AggregateRefreshLog(Base):
     __tablename__ = "aggregate_refresh_log"
 
     name: Mapped[str] = mapped_column(Text, ForeignKey("aggregate_registry.name"), nullable=False)
-    started_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    started_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
     finished_at: Mapped[datetime | None] = mapped_column(default=None)
     rows_affected: Mapped[int | None] = mapped_column(BigInteger, default=None)
     error: Mapped[str | None] = mapped_column(Text, default=None)

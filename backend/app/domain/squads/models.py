@@ -1,11 +1,11 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, UniqueConstraint, func, text
+from sqlalchemy import ForeignKey, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class Squad(TenantMixin, Base):
@@ -20,8 +20,8 @@ class Squad(TenantMixin, Base):
 
     name: Mapped[str]
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
 
 
 class SquadMember(TenantMixin, Base):

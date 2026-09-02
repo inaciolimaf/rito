@@ -1,8 +1,11 @@
+import type { TermKind, TermStatus } from "@/lib/domainEnums.generated";
+
+// Reexportado para quem já importava daqui: o nome é o mesmo, a FONTE é o arquivo
+// gerado a partir dos `StrEnum` do backend (dívida 15).
+export type { TermKind, TermStatus };
+
 import { apiRequest } from "@/lib/api";
 import type { ListResponse } from "@/components/domain/types";
-
-export type TermKind = "OAB" | "CPF" | "CNPJ";
-export type TermStatus = "PENDENTE" | "SINCRONIZANDO" | "ATIVO" | "FALHA" | "PAUSADO";
 
 export interface MonitoredTermData {
   id: string;

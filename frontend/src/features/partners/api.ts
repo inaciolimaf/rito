@@ -1,3 +1,9 @@
+import type { PartnershipStatus } from "@/lib/domainEnums.generated";
+
+// Reexportado para quem já importava daqui: o nome é o mesmo, a FONTE é o arquivo
+// gerado a partir dos `StrEnum` do backend (dívida 15).
+export type { PartnershipStatus };
+
 import { apiRequest } from "@/lib/api";
 /** As listas da parceria não paginam (regra 3: compartilhamento é processo a processo,
  * o volume é pequeno por definição) — daí `items`/`total` sem cursor. */
@@ -5,8 +11,6 @@ export interface PartnerList<T> {
   items: T[];
   total: number;
 }
-
-export type PartnershipStatus = "PENDENTE" | "ATIVA" | "RECUSADA" | "ENCERRADA";
 
 export interface PartnershipData {
   id: string;

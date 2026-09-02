@@ -4,13 +4,13 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import ForeignKey, Numeric, SmallInteger, UniqueConstraint, func, text
+from sqlalchemy import ForeignKey, Numeric, SmallInteger, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class AiFeatureConfig(TenantMixin, Base):
@@ -35,7 +35,7 @@ class AiFeatureConfig(TenantMixin, Base):
     updated_by: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
     )
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
 
 
 class AiUsage(TenantMixin, Base):
@@ -58,7 +58,7 @@ class AiUsage(TenantMixin, Base):
     error: Mapped[str | None] = mapped_column(default=None)
     prompt: Mapped[str | None] = mapped_column(default=None)
     response_text: Mapped[str | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class ThreadStatus(StrEnum):
@@ -109,8 +109,8 @@ class AiThread(TenantMixin, Base):
     # configuração da feature). Regra 7: arquivamento por inatividade.
     model: Mapped[str | None] = mapped_column(default=None)
     archived_at: Mapped[datetime | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
 
 
 class AiCheckpoint(TenantMixin, Base):
@@ -126,7 +126,7 @@ class AiCheckpoint(TenantMixin, Base):
     step: Mapped[int] = mapped_column(SmallInteger())
     node: Mapped[str]
     state: Mapped[dict[str, Any]] = mapped_column(JSONB())
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AiStep(TenantMixin, Base):
@@ -145,7 +145,7 @@ class AiStep(TenantMixin, Base):
     output: Mapped[dict[str, Any] | None] = mapped_column(JSONB(), default=None)
     duration_ms: Mapped[int | None] = mapped_column(default=None)
     error: Mapped[str | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AiToolCall(TenantMixin, Base):
@@ -164,7 +164,7 @@ class AiToolCall(TenantMixin, Base):
     row_count: Mapped[int | None] = mapped_column(default=None)
     duration_ms: Mapped[int | None] = mapped_column(default=None)
     error: Mapped[str | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AiActionStatus(StrEnum):
@@ -222,7 +222,7 @@ class AiAction(TenantMixin, Base):
     executed_at: Mapped[datetime | None] = mapped_column(default=None)
     undone_at: Mapped[datetime | None] = mapped_column(default=None)
     expires_at: Mapped[datetime] = mapped_column(server_default=text("now() + interval '1 hour'"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AiAuditLog(TenantMixin, Base):
@@ -243,7 +243,7 @@ class AiAuditLog(TenantMixin, Base):
     after_state: Mapped[dict[str, Any] | None] = mapped_column(JSONB(), default=None)
     model: Mapped[str]
     thread_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AiMessage(TenantMixin, Base):
@@ -293,7 +293,7 @@ class EditorAiAction(TenantMixin, Base):
     accepted: Mapped[bool | None] = mapped_column(default=None)
     model: Mapped[str]
     tokens_used: Mapped[int | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AiSqlQuery(TenantMixin, Base):
@@ -312,7 +312,7 @@ class AiSqlQuery(TenantMixin, Base):
     rejection_reason: Mapped[str | None] = mapped_column(default=None)
     row_count: Mapped[int | None] = mapped_column(default=None)
     duration_ms: Mapped[int | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AiInsight(TenantMixin, Base):
@@ -335,7 +335,7 @@ class AiInsight(TenantMixin, Base):
         PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
     )
     dismissed_at: Mapped[datetime | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AiBudget(TenantMixin, Base):
@@ -354,7 +354,7 @@ class AiBudget(TenantMixin, Base):
     updated_by: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
     )
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
 
 
 class AiCacheEntry(TenantMixin, Base):
@@ -371,4 +371,4 @@ class AiCacheEntry(TenantMixin, Base):
     model: Mapped[str]
     response: Mapped[dict[str, Any]] = mapped_column(JSONB(), default=dict)
     expires_at: Mapped[datetime]
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

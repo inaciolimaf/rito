@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.export import ExportColumn, TableExport
 from app.core.repository import decode_cursor, encode_cursor
+from app.domain.account.models import DEFAULT_TIMEZONE
 from app.domain.account.repository import AccountRepository
 from app.domain.lawsuits.models import LawsuitOutcome
 from app.domain.reports.schemas import (
@@ -79,8 +80,10 @@ _Relatorio = Callable[..., Awaitable["ReportListResponse"]]
 
 
 class TabularReportService:
-    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
-        self.repo = TabularReportRepository(session)
+    def __init__(
+        self, session: AsyncSession, tenant_id: uuid.UUID, timezone: str = DEFAULT_TIMEZONE
+    ) -> None:
+        self.repo = TabularReportRepository(session, timezone)
         self.accounts = AccountRepository(session)
         self.tenant_id = tenant_id
 

@@ -10,10 +10,22 @@
  *   node scripts/check-bundle.mjs
  */
 import { gzipSync } from "node:zlib";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const DIST = new URL("../dist/assets/", import.meta.url).pathname;
+// `fileURLToPath` e NÃO `.pathname` (dívida 39): `URL.pathname` devolve o caminho
+// percent-encoded, então um checkout em "/home/.../Área de trabalho/..." virava
+// "/home/.../%C3%81rea%20de%20trabalho/..." e o `readdirSync` estourava ENOENT com o
+// `dist` construído ao lado. Passava no CI porque lá o caminho é /home/runner/work — sem
+// espaço nem acento. Gate que só quebra fora da máquina que o executa é a pior espécie:
+// quem desenvolve não consegue rodá-lo, e ninguém percebe que ele nunca foi exercitado.
+const DIST = fileURLToPath(new URL("../dist/assets/", import.meta.url));
+
+if (!existsSync(DIST)) {
+  console.error(`dist não encontrado em ${DIST} — rode \`npm run build\` antes.`);
+  process.exit(1);
+}
 
 // Regra 7. O teto é do bundle INICIAL — o que todo mundo baixa antes de ver qualquer
 // coisa. Os chunks de rota não contam: quem nunca abre o editor nunca os baixa.

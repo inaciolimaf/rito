@@ -70,7 +70,7 @@ class SquadService:
             squad_id=squad.id, tenant_id=self.tenant_id, member_ids=payload.member_ids
         )
         # O SELECT dentro de reconcile_members dispara autoflush do UPDATE pendente
-        # acima — como `updated_at` é onupdate=func.now() (valor só existe depois que o
+        # acima — como `updated_at` é onupdate=CRIADO_EM (valor só existe depois que o
         # Postgres computa), o SQLAlchemy marca o atributo como expirado (precisa
         # recarregar). Sem este refresh, o primeiro acesso síncrono a squad.updated_at
         # (na serialização da resposta) tenta recarregar via I/O fora de um contexto

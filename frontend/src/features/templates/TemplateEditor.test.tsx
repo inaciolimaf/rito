@@ -21,16 +21,26 @@ describe("TemplateEditor", () => {
     render(<Wrapper onChange={onChange} />);
 
     const editable = await screen.findByText("Olá");
-    // O editor autofoca no fim do documento ao montar — não depende de clicar no
-    // texto (jsdom não resolve coordenada→posição, `elementFromPoint` é stub).
-    // Cursor solto (sem seleção): negrito vira "marca pendente" — aplica ao que for
-    // digitado a seguir, mesmo padrão de qualquer editor rico.
+    await user.click(editable);
+    // Seleção EXPLÍCITA antes de formatar (dívida 28). A versão anterior deste teste
+    // dependia da "marca pendente": clicar em Negrito com o cursor solto e digitar em
+    // seguida. Isso amarrava o teste a duas corridas que o jsdom não resolve — o
+    // `autofocus: "end"` do tiptap é assíncrono, e o clique no botão da toolbar tira o
+    // foco do contenteditable, cuja seleção o jsdom não restaura. Quando as duas
+    // perdiam, o "!" entrava na POSIÇÃO 0 e saía sem negrito: o HTML final era
+    // `<p>!Olá</p>`. Medido nesta spec: 1 falha em 8 execuções.
+    //
+    // `Ctrl+A` é tratado pelo keymap do ProseMirror (`selectAll`), não por coordenada,
+    // então não depende de nada disso — e é o que o usuário faz de verdade para negritar
+    // um texto que já existe.
+    await user.keyboard("{Control>}a{/Control}");
     await user.click(screen.getByLabelText("Negrito"));
-    await user.type(editable, "!");
 
     await waitFor(
       () => {
-        expect(onChange).toHaveBeenCalledWith(expect.stringContaining("<strong>"));
+        // Afirma o conteúdo, não só a presença da tag: `<strong>Olá</strong>` prova que o
+        // negrito caiu no texto certo. A versão anterior aceitava qualquer `<strong>`.
+        expect(onChange).toHaveBeenCalledWith(expect.stringContaining("<strong>Olá</strong>"));
       },
       { timeout: 3000 },
     );

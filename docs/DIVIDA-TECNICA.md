@@ -232,7 +232,7 @@ predicado existem e foram conferidos em `pg_indexes`.
 
 **Resolvido na 098:** `make test-nightly` semeia 1,95 milhão de linhas e repete o `EXPLAIN ANALYZE` fora do orçamento de 300 s do PR. Achou o que o banco de dev escondia: a listagem de lançamentos sem paginação, 94 FKs sem índice e o `OR` que virava Seq Scan.
 
-## 15. Enums do banco espelhados à mão em TS
+## 15. ~~Enums do banco espelhados à mão em TS~~ — RESOLVIDO na spec 124
 
 `PartyPoleApi`, `LawsuitOutcome`, `ContingencyLevel` e cia. são redeclarados como union
 types em `frontend/src/features/*/api.ts` — duplicação manual que pode divergir do
@@ -240,8 +240,21 @@ StrEnum do backend sem nenhum alarme. A checklist da 030 pedia espelho "sem dupl
 manual"; gerar os unions TS a partir dos StrEnum via script (`scripts/dump-enums`)
 continua pendente — o volume atual (3 enums) não justificou a infra nesta refatoração.
 
-**Spec-alvo:** quando o 4º enum de domínio cruzar a fronteira da API (regra dos 3 usos)
-— provavelmente status de tarefa (032) ou tipo de lançamento (054+).
+**RESOLVIDO na spec 124** — e a entrada estava DESATUALIZADA desde a 101.
+
+A spec 101 já tinha escrito o gerador (`backend/scripts/dump_enums.py`), o arquivo gerado
+(`frontend/src/lib/domainEnums.generated.ts`) e o alarme (`tests/meta/test_enum_mirror.py`),
+que compara por nome todo union TS escrito à mão com o `StrEnum` do backend. O que a dívida
+cobrava — «pode divergir sem nenhum alarme» — já não era verdade havia 23 specs. Ninguém
+atualizou a entrada.
+
+A 124 removeu o que ainda faltava: os **15 unions duplicados** em `features/*/api.ts` viraram
+re-export do arquivo gerado, com o valor de cada um conferido contra o gerado antes da troca.
+Fica uma declaração só por enum, e o alarme continua guardando os poucos unions de front que
+não têm par no backend.
+
+**Lição:** dívida fechada por uma spec que não a citava fica aberta para sempre no papel. O
+fechamento é parte da entrega, não consequência dela.
 
 ## 16. ~~"Uma listagem nova custa < 80 linhas"~~ — FECHADA na spec 101, com o número medido
 
@@ -620,11 +633,11 @@ próximo do que pediu. O que **não** foi feito, de propósito, é silenciar o m
 uma lista de exceções: um gate que aceita exceção por arquivo deixa de morder (é o alerta
 que a própria spec 110 registra).
 
-**Spec-alvo:** 124 — a listagem de atividades como tela própria, reaproveitando
+**Spec-alvo:** ~~124~~ → **125** — (renumerada na 124, que virou a spec de correção de dívidas) a listagem de atividades como tela própria, reaproveitando
 `DataTable`/`FilterBar`/`useListPage`. Enquanto ela não existir, o redirect fica.
 
 
-## 27. Passo já registrado some quando o timeout mata a sessão da requisição
+## 27. ~~Passo já registrado some quando o timeout mata a sessão da requisição~~ — RESOLVIDO na spec 124
 
 Resíduo declarado da spec 103. Com o registro fora de banda, uma execução que estoura o
 tempo dentro de uma query grava o passo de erro e termina em `error` — mas os passos
@@ -647,10 +660,19 @@ runtime da 082 (o `_ensure_not_cancelled` lê o status do thread pela sessão da
 e o teste de cancelamento da 082 depende disso), então precisa dos testes da 082 rodando
 junto e de um ciclo próprio.
 
-**Spec-alvo:** 125 — commit por passo no runtime de agentes.
+**RESOLVIDO na spec 124.** `_record_step` grava passo e checkpoint numa sessão própria, que
+commita na hora, e só as tabelas FILHAS — a linha de `ai_threads` continua sendo escrita pela
+sessão da requisição, porque ela já está travada por essa transação e uma segunda conexão
+esperaria um commit que não vem.
+
+A ordem importou mais que a mudança: a primeira versão commitava o passo ANTES de tocar a
+sessão da requisição, e com isso engolia o sinal de sessão morta de que o `_fail` depende
+para registrar a falha fora de banda — o thread terminava `pending` em vez de `error`. Os
+testes de timeout da spec 103 pegaram na hora. O `flush` na sessão de quem chama vem
+primeiro, e é ele que levanta.
 
 
-## 28. `TemplateEditor.test.tsx` é intermitente e faz o gate mentir
+## 28. ~~`TemplateEditor.test.tsx` é intermitente e faz o gate mentir~~ — RESOLVIDO na spec 124
 
 Achado no ciclo da spec 104, que não toca uma linha de front-end. O teste
 `frontend/src/features/templates/TemplateEditor.test.tsx` ("aplica negrito pela toolbar")
@@ -694,7 +716,38 @@ Revertido. O código está como estava, verde.
    estado que sobrevive ao `unmount` o suficiente para mudar o comportamento do teste
    seguinte.
 
-**Quem for corrigir precisa, nesta ordem:** reproduzir o sintoma (host frio de verdade, ou
+### RESOLVIDO na spec 124 — e a causa NÃO era a que a dívida supunha
+
+O sintoma foi reproduzido primeiro, como esta entrada exigia: **1 falha em 8 execuções** do
+arquivo isolado. E as duas hipóteses registradas aqui caíram:
+
+1. **Não era aquecimento.** Um `beforeAll` que monta e desmonta o editor não mudou nada — o
+   primeiro teste continuou em ~306 ms e os outros dois em ~45 ms, com ou sem aquecimento.
+2. **Não era o teto de 5 s.** A falha é o `waitFor` de 3 s expirando, não o `testTimeout`.
+
+A causa real apareceu ao instrumentar o HTML final: quando falha, o resultado é `<p>!Olá</p>`
+— o "!" entra na **posição 0**. O `autofocus: "end"` do tiptap é assíncrono e o clique no
+botão da toolbar tira o foco do contenteditable, cuja seleção o jsdom não restaura. O teste
+dependia de duas corridas para acertar a posição do cursor, e acertava por sorte.
+
+**A correção é seleção explícita:** `Ctrl+A` (tratado pelo keymap do ProseMirror, não por
+coordenada) antes de clicar em Negrito. Não depende de autofoco nem de o jsdom saber onde o
+clique caiu — e é o que o usuário faz de verdade para negritar um texto que já existe. A
+asserção ficou mais forte de quebra: era `<strong>` (qualquer), passou a `<strong>Olá</strong>`.
+
+**25 execuções seguidas verdes**, contra 1 falha em 8 antes. Verificado que ainda morde:
+removendo o `toggleBold()` do botão, o teste falha.
+
+**Três tentativas anteriores pioraram**, e ficam registradas porque cada uma parecia certa:
+esperar `document.activeElement` (que em jsdom NUNCA é o `.ProseMirror`, então o `waitFor` só
+queimava 1 s), esperar a classe `ProseMirror-focused` (que fica `true` e mesmo assim falha), e
+`skipClick` no `type` (que sem o clique não entrega tecla nenhuma: 10 falhas em 10).
+
+**O que quem for corrigir um teste intermitente deve tirar disto:** a hipótese escrita na
+dívida é um palpite de quem viu o sintoma, não um diagnóstico. Instrumentar o estado em cada
+passo custou cinco minutos e resolveu o que quatro correções plausíveis não resolveram.
+
+**Quem for corrigir precisava, nesta ordem:** reproduzir o sintoma (host frio de verdade, ou
 `testTimeout` baixado artificialmente para 300 ms como proxy), e só então mexer — com o
 teste falhando na mão, dá para saber se a mudança resolveu. Sem reproduzir, é o que
 aconteceu aqui: uma correção plausível que troca um problema intermitente por um
@@ -802,7 +855,7 @@ O que sobrou dessa família virou a **dívida 32**.
 
 ---
 
-## 31. `func.now()` é constante dentro de um teste, e ordenação por data virou cara ou coroa
+## 31. ~~`func.now()` é constante dentro de um teste, e ordenação por data virou cara ou coroa~~ — RESOLVIDO na spec 124
 
 Achada no ciclo da spec 114, ao investigar uma falha que parecia regressão e não era:
 `tests/integration/test_customers_listing.py::test_ordenacao_por_created_at_desc_por_padrao`
@@ -888,7 +941,7 @@ trabalho da correção, e é a parte que ninguém fez.
 
 ---
 
-## 32. Timestamp em UTC comparado com data de escritório
+## 32. ~~Timestamp em UTC comparado com data de escritório~~ — RESOLVIDO na spec 124
 
 Achada ao fechar a spec 114, que resolveu «que dia é hoje» mas não esta: há três lugares
 onde um **timestamp gravado em UTC** é comparado com uma **data pensada no fuso do
@@ -1044,7 +1097,7 @@ antes — havia paralelismo sobrando, não faltando.
 
 ---
 
-## 34. `GET /api/public/v1/customers/birthdays` não filtra aniversariantes
+## 34. ~~`GET /api/public/v1/customers/birthdays` não filtra aniversariantes~~ — RESOLVIDO na spec 124
 
 **Bug de comportamento, não dívida de forma.** Encontrado ao ler `customers/repository.py`
 para a spec 116; anterior a toda a leva 106–116 (conferido em `da213af`, antes da 106 — a
@@ -1171,7 +1224,7 @@ como verificação de tempos em tempos.
 
 ---
 
-## 36. `conditions._compare` decide como `lte` quando não reconhece o operador
+## 36. ~~`conditions._compare` decide como `lte` quando não reconhece o operador~~ — RESOLVIDO na spec 124
 
 Encontrado na spec 111, registrado aqui pela auditoria da 110.
 
@@ -1289,7 +1342,7 @@ concluídas — ficaria aberto para sempre sem ninguém perceber.
 
 ---
 
-## 39. O gate de tamanho do bundle não roda em checkout com espaço ou acento no caminho
+## 39. ~~O gate de tamanho do bundle não roda em checkout com espaço ou acento no caminho~~ — RESOLVIDO na spec 124
 
 `frontend/scripts/check-bundle.mjs` resolve o diretório do build assim:
 
@@ -1326,7 +1379,7 @@ gate de front-end nela apagaria o rastro de qual spec consertou o quê.
 
 ---
 
-## 40. Oito auxiliares privados em português sobreviveram à renomeação da spec 120
+## 40. ~~Oito auxiliares privados em português sobreviveram à renomeação da spec 120~~ — RESOLVIDO na spec 124
 
 A dívida 37 está marcada **RESOLVIDO na spec 120**, com 88 símbolos renomeados e verificação
 por AST. A verificação era honesta para o que mediu — mas mediu os **45 arquivos do mapa**,

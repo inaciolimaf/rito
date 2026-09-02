@@ -2,12 +2,12 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, func, text
+from sqlalchemy import ForeignKey, text
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class TemplateType(StrEnum):
@@ -37,8 +37,8 @@ class Template(TenantMixin, Base):
     watermark_text: Mapped[str | None] = mapped_column(default=None)
     created_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     deleted_at: Mapped[datetime | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
 
 
 class PublicTemplate(Base):
@@ -57,4 +57,4 @@ class PublicTemplate(Base):
     header_content: Mapped[str] = mapped_column(default="", server_default=text("''"))
     footer_content: Mapped[str] = mapped_column(default="", server_default=text("''"))
     watermark_text: Mapped[str | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

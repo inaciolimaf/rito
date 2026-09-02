@@ -5,7 +5,7 @@ tenant."""
 
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -574,16 +574,24 @@ async def test_vinculo_com_processo_alimenta_painel_financeiro(
     assert body["net_result"] == 800.00
 
 
-async def test_os_4_check_da_migration_barram_escrita_direta_no_banco(
+async def test_os_3_check_da_migration_barram_escrita_direta_no_banco(
     client: AsyncClient,
     make_user: Callable[..., Awaitable[SeededUser]],
     app_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    """Auditoria numérica (refatoração 060): as regras 2/3/6/7 (spec 056) são checadas
-    nos dois lugares — Pydantic (422, sem round-trip) *e* os 4 CHECK da migration
-    (defesa contra escrita direta no banco, mesma dupla camada da spec 055). Este
-    teste só prova a segunda camada — a primeira já está coberta pelos testes de 422
-    acima, que nunca chegam a exercitar o CHECK (Pydantic barra antes)."""
+    """Auditoria numérica (refatoração 060): as regras 2/3/6 (spec 056) são checadas nos
+    dois lugares — Pydantic (422, sem round-trip) *e* os CHECK da migration (defesa
+    contra escrita direta no banco, mesma dupla camada da spec 055). Este teste só prova
+    a segunda camada — a primeira já está coberta pelos testes de 422 acima, que nunca
+    chegam a exercitar o CHECK (Pydantic barra antes).
+
+    Eram QUATRO até a spec 124. `ck_tx_payment_not_future` saiu (dívida 32, item 3): ele
+    comparava com `CURRENT_DATE`, o dia do SERVIDOR, enquanto a aplicação recusa data futura
+    no fuso do ESCRITÓRIO desde a spec 114 — duas regras com o mesmo nome e respostas
+    diferentes por até três horas por dia. O banco não tem como acertar essa: o fuso mora em
+    `accounts` e um CHECK não consulta outra tabela. A regra continua valendo, e o teste dela
+    é `test_pagamento_futuro_retorna_422`, que exercita a camada que tem o fuso.
+    """
     gestor, headers = await _make_gestor_full(make_user)
     receita_id, _d, cost_center_id, account_a, account_b = await _fixtures(client, headers)
     type_id, _group_id = await _create_lawsuit_type(client, headers)
@@ -627,11 +635,6 @@ async def test_os_4_check_da_migration_barram_escrita_direta_no_banco(
             "lawsuit_id": uuid.UUID(str(lawsuit["id"])),
             "customer_id": None,
         },
-        # Dívida 32: este CHECK vive no BANCO e compara com `CURRENT_DATE`, que é o dia
-        # do servidor (UTC), não o do escritório. O teste prova a trava do banco, então
-        # fala o relógio do banco — usar `hoje()` aqui faria o teste falhar das 21h em
-        # diante, quando o "amanhã de São Paulo" já é "hoje em UTC".
-        "ck_tx_payment_not_future": {"payment_date": datetime.now(UTC).date() + timedelta(days=1)},
     }
     for constraint_name, override in violations.items():
         params = {**valid_params, **override}

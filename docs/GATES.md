@@ -143,6 +143,7 @@ estoura.
 | Gate do runner | `run-tests.sh` falha quando uma suíte falha ou o orçamento estoura | `test_runner_gate.py` | 009 |
 | Auditoria final | `type: ignore` e `# noqa` sem justificativa, TODO órfão, `as any`, PII em fixture, spec × ROADMAP, dívida com alvo no futuro | `test_final_audit.py` | 100 |
 | Tamanho de função | função de `app/` acima de **30** linhas LÍQUIDAS de corpo (docstring, decorador e assinatura fora); teto de 5 exceções versionadas, 2 em uso | `test_tamanho_de_funcao.py` | 121, apertado pela 122 e pela 123 |
+| Idioma dos identificadores | função ou classe de `app/` com nome em português (§9) | `test_nomes_em_ingles.py` | 124 |
 | Registro de gates | este arquivo listando todo gate que existe | `test_registro_de_gates.py` | 120 |
 
 ---

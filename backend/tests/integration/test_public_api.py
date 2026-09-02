@@ -7,7 +7,7 @@ silencioso e permanente. Todo o resto — escopo, limite, log — protege esse m
 
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -15,7 +15,9 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.clock import Clock
 from app.core.rls import set_tenant_context
+from app.domain.account.models import DEFAULT_TIMEZONE
 from app.domain.api_tokens.models import ApiRequest, ApiToken
 from app.domain.api_tokens.service import MAX_ACTIVE_TOKENS
 from app.domain.users.models import UserRole
@@ -407,3 +409,80 @@ async def test_escopo_desconhecido_e_recusado(
 
     assert resposta.status_code == 422
     assert "write:tudo" in resposta.json()["detail"]
+
+
+# --------------------------------------------------- aniversariantes (dívida 34)
+
+
+async def _criar_contato(
+    client: AsyncClient, user: SeededUser, *, nome: str, nascimento: date
+) -> None:
+    """Contato com data de nascimento. O ANO não importa — a regra 6 compara mês e dia."""
+    origem = await client.post(
+        "/api/v1/customer-origins", json={"name": f"Origem {nome}"}, headers=auth_header(user)
+    )
+    assert origem.status_code == 201, origem.text
+    resposta = await client.post(
+        "/api/v1/customers",
+        json={
+            "type": "PF",
+            "name": nome,
+            "origin_id": origem.json()["id"],
+            "birthdate": nascimento.isoformat(),
+        },
+        headers=auth_header(user),
+    )
+    assert resposta.status_code == 201, resposta.text
+
+
+async def test_aniversariantes_do_mes_nao_devolve_o_escritorio_inteiro(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Dívida 34: a rota devolvia os primeiros 1.000 contatos, não os aniversariantes.
+
+    O filtro só reconhecia `"day"` e `"month"`, e a rota mandava `"month:<n>"` — nenhuma
+    condição era aplicada. Este teste é o que faltava: a rota pública só tinha prova de que
+    EXISTE (`test_public_api_contract.py`), nunca de que filtra.
+    """
+    user = await make_user(role=UserRole.GESTOR)
+    token, _ = await _criar_token(client, user)
+    hoje = Clock(DEFAULT_TIMEZONE).today()
+    # Um mês de distância em cada sentido: nem o anterior nem o seguinte podem aparecer,
+    # e usar só um dos dois deixaria passar um erro de fronteira em dezembro/janeiro.
+    outro_mes = date(1990, 1 if hoje.month != 1 else 7, 15)
+
+    await _criar_contato(client, user, nome="Aniversariante", nascimento=hoje.replace(year=1990))
+    await _criar_contato(client, user, nome="Nasceu Noutro Mes", nascimento=outro_mes)
+
+    resposta = await client.get("/api/public/v1/customers/birthdays", headers=_bearer(token))
+
+    assert resposta.status_code == 200, resposta.text
+    nomes = {item["name"] for item in resposta.json()["items"]}
+    assert "Aniversariante" in nomes
+    assert "Nasceu Noutro Mes" not in nomes
+
+
+async def test_aniversariantes_respeita_o_mes_pedido(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Dívida 34, segundo defeito: o parâmetro `month` era decorativo.
+
+    Mesmo que o valor casasse, o filtro comparava com `today.month` — pedir dezembro em
+    setembro devolvia os de setembro. Aqui o mês pedido é sempre diferente do corrente.
+    """
+    user = await make_user(role=UserRole.GESTOR)
+    token, _ = await _criar_token(client, user)
+    hoje = Clock(DEFAULT_TIMEZONE).today()
+    pedido = 1 if hoje.month != 1 else 7
+
+    await _criar_contato(client, user, nome="Do Mes Pedido", nascimento=date(1990, pedido, 15))
+    await _criar_contato(client, user, nome="Do Mes Corrente", nascimento=hoje.replace(year=1990))
+
+    resposta = await client.get(
+        "/api/public/v1/customers/birthdays", params={"month": pedido}, headers=_bearer(token)
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    nomes = {item["name"] for item in resposta.json()["items"]}
+    assert "Do Mes Pedido" in nomes
+    assert "Do Mes Corrente" not in nomes

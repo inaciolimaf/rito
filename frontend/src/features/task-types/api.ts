@@ -1,7 +1,10 @@
-import { apiRequest } from "@/lib/api";
+import type { TaskComplexity, TaskDuration } from "@/lib/domainEnums.generated";
 
-export type TaskComplexity = "SIMPLES" | "MEDIA" | "MEDIA_ALTA" | "ALTA" | "ALTISSIMA";
-export type TaskDuration = "MIN_8" | "MIN_15" | "MIN_30" | "HOUR_1" | "HOUR_2_PLUS";
+// Reexportado para quem já importava daqui: o nome é o mesmo, a FONTE é o arquivo
+// gerado a partir dos `StrEnum` do backend (dívida 15).
+export type { TaskComplexity, TaskDuration };
+
+import { apiRequest } from "@/lib/api";
 
 export interface TaskTypeData {
   id: string;

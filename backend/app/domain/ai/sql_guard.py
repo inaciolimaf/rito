@@ -143,7 +143,7 @@ def _read_only_tree(raw_sql: str) -> exp.Expression:
     return tree
 
 
-def _relacoes_permitidas(tree: exp.Expression) -> list[str]:
+def _allowed_relations(tree: exp.Expression) -> list[str]:
     """Camadas 1 e 3: allowlist, valendo em qualquer profundidade da árvore."""
     relacoes = _relations(tree)
     if not relacoes:
@@ -163,7 +163,7 @@ def check_sql(raw_sql: str, *, has_financial_access: bool) -> CheckedSql:
     from sqlglot import exp
 
     tree = _read_only_tree(raw_sql)
-    relacoes = _relacoes_permitidas(tree)
+    relacoes = _allowed_relations(tree)
 
     financeiro = any(nome in FINANCIAL_RELATIONS for nome in relacoes) or any(
         coluna.name.lower() in FINANCIAL_COLUMNS for coluna in tree.find_all(exp.Column)

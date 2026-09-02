@@ -11,12 +11,11 @@ from sqlalchemy import (
     MetaData,
     Table,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class ClosureGoal(TenantMixin, Base):
@@ -33,7 +32,7 @@ class ClosureGoal(TenantMixin, Base):
         PGUUID(as_uuid=True), ForeignKey("action_groups.id")
     )
     monthly_target: Mapped[int]
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 # View barreira sobre a materialized view (migration 039) — o filtro de tenant está na

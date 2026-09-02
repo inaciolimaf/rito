@@ -4,12 +4,12 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, SmallInteger, UniqueConstraint, func, text
+from sqlalchemy import Boolean, ForeignKey, SmallInteger, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class WebhookEndpoint(TenantMixin, Base):
@@ -32,7 +32,7 @@ class WebhookEndpoint(TenantMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     failure_streak: Mapped[int] = mapped_column(SmallInteger(), default=0, server_default=text("0"))
     disabled_at: Mapped[datetime | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class WebhookDelivery(TenantMixin, Base):
@@ -60,4 +60,4 @@ class WebhookDelivery(TenantMixin, Base):
     error: Mapped[str | None] = mapped_column(default=None)
     delivered_at: Mapped[datetime | None] = mapped_column(default=None)
     next_attempt_at: Mapped[datetime | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

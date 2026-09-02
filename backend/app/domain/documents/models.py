@@ -3,13 +3,13 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func, text
+from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class DocumentScopeType(StrEnum):
@@ -46,7 +46,7 @@ class DocumentFolder(TenantMixin, Base):
     )
     name: Mapped[str]
     created_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class Document(TenantMixin, Base):
@@ -71,7 +71,7 @@ class Document(TenantMixin, Base):
     content_type: Mapped[str]
     size_bytes: Mapped[int]
     uploaded_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class ExtractionStatus(StrEnum):
@@ -126,4 +126,4 @@ class DocumentExtraction(TenantMixin, Base):
     )
     model: Mapped[str | None] = mapped_column(default=None)
     tokens_used: Mapped[int | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

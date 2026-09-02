@@ -1,11 +1,11 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, SmallInteger, func, text
+from sqlalchemy import ForeignKey, SmallInteger, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class Step(Base):
@@ -39,4 +39,4 @@ class Stage(TenantMixin, Base):
         default=None,
     )
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

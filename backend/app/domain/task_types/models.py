@@ -1,11 +1,11 @@
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, SmallInteger, func, text
+from sqlalchemy import ForeignKey, SmallInteger, text
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class TaskComplexity(StrEnum):
@@ -54,4 +54,4 @@ class TaskType(TenantMixin, Base):
     show_in_schedule: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_system: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

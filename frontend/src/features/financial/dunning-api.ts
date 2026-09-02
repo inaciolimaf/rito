@@ -1,8 +1,12 @@
+import type { DunningChannel, DunningStatus } from "@/lib/domainEnums.generated";
+
+// Reexportado para quem já importava daqui: o nome é o mesmo, a FONTE é o arquivo
+// gerado a partir dos `StrEnum` do backend (dívida 15).
+export type { DunningChannel, DunningStatus };
+
 import type { ListResponse } from "@/components/domain/types";
 import { apiRequest } from "@/lib/api";
 
-export type DunningChannel = "EMAIL" | "SMS" | "WHATSAPP";
-export type DunningStatus = "SENT" | "FAILED" | "SKIPPED";
 export type AgingBucket = "1-15" | "16-30" | "31-60" | "61-90" | "90+";
 
 export interface OverdueTransactionData {

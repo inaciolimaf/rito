@@ -2,12 +2,12 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class Publication(Base, TenantMixin):
@@ -66,7 +66,7 @@ class Publication(Base, TenantMixin):
         PGUUID(as_uuid=True), ForeignKey("lawsuits.id")
     )
     raw_payload: Mapped[dict[str, Any]] = mapped_column(JSONB)  # Any: item bruto do DJEN
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
     # Roteamento (spec 045, §5). `matched_by`: 'process_number' | 'lawyer_id' | 'ambiguous' |
     # 'manual' | null. `routed_by`: 'action_group' | 'term_user' | 'general' |
     # 'gestor_fallback' | null — as 4 rotas em cascata da regra do roteamento.
@@ -118,4 +118,4 @@ class PublicationRead(Base, TenantMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )
-    read_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    read_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

@@ -2,11 +2,11 @@ import uuid
 from datetime import date as date_type
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, SmallInteger, UniqueConstraint, func, text
+from sqlalchemy import ForeignKey, SmallInteger, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class Workflow(TenantMixin, Base):
@@ -18,7 +18,7 @@ class Workflow(TenantMixin, Base):
 
     name: Mapped[str]
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class WorkflowStep(TenantMixin, Base):

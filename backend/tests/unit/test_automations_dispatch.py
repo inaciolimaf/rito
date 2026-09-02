@@ -11,7 +11,12 @@ ramificação demais por buraco silencioso.
 """
 
 from app.domain.automations.actions import _ACTION_RUNNERS
-from app.domain.automations.conditions import _OPERATORS_BY_NAME, OPERATORS
+from app.domain.automations.conditions import (
+    _OPERATORS_BY_NAME,
+    _ORDER_BY_NAME,
+    OPERATORS,
+    evaluate,
+)
 from app.domain.automations.models import ActionKind
 
 # `llm_decision` não está em `_ACTION_RUNNERS` de propósito: `AutomationEngine.advance` a intercepta
@@ -23,7 +28,11 @@ ACOES_TRATADAS_FORA_DA_TABELA = {ActionKind.LLM_DECISION.value}
 # Os operadores de ORDEM vivem em `_compare`, não em `_OPERATORS_BY_NAME`: eles convertem os dois
 # lados para número (ou texto) antes de comparar, e carregar essa conversão em toda entrada
 # da tabela pioraria as outras cinco.
-OPERADORES_DE_ORDEM = {"gt", "lt", "gte", "lte"}
+# Lido de `_ORDER_BY_NAME`, não escrito à mão. Até a spec 124 este conjunto era um literal
+# aqui — um espelho manual da lógica de `_compare`, que naquela época era um `if/elif` com
+# fallback silencioso (dívida 36). Com os de ordem virando tabela no código, o teste passa a
+# ler a fonte, e um quinto operador de ordem entra nas contas sem ninguém editar o teste.
+OPERADORES_DE_ORDEM = set(_ORDER_BY_NAME)
 
 
 def test_toda_acao_do_enum_tem_execucao() -> None:
@@ -82,3 +91,28 @@ def test_nenhum_operador_implementado_fora_do_contrato() -> None:
     assert extras == [], "operador implementado e não declarado em `OPERATORS`:\n  " + "\n  ".join(
         extras
     )
+
+
+def test_operador_desconhecido_nao_satisfaz_a_condicao() -> None:
+    """Dívida 36: um operador fora da lista decidia como `lte`, em silêncio.
+
+    O caminho existia mesmo com os nove operadores declarados implementados — bastava alguém
+    apagar o teste de exaustividade acima para um décimo passar a decidir por «menor ou igual»
+    dentro de uma automação. Este teste fecha o CAMINHO, não o estado.
+
+    Os valores revelam o defeito antigo de propósito: `1 <= 2` é verdadeiro, então a condição
+    passaria a ser satisfeita se o fallback voltasse.
+    """
+    assert evaluate({"field": "n", "op": "operador_que_nao_existe", "value": 2}, {"n": 1}) is False
+
+
+def test_operadores_de_ordem_continuam_decidindo() -> None:
+    """A contraprova: os quatro de ordem seguem funcionando.
+
+    Sem ele, trocar o corpo de `_compare` por um `return False` cego passaria — e a correção
+    da dívida 36 teria quebrado os operadores que funcionavam.
+    """
+    assert evaluate({"field": "n", "op": "lte", "value": 2}, {"n": 1}) is True
+    assert evaluate({"field": "n", "op": "lt", "value": 2}, {"n": 1}) is True
+    assert evaluate({"field": "n", "op": "gt", "value": 2}, {"n": 1}) is False
+    assert evaluate({"field": "n", "op": "gte", "value": 1}, {"n": 1}) is True

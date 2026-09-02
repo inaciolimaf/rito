@@ -2,13 +2,13 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, func, text
+from sqlalchemy import CheckConstraint, ForeignKey, SmallInteger, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import CITEXT
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class PersonType(enum.StrEnum):
@@ -82,5 +82,5 @@ class Customer(TenantMixin, Base):
     rep_region: Mapped[str | None] = mapped_column(default=None)
     rep_postal_code: Mapped[str | None] = mapped_column(default=None)
     is_archived: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)

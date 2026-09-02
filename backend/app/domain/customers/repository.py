@@ -2,6 +2,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Literal
 
 from sqlalchemy import Case, ColumnElement, case, func, literal, or_, select
 from sqlalchemy.orm import InstrumentedAttribute
@@ -95,11 +96,27 @@ def _search_by_name_or_document(query: str) -> ColumnElement[bool]:
     )
 
 
-def _birthday_filter(birthdays: str | None, today: date) -> list[ColumnElement[bool]]:
-    """Regra 6: aniversário ignora o ano — compara mês, e no escopo do dia também o dia."""
-    if birthdays not in ("day", "month"):
+# O escopo do filtro de aniversário. Alias, e não `str`, porque a dívida 34 nasceu
+# exatamente de um `str` aceitar um valor que ninguém implementou.
+BirthdayScope = Literal["day", "month"]
+
+
+def _birthday_filter(
+    birthdays: BirthdayScope | None, month: int | None, today: date
+) -> list[ColumnElement[bool]]:
+    """Regra 6: aniversário ignora o ANO — compara mês, e no escopo do dia também o dia.
+
+    `month` só vale no escopo `month`, e serve à rota pública, que deixa o integrador pedir
+    um mês qualquer («quem faz aniversário em dezembro?») sem esperar dezembro chegar. No
+    escopo `day` ele é ignorado de propósito: «aniversariantes de hoje» é uma data completa,
+    e aceitar um mês diferente do de hoje devolveria lista sempre vazia.
+
+    Sem `month`, o mês é o de `today` — que já chega no fuso do escritório (spec 114).
+    """
+    if birthdays is None:
         return []
-    condicoes = [func.date_part("month", Customer.birthdate) == today.month]
+    alvo = today.month if birthdays == "day" else (month or today.month)
+    condicoes = [func.date_part("month", Customer.birthdate) == alvo]
     if birthdays == "day":
         condicoes.append(func.date_part("day", Customer.birthdate) == today.day)
     return condicoes
@@ -114,12 +131,12 @@ class CustomerQuery:
     domínio. Os nomes divergem porque a API fala `q` e `type`, e uma query fala `query` e
     `person_type`.
 
-    A divergência que importa é `birthdays`. No schema ele é `Literal["day", "month"]`; aqui
-    é `str`, porque a rota pública de aniversariantes manda `"month:<n>"` — um valor que o
-    schema não conseguiria expressar. Esse descasamento é a **dívida 34**: o filtro não
-    reconhece esse formato e devolve TODOS os contatos. A spec 116 não o consertou (é
-    refatoração), mas tornou o tipo honesto sobre ele — antes, o `str | None` solto na
-    assinatura escondia que havia duas linguagens.
+    `birthdays` foi a divergência que importava, e a **dívida 34** morava nela: a rota pública
+    mandava `"month:<n>"`, o filtro só reconhecia `"day"` e `"month"`, e a rota respondia os
+    primeiros mil contatos do escritório em vez dos aniversariantes. A spec 116 tornou o tipo
+    honesto sobre o descasamento; a 124 o eliminou, separando o ESCOPO (`birthdays`) do
+    PARÂMETRO (`birthday_month`) em dois campos tipados. Um valor que o schema não conseguia
+    expressar deixou de existir.
     """
 
     query: str | None = None
@@ -130,7 +147,8 @@ class CustomerQuery:
     created_from: date | None = None
     created_to: date | None = None
     has_active_lawsuit: bool | None = None
-    birthdays: str | None = None
+    birthdays: BirthdayScope | None = None
+    birthday_month: int | None = None
     archived: bool = False
 
 
@@ -167,7 +185,7 @@ class CustomerRepository(BaseRepository[Customer]):
             # menos um processo não arquivado. EXISTS correlacionado, não JOIN — um
             # contato com três processos ativos não pode aparecer três vezes na listagem.
             filters.append(_has_active_lawsuit_clause(q.has_active_lawsuit))
-        filters += _birthday_filter(q.birthdays, today)
+        filters += _birthday_filter(q.birthdays, q.birthday_month, today)
         return filters
 
     async def list_filtered(

@@ -1,6 +1,11 @@
+import type { AccountPlan, DocumentScopeType } from "@/lib/domainEnums.generated";
+
+// Reexportado para quem já importava daqui: o nome é o mesmo, a FONTE é o arquivo
+// gerado a partir dos `StrEnum` do backend (dívida 15).
+export type { AccountPlan, DocumentScopeType };
+
 import { apiRequest } from "@/lib/api";
 
-export type DocumentScopeType = "CUSTOMER" | "LAWSUIT";
 export type DocumentSortField = "name" | "created_at" | "size_bytes" | "content_type";
 export type DocumentSortOrder = "asc" | "desc";
 
@@ -113,8 +118,6 @@ export interface AccountStorageData {
   quota_bytes: number;
   plan: AccountPlan;
 }
-
-export type AccountPlan = "ESSENCIAL" | "BANCA_JURIDICA" | "BANCA_MAX" | "ELITE";
 
 export async function getAccountStorage(): Promise<AccountStorageData> {
   return apiRequest<AccountStorageData>("/api/v1/account/storage");

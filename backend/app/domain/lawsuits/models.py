@@ -10,7 +10,6 @@ from sqlalchemy import (
     Numeric,
     SmallInteger,
     UniqueConstraint,
-    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY as PGARRAY
@@ -19,7 +18,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 from app.domain.courts.models import Court, CourtSystem
 
 
@@ -116,14 +115,14 @@ class Lawsuit(TenantMixin, Base):
     # Mantida pela trigger trg_lawsuits_stage_entered_at (migration 051) — nunca escrita
     # pela aplicação; base do "tempo na etapa" do card do Kanban (spec 051, regra 2) e
     # da estagnação (052).
-    stage_entered_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    stage_entered_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
     # Escritas só por StagnationService (spec 052) — mover processo (na hora, regra 4),
     # job diário às 3h e troca de `stagnant_days` da etapa (regra 10). Nunca via trigger:
     # a regra depende de `stages.enable_stagnant_days`/`stagnant_days`, de outra tabela.
     is_stagnant: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     stagnant_since: Mapped[date | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
 
 
 class PartyPole(StrEnum):
@@ -154,7 +153,7 @@ class LawsuitParty(TenantMixin, Base):
     # tentar emitir CREATE TYPE num `create_all` de metadados (testes unitários puros).
     pole: Mapped[PartyPole] = mapped_column(PGENUM(PartyPole, name="party_pole", create_type=False))
     is_client: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class MovementOrigin(StrEnum):
@@ -191,7 +190,7 @@ class LawsuitMovement(TenantMixin, Base):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id"), default=None
     )
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class LawsuitSubject(TenantMixin, Base):
@@ -226,7 +225,7 @@ class LawsuitStageHistory(TenantMixin, Base):
     )
     to_stage_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("stages.id"))
     changed_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
-    changed_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    changed_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class WorkflowApplication(TenantMixin, Base):
@@ -251,7 +250,7 @@ class WorkflowApplication(TenantMixin, Base):
     posts_created: Mapped[list[uuid.UUID]] = mapped_column(
         PGARRAY(PGUUID(as_uuid=True)), default=list, server_default=text("'{}'")
     )
-    applied_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    applied_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class WorkflowSuppression(TenantMixin, Base):

@@ -177,7 +177,9 @@ async def get_tabular_report(
     if report_key not in REPORT_KEYS:
         raise HTTPException(status_code=404, detail="Relatório desconhecido.")
     filters = _filters_from_scope(scope, current_user, report_key)
-    service = TabularReportService(session=session, tenant_id=current_user.tenant_id)
+    service = TabularReportService(
+        session=session, tenant_id=current_user.tenant_id, timezone=clock.timezone_name
+    )
     return await service.fetch(report_key, filters, cursor=cursor, limit=limit, today=clock.today())
 
 
@@ -193,7 +195,9 @@ async def export_tabular_report(
     if report_key not in REPORT_KEYS:
         raise HTTPException(status_code=404, detail="Relatório desconhecido.")
     filters = _filters_from_scope(scope, current_user, report_key)
-    service = TabularReportService(session=session, tenant_id=current_user.tenant_id)
+    service = TabularReportService(
+        session=session, tenant_id=current_user.tenant_id, timezone=clock.timezone_name
+    )
     content = await service.export(report_key, filters, format_=format_, today=clock.today())
     return Response(content=content, media_type=_MIME_TYPES[format_])
 

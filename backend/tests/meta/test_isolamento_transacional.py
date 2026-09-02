@@ -31,7 +31,11 @@ TESTS_DIR = Path(__file__).resolve().parents[1]
 # runtime de IA) e `now()`, que no Postgres é o instante da TRANSAÇÃO e por isso
 # congela dentro de um teste transacional.
 TETO_DE_ARQUIVOS_COM_COMMITS = 19
-TETO_DE_TESTES_COM_COMMITS = 69
+# Spec 124: 69 → 70. O teste novo é `test_passos_anteriores_sobrevivem_ao_rollback_da_
+# requisicao` (dívida 27), e ele PRECISA de commit por definição: afirma que um passo gravado
+# numa sessão própria sobrevive ao rollback da transação da requisição. Um teste transacional
+# não conseguiria distinguir isso de qualquer outra escrita.
+TETO_DE_TESTES_COM_COMMITS = 70
 
 
 def _arquivos_de_teste() -> list[Path]:

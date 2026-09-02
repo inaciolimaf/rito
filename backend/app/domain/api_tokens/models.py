@@ -3,12 +3,12 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, SmallInteger, Text, func, text
+from sqlalchemy import ForeignKey, SmallInteger, Text, text
 from sqlalchemy.dialects.postgresql import ARRAY, INET
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class ApiToken(TenantMixin, Base):
@@ -32,7 +32,7 @@ class ApiToken(TenantMixin, Base):
     expires_at: Mapped[datetime | None] = mapped_column(default=None)
     revoked_at: Mapped[datetime | None] = mapped_column(default=None)
     created_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class ApiRequest(TenantMixin, Base):
@@ -52,4 +52,4 @@ class ApiRequest(TenantMixin, Base):
     status_code: Mapped[int] = mapped_column(SmallInteger())
     duration_ms: Mapped[int | None] = mapped_column(default=None)
     ip_address: Mapped[str | None] = mapped_column(INET(), default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

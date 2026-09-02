@@ -11,13 +11,12 @@ from sqlalchemy import (
     SmallInteger,
     Text,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class TermKind(enum.StrEnum):
@@ -82,7 +81,7 @@ class MonitoredTerm(Base, TenantMixin):
     alert_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("integration_alerts.id")
     )
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class TermSyncRun(Base, TenantMixin):
@@ -107,7 +106,7 @@ class TermSyncRun(Base, TenantMixin):
         PGUUID(as_uuid=True), ForeignKey("lawsuits.id", ondelete="CASCADE")
     )
     integration: Mapped[str] = mapped_column(Text, default="djen", server_default="djen")
-    started_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    started_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
     finished_at: Mapped[datetime | None]
     found_count: Mapped[int] = mapped_column(default=0, server_default="0")
     new_count: Mapped[int] = mapped_column(default=0, server_default="0")

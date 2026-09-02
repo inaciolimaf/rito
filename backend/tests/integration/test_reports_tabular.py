@@ -2,13 +2,18 @@
 materializada), com filtros comuns, keyset e rodapé de pontos onde a spec pede."""
 
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.rls import set_tenant_context
+from app.domain.account.models import DEFAULT_TIMEZONE
+from app.domain.customers.models import Customer
 from app.domain.users.models import UserRole
 from tests.clock import hoje
 from tests.integration.conftest import SeededUser, auth_header
@@ -21,13 +26,11 @@ from tests.integration.test_taskscore import _complete, _setup_post
 # que as fixtures criam a conta. O `DTZ` não pega este caso: `datetime.now(UTC)` TEM
 # fuso, só que o fuso errado para a pergunta «que dia é hoje no escritório».
 _TODAY = hoje()
-# Dívida 32: `created_at` é timestamp UTC, e os relatórios que filtram por ele comparam
-# com um intervalo de DATAS. Enquanto essa conversão não existir, os dois testes que
-# dependem de `created_at` precisam perguntar em dia UTC — senão, das 21h em diante, o
-# contato criado agora cai no dia UTC seguinte e some do filtro «de hoje até hoje».
-# O resto do arquivo usa `_TODAY` (dia do escritório), que é o certo para `scheduled_date`
-# e `closure_date`, que são DATAS e não timestamps.
-_HOJE_UTC = datetime.now(UTC).date()
+# A dívida 32 foi RESOLVIDA na spec 124: os relatórios convertem `created_at` para o fuso da
+# conta (`AT TIME ZONE`) antes de comparar com data. O arquivo inteiro passou a usar `_TODAY`
+# — o dia do escritório —, inclusive nos dois testes que perguntavam em dia UTC para
+# contornar o defeito. O contorno documentava o comportamento errado; agora o teste afirma o
+# certo, que é o mesmo «hoje» que o usuário enxerga na tela.
 
 
 @pytest.fixture
@@ -97,7 +100,7 @@ async def test_new_customers_filtra_por_periodo(
         client,
         factory.headers,
         "new_customers",
-        **{"from": _HOJE_UTC.isoformat(), "to": _HOJE_UTC.isoformat()},
+        **{"from": _TODAY.isoformat(), "to": _TODAY.isoformat()},
     )
     assert body["total"] >= 1
     assert all(item["created_at"] for item in body["items"])
@@ -122,7 +125,7 @@ async def test_ganhos_e_perdidos_por_closure_date_com_tempo_total(
         lawsuit_type_id=factory.type_id,
         stage_id=factory.stage_id,
         outcome="GANHO",
-        closure_date=_HOJE_UTC.isoformat(),  # dívida 32: comparado com created_at (UTC)
+        closure_date=_TODAY.isoformat(),
         fees_value="1500.00",
     )
     lost = await _create_lawsuit(
@@ -132,7 +135,7 @@ async def test_ganhos_e_perdidos_por_closure_date_com_tempo_total(
         lawsuit_type_id=factory.type_id,
         stage_id=factory.stage_id,
         outcome="PERDIDO",
-        closure_date=_HOJE_UTC.isoformat(),  # dívida 32
+        closure_date=_TODAY.isoformat(),
     )
 
     won_body = await _tabular(client, factory.headers, "won_lawsuits")
@@ -265,3 +268,39 @@ async def test_tenant_a_nao_ve_novos_clientes_de_tenant_b(
 
     body_b = await _tabular(client, factory_b.headers, "new_customers")
     assert body_b["total"] == 0
+
+
+async def test_contato_criado_no_fim_da_noite_nao_some_do_relatorio(
+    client: AsyncClient, factory: LawsuitFactory, app_session_factory: Any
+) -> None:
+    """Dívida 32, item 1: o contato das 23:47 sumia do filtro «de hoje até hoje».
+
+    `created_at` é `timestamptz`. Às 23:47 em São Paulo o instante já é do dia SEGUINTE em
+    UTC, e o relatório — que compara com um intervalo de DATAS — deixava o contato de fora.
+    O escritório via um cadastro que ele acabou de fazer não aparecer no relatório do dia.
+
+    O teste escreve o `created_at` na mão, no fuso do escritório, em vez de esperar as 23h:
+    quem afirma sobre tempo injeta o tempo (mesmo princípio da spec 114).
+    """
+    await _create_customer(factory.client, factory.headers, "Cadastrado Tarde")
+    quase_meia_noite = datetime.combine(_TODAY, time(23, 47), tzinfo=ZoneInfo(DEFAULT_TIMEZONE))
+    async with app_session_factory() as session, session.begin():
+        await set_tenant_context(session, factory.gestor.tenant_id)
+        await session.execute(
+            update(Customer)
+            .where(Customer.name == "Cadastrado Tarde")
+            .values(created_at=quase_meia_noite)
+        )
+
+    body = await _tabular(
+        client,
+        factory.headers,
+        "new_customers",
+        **{"from": _TODAY.isoformat(), "to": _TODAY.isoformat()},
+    )
+
+    nomes = [item["name"] for item in body["items"]]
+    assert "Cadastrado Tarde" in nomes, (
+        "contato criado às 23:47 no fuso do escritório sumiu do relatório de hoje — o "
+        "`created_at` voltou a ser comparado em UTC (dívida 32)."
+    )

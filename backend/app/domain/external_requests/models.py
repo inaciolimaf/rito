@@ -1,11 +1,11 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, SmallInteger, Text, func
+from sqlalchemy import ForeignKey, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base
+from app.core.models import CRIADO_EM, Base
 
 
 class ExternalRequest(Base):
@@ -28,4 +28,4 @@ class ExternalRequest(Base):
     duration_ms: Mapped[int | None] = mapped_column()
     attempt: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
     error: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

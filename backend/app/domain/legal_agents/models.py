@@ -2,12 +2,12 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, Integer, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, ForeignKey, Integer, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class LegalAgent(Base):
@@ -35,8 +35,8 @@ class LegalAgent(Base):
         PGUUID(as_uuid=True), ForeignKey("templates.id", ondelete="SET NULL"), default=None
     )
     is_enabled: Mapped[bool] = mapped_column(Boolean(), default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
 
 
 class AgentGeneration(TenantMixin, Base):
@@ -69,4 +69,4 @@ class AgentGeneration(TenantMixin, Base):
     saved_template_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("templates.id", ondelete="SET NULL"), default=None
     )
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

@@ -5,7 +5,7 @@ têm RLS (CLAUDE.md §4).
 
 import uuid
 from collections.abc import Sequence
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 from sqlalchemy import ColumnElement, Date, Row, Select, func, literal, select, tuple_
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.listing import paginate_keyset
+from app.domain.account.models import DEFAULT_TIMEZONE
 from app.domain.action_groups.models import LawsuitType
 from app.domain.customer_origins.models import CustomerOrigin
 from app.domain.customers.models import Customer
@@ -117,9 +118,24 @@ def _delayed_tasks_base(
     )
 
 
+def _office_date(coluna: InstrumentedAttribute[Any], timezone: str) -> ColumnElement[Any]:
+    """O DIA em que um timestamp cai, no fuso do escritório (dívida 32).
+
+    `created_at` é `timestamptz` — instante absoluto. Comparado direto com uma data, o
+    Postgres o converte usando o fuso da SESSÃO, que é UTC. Um contato cadastrado às 23:47
+    em São Paulo tem instante do dia seguinte em UTC e SUMIA do filtro «de hoje até hoje».
+
+    `AT TIME ZONE` converte antes de cortar o dia, e é o mesmo «hoje» que a spec 114 deu à
+    aplicação. O contorno anterior era `<= to + 1 dia`, que alargava a janela para todo mundo
+    em vez de acertar o fuso de ninguém — e ainda incluía o dia seguinte inteiro.
+    """
+    return func.cast(func.timezone(timezone, coluna), Date)
+
+
 class TabularReportRepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, timezone: str = DEFAULT_TIMEZONE) -> None:
         self.session = session
+        self.timezone = timezone
 
     async def _paginate(
         self,
@@ -260,10 +276,11 @@ class TabularReportRepository:
             .join(CustomerOrigin, CustomerOrigin.id == Customer.origin_id)
             .where(Customer.is_archived.is_(False))
         )
+        dia = _office_date(Customer.created_at, self.timezone)
         if from_ is not None:
-            stmt = stmt.where(Customer.created_at >= from_)
+            stmt = stmt.where(dia >= from_)
         if to is not None:
-            stmt = stmt.where(Customer.created_at <= to + timedelta(days=1))
+            stmt = stmt.where(dia <= to)
         return await self._paginate(
             stmt, sort_column=Customer.created_at, id_column=Customer.id, cursor=cursor, limit=limit
         )
@@ -297,10 +314,11 @@ class TabularReportRepository:
             stmt = stmt.where(Lawsuit.user_id == user_id)
         if action_group_id is not None:
             stmt = stmt.where(LawsuitType.action_group_id == action_group_id)
+        dia = _office_date(Lawsuit.created_at, self.timezone)
         if from_ is not None:
-            stmt = stmt.where(Lawsuit.created_at >= from_)
+            stmt = stmt.where(dia >= from_)
         if to is not None:
-            stmt = stmt.where(Lawsuit.created_at <= to + timedelta(days=1))
+            stmt = stmt.where(dia <= to)
         return await self._paginate(
             stmt, sort_column=Lawsuit.created_at, id_column=Lawsuit.id, cursor=cursor, limit=limit
         )
@@ -316,7 +334,10 @@ class TabularReportRepository:
         cursor: tuple[Any, uuid.UUID] | None,
         limit: int,
     ) -> tuple[Sequence[Row[Any]], int]:
-        total_days = (Lawsuit.closure_date - func.cast(Lawsuit.created_at, Date)).label(
+        # Dívida 32, item 2: `closure_date` é dia do escritório e `created_at` era cortado
+        # em UTC — a subtração podia sair NEGATIVA para um processo aberto e encerrado no
+        # mesmo dia, à noite. Os dois lados agora falam o mesmo fuso.
+        total_days = (Lawsuit.closure_date - _office_date(Lawsuit.created_at, self.timezone)).label(
             "total_days"
         )
         stmt = (

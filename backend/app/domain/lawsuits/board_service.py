@@ -71,7 +71,7 @@ def _no_filter(filters: LawsuitFilters) -> bool:
 def _move_to_stage(lawsuit: Lawsuit, to_stage_id: uuid.UUID) -> None:
     """Põe o processo na etapa nova e zera o relógio de estagnação.
 
-    `updated_at` recebe valor EXPLÍCITO mesmo tendo `onupdate=func.now()` (server-side):
+    `updated_at` recebe valor EXPLÍCITO mesmo tendo `onupdate=CRIADO_EM` (server-side):
     sem ele, o autoflush de uma query seguinte expira o atributo, e relê-lo fora de um
     `await` — na serialização da resposta — estoura `MissingGreenlet`. Mesmo motivo
     documentado em `LawsuitService.update`.

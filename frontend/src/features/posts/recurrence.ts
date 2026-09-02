@@ -10,6 +10,12 @@
  * anda um dia para trás em fusos negativos.
  */
 
+import type { RecurrenceWeek } from "@/lib/domainEnums.generated";
+
+// Reexportado para quem já importava daqui: o nome é o mesmo, a FONTE é o arquivo
+// gerado a partir dos `StrEnum` do backend (dívida 15).
+export type { RecurrenceWeek };
+
 export type RecurrencePeriod =
   | "DIARIA"
   | "SEMANAL"
@@ -19,8 +25,6 @@ export type RecurrencePeriod =
   | "TRIMESTRAL"
   | "SEMESTRAL"
   | "ANUAL";
-
-export type RecurrenceWeek = "DIA_EXATO" | "PRIMEIRA" | "SEGUNDA" | "TERCEIRA" | "ULTIMA";
 
 export const RECURRENCE_PERIOD_OPTIONS: { value: RecurrencePeriod; label: string }[] = [
   { value: "DIARIA", label: "Diária" },

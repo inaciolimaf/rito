@@ -293,13 +293,12 @@ async def list_birthdays(
     # Uma query a mais aqui é legítima: a API pública não está no orçamento do §11, e o
     # fuso não tem como vir de carona — `api_token_lookup` é função SECURITY DEFINER e
     # mudá-la pediria migration, que a spec 114 §5 não autoriza.
-    alvo = month or Clock(await AccountRepository(session).timezone()).today().month
+    hoje = Clock(await AccountRepository(session).timezone()).today()
     items, total = await CustomerRepository(session).list_filtered(
-        today=Clock(await AccountRepository(session).timezone()).today(),
-        # `"month:<n>"` NÃO é reconhecido pelo filtro, que só aceita "day" ou "month" —
-        # esta rota devolve todos os contatos, não os aniversariantes. É a dívida 34,
-        # anterior a esta spec e preservada aqui porque 116 é refatoração. Não copie.
-        filters=CustomerQuery(birthdays=f"month:{alvo}"),
+        today=hoje,
+        # `month=0` é «o mês corrente»: o `Query` já garante 0..12, e 0 é o único valor que
+        # não é mês nenhum. `birthday_month=None` faz o filtro cair em `hoje.month`.
+        filters=CustomerQuery(birthdays="month", birthday_month=month or None),
         page=Page(limit=1000),
     )
     return PublicCustomerPage(

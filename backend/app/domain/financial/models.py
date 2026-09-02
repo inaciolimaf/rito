@@ -14,14 +14,13 @@ from sqlalchemy import (
     SmallInteger,
     Table,
     UniqueConstraint,
-    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class EntryType(StrEnum):
@@ -61,7 +60,7 @@ class FinancialCategory(TenantMixin, Base):
     type: Mapped[EntryType] = mapped_column(PGENUM(EntryType, name="entry_type", create_type=False))
     is_default: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class CostCenter(TenantMixin, Base):
@@ -74,7 +73,7 @@ class CostCenter(TenantMixin, Base):
     name: Mapped[str]
     is_default: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AccountKind(StrEnum):
@@ -138,7 +137,7 @@ class BankAccount(TenantMixin, Base):
     # migration (ux_accounts_default), não pela aplicação.
     is_default: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class TransactionKind(StrEnum):
@@ -171,10 +170,12 @@ class Transaction(TenantMixin, Base):
         CheckConstraint(
             "lawsuit_id IS NULL OR customer_id IS NOT NULL", name="ck_tx_lawsuit_needs_customer"
         ),
-        CheckConstraint(
-            "payment_date IS NULL OR payment_date <= CURRENT_DATE",
-            name="ck_tx_payment_not_future",
-        ),
+        # `ck_tx_payment_not_future` saiu na spec 124 (dívida 32, item 3). Ele comparava com
+        # `CURRENT_DATE`, o dia do SERVIDOR, enquanto a aplicação recusa data futura no fuso
+        # do ESCRITÓRIO desde a spec 114 — duas regras com o mesmo nome e respostas
+        # diferentes por até três horas por dia. O banco não tem como acertar: o fuso mora em
+        # `accounts` e um CHECK não consulta outra tabela. Quem valida é o service, que tem o
+        # fuso e é testado.
     )
 
     kind: Mapped[TransactionKind] = mapped_column(
@@ -207,8 +208,8 @@ class Transaction(TenantMixin, Base):
     payment_date: Mapped[date | None] = mapped_column(default=None)
     # Regra 5: 1º dia do mês de `due_date` quando não informada — calculado no service.
     competence: Mapped[date]
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
     # Regra 057/1-9: preenchidos só quando o lançamento pertence a uma série (parcela
     # ou ocorrência de recorrência) — a maioria dos lançamentos continua avulsa.
     series_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -264,7 +265,7 @@ class TransactionSeries(TenantMixin, Base):
     # de uma vez para recorrência indefinida.
     generated_until: Mapped[date | None] = mapped_column(default=None)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 # View barreira sobre a materialized view account_daily_balances (migration 059) — o

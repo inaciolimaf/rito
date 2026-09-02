@@ -2,14 +2,14 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import ForeignKey, UniqueConstraint, func, text
+from sqlalchemy import ForeignKey, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ARRAY as PGARRAY
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import Text
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class Notification(TenantMixin, Base):
@@ -25,7 +25,7 @@ class Notification(TenantMixin, Base):
     body: Mapped[str | None] = mapped_column(default=None)
     link: Mapped[str | None] = mapped_column(default=None)
     read_at: Mapped[datetime | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class NotificationEvent(StrEnum):
@@ -63,8 +63,8 @@ class NotificationRule(TenantMixin, Base):
     channels: Mapped[list[str]] = mapped_column(
         PGARRAY(Text()), default=list, server_default=text("'{}'")
     )
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
 
 
 class UserNotificationPreference(TenantMixin, Base):

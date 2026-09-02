@@ -23,6 +23,7 @@ from typing import Any
 from sqlalchemy import Update, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.orm import make_transient
 
 from app.ai.graphs.base import PENDING_ACTION_KEY, GraphDeps, GraphResult, PendingAction
 from app.ai.graphs.registry import get_graph
@@ -374,6 +375,34 @@ class GraphRuntime:
         if thread.status == ThreadStatus.CANCELLED.value:
             raise ThreadCancelledError
 
+    def _step_row(
+        self,
+        thread: AiThread,
+        node: str,
+        kind: str,
+        output: dict[str, Any] | None,
+        duration_ms: int,
+        error: str | None,
+        state: dict[str, Any],
+    ) -> AiStep:
+        """A linha de `ai_steps` do nó que acabou de rodar.
+
+        Entrada e saída passam por `truncate_payload` porque o estado de um grafo carrega o
+        histórico da conversa inteira: sem o corte, um thread longo encheria a tabela de
+        auditoria com cópias do que já está nas mensagens.
+        """
+        return AiStep(
+            tenant_id=self.tenant_id,
+            thread_id=thread.id,
+            step=thread.step_count,
+            node=node,
+            kind=kind,
+            input=truncate_payload(state.get("input")),
+            output=truncate_payload(output),
+            duration_ms=duration_ms,
+            error=error,
+        )
+
     async def _record_step(
         self,
         thread: AiThread,
@@ -385,31 +414,73 @@ class GraphRuntime:
         state: dict[str, Any],
         error: str | None = None,
     ) -> None:
-        self.session.add(
-            AiStep(
-                tenant_id=self.tenant_id,
-                thread_id=thread.id,
-                step=thread.step_count,
-                node=node,
-                kind=kind,
-                input=truncate_payload(state.get("input")),
-                output=truncate_payload(output),
-                duration_ms=duration_ms,
-                error=error,
-            )
-        )
+        passo = self._step_row(thread, node, kind, output, duration_ms, error, state)
         # Regra 1: o checkpoint é o estado DEPOIS do nó — é dele que a retomada parte.
-        self.session.add(
-            AiCheckpoint(
-                tenant_id=self.tenant_id,
-                thread_id=thread.id,
-                step=thread.step_count,
-                node=node,
-                state=truncate_payload(state) or {},
-            )
+        checkpoint = AiCheckpoint(
+            tenant_id=self.tenant_id,
+            thread_id=thread.id,
+            step=thread.step_count,
+            node=node,
+            state=truncate_payload(state) or {},
         )
+        # A sessão da REQUISIÇÃO é tocada primeiro, e de propósito. É este `flush` que
+        # levanta quando ela morreu — e é desse levantamento que `_fail` depende para saber
+        # que precisa registrar a falha fora de banda. Commitar o passo antes disso, numa
+        # conexão própria e sadia, engoliria o sinal: a execução terminaria sem ninguém
+        # marcar o thread como `error`. Foi o que aconteceu na primeira versão desta
+        # correção, e os testes de timeout da spec 103 pegaram.
         thread.state = state
         await self.session.flush()
+        if not await self._commit_step(passo, checkpoint):
+            self.session.add(passo)
+            self.session.add(checkpoint)
+            await self.session.flush()
+
+    async def _commit_step(self, passo: AiStep, checkpoint: AiCheckpoint) -> bool:
+        """Grava passo e checkpoint numa sessão PRÓPRIA, que commita na hora (dívida 27).
+
+        Antes, os dois iam na transação de quem chamou. Uma execução que estourasse o tempo
+        dentro de uma query gravava o passo de erro fora de banda e terminava em `error` —
+        mas os passos ANTERIORES iam embora com o rollback dessa transação. `ai_steps` ficava
+        com um único passo numerado 3, sem o 1 e o 2: quem auditava via o fim sem o meio, e
+        um `ai_checkpoints` que só vale se a requisição inteira der certo não é checkpoint.
+
+        Escreve só as tabelas FILHAS. A linha de `ai_threads` continua sendo escrita pela
+        sessão da requisição, e de propósito: ela já está travada por essa transação desde o
+        primeiro flush, e uma segunda conexão tentando atualizá-la esperaria o commit que
+        ainda não veio — um deadlock trocado por uma meia-verdade.
+
+        Devolve `False` quando não deu para gravar por fora (sem engine, ou thread ainda não
+        comitado). Aí quem chama volta ao caminho antigo: melhor o registro viver na
+        transação da requisição do que não existir.
+        """
+        bind = self.session.bind
+        if not isinstance(bind, AsyncEngine):  # pragma: no cover — só em teste com bind exótico
+            return False
+        try:
+            async with AsyncSession(bind) as propria, propria.begin():
+                await set_tenant_context(propria, self.tenant_id)
+                propria.add(passo)
+                propria.add(checkpoint)
+        except SQLAlchemyError:
+            # O caso conhecido é FK: thread criado na transação da requisição e ainda não
+            # comitado, que outra conexão não enxerga. `create_durable_thread` existe para
+            # isso não acontecer em produção (spec 103) — este ramo cobre o resto.
+            logger.warning(
+                "Passo %s do thread %s não pôde ser comitado à parte; vai na transação da "
+                "requisição.",
+                passo.step,
+                passo.thread_id,
+            )
+            propria_falhou = True
+        else:
+            propria_falhou = False
+        if propria_falhou:
+            # Os objetos foram associados à sessão que morreu; refaz o vínculo com a de quem
+            # chamou, senão o `add` abaixo levanta por identidade já registrada.
+            make_transient(passo)
+            make_transient(checkpoint)
+        return not propria_falhou
 
     async def _interrupt(self, thread: AiThread, state: dict[str, Any]) -> GraphResult:
         pending = state.get(PENDING_ACTION_KEY)

@@ -1,13 +1,13 @@
 import uuid
 from datetime import date, datetime, time
 
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func, text
+from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import ENUM as PGENUM
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.dates import RecurrencePeriod, RecurrenceWeek
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 # Os enums de recorrência moram em app/core/dates.py desde a spec 040 (alvo 1) — aqui
 # ficam re-exportados: schemas/services/testes continuam importando de posts.models e
@@ -81,8 +81,8 @@ class Post(TenantMixin, Base):
     partner_tenant_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("tenants.id"), default=None
     )
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)
 
 
 class PostUser(TenantMixin, Base):
@@ -147,4 +147,4 @@ class PostRecurrence(TenantMixin, Base):
     occurrences_created: Mapped[int] = mapped_column(default=0, server_default=text("0"))
     last_generated_date: Mapped[date | None] = mapped_column(default=None)
     is_active: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

@@ -1,7 +1,12 @@
+import type { TemplateType } from "@/lib/domainEnums.generated";
+
+// Reexportado para quem já importava daqui: o nome é o mesmo, a FONTE é o arquivo
+// gerado a partir dos `StrEnum` do backend (dívida 15).
+export type { TemplateType };
+
 import type { ListResponse } from "@/components/domain/types";
 import { apiRequest, apiRequestBlob } from "@/lib/api";
 
-export type TemplateType = "CONTRATO" | "PETICAO" | "RECURSO" | "DOCUMENTO";
 export type TemplateView = "all" | "trash" | TemplateType;
 
 export interface TemplateData {

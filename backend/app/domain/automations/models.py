@@ -13,14 +13,13 @@ from sqlalchemy import (
     Numeric,
     SmallInteger,
     UniqueConstraint,
-    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.models import Base, TenantMixin
+from app.core.models import CRIADO_EM, Base, TenantMixin
 
 
 class TriggerKind(StrEnum):
@@ -93,7 +92,7 @@ class Automation(TenantMixin, Base):
     # por acaso disparou o evento — senão a mesma regra faria coisas diferentes conforme
     # quem mexeu no processo.
     created_by: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AutomationAction(TenantMixin, Base):
@@ -156,7 +155,7 @@ class AutomationRun(TenantMixin, Base):
     next_action_at: Mapped[datetime | None] = mapped_column(default=None)
     waiting_on_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), default=None)
     error: Mapped[str | None] = mapped_column(default=None)
-    started_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    started_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
     finished_at: Mapped[datetime | None] = mapped_column(default=None)
 
 
@@ -183,7 +182,7 @@ class AutomationRunStep(TenantMixin, Base):
     status: Mapped[str]
     detail: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
     error: Mapped[str | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
 
 
 class AutomationDecision(TenantMixin, Base):
@@ -216,4 +215,4 @@ class AutomationDecision(TenantMixin, Base):
     cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 6), default=None)
     fell_back: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
     fallback_reason: Mapped[str | None] = mapped_column(default=None)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)

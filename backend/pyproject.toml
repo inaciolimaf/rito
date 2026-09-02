@@ -60,9 +60,15 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RET", "PTH", "ERA", "TID", "ICN"]
 # B008: Depends()/Header() em default de parâmetro é o idioma padrão do FastAPI.
 ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# CLAUDE.md §9: migration commitada não se edita. As duas ocorrências de ERA001
+# (054:30, 088:49) são anteriores a esta spec e ficam onde estão — o ganho de
+# apagá-las não paga o precedente de mexer em migration aplicada.
+"alembic/versions/*.py" = ["ERA001"]
 
 [tool.black]
 line-length = 100

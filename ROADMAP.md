@@ -485,9 +485,10 @@ Backend de 92–97 s para **82 s**; tenants acumulados de 1.126 para **0**; −6
 Liga `C90` com `max-complexity = 6` e resolve as 41 funções acima do teto — de `_build_conditions` (23) para baixo.
 **Aceite:** `ruff check .` sem C901; no máximo 3 `noqa` justificados, travados por meta-teste. **t:** 0 s. **Deps:** 104
 
-### ⬜ 107 — Higiene de estilo: RET, PTH, ERA, TID, ICN
+### ✅ 107 — Higiene de estilo: RET, PTH, ERA, TID, ICN
 Quatro famílias com zero violações hoje; `ERA001` tem 2, ambas em migration commitada — exceção declarada no `pyproject.toml` citando o §9.
 **Aceite:** as cinco no `select`; nenhuma linha de `app/`, `tests/` ou `scripts/` alterada. **t:** 0 s. **Deps:** —
+Recontagem no HEAD: sem drift — as mesmas 2 `ERA001`, nas mesmas duas migrations. Quatro das cinco famílias entraram com zero violação, que é o ponto: o gate trava um comportamento que o projeto já tinha, antes que ele se perca.
 
 ### ⬜ 108 — ASYNC: I/O bloqueante em corrotina
 Duas ocorrências de `ASYNC240` — `integrations/ocr/tesseract.py:61` e um teste. `anyio.Path` ou `to_thread`, o padrão que o `storage/s3.py` já usa.

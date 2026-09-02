@@ -118,6 +118,23 @@ TEST_MIGRATIONS_DATABASE_URL=postgresql+asyncpg://rito:rito@localhost:5432/rito_
 Isso dá a ele `rito_test_a106_gw0`, que não colide. Ainda assim: no máximo 2 agentes testando
 ao mesmo tempo, e nunca a suíte inteira.
 
+**Armadilha do template exclusivo — dívida 29.** Template novo dispara o caminho de
+`_preparar_template()` que a trava quebrada deveria proteger, e os 12 workers migram o mesmo
+banco ao mesmo tempo (`UniqueViolationError` em migration, suíte morta antes do primeiro
+teste). Enquanto a dívida 29 não fecha, **migre o template à mão antes**:
+
+```bash
+cd backend && MIGRATIONS_DATABASE_URL=postgresql+asyncpg://rito:rito@localhost:5432/rito_test_aNNN \
+  uv run alembic upgrade head
+```
+
+Descoberto no ciclo da 117, que foi o primeiro a exercitar o caminho — e a razão de a dívida
+existir é que `scripts/run-tests.sh` migra antes, então em 100 specs ninguém passou por ali.
+
+**Medição noturna sai errada — dívida 30.** Depois das 21h de Brasília, 12 testes falham por
+fronteira de data (`date.today()` lendo UTC). Qualquer número medido à noite — cobertura,
+wall-clock, orçamento de query — sai baixo, e o alvo é a spec 114.
+
 ---
 
 ## 3. As ondas
@@ -131,6 +148,11 @@ ao mesmo tempo, e nunca a suíte inteira.
 | **117** | Piso de cobertura | configs de cobertura, passo de CI, `coverage.json` |
 | **118** | Gate de camadas | 2 routers com `select()`, 14 routers → service, `LawsuitSource` |
 | **119** | Teto de duplicação | **só frontend** + `.jscpd.json` |
+
+**Ordem de integração dentro da onda: 107, 108, 118, 119 e só então 117.** O piso de cobertura
+da 117 tem que ser medido sobre a árvore já refatorada — medir antes da 118 e da 119 trava um
+piso que a própria onda invalida. Medição feita no meio da 118 já deu 90,61% contra os 91,16%
+da árvore limpa.
 
 Única atenção: a 118 mexe em `app/domain/lawsuits/router.py`, que também está no inventário da
 106. Como a 106 só entra na Onda B, não há simultaneidade — mas a 106 deve **recontar depois

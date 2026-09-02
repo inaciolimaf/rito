@@ -662,3 +662,69 @@ o teste quer medir. Subir o `testTimeout` do arquivo é o contorno preguiçoso: 
 sintoma e o próximo host mais frio o traz de volta.
 
 **Spec-alvo:** 110 — a refatoração cujo objeto é exatamente gate que deixou de morder.
+
+---
+
+## 29. A trava do preparo do template é solta antes de proteger qualquer coisa
+
+Achada no ciclo da spec 117, ao rodar a suíte com um template exclusivo — que é
+exatamente o que o `docs/PLANO-ONDAS-106-121.md` §2.2 manda um agente fazer para não
+colidir com outro.
+
+`tests/conftest.py:96` toma a trava e `tests/conftest.py:113` a devolve:
+
+```python
+_psql(maintenance_url, f"SELECT pg_advisory_lock({_TEMPLATE_LOCK_KEY})")
+try:
+    ...
+finally:
+    _psql(maintenance_url, f"SELECT pg_advisory_unlock({_TEMPLATE_LOCK_KEY})")
+```
+
+Só que `_psql` (`conftest.py:59-64`) abre uma conexão asyncpg e a **fecha no `finally`**.
+`pg_advisory_lock` é trava de **sessão**: ela morre junto com a conexão. Ou seja, a trava
+é solta no instante seguinte ao ser tomada, e o `pg_advisory_unlock` roda numa conexão
+nova que não detém trava nenhuma — o Postgres responde `false` e emite warning, que
+ninguém lê porque o retorno é descartado.
+
+**Por que ninguém viu em 100 specs:** no caminho normal, `scripts/run-tests.sh` roda
+`alembic upgrade head` sobre o template *antes* de o pytest subir. Quando os 12 workers do
+`-n auto` chegam em `_preparar_template`, `_template_esta_pronto()` devolve `True` para
+todos e ninguém entra no bloco protegido. A trava quebrada nunca é exercitada.
+
+**Quando morde:** template novo, sem o `alembic upgrade` prévio. Os 12 workers entram
+juntos no bloco, todos fazem `DROP DATABASE` / `CREATE DATABASE` e disparam 12 `alembic
+upgrade head` concorrentes sobre o mesmo banco. O sintoma é `UniqueViolationError` em
+migration, e a suíte inteira cai antes do primeiro teste.
+
+**Correção:** a trava precisa viver na mesma conexão que o trabalho que ela protege — uma
+conexão aberta em `_preparar_template` e mantida do `pg_advisory_lock` até o
+`pg_advisory_unlock`, com `_psql` usada só para o resto. Alternativa mais simples e talvez
+melhor: `pg_advisory_lock` numa conexão própria mantida viva pelo escopo do `with`.
+
+**Spec-alvo:** 110 — é auditoria da 105, e este é o caso exemplar de gate que só parece
+funcionar porque o caminho que o exercita nunca é tomado.
+
+---
+
+## 30. A suíte backend fica vermelha depois das 21h de Brasília
+
+Medida no ciclo da spec 117: rodando às 22h13 locais (01h13 UTC do dia seguinte), **12
+testes falham** por fronteira de data. Confirmado de novo às 22h25 locais.
+
+A causa é a dívida que a spec 114 vai pagar: 94 chamadas a `date.today()` leem o relógio
+do **processo**, que em UTC já virou o dia. Um teste que semeia "vence hoje" com data
+local e afirma "não está vencido" recebe do servidor um "hoje" que é amanhã.
+
+O que torna isto dívida por si só, e não só um sintoma da 114: **o gate de wall-clock e o
+gate de query budget rodam sobre uma suíte que não é determinística no tempo**. Um PR
+aberto à noite reprova; o mesmo PR reprovado passa de manhã sem uma linha mudar. Isso
+treina todo mundo a reexecutar CI em vez de ler falha — que é o mesmo estrago da dívida 28,
+por outro caminho.
+
+**Correção:** é a spec 114 inteira (`core/clock.py` injetado por `Depends`). O que esta
+dívida acrescenta é a **prioridade**: enquanto ela não fecha, qualquer medição noturna da
+suíte — cobertura, wall-clock, orçamento de query — sai errada para baixo, e ninguém sabe
+disso ao ler o número.
+
+**Spec-alvo:** 114.

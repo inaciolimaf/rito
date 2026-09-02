@@ -12,12 +12,13 @@ import time
 import uuid
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.ai.tools.base import (
     MAX_CALLS_PER_STEP,
     MAX_OUTPUT_BYTES,
     ToolContext,
+    ToolDef,
     ToolError,
     get_tool,
 )
@@ -81,6 +82,23 @@ def cap_output(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _validated_params(definition: ToolDef, name: str, arguments: dict[str, Any]) -> BaseModel:
+    """Argumentos do modelo validados pelo schema da ferramenta.
+
+    O erro vira `ToolError`, não `ValidationError`: quem lê é o MODELO, na volta seguinte
+    da conversa, e ele precisa de uma frase que diga o que corrigir. Só o primeiro problema
+    entra na mensagem — despejar dez erros de Pydantic gasta contexto e não ajuda a acertar.
+    """
+    try:
+        return definition.params_model.model_validate(arguments)
+    except ValidationError as exc:
+        raise ToolError(
+            "invalid_arguments",
+            f"Argumentos inválidos para {name}: {exc.error_count()} problema(s). "
+            f"{exc.errors()[0].get('msg', '')}",
+        ) from exc
+
+
 class ToolRunner:
     """Um runner por PASSO do grafo — é ele que conta as chamadas do passo (regra 11)."""
 
@@ -108,14 +126,7 @@ class ToolRunner:
                 return await self._propose_write(write_definition, arguments, started)
             definition = get_tool(name)
             definition.check_permission(self.ctx.user)
-            try:
-                params = definition.params_model.model_validate(arguments)
-            except ValidationError as exc:
-                raise ToolError(
-                    "invalid_arguments",
-                    f"Argumentos inválidos para {name}: {exc.error_count()} problema(s). "
-                    f"{exc.errors()[0].get('msg', '')}",
-                ) from exc
+            params = _validated_params(definition, name, arguments)
             self.calls_in_step += 1
             payload = cap_output(await definition.handler(self.ctx, params))
         except ToolError as exc:

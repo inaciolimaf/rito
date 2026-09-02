@@ -29,7 +29,7 @@ from app.core.locks import RedisSyncLock
 from app.core.redis import create_redis_client
 from app.domain.monitored_terms.models import MonitoredTerm
 from app.domain.monitored_terms.repository import MonitoredTermRepository
-from app.domain.monitored_terms.sync import TermSyncService
+from app.domain.monitored_terms.sync import PublicationSource, TermSyncService
 from app.integrations.djen import DjenClient
 from app.integrations.djen.source import DjenPublicationSource
 from app.integrations.http.audit import DbAuditSink, SafeAuditSink
@@ -83,6 +83,41 @@ def _djen_http_client(
     )
 
 
+async def _sync_each_tenant(
+    by_tenant: dict[uuid.UUID, list[MonitoredTerm]],
+    *,
+    session_factory: async_sessionmaker[AsyncSession],
+    source: PublicationSource,
+    lock: RedisSyncLock,
+) -> tuple[int, int]:
+    """Sincroniza tenant por tenant e devolve `(ok, falhas)`.
+
+    Cada tenant ganha a SUA sessão: o `app.tenant_id` do RLS vive na sessão, e reaproveitar
+    uma só entre tenants faria o segundo enxergar o contexto do primeiro. Falha de um tenant
+    vira contador, não exceção — a varredura é cross-tenant e não pode parar no primeiro.
+    """
+    settings = get_settings()
+    channels = create_messaging_channels()
+    ok = failed = 0
+    for tenant_id, terms in by_tenant.items():
+        async with session_factory() as session:
+            service = TermSyncService(
+                session,
+                tenant_id,
+                source,
+                lock=lock,
+                lock_ttl_seconds=settings.djen_sync_lock_ttl_seconds,
+                cron=settings.djen_sync_cron,
+                channels=channels,
+            )
+            for run in await service.sync_terms(terms):
+                if run.error is None:
+                    ok += 1
+                else:
+                    failed += 1
+    return ok, failed
+
+
 async def run_due_syncs(term_id: uuid.UUID | None = None) -> dict[str, int]:
     """Executa a varredura. Recebe a infra de produção montada na hora (o worker
     roda fora do ciclo de request); devolve contadores para o resultado da task."""
@@ -108,24 +143,9 @@ async def run_due_syncs(term_id: uuid.UUID | None = None) -> dict[str, int]:
         for term in selected:
             by_tenant.setdefault(term.tenant_id, []).append(term)
 
-        channels = create_messaging_channels()
-        ok = failed = 0
-        for tenant_id, terms in by_tenant.items():
-            async with session_factory() as session:
-                service = TermSyncService(
-                    session,
-                    tenant_id,
-                    source,
-                    lock=lock,
-                    lock_ttl_seconds=settings.djen_sync_lock_ttl_seconds,
-                    cron=settings.djen_sync_cron,
-                    channels=channels,
-                )
-                for run in await service.sync_terms(terms):
-                    if run.error is None:
-                        ok += 1
-                    else:
-                        failed += 1
+        ok, failed = await _sync_each_tenant(
+            by_tenant, session_factory=session_factory, source=source, lock=lock
+        )
         return {"terms": len(selected), "ok": ok, "failed": failed}
     finally:
         await http.aclose()

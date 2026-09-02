@@ -174,21 +174,31 @@ class LawsuitStatsRepository:
         return int(value or 0)
 
 
+def _stats_from_cache(cached: bytes | str) -> LawsuitStats:
+    """Reconstrói os cartões a partir do JSON guardado no cache.
+
+    `closure_goal` é opcional: escritório sem meta de fechamento cadastrada grava `null`, e
+    o widget simplesmente não aparece na tela. `raw.get` e não `raw[...]` porque a chave
+    pode faltar em entrada gravada antes de a meta existir (spec 071).
+    """
+    raw = json.loads(cached)
+    raw_goal = raw.get("closure_goal")
+    return LawsuitStats(
+        active=StatsCard(**raw["active"]),
+        closed_this_month=StatsCard(**raw["closed_this_month"]),
+        archived_this_month=StatsCard(**raw["archived_this_month"]),
+        volume_by_step=[StepVolume(**item) for item in raw["volume_by_step"]],
+        closure_goal=ClosureGoalWidget(**raw_goal) if raw_goal else None,
+    )
+
+
 async def get_stats(
     session: AsyncSession, tenant_id: uuid.UUID, month: date, cache: StatsCache
 ) -> LawsuitStats:
     key = cache_key(tenant_id, month)
     cached = await cache.get(key)
     if cached is not None:
-        raw = json.loads(cached)
-        raw_goal = raw.get("closure_goal")
-        return LawsuitStats(
-            active=StatsCard(**raw["active"]),
-            closed_this_month=StatsCard(**raw["closed_this_month"]),
-            archived_this_month=StatsCard(**raw["archived_this_month"]),
-            volume_by_step=[StepVolume(**item) for item in raw["volume_by_step"]],
-            closure_goal=ClosureGoalWidget(**raw_goal) if raw_goal else None,
-        )
+        return _stats_from_cache(cached)
 
     repository = LawsuitStatsRepository(session)
     active_now, active_prev, closed, closed_prev, archived, archived_prev = (

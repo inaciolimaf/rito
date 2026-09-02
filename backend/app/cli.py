@@ -81,6 +81,23 @@ async def _db_seed(settings: Settings) -> int:
     return 0
 
 
+def _report_tenant_created(
+    args: argparse.Namespace, *, tenant_id: uuid.UUID, senha: str, criados: dict[str, int]
+) -> None:
+    """O resumo do que foi criado, para quem rodou o comando no terminal.
+
+    A senha só aparece quando foi sorteada — repetir na tela uma senha que o operador já
+    digitou não acrescenta nada e a deixa no histórico do terminal por escrito.
+    """
+    print(f"escritório criado: {args.name} ({args.slug})")
+    print(f"  tenant_id: {tenant_id}")
+    print(f"  gestor:    {args.admin_email}")
+    if not args.admin_password:
+        print(f"  senha:     {senha}   <- anote agora; não é exibida de novo")
+    for catalogo, quantidade in criados.items():
+        print(f"  {catalogo}: {quantidade}")
+
+
 async def _tenant_create(settings: Settings, args: argparse.Namespace) -> int:
     engine = _admin_engine(settings)
     # Senha sorteada quando não informada: obriga o primeiro acesso a passar por
@@ -116,13 +133,7 @@ async def _tenant_create(settings: Settings, args: argparse.Namespace) -> int:
     finally:
         await engine.dispose()
 
-    print(f"escritório criado: {args.name} ({args.slug})")
-    print(f"  tenant_id: {tenant_id}")
-    print(f"  gestor:    {args.admin_email}")
-    if not args.admin_password:
-        print(f"  senha:     {senha}   <- anote agora; não é exibida de novo")
-    for catalogo, quantidade in criados.items():
-        print(f"  {catalogo}: {quantidade}")
+    _report_tenant_created(args, tenant_id=tenant_id, senha=senha, criados=criados)
     return 0
 
 

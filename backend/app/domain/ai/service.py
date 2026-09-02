@@ -227,6 +227,37 @@ class AiRunner:
             feature = replace(feature, model=self.model_override)
         return feature
 
+    async def _record_error(
+        self,
+        feature: ResolvedFeature,
+        model: str,
+        motivo: str,
+        *,
+        started: float,
+        user_id: uuid.UUID | None,
+        messages: Sequence[Message],
+    ) -> None:
+        """Registra a chamada que falhou E COMITA, antes de a exceção subir (regra 6).
+
+        O commit explícito é o ponto: a sessão por request faz rollback em qualquer
+        exceção, e sem ele exatamente a chamada que falhou — a que mais interessa auditar —
+        sumiria junto. Vale para os dois caminhos de falha, e é por isso que eles são o
+        mesmo método.
+        """
+        await self._record(
+            CallOutcome(
+                model=model,
+                status=STATUS_ERROR,
+                usage=Usage(),
+                latency_ms=_elapsed_ms(started),
+                error=motivo,
+            ),
+            feature=feature,
+            user_id=user_id,
+            messages=messages,
+        )
+        await self._commit_usage()
+
     async def _try_fallback(
         self,
         *,
@@ -248,37 +279,27 @@ class AiRunner:
         ler primeiro, e o anterior é contexto.
         """
         if feature.fallback_model is None:
-            await self._record(
-                CallOutcome(
-                    model=feature.model,
-                    status=STATUS_ERROR,
-                    usage=Usage(),
-                    latency_ms=_elapsed_ms(started),
-                    error=str(first_error),
-                ),
-                feature=feature,
+            await self._record_error(
+                feature,
+                feature.model,
+                str(first_error),
+                started=started,
                 user_id=user_id,
                 messages=messages,
             )
-            await self._commit_usage()
             raise first_error
 
         try:
             response = await self._call(feature, messages, tools, feature.fallback_model)
         except LLMError as fallback_error:
-            await self._record(
-                CallOutcome(
-                    model=feature.fallback_model,
-                    status=STATUS_ERROR,
-                    usage=Usage(),
-                    latency_ms=_elapsed_ms(started),
-                    error=f"{first_error} | fallback: {fallback_error}",
-                ),
-                feature=feature,
+            await self._record_error(
+                feature,
+                feature.fallback_model,
+                f"{first_error} | fallback: {fallback_error}",
+                started=started,
                 user_id=user_id,
                 messages=messages,
             )
-            await self._commit_usage()
             raise
         await self._record(
             CallOutcome(
@@ -294,6 +315,33 @@ class AiRunner:
             messages=messages,
         )
         return response
+
+    async def _record_success(
+        self,
+        response: LLMResponse,
+        feature: ResolvedFeature,
+        started: float,
+        user_id: uuid.UUID | None,
+        messages: Sequence[Message],
+    ) -> None:
+        """O registro em `ai_usage` da chamada que deu certo (regra 7 do CLAUDE.md).
+
+        A latência é medida a partir de `started`, que é anterior ao `_call` — inclui de
+        propósito o tempo do fallback quando houve um, porque é esse o tempo que o usuário
+        esperou.
+        """
+        await self._record(
+            CallOutcome(
+                model=feature.model,
+                status=STATUS_OK,
+                usage=response.usage,
+                latency_ms=_elapsed_ms(started),
+                response=response,
+            ),
+            feature=feature,
+            user_id=user_id,
+            messages=messages,
+        )
 
     async def run(
         self,
@@ -328,18 +376,7 @@ class AiRunner:
                 user_id=user_id,
             )
 
-        await self._record(
-            CallOutcome(
-                model=feature.model,
-                status=STATUS_OK,
-                usage=response.usage,
-                latency_ms=_elapsed_ms(started),
-                response=response,
-            ),
-            feature=feature,
-            user_id=user_id,
-            messages=messages,
-        )
+        await self._record_success(response, feature, started, user_id, messages)
         if use_cache:
             await self.budget.store(
                 feature_key=feature_key,

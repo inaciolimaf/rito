@@ -389,6 +389,24 @@ class ResilientHttpClient:
             request_headers=request_headers,
         )
 
+    async def _send_call(
+        self, call: _Call, policy: HostPolicy, request_headers: dict[str, str]
+    ) -> tuple[httpx.Response, bytes]:
+        """Uma tentativa: desdobra o `_Call` nos argumentos que o `_send` espera.
+
+        Existe só para tirar a lista de campos de dentro do laço — o `try/except` que a
+        envolve fica de uma linha, e a leitura passa a ser sobre a política de retentativa
+        em vez de sobre a assinatura do envio.
+        """
+        return await self._send(
+            call.method,
+            call.url,
+            headers=request_headers,
+            params=call.params,
+            content=call.content,
+            timeout_s=policy.timeout_s,
+        )
+
     async def _retry_loop(
         self,
         call: _Call,
@@ -411,14 +429,7 @@ class ResilientHttpClient:
         for attempt in range(1, total_attempts + 1):
             started = self._clock()
             try:
-                raw, body = await self._send(
-                    call.method,
-                    call.url,
-                    headers=request_headers,
-                    params=call.params,
-                    content=call.content,
-                    timeout_s=policy.timeout_s,
-                )
+                raw, body = await self._send_call(call, policy, request_headers)
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 # Regra 1: erro de transporte é transitório — retenta.
                 last_error, last_status = exc, None

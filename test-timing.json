@@ -1,6 +1,6 @@
 {
   "budget_seconds": 300,
-  "last_measured_wall_clock_seconds": 158,
+  "last_measured_wall_clock_seconds": 129,
   "last_measured_at": "2026-09-02",
   "specs": {
     "001": {
@@ -402,6 +402,10 @@
     "121": {
       "wall_clock_seconds": 158,
       "notes": "Teto de linhas por funcao, degrau 1: backend em 50 linhas LIQUIDAS de corpo (docstring, decorador e assinatura fora). 1616 backend (1615 da 120 + 3 do test_tamanho_de_funcao.py) + 313 frontend + 10 e2e. Recontagem ANTES de mexer, como a §13 exige: 346 funcoes acima de 30 (118 backend + 228 frontend), o maior volume da serie — a spec estimava 134 + 225. Escopo cortado para o BACKEND por decisao do usuario; o frontend vira spec 122. De 20 funcoes acima de 50 para ZERO, em 29 extracoes, zero excecoes (o teto era 5). O padrao dominante nao era complexidade (a 106 ja a tinha levado) mas sequencia linear longa: provision_tenant eram sete blocos de INSERT identicos, _to_response eram duas respostas inteiras no mesmo corpo. Onde a funcao era mesmo fluxo (_request_with_resilience, _ask), o corte foi objeto para o que viaja junto — _Call, _Attempt, _Spent —, e sem eles o laco de retry bateria no max-args da 116. Contagem liquida confirmada como a decisao certa: nenhuma das 29 foi resolvida apagando comentario, e varias ganharam docstring. Dois erros meus: inverti a ordem de duas guardas em generate_next (comportamento, restaurado) e tentei tres vezes baixar funcao compactando chamadas, que o black desfaz — uma vez deixando a funcao MAIOR. Falta medido para os degraus seguintes: 16 acima de 45, 32 acima de 40, 117 acima de 30."
+    },
+    "122": {
+      "wall_clock_seconds": 129,
+      "notes": "Teto de linhas por funcao, degrau 2: backend em 40 linhas LIQUIDAS. 1616 backend (nenhum teste novo — o gate da 121 e o mesmo, com o numero baixado) + 313 frontend + 10 e2e. Recontagem ANTES de mexer, em 4b9b223: 32 acima de 40 em 2.460 funcoes, batendo exatamente a projecao da §12 da 121. Trinta funcoes reestruturadas, 44 auxiliares novos em 24 arquivos — nenhuma precisou de DOIS cortes, porque as 32 estavam entre 41 e 46 linhas e todo bloco nomeavel de uma funcao desse tamanho tem pelo menos 6 linhas. Duas excecoes versionadas (de 5 permitidas), as duas mapeadores de campo puros classificados por AST: _customer_to_response e um unico Return com 40 campos campo=obj.campo, _to_response e a guarda de tarefa privada mais um Return com 24 — nao existe nome para 'a primeira metade dos campos de um schema'. Efeito colateral medido no degrau seguinte: acima de 35 caiu de 73 para 52 e acima de 30 de 117 para 103, entao a 123 herda 103 e nao 117 — o argumento a favor de descer por degraus. Dois meta-testes morderam sem eu pedir: test_workers_finos viu run_due_syncs encolher de 26 para 18 statements e exigiu a catraca atualizada, e test_toda_divida_aberta_tem_numero_e_alvo_no_futuro teria reprovado porque a divida 18 (prazo processual) reservava o numero 122 desde a 101 — re-atribuida para a 124. Licao de processo: o CLAUDE.md §8 manda conferir Spec-alvo ao FECHAR uma spec; falta mandar ao ABRIR, que e quando o numero e escolhido. Contrato inalterado: 311 caminhos, 384 operacoes, 276 com params. Zero assercoes de teste editadas."
     }
   },
   "specs_concluidas": 100

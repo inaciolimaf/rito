@@ -160,6 +160,27 @@ def _parse_movement(item: dict[str, Any]) -> ParsedMovement | None:
     )
 
 
+def _parse_subjects(source: dict[str, Any]) -> list[ParsedSubject]:
+    """Os assuntos do processo. Entrada que não é objeto some em silêncio: o DataJud já
+    devolveu lista com `null` no meio, e derrubar o processo inteiro por causa de um
+    assunto malformado perderia a movimentação que ele carrega."""
+    return [
+        ParsedSubject(code=_to_int(item.get("codigo")), name=_to_str(item.get("nome")))
+        for item in source.get("assuntos") or []
+        if isinstance(item, dict)
+    ]
+
+
+def _parse_movements(source: dict[str, Any]) -> list[ParsedMovement]:
+    """As movimentações que dá para ler. `_parse_movement` devolve `None` para a que não
+    tem data utilizável — e movimentação sem data não entra na timeline (spec 047)."""
+    return [
+        movement
+        for item in source.get("movimentos") or []
+        if isinstance(item, dict) and (movement := _parse_movement(item)) is not None
+    ]
+
+
 def parse_process(source: dict[str, Any]) -> ParsedProcess:
     unknown = sorted(set(source) - _KNOWN_FIELDS)
     if unknown:
@@ -175,16 +196,8 @@ def parse_process(source: dict[str, Any]) -> ParsedProcess:
     formato = source.get("formato") or {}
     orgao = source.get("orgaoJulgador") or {}
 
-    subjects = [
-        ParsedSubject(code=_to_int(item.get("codigo")), name=_to_str(item.get("nome")))
-        for item in source.get("assuntos") or []
-        if isinstance(item, dict)
-    ]
-    movements = [
-        movement
-        for item in source.get("movimentos") or []
-        if isinstance(item, dict) and (movement := _parse_movement(item)) is not None
-    ]
+    subjects = _parse_subjects(source)
+    movements = _parse_movements(source)
 
     return ParsedProcess(
         external_id=external_id,

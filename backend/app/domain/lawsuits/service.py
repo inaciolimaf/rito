@@ -186,10 +186,14 @@ class LawsuitService:
         """
         return await self.lawsuits.get_by_id(lawsuit_id)
 
-    async def create(self, payload: LawsuitCreateRequest) -> LawsuitDetail:
-        await self._validate_references(payload)
-        await self.parties_service.validate_party_inputs(payload.parties)
-        lawsuit = Lawsuit(
+    def _lawsuit_from(self, payload: LawsuitCreateRequest) -> Lawsuit:
+        """O processo a partir do que a API recebeu — cópia campo a campo.
+
+        `process_number` é o único que passa por regra: `_validated_digits` guarda só
+        dígitos (spec 025), para a busca por CNJ comparar dígitos com dígitos, com ou sem
+        máscara.
+        """
+        return Lawsuit(
             tenant_id=self.tenant_id,
             user_id=payload.user_id,
             lawsuit_type_id=payload.lawsuit_type_id,
@@ -215,6 +219,11 @@ class LawsuitService:
             archived_date=payload.archived_date,
             outcome=payload.outcome,
         )
+
+    async def create(self, payload: LawsuitCreateRequest) -> LawsuitDetail:
+        await self._validate_references(payload)
+        await self.parties_service.validate_party_inputs(payload.parties)
+        lawsuit = self._lawsuit_from(payload)
         created = await self.lawsuits.create(lawsuit)
         for party_input in payload.parties:
             await self.parties_service.create_party(created.id, party_input)

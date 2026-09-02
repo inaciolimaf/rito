@@ -47,6 +47,57 @@ def _parties_label() -> ColumnElement[str]:
     return func.concat(func.coalesce(active, "—"), literal(" x "), func.coalesce(passive, "—"))
 
 
+def _active_party_name() -> Any:
+    """O nome do cliente do polo ATIVO, como subquery correlacionada.
+
+    `limit(1)` porque um processo pode ter mais de uma parte ativa e a listagem mostra uma
+    — e `correlate(Lawsuit)` para a subquery amarrar no processo da linha de fora, em vez
+    de virar produto cartesiano.
+    """
+    return (
+        select(Customer.name)
+        .select_from(LawsuitParty)
+        .join(Customer, Customer.id == LawsuitParty.customer_id)
+        .where(LawsuitParty.lawsuit_id == Lawsuit.id, LawsuitParty.pole == PartyPole.ATIVO)
+        .correlate(Lawsuit)
+        .limit(1)
+        .scalar_subquery()
+    )
+
+
+def _delayed_tasks_base(
+    customer_name: ColumnElement[Any], delay: ColumnElement[Any]
+) -> Select[Any]:
+    """As tarefas concluídas DEPOIS do prazo, antes de qualquer filtro do relatório.
+
+    O atraso é medido pela data de conclusão contra `deadline_date`, não contra
+    `scheduled_date`: o agendamento é sugestão, o prazo é o que o escritório deve. Tarefa
+    privada fica de fora — relatório é do escritório, e privada só o dono vê (spec 026).
+    """
+    return (
+        select(
+            Post.id,
+            User.name,
+            customer_name,
+            TaskType.name,
+            PostUser.points_earned,
+            Post.scheduled_date,
+            delay,
+        )
+        .select_from(PostUser)
+        .join(Post, Post.id == PostUser.post_id)
+        .join(TaskType, TaskType.id == Post.task_type_id)
+        .join(User, User.id == PostUser.user_id)
+        .join(Lawsuit, Lawsuit.id == Post.lawsuit_id)
+        .where(
+            Post.is_private.is_(False),
+            PostUser.completed_at.is_not(None),
+            Post.deadline_date.is_not(None),
+            func.cast(PostUser.completed_at, Date) > Post.deadline_date,
+        )
+    )
+
+
 class TabularReportRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -150,38 +201,9 @@ class TabularReportRepository:
         cursor: tuple[Any, uuid.UUID] | None,
         limit: int,
     ) -> tuple[Sequence[Row[Any]], int, int]:
-        customer_name = (
-            select(Customer.name)
-            .select_from(LawsuitParty)
-            .join(Customer, Customer.id == LawsuitParty.customer_id)
-            .where(LawsuitParty.lawsuit_id == Lawsuit.id, LawsuitParty.pole == PartyPole.ATIVO)
-            .correlate(Lawsuit)
-            .limit(1)
-            .scalar_subquery()
-        )
+        customer_name = _active_party_name()
         delay = (func.cast(PostUser.completed_at, Date) - Post.deadline_date).label("delay_days")
-        stmt = (
-            select(
-                Post.id,
-                User.name,
-                customer_name,
-                TaskType.name,
-                PostUser.points_earned,
-                Post.scheduled_date,
-                delay,
-            )
-            .select_from(PostUser)
-            .join(Post, Post.id == PostUser.post_id)
-            .join(TaskType, TaskType.id == Post.task_type_id)
-            .join(User, User.id == PostUser.user_id)
-            .join(Lawsuit, Lawsuit.id == Post.lawsuit_id)
-            .where(
-                Post.is_private.is_(False),
-                PostUser.completed_at.is_not(None),
-                Post.deadline_date.is_not(None),
-                func.cast(PostUser.completed_at, Date) > Post.deadline_date,
-            )
-        )
+        stmt = _delayed_tasks_base(customer_name, delay)
         if user_id is not None:
             stmt = stmt.where(PostUser.user_id == user_id)
         if action_group_id is not None:

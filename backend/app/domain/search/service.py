@@ -65,6 +65,54 @@ class SearchResults:
     recent: list[str] = field(default_factory=list)
 
 
+def _people_criteria(parsed: ParsedQuery) -> tuple[Any, Any, Any]:
+    """Condição, ordem e o sinal de «casou exato» para a faceta de pessoas.
+
+    Documento é comparação de dígitos com dígitos; o resto é busca textual. Regra 4: o
+    exato vem antes do parcial — quem digitou o nome inteiro não quer ver mais ninguém na
+    frente, e é esse booleano que a ordenação usa como primeira chave.
+    """
+    if parsed.kind is QueryKind.DOCUMENT:
+        return Customer.identification == parsed.digits, desc(Customer.created_at), literal(False)
+    consulta = to_tsquery_input(parsed.raw)
+    vetor = literal_column("customers.search_vector", type_=TSVECTOR)
+    tsquery = func.to_tsquery("portuguese", func.rito_unaccent(consulta))
+    exato = func.coalesce(
+        func.nullif(
+            func.lower(func.rito_unaccent(Customer.name))
+            == func.lower(func.rito_unaccent(parsed.raw)),
+            False,
+        ),
+        False,
+    )
+    return vetor.op("@@")(tsquery), desc(func.ts_rank(vetor, tsquery)), exato
+
+
+def _lawsuit_criteria(parsed: ParsedQuery) -> tuple[Any, Any] | None:
+    """Condição e ordem da faceta de processos. `None` = não há o que buscar aqui.
+
+    CPF não é número de processo, então documento devolve `None` em vez de ruído.
+
+    Spec 098, regra 1: UNIÃO, não `OR`. `WHERE search_vector @@ ... OR folder ILIKE ...`
+    obriga o Postgres a Seq Scan — são dois índices diferentes (GIN de texto e GIN
+    trigrama) e ele não combina índices distintos dentro de um `OR`. Medido: 187 ms
+    varrendo 101.504 processos para devolver zero. Como união de dois `SELECT id`, cada
+    ramo usa o seu índice.
+    """
+    if parsed.kind is QueryKind.PROCESS_NUMBER:
+        # Regra 2: CNJ com ou sem máscara. A coluna guarda só dígitos (spec 025).
+        return Lawsuit.process_number == parsed.digits, desc(Lawsuit.created_at)
+    if parsed.kind is QueryKind.DOCUMENT:
+        return None
+    consulta = to_tsquery_input(parsed.raw)
+    vetor = literal_column("lawsuits.search_vector", type_=TSVECTOR)
+    tsquery = func.to_tsquery("portuguese", func.rito_unaccent(consulta))
+    por_texto = select(Lawsuit.id).where(vetor.op("@@")(tsquery))
+    por_pasta = select(Lawsuit.id).where(Lawsuit.folder.ilike(f"%{parsed.raw}%"))
+    condicao = Lawsuit.id.in_(por_texto.union(por_pasta).subquery().select())
+    return condicao, desc(func.ts_rank(vetor, tsquery))
+
+
 class SearchService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.session = session
@@ -109,26 +157,7 @@ class SearchService:
             # que devolver ruído textual.
             return FacetResult(items=[], total=0)
 
-        exato: Any = literal(False)
-        if parsed.kind is QueryKind.DOCUMENT:
-            condicao = Customer.identification == parsed.digits
-            ordem: Any = desc(Customer.created_at)
-        else:
-            consulta = to_tsquery_input(parsed.raw)
-            vetor = literal_column("customers.search_vector", type_=TSVECTOR)
-            tsquery = func.to_tsquery("portuguese", func.rito_unaccent(consulta))
-            condicao = vetor.op("@@")(tsquery)
-            # Regra 4: exato antes de parcial. `name` igual ao termo é o caso em que a
-            # pessoa digitou o nome inteiro — e aí ela não quer ver mais ninguém antes.
-            exato = func.coalesce(
-                func.nullif(
-                    func.lower(func.rito_unaccent(Customer.name))
-                    == func.lower(func.rito_unaccent(parsed.raw)),
-                    False,
-                ),
-                False,
-            )
-            ordem = desc(func.ts_rank(vetor, tsquery))
+        condicao, ordem, exato = _people_criteria(parsed)
 
         stmt: Select[Any] = (
             select(Customer, exato.label("exato"), _facet_total())
@@ -152,29 +181,10 @@ class SearchService:
         )
 
     async def _lawsuits(self, parsed: ParsedQuery, limit: int) -> FacetResult:
-        if parsed.kind is QueryKind.PROCESS_NUMBER:
-            # Regra 2: CNJ com ou sem máscara. A coluna guarda só dígitos (spec 025), e é
-            # por isso que a busca compara dígitos com dígitos.
-            condicao = Lawsuit.process_number == parsed.digits
-            ordem: Any = desc(Lawsuit.created_at)
-        elif parsed.kind is QueryKind.DOCUMENT:
+        criterio = _lawsuit_criteria(parsed)
+        if criterio is None:
             return FacetResult(items=[], total=0)
-        else:
-            consulta = to_tsquery_input(parsed.raw)
-            vetor = literal_column("lawsuits.search_vector", type_=TSVECTOR)
-            tsquery = func.to_tsquery("portuguese", func.rito_unaccent(consulta))
-            # Spec 098, regra 1: UNIÃO, não `OR`.
-            #
-            # `WHERE search_vector @@ ... OR folder ILIKE ...` obriga o Postgres a Seq
-            # Scan: são dois índices diferentes (GIN de texto e GIN trigrama) e ele não
-            # combina índices distintos dentro de um `OR` — medido em 187 ms varrendo
-            # 101.504 processos para devolver zero. Como união de dois `SELECT id`, cada
-            # ramo usa o seu índice e o custo cai para o número de linhas que de fato
-            # casam.
-            por_texto = select(Lawsuit.id).where(vetor.op("@@")(tsquery))
-            por_pasta = select(Lawsuit.id).where(Lawsuit.folder.ilike(f"%{parsed.raw}%"))
-            condicao = Lawsuit.id.in_(por_texto.union(por_pasta).subquery().select())
-            ordem = desc(func.ts_rank(vetor, tsquery))
+        condicao, ordem = criterio
 
         stmt = (
             select(Lawsuit, _facet_total())

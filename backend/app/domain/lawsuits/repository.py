@@ -4,8 +4,9 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import Select, and_, func, literal, or_, select, union_all
+from sqlalchemy import ColumnElement, Select, and_, func, literal, or_, select, union_all
 from sqlalchemy.sql.selectable import Subquery
 
 from app.core.repository import BaseRepository
@@ -69,6 +70,31 @@ class DerivedRefs:
     action_group_name: str
     step_id: int
     step_name: str
+
+
+def _timeline_keyset(timeline: Any, cursor: tuple[datetime, str, uuid.UUID]) -> ColumnElement[bool]:
+    """Predicado keyset da timeline, com as três chaves em ordem MISTA.
+
+    `occurred_at DESC, kind ASC, id ASC` não cabe numa comparação de tupla — `(a, b, c) <
+    (x, y, z)` só funciona quando todas as colunas vão na mesma direção. O predicado exato
+    é o desdobramento lexicográfico: menor no primeiro campo, OU igual e maior no segundo,
+    OU iguais os dois e maior no terceiro.
+
+    Errar isso não quebra a primeira página; quebra a segunda, repetindo ou pulando linha.
+    """
+    cursor_at, cursor_kind, cursor_id = cursor
+    return or_(
+        timeline.c.occurred_at < cursor_at,
+        and_(
+            timeline.c.occurred_at == cursor_at,
+            timeline.c.kind > cursor_kind,
+        ),
+        and_(
+            timeline.c.occurred_at == cursor_at,
+            timeline.c.kind == cursor_kind,
+            timeline.c.id > cursor_id,
+        ),
+    )
 
 
 class LawsuitRepository(BaseRepository[Lawsuit]):
@@ -270,23 +296,7 @@ class LawsuitMovementRepository(BaseRepository[LawsuitMovement]):
         # orçamento de 3 queries da timeline não cabia com ela de fora.
         stmt = select(timeline, func.count().over().label("total"))
         if cursor is not None:
-            cursor_at, cursor_kind, cursor_id = cursor
-            # Ordem mista (DESC, ASC, ASC) não cabe numa comparação de tupla só —
-            # o predicado exato é o desdobramento lexicográfico das 3 chaves.
-            stmt = stmt.where(
-                or_(
-                    timeline.c.occurred_at < cursor_at,
-                    and_(
-                        timeline.c.occurred_at == cursor_at,
-                        timeline.c.kind > cursor_kind,
-                    ),
-                    and_(
-                        timeline.c.occurred_at == cursor_at,
-                        timeline.c.kind == cursor_kind,
-                        timeline.c.id > cursor_id,
-                    ),
-                )
-            )
+            stmt = stmt.where(_timeline_keyset(timeline, cursor))
         stmt = stmt.order_by(timeline.c.occurred_at.desc(), timeline.c.kind, timeline.c.id).limit(
             limit
         )

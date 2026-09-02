@@ -8,7 +8,7 @@ vezes.
 """
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -112,30 +112,19 @@ class RecurrenceService:
             return None
         return template
 
-    async def generate_next(self, recurrence: PostRecurrence) -> Post | None:
-        """Gera a próxima ocorrência da série (regras 1, 2, 6, 9). Devolve None quando
-        a série encerrou (limite atingido — regra 6) ou a data já existe (guarda de
-        idempotência entre conclusão e worker)."""
-        template = await self._template_if_running(recurrence)
-        if template is None or template.scheduled_date is None:
-            return None
-        anchor = template.scheduled_date
-        candidate = next_occurrence(
-            recurrence.period,
-            recurrence.repeat_on,
-            anchor=anchor,
-            current=recurrence.last_generated_date or anchor,
-        )
-        if recurrence.until_date is not None and candidate > recurrence.until_date:
-            recurrence.is_active = False
-            await self.session.flush()
-            return None
-        if await self.recurrences.series_date_exists(recurrence.id, candidate):
-            return None
-        # Os campos relativos (término, prazo fatal) andam pelo mesmo delta da data
-        # do compromisso — o ciclo da tarefa se preserva entre ocorrências.
-        delta = candidate - anchor
-        post = Post(
+    def _occurrence_from(self, template: Post, candidate: date, recurrence: PostRecurrence) -> Post:
+        """A próxima ocorrência, copiada do modelo e deslocada para `candidate`.
+
+        Os campos relativos (término, prazo fatal) andam pelo MESMO delta da data do
+        compromisso — o ciclo da tarefa se preserva entre ocorrências: se o prazo fatal era
+        três dias depois do compromisso, continua sendo.
+
+        Regra 9: cada ocorrência é um post independente, com o SEU `reward_snapshot`
+        copiado do modelo, que já estava congelado desde a criação (regra 3 da 032). Mudar
+        a pontuação do tipo de tarefa não reescreve o que já foi pontuado.
+        """
+        delta = candidate - template.scheduled_date if template.scheduled_date else timedelta()
+        return Post(
             tenant_id=self.tenant_id,
             lawsuit_id=template.lawsuit_id,
             task_type_id=template.task_type_id,
@@ -160,6 +149,28 @@ class RecurrenceService:
             show_in_schedule=template.show_in_schedule,
             recurrence_id=recurrence.id,
         )
+
+    async def generate_next(self, recurrence: PostRecurrence) -> Post | None:
+        """Gera a próxima ocorrência da série (regras 1, 2, 6, 9). Devolve None quando
+        a série encerrou (limite atingido — regra 6) ou a data já existe (guarda de
+        idempotência entre conclusão e worker)."""
+        template = await self._template_if_running(recurrence)
+        if template is None or template.scheduled_date is None:
+            return None
+        anchor = template.scheduled_date
+        candidate = next_occurrence(
+            recurrence.period,
+            recurrence.repeat_on,
+            anchor=anchor,
+            current=recurrence.last_generated_date or anchor,
+        )
+        if recurrence.until_date is not None and candidate > recurrence.until_date:
+            recurrence.is_active = False
+            await self.session.flush()
+            return None
+        if await self.recurrences.series_date_exists(recurrence.id, candidate):
+            return None
+        post = self._occurrence_from(template, candidate, recurrence)
         assignee_ids = await self.posts.assignee_ids_for(template.id)
         created = await self.posts.create_with_assignees(post, list(assignee_ids))
         recurrence.occurrences_created += 1

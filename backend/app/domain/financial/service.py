@@ -418,28 +418,36 @@ class TransactionService:
     async def get(self, transaction_id: uuid.UUID) -> TransactionRow | None:
         return await self.transactions.get_by_id_detail(transaction_id)
 
-    async def create(
-        self, payload: TransactionCreateRequest, actor: User, *, today: date
-    ) -> TransactionRow:
-        self._check_payment_date(payload.payment_date, today)
-        await self._validate_references(payload)
+    async def _create_series(
+        self, payload: TransactionCreateRequest, actor: User
+    ) -> Transaction | None:
+        """Parcelamento ou recorrência, quando o lançamento é de série. `None` = avulso.
+
+        Os dois passam pelo mesmo service porque o que muda entre eles é só como a próxima
+        data é calculada — a série, o vínculo e a numeração são idênticos.
+        """
+        series_service = TransactionSeriesService(session=self.session, tenant_id=self.tenant_id)
         if payload.installment is not None:
-            series_service = TransactionSeriesService(
-                session=self.session, tenant_id=self.tenant_id
-            )
-            created = await series_service.create_installments(
+            return await series_service.create_installments(
                 payload, actor, count=payload.installment.count
             )
-        elif payload.recurrence is not None:
-            series_service = TransactionSeriesService(
-                session=self.session, tenant_id=self.tenant_id
-            )
-            created = await series_service.create_recurrence(
+        if payload.recurrence is not None:
+            return await series_service.create_recurrence(
                 payload,
                 actor,
                 period=payload.recurrence.period,
                 until_date=payload.recurrence.until_date,
             )
+        return None
+
+    async def create(
+        self, payload: TransactionCreateRequest, actor: User, *, today: date
+    ) -> TransactionRow:
+        self._check_payment_date(payload.payment_date, today)
+        await self._validate_references(payload)
+        serie = await self._create_series(payload, actor)
+        if serie is not None:
+            created = serie
         else:
             transaction = Transaction(
                 tenant_id=self.tenant_id,
@@ -679,6 +687,34 @@ class TransactionSeriesService:
         )
         return await self.transactions.create(transaction)
 
+    def _occurrence(
+        self, series: TransactionSeries, template: Transaction, due_date: date
+    ) -> Transaction:
+        """A próxima ocorrência, copiada do último lançamento da série.
+
+        O modelo é o ÚLTIMO da série, não o primeiro: quem editou a recorrência com
+        `scope=future` (regra 7) espera que as ocorrências seguintes saiam com os valores
+        novos, e é o último lançamento que os carrega.
+        """
+        return Transaction(
+            tenant_id=self.tenant_id,
+            kind=template.kind,
+            user_id=template.user_id,
+            debit_account_id=template.debit_account_id,
+            credit_account_id=template.credit_account_id,
+            category_id=template.category_id,
+            cost_center_id=template.cost_center_id,
+            customer_id=template.customer_id,
+            lawsuit_id=template.lawsuit_id,
+            description=template.description,
+            amount=template.amount,
+            due_date=due_date,
+            competence=due_date.replace(day=1),
+            series_id=series.id,
+            is_internal=template.is_internal,
+            internal_note=template.internal_note,
+        )
+
     async def generate_recurrence(self, series: TransactionSeries, reference_date: date) -> int:
         """Regra 4: gera as próximas ocorrências até 3 meses à frente de `reference_date`,
         respeitando `until_date` (regra 5/9) — nunca gera tudo de uma vez para recorrência
@@ -706,25 +742,7 @@ class TransactionSeriesService:
             if series.until_date is not None and candidate > series.until_date:
                 series.is_active = False
                 break
-            transaction = Transaction(
-                tenant_id=self.tenant_id,
-                kind=template.kind,
-                user_id=template.user_id,
-                debit_account_id=template.debit_account_id,
-                credit_account_id=template.credit_account_id,
-                category_id=template.category_id,
-                cost_center_id=template.cost_center_id,
-                customer_id=template.customer_id,
-                lawsuit_id=template.lawsuit_id,
-                description=template.description,
-                amount=template.amount,
-                due_date=candidate,
-                competence=candidate.replace(day=1),
-                series_id=series.id,
-                is_internal=template.is_internal,
-                internal_note=template.internal_note,
-            )
-            await self.transactions.create(transaction)
+            await self.transactions.create(self._occurrence(series, template, candidate))
             series.generated_until = candidate
             current = candidate
             generated += 1

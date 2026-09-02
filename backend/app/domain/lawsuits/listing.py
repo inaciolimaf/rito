@@ -5,7 +5,7 @@ módulo (partes agregadas sem N+1, último andamento correlacionado, keyset).
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
@@ -154,21 +154,26 @@ class CrmStatsRow:
     by_step: list[CrmStatsByStepRow]
 
 
+def _csv(raw: str | None) -> list[str]:
+    """Multivalorado da query string: `a,b,c` vira lista. Vazio vira lista vazia, não `[""]`."""
+    return raw.split(",") if raw else []
+
+
+def _uuid_csv(raw: str | None) -> list[uuid.UUID]:
+    return [uuid.UUID(value) for value in _csv(raw)]
+
+
+def _int_csv(raw: str | None) -> list[int]:
+    return [int(value) for value in _csv(raw)]
+
+
 def filters_from_query(payload: LawsuitFiltersQuery) -> LawsuitFilters:
     """Traduz o modelo de query string (multivalorados em CSV) para `LawsuitFilters`.
 
     Multivalorados chegam separados por vírgula; visão desconhecida cai no default
     (`QuickViews.resolve`)."""
 
-    def uuids(raw: str | None) -> list[uuid.UUID]:
-        return [uuid.UUID(value) for value in raw.split(",")] if raw else []
-
-    def ints(raw: str | None) -> list[int]:
-        return [int(value) for value in raw.split(",")] if raw else []
-
-    contingencies: list[ContingencyLevel] = []
-    if payload.contingency:
-        contingencies = [ContingencyLevel(value) for value in payload.contingency.split(",")]
+    contingencies = [ContingencyLevel(value) for value in _csv(payload.contingency)]
     return LawsuitFilters(
         view=LAWSUIT_VIEWS.resolve(payload.view),
         q=payload.q,
@@ -178,15 +183,15 @@ def filters_from_query(payload: LawsuitFiltersQuery) -> LawsuitFilters:
         protocol_number=payload.protocol_number,
         folder=payload.folder,
         notes=payload.notes,
-        action_group_ids=uuids(payload.action_group_id),
-        lawsuit_type_ids=uuids(payload.lawsuit_type_id),
-        step_ids=ints(payload.step_id),
-        stage_ids=uuids(payload.stage_id),
-        court_ids=ints(payload.court_id),
-        court_system_ids=ints(payload.court_system_id),
-        user_ids=uuids(payload.user_id),
+        action_group_ids=_uuid_csv(payload.action_group_id),
+        lawsuit_type_ids=_uuid_csv(payload.lawsuit_type_id),
+        step_ids=_int_csv(payload.step_id),
+        stage_ids=_uuid_csv(payload.stage_id),
+        court_ids=_int_csv(payload.court_id),
+        court_system_ids=_int_csv(payload.court_system_id),
+        user_ids=_uuid_csv(payload.user_id),
         contingencies=contingencies,
-        origin_ids=uuids(payload.origin_id),
+        origin_ids=_uuid_csv(payload.origin_id),
         customer_type=payload.customer_type,
         created_from=payload.created_from,
         created_to=payload.created_to,
@@ -281,6 +286,31 @@ def _party_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
     if filters.customer_type:
         condicoes.append(_party_exists(Customer.type == filters.customer_type))
     return condicoes
+
+
+def _crm_base(
+    conditions: list[ColumnElement[bool]],
+) -> Callable[..., Select[Any]]:
+    """Fabrica o `SELECT ... FROM lawsuits` já filtrado, faltando só as colunas.
+
+    Os dois statements do CRM (totais e quebra por fase) TÊM que enxergar exatamente o
+    mesmo conjunto de processos, senão os cards de topo não somam a quebra de baixo. Ter
+    uma origem única para o `FROM` e o `WHERE` é o que garante isso — os `JOIN` entram
+    sempre, porque `_build_conditions` pode filtrar por qualquer um dos dois.
+    """
+
+    def base(*columns: Any) -> Select[Any]:
+        stmt: Select[Any] = (
+            select(*columns)
+            .select_from(Lawsuit)
+            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+            .join(Stage, Stage.id == Lawsuit.stage_id)
+        )
+        for condition in conditions:
+            stmt = stmt.where(condition)
+        return stmt
+
+    return base
 
 
 def _build_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
@@ -629,21 +659,10 @@ class LawsuitListingRepository:
 
     async def crm_stats(self, *, filters: LawsuitFilters) -> CrmStatsRow:
         """§5: cards de topo do CRM — 2 statements (totais + quebra por fase)."""
-        conditions = _build_conditions(filters)
-
-        def _base(*columns: Any) -> Select[Any]:
-            stmt: Select[Any] = (
-                select(*columns)
-                .select_from(Lawsuit)
-                .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
-                .join(Stage, Stage.id == Lawsuit.stage_id)
-            )
-            for condition in conditions:
-                stmt = stmt.where(condition)
-            return stmt
+        base = _crm_base(_build_conditions(filters))
 
         received_this_month = Lawsuit.created_at >= func.date_trunc("month", func.now())
-        totals_stmt = _base(
+        totals_stmt = base(
             func.count(),
             func.count().filter(received_this_month),
             func.coalesce(func.sum(Lawsuit.case_value), 0),
@@ -654,7 +673,7 @@ class LawsuitListingRepository:
             await self.session.execute(totals_stmt)
         ).one()
 
-        by_step_stmt = _base(
+        by_step_stmt = base(
             Stage.step_id, func.count(), func.count().filter(Lawsuit.is_stagnant.is_(True))
         ).group_by(Stage.step_id)
         by_step_rows = (await self.session.execute(by_step_stmt)).all()

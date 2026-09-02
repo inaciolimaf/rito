@@ -584,3 +584,12 @@ A soma bruta (374 s) **excede o teto** — e é isso que torna as specs de refat
 cada uma tem como critério de saída **devolver o wall-clock para baixo de 90 s**, via paralelismo,
 substituição de e2e por integração, fixtures mais enxutas e template database.
 O gate real é sempre o wall-clock de `make test`, nunca a soma teórica.
+
+### ✅ 122 — Teto de 40 linhas por função (backend)
+Segundo dos três degraus da Nota de execução da 121: o teto desce de 50 para 40 e as 32 funções acima entram. Frontend fora por decisão (dívida 38).
+**Aceite:** gate verde em 40; no máximo 5 exceções justificadas; contrato inalterado. **t:** 0 s. **Deps:** 121
+
+### ⬜ 123 — Teto de 30 linhas por função (backend)
+Terceiro degrau, e o alvo que a 121 pedia desde o começo. Distribuição medida em `cdeb4cc`: 73 funções acima de 35, 117 acima de 30.
+**Aceite:** gate verde em 30; no máximo 5 exceções justificadas; contrato inalterado. **t:** 0 s. **Deps:** 122
+

@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.clock import Clock
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.deps import get_messaging_channels, get_redis
 from app.core.http import get_or_404, parse_month_query
 from app.core.locks import RedisSyncLock
@@ -104,7 +104,7 @@ from app.integrations.datajud.client import (
     DatajudConfigError,
     DatajudUnauthorizedError,
 )
-from app.integrations.http.client import create_http_client
+from app.integrations.http.client import ResilientHttpClient, create_http_client
 from app.integrations.http.types import HostPolicy
 from app.integrations.messaging.base import MessagingChannel
 from app.workers.aggregates import schedule_aggregate_refresh
@@ -314,6 +314,41 @@ async def list_folders(
     service = FolderService(session)
     suggestions = await service.search(query=q, limit=limit)
     return [FolderSuggestionResponse(name=str(item.name), count=item.count) for item in suggestions]
+
+
+def _datajud_client(http: ResilientHttpClient, settings: Settings) -> DatajudClient:
+    """Cliente do DataJud, ou 503 quando a chave não está configurada.
+
+    503 e não 500: «o serviço externo não está disponível para mim» é exatamente o que
+    aconteceu, e o operador precisa distinguir isso de um erro do Rito.
+    """
+    try:
+        return DatajudClient(
+            http=http,
+            base_url=settings.datajud_base_url,
+            api_key=settings.datajud_api_key or "",
+        )
+    except DatajudConfigError as exc:
+        raise HTTPException(
+            status_code=503, detail="DataJud não está configurado (DATAJUD_API_KEY ausente)."
+        ) from exc
+
+
+def _sync_http_error(exc: LawsuitSyncInProgressError | DatajudUnauthorizedError) -> HTTPException:
+    """As duas recusas da sincronização manual, com o status que o cliente espera.
+
+    409 é «tente de novo daqui a pouco» — outra sincronização está rodando. 503 é «não
+    adianta insistir»: a chave do DataJud caiu ou foi rotacionada, e alguém precisa agir.
+    """
+    if isinstance(exc, LawsuitSyncInProgressError):
+        return HTTPException(
+            status_code=409,
+            detail="Já existe uma sincronização em andamento para este processo.",
+        )
+    return HTTPException(
+        status_code=503,
+        detail="Chave pública do DataJud inválida ou rotacionada — veja os alertas.",
+    )
 
 
 @router.post("/folders/rename")
@@ -996,32 +1031,15 @@ async def sync_movements(
         },
     )
     try:
+        sync_service = MovementSyncService(
+            session,
+            current_user.tenant_id,
+            DatajudService(session, _datajud_client(http, settings)),
+        )
         try:
-            client = DatajudClient(
-                http=http,
-                base_url=settings.datajud_base_url,
-                api_key=settings.datajud_api_key or "",
-            )
-        except DatajudConfigError as exc:
-            raise HTTPException(
-                status_code=503, detail="DataJud não está configurado (DATAJUD_API_KEY ausente)."
-            ) from exc
-
-        datajud_service = DatajudService(session, client)
-        sync_service = MovementSyncService(session, current_user.tenant_id, datajud_service)
-        lock = RedisSyncLock(redis)
-        try:
-            result = await sync_service.sync_lawsuit_locked(detail.lawsuit, lock)
-        except LawsuitSyncInProgressError as exc:
-            raise HTTPException(
-                status_code=409,
-                detail="Já existe uma sincronização em andamento para este processo.",
-            ) from exc
-        except DatajudUnauthorizedError as exc:
-            raise HTTPException(
-                status_code=503,
-                detail="Chave pública do DataJud inválida ou rotacionada — veja os alertas.",
-            ) from exc
+            result = await sync_service.sync_lawsuit_locked(detail.lawsuit, RedisSyncLock(redis))
+        except (LawsuitSyncInProgressError, DatajudUnauthorizedError) as exc:
+            raise _sync_http_error(exc) from exc
     finally:
         await http.aclose()
 

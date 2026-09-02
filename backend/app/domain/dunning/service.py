@@ -193,6 +193,29 @@ class DunningService:
             )
         )
 
+    async def _deliver(
+        self, channel: DunningChannel, contact: str, message: str, days_overdue: int
+    ) -> tuple[DunningStatus, str | None]:
+        """Entrega pelo canal, e traduz o desfecho em status + motivo.
+
+        Três desfechos, e a diferença entre eles é o que o escritório precisa ler: `SENT`
+        saiu; `SKIPPED` é canal não configurado (regra 9 — falta de WhatsApp não é falha de
+        cobrança); `FAILED` é o provider recusando de verdade. A exceção genérica é
+        capturada de propósito: a regra 10 manda o lote continuar, e uma cobrança que
+        estoura não pode levar as outras cinquenta junto.
+
+        O assunto depende do sinal dos dias: antes do vencimento é lembrete, depois é
+        cobrança — a mesma mensagem com o assunto errado soa agressiva no dia anterior.
+        """
+        subject = "Lembrete de vencimento" if days_overdue <= 0 else "Cobrança de valor em atraso"
+        try:
+            await self.channels[channel.value].send(to=contact, subject=subject, message=message)
+        except ChannelNotConfiguredError as exc:
+            return DunningStatus.SKIPPED, str(exc)
+        except Exception as exc:
+            return DunningStatus.FAILED, str(exc)[:500]
+        return DunningStatus.SENT, None
+
     async def _attempt_send(
         self,
         row: OverdueRow,
@@ -227,17 +250,7 @@ class DunningService:
                 tenant_name=tenant.name,
             ),
         )
-        subject = "Lembrete de vencimento" if days_overdue <= 0 else "Cobrança de valor em atraso"
-
-        status_: DunningStatus
-        error: str | None
-        try:
-            await self.channels[channel.value].send(to=contact, subject=subject, message=message)
-            status_, error = DunningStatus.SENT, None
-        except ChannelNotConfiguredError as exc:  # regra 9
-            status_, error = DunningStatus.SKIPPED, str(exc)
-        except Exception as exc:  # falha real do provider — regra 10 protege o lote
-            status_, error = DunningStatus.FAILED, str(exc)[:500]
+        status_, error = await self._deliver(channel, contact, message, days_overdue)
 
         attempt = DunningAttempt(
             tenant_id=self.tenant_id,

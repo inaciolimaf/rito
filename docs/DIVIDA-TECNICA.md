@@ -331,7 +331,13 @@ escopo da 045. O campo fica `NULL`, indistinguível na UI de "usuário não defi
 campo quando `task_type_name === "Intimações Judiciais"` e `deadline_date` é nulo —
 resolve a ambiguidade visual sem inventar um cálculo que não existe.
 
-**Spec-alvo:** 122 (prazo processual — spec própria, ainda a escrever). **Re-atribuída na
+**Spec-alvo:** 124 (prazo processual — spec própria, ainda a escrever). **Re-atribuída na
+122:** o número 122 foi ocupado pelo segundo degrau do teto de linhas por função, e este
+item passou a apontar para uma spec que entregou outra coisa — o mesmo acidente do handoff
+038→086 descrito abaixo, de novo. Vale a lição: **alvo de dívida é um número reservado, e
+quem abre spec nova precisa conferir se alguém já apontava para ele** (`grep -n "Spec-alvo"
+docs/DIVIDA-TECNICA.md`, que o CLAUDE.md §8 já manda rodar ao FECHAR uma spec — falta
+rodar também ao ABRIR). **Re-atribuída na
 101:** o alvo anterior era a 086, que foi escrita como *IA de intimações* e nunca tocou em
 prazo — o handoff 038→086 se perdeu na renomeação da spec, e o item ficou apontando para
 uma spec concluída que não o resolveu. Contagem de dias úteis por classe/assunto do CNJ é
@@ -1269,4 +1275,8 @@ Fica registrado para não ser redescoberto: **não é dívida, é escopo recusad
 esta entrada no futuro não deve abrir spec para o frontend — a ausência do gate ali é
 deliberada.
 
-**Spec-alvo:** **121b** (backend ≤ 40) e **121c** (backend ≤ 30).
+**Spec-alvo:** ~~**122** (backend ≤ 40, entregue)~~ e **123** (backend ≤ 30). Os degraus
+ganharam número de spec próprio em vez do sufixo `121b`/`121c`: alvo de dívida é lido por
+meta-teste, e `121b` não é um número que ele saiba comparar com a lista de specs concluídas
+— ficaria aberto para sempre sem ninguém perceber. O degrau de 40 fechou na 122, com duas
+exceções versionadas (os dois mapeadores de campo de `router.py`); resta o de 30.

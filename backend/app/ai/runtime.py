@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import update
+from sqlalchemy import Update, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
@@ -93,6 +93,30 @@ def truncate_payload(payload: Any) -> dict[str, Any] | None:
         "preview": encoded[:512].decode("utf-8", errors="ignore"),
         "keys": sorted(str(key) for key in payload),
     }
+
+
+def _thread_failed(
+    thread_id: uuid.UUID, message: str, step: int, snapshot: dict[str, Any]
+) -> Update:
+    """O `UPDATE` que fecha o thread em ERROR.
+
+    Por `update()` e não mexendo no objeto: o `thread` carregado pertence à sessão que
+    morreu, e tocá-lo levantaria `MissingGreenlet`. `pending_action` e `waiting_since`
+    vão a NULL de propósito — um thread que falhou não está esperando ninguém.
+    """
+    return (
+        update(AiThread)
+        .where(AiThread.id == thread_id)
+        .values(
+            status=ThreadStatus.ERROR.value,
+            error=message,
+            finished_at=datetime.now(UTC),
+            step_count=step,
+            state=snapshot,
+            pending_action=None,
+            waiting_since=None,
+        )
+    )
 
 
 class GraphRuntime:
@@ -417,6 +441,45 @@ class GraphRuntime:
         del exc
         return GraphResult(status="error", error=message)
 
+    def _write_failure(
+        self,
+        book: AsyncSession,
+        thread_id: uuid.UUID,
+        step: int,
+        node: str,
+        message: str,
+        snapshot: dict[str, Any],
+        state: dict[str, Any],
+    ) -> None:
+        """O passo de erro e o checkpoint, na sessão de fora de banda.
+
+        Os dois juntos porque são a mesma verdade contada de dois jeitos: o passo diz o
+        que aconteceu, o checkpoint guarda o estado em que aconteceu. Sem o segundo, a
+        conversa não pode ser retomada de onde parou.
+        """
+        book.add(
+            AiStep(
+                tenant_id=self.tenant_id,
+                thread_id=thread_id,
+                step=step,
+                node=node,
+                kind="error",
+                input=truncate_payload(state.get("input")),
+                output=None,
+                duration_ms=0,
+                error=message,
+            )
+        )
+        book.add(
+            AiCheckpoint(
+                tenant_id=self.tenant_id,
+                thread_id=thread_id,
+                step=step,
+                node=node,
+                state=snapshot,
+            )
+        )
+
     async def _record_failure_out_of_band(
         self,
         thread_id: uuid.UUID,
@@ -445,41 +508,8 @@ class GraphRuntime:
         try:
             async with AsyncSession(bind) as book, book.begin():
                 await set_tenant_context(book, self.tenant_id)
-                book.add(
-                    AiStep(
-                        tenant_id=self.tenant_id,
-                        thread_id=thread_id,
-                        step=step,
-                        node=node,
-                        kind="error",
-                        input=truncate_payload(state.get("input")),
-                        output=None,
-                        duration_ms=0,
-                        error=message,
-                    )
-                )
-                book.add(
-                    AiCheckpoint(
-                        tenant_id=self.tenant_id,
-                        thread_id=thread_id,
-                        step=step,
-                        node=node,
-                        state=snapshot,
-                    )
-                )
-                await book.execute(
-                    update(AiThread)
-                    .where(AiThread.id == thread_id)
-                    .values(
-                        status=ThreadStatus.ERROR.value,
-                        error=message,
-                        finished_at=datetime.now(UTC),
-                        step_count=step,
-                        state=snapshot,
-                        pending_action=None,
-                        waiting_since=None,
-                    )
-                )
+                self._write_failure(book, thread_id, step, node, message, snapshot, state)
+                await book.execute(_thread_failed(thread_id, message, step, snapshot))
         except SQLAlchemyError:
             # Registrar a falha falhou. Não há terceira sessão para tentar de novo — o
             # que sobra é o log, alto, com o motivo original junto.

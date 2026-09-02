@@ -273,6 +273,43 @@ class FinancialDashboardRepository:
         return Decimal(value or 0)
 
 
+async def _balances(
+    repository: FinancialDashboardRepository,
+    *,
+    account_id: uuid.UUID | None,
+    today: date,
+) -> tuple[Decimal, Decimal]:
+    """Saldo de hoje e do fim do mês anterior — a comparação da regra 9 (ADVBOX).
+
+    Os dois saem do MESMO conjunto de contas e do mesmo saldo inicial; o que muda é só a
+    data de corte dos lançamentos. Conta criada depois do mês anterior entra nos dois lados
+    com delta zero de um deles, que é o que faz a variação refletir movimento e não a
+    abertura da conta.
+    """
+    previous_month_end = today.replace(day=1) - timedelta(days=1)
+    accounts = await repository.balance_accounts(account_id=account_id)
+    account_ids = [account.id for account in accounts]
+    deltas_now = await repository.deltas_as_of(account_ids, today)
+    deltas_previous = await repository.deltas_as_of(account_ids, previous_month_end)
+
+    return (
+        sum(
+            (
+                account.initial_amount + deltas_now.get(account.id, Decimal(0))
+                for account in accounts
+            ),
+            Decimal(0),
+        ),
+        sum(
+            (
+                account.initial_amount + deltas_previous.get(account.id, Decimal(0))
+                for account in accounts
+            ),
+            Decimal(0),
+        ),
+    )
+
+
 async def get_dashboard_stats(
     session: AsyncSession,
     *,
@@ -297,23 +334,7 @@ async def get_dashboard_stats(
 
     # Regra 9 (ADVBOX): saldo do card é sempre "agora vs mês anterior" — independente
     # do `month` navegado, que só afeta previsto/realizado/atrasados acima.
-    previous_month_end = today.replace(day=1) - timedelta(days=1)
-    accounts = await repository.balance_accounts(account_id=account_id)
-    account_ids = [account.id for account in accounts]
-    deltas_now = await repository.deltas_as_of(account_ids, today)
-    deltas_previous = await repository.deltas_as_of(account_ids, previous_month_end)
-
-    balance = sum(
-        (account.initial_amount + deltas_now.get(account.id, Decimal(0)) for account in accounts),
-        Decimal(0),
-    )
-    balance_previous = sum(
-        (
-            account.initial_amount + deltas_previous.get(account.id, Decimal(0))
-            for account in accounts
-        ),
-        Decimal(0),
-    )
+    balance, balance_previous = await _balances(repository, account_id=account_id, today=today)
 
     return DashboardStats(
         balance=balance,

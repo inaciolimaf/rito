@@ -24,7 +24,7 @@ import time
 from contextvars import Token
 from typing import Any
 
-from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.trace import Span, SpanKind, Status, StatusCode
 from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -102,6 +102,39 @@ def _record_and_log(request: Request, scope: Scope, status_code: int, *, duratio
     )
 
 
+def _enter_context(request: Request, request_id: str) -> tuple[Token[Any], ...]:
+    """Abre o contexto da requisição e devolve os tokens na ordem de criação.
+
+    `route_var` recebe o caminho cru — o template (`/lawsuits/{id}`) só é conhecido depois
+    que o roteador casou, e é `_close_span` quem o corrige no span. O log estruturado usa
+    o caminho cru de propósito: se a requisição morrer antes do roteamento, é o único que
+    existe.
+    """
+    return (
+        request_id_var.set(request_id),
+        route_var.set(request.url.path),
+        start_query_counter(),
+        tenant_id_var.set(None),
+        user_id_var.set(None),
+    )
+
+
+def _close_span(span: Span, request: Request, scope: Scope, status_code: int) -> None:
+    """Nomeia o span pela rota casada e marca erro de servidor.
+
+    O nome só pode ser posto aqui: `start_as_current_span` roda antes do roteamento e não
+    conhece o template, e span nomeado pelo caminho cru gera uma série por UUID.
+    """
+    rota = route_template(scope) or request.url.path
+    span.update_name(f"{request.method} {rota}")
+    span.set_attribute("http.route", rota)
+    span.set_attribute("http.response.status_code", status_code)
+    if status_code >= 500:
+        # Regra 11: erro é sempre exportado, sorteado ou não. Quem lê isso é o processor
+        # no `on_end` — daí o status precisar estar posto aqui.
+        span.set_status(Status(StatusCode.ERROR))
+
+
 def _reset_context(tokens: tuple[Token[Any], ...]) -> None:
     """Devolve as cinco variáveis de contexto ao valor de antes desta requisição.
 
@@ -127,13 +160,7 @@ class ObservabilityMiddleware:
 
         request = Request(scope)
         request_id = request.headers.get(REQUEST_ID_HEADER) or new_request_id()
-        tokens = (
-            request_id_var.set(request_id),
-            route_var.set(request.url.path),
-            start_query_counter(),
-            tenant_id_var.set(None),
-            user_id_var.set(None),
-        )
+        tokens = _enter_context(request, request_id)
         started = time.perf_counter()
         status_code = 500
 
@@ -155,14 +182,7 @@ class ObservabilityMiddleware:
                 },
             ) as span:
                 await self.app(scope, receive, send_com_request_id)
-                rota = route_template(scope) or request.url.path
-                span.update_name(f"{request.method} {rota}")
-                span.set_attribute("http.route", rota)
-                span.set_attribute("http.response.status_code", status_code)
-                if status_code >= 500:
-                    # Regra 11: erro é sempre exportado, sorteado ou não. Quem lê isso é
-                    # o processor no `on_end` — daí o status precisar estar posto aqui.
-                    span.set_status(Status(StatusCode.ERROR))
+                _close_span(span, request, scope, status_code)
         finally:
             _record_and_log(request, scope, status_code, duration_s=time.perf_counter() - started)
             _reset_context(tokens)

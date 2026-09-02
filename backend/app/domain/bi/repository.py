@@ -17,7 +17,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import CTE, ColumnElement, Date, and_, case, func, or_, select
+from sqlalchemy import CTE, ColumnElement, Date, Row, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import next_month_start
@@ -253,6 +253,20 @@ class BiPipelineRepository:
         return [PortfolioPeriodRow(month=month, active=int(count)) for month, count in rows]
 
 
+def _vintage_conditions(
+    from_year: int | None, to_year: int | None, action_group_id: uuid.UUID | None
+) -> list[ColumnElement[bool]]:
+    """Filtros da safra: intervalo de anos e grupo de ação, todos opcionais."""
+    conditions: list[ColumnElement[bool]] = []
+    if from_year is not None:
+        conditions.append(bi_vintage.c.vintage_year >= from_year)
+    if to_year is not None:
+        conditions.append(bi_vintage.c.vintage_year <= to_year)
+    if action_group_id is not None:
+        conditions.append(bi_vintage.c.action_group_id == action_group_id)
+    return conditions
+
+
 class BiVintageRepository:
     """Agregações do BI de Safra e Qualidade (spec 075).
 
@@ -283,13 +297,7 @@ class BiVintageRepository:
 
         Sem filtro de grupo, os grupos são somados por ano — `avg_cycle_days` vira
         média ponderada pelos arquivados (média de médias distorceria a regra 7)."""
-        conditions: list[ColumnElement[bool]] = []
-        if from_year is not None:
-            conditions.append(bi_vintage.c.vintage_year >= from_year)
-        if to_year is not None:
-            conditions.append(bi_vintage.c.vintage_year <= to_year)
-        if action_group_id is not None:
-            conditions.append(bi_vintage.c.action_group_id == action_group_id)
+        conditions = _vintage_conditions(from_year, to_year, action_group_id)
         stmt = (
             select(
                 bi_vintage.c.vintage_year,
@@ -620,6 +628,23 @@ def _cycle_days() -> tuple[Any, Any, Any, Any]:
     )
 
 
+def _cost_row(row: Row[Any]) -> CostLawsuitRow:
+    """Uma linha do custo por processo. `points_cost` pode ser NULL — processo sem
+    pontuação lançada não tem rateio, e zero mentiria dizendo que foi calculado."""
+    return CostLawsuitRow(
+        lawsuit_id=row[0],
+        folder=row[1],
+        process_number=row[2],
+        created_at=row[3],
+        closure_date=row[4],
+        archived_date=row[5],
+        outcome=row[6],
+        direct_cost=Decimal(row[7]),
+        points=int(row[8]),
+        points_cost=Decimal(row[9]) if row[9] is not None else None,
+    )
+
+
 class BiCostsRepository:
     """Agregações do BI de Custos (spec 077).
 
@@ -775,32 +800,7 @@ class BiCostsRepository:
             .order_by(Lawsuit.created_at.desc())
         )
         rows = (await self.session.execute(stmt)).all()
-        return [
-            CostLawsuitRow(
-                lawsuit_id=lawsuit_id,
-                folder=folder,
-                process_number=process_number,
-                created_at=created_at,
-                closure_date=closure_date,
-                archived_date=archived_date,
-                outcome=outcome_value,
-                direct_cost=Decimal(direct_cost),
-                points=int(points),
-                points_cost=Decimal(points_cost) if points_cost is not None else None,
-            )
-            for (
-                lawsuit_id,
-                folder,
-                process_number,
-                created_at,
-                closure_date,
-                archived_date,
-                outcome_value,
-                direct_cost,
-                points,
-                points_cost,
-            ) in rows
-        ]
+        return [_cost_row(row) for row in rows]
 
     async def cost_by_stage(self) -> dict[str, CostStageAggregateRow]:
         """Custo médio por etapa do ciclo (escopo §2, regras 6 e 10): cada processo

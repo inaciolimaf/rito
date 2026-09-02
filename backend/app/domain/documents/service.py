@@ -19,7 +19,7 @@ from app.domain.documents.exceptions import (
     FolderScopeMismatchError,
 )
 from app.domain.documents.models import Document, DocumentFolder, DocumentScopeType
-from app.domain.documents.quota import StorageQuotaExceededError, quota_bytes
+from app.domain.documents.quota import quota_bytes
 from app.domain.documents.repository import DocumentFolderRepository, DocumentRepository
 from app.domain.documents.schemas import SortField, SortOrder
 from app.domain.lawsuits.repository import LawsuitRepository
@@ -40,6 +40,29 @@ class UploadResult:
     @property
     def status(self) -> str:
         return "uploaded" if self.document is not None else "error"
+
+
+def _rejection(
+    filename: str, content_type: str, size: int, *, used: int, quota: int
+) -> UploadResult | None:
+    """Por que este arquivo não entra — ou `None` se ele entra.
+
+    Regra 2: cada arquivo é independente, então a recusa vira LINHA DE RESULTADO e não
+    exceção — a falha de um nunca impede os outros. Regra 5: a quota é conferida arquivo a
+    arquivo contra o total já confirmado, incluindo os aceitos nesta mesma chamada, senão
+    dez arquivos de 1 MB passariam juntos por uma folga de 1 MB.
+
+    As mensagens são as que o usuário lê na tela: sem jargão, e dizendo o limite.
+    """
+    try:
+        validate_attachment(filename=filename, content_type=content_type, size_bytes=size)
+    except AttachmentTooLargeError:
+        return UploadResult(filename=filename, error="Arquivo acima de 50 MB.")
+    except AttachmentTypeBlockedError:
+        return UploadResult(filename=filename, error="Tipo de arquivo não permitido.")
+    if used + size > quota:
+        return UploadResult(filename=filename, error="Quota de armazenamento do plano excedida.")
+    return None
 
 
 class DocumentService:
@@ -172,26 +195,9 @@ class DocumentService:
         used, quota, _plan = await self.storage_usage()
         results: list[UploadResult] = []
         for filename, content_type, content in files:
-            try:
-                validate_attachment(
-                    filename=filename, content_type=content_type, size_bytes=len(content)
-                )
-                if used + len(content) > quota:
-                    raise StorageQuotaExceededError
-            except AttachmentTooLargeError:
-                results.append(UploadResult(filename=filename, error="Arquivo acima de 50 MB."))
-                continue
-            except AttachmentTypeBlockedError:
-                results.append(
-                    UploadResult(filename=filename, error="Tipo de arquivo não permitido.")
-                )
-                continue
-            except StorageQuotaExceededError:
-                results.append(
-                    UploadResult(
-                        filename=filename, error="Quota de armazenamento do plano excedida."
-                    )
-                )
+            recusa = _rejection(filename, content_type, len(content), used=used, quota=quota)
+            if recusa is not None:
+                results.append(recusa)
                 continue
 
             storage_key = f"{self.tenant_id}/documents/{uuid.uuid4()}"

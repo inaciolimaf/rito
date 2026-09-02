@@ -27,6 +27,7 @@ from app.ai.prompts import load_prompt
 from app.ai.tools.base import ToolContext, tool_specs
 from app.ai.tools.runner import ToolRunner
 from app.core.invariants import not_none
+from app.domain.ai.service import AiRunner
 from app.domain.automations.models import (
     Automation,
     AutomationAction,
@@ -283,11 +284,38 @@ class DecisionRunner:
         # A automação é dona da transação (ver `AiRunner.commit_usage`).
         runner.commit_usage = False
 
-        ferramentas = self._context_tools(actor, config)
-        historico = _opening_history(config, run, nomes)
+        return await self._converse(
+            runner,
+            tools=self._context_tools(actor, config),
+            history=_opening_history(config, run, nomes),
+            branches=nomes,
+            default_branch=padrao,
+            automation=automation,
+            actor=actor,
+        )
+
+    async def _converse(
+        self,
+        runner: AiRunner,
+        *,
+        tools: list[ToolSpec],
+        history: list[Message],
+        branches: list[str],
+        default_branch: str,
+        automation: Automation,
+        actor: User,
+    ) -> DecisionOutcome:
+        """A conversa com o modelo, até ele decidir ou acabarem as voltas.
+
+        Regra 5: a IA nunca derruba a automação. Qualquer exceção aqui — provider fora do
+        ar, resposta ilegível, timeout — vira fallback com o motivo escrito, e a automação
+        segue pelo ramo padrão. `except Exception` é largo de propósito: o que não pode
+        acontecer é a automação parar porque um modelo de terceiro teve um dia ruim.
+        """
         tool_runner = ToolRunner(
             ToolContext(session=self.session, tenant_id=self.tenant_id, user=actor)
         )
+        historico = history
         usados: list[str] = []
         total_tokens = 0
         custo = Decimal("0")
@@ -298,7 +326,7 @@ class DecisionRunner:
                 resposta = await runner.run(
                     feature_key=FEATURE_KEY,
                     messages=historico,
-                    tools=ferramentas or None,
+                    tools=tools or None,
                     user_id=actor.id,
                 )
                 modelo = resposta.model
@@ -306,8 +334,8 @@ class DecisionRunner:
                 if not resposta.tool_calls:
                     decisao = _decision_from_response(
                         resposta.content,
-                        branches=nomes,
-                        default_branch=padrao,
+                        branches=branches,
+                        default_branch=default_branch,
                         usage=_Spent(modelo, total_tokens, custo, usados),
                     )
                     if not decisao.fell_back:
@@ -318,10 +346,10 @@ class DecisionRunner:
                 )
                 usados.extend(chamadas)
             await self._charge(automation, custo)
-            return _out_of_rounds(padrao, _Spent(modelo, total_tokens, custo, usados))
+            return _out_of_rounds(default_branch, _Spent(modelo, total_tokens, custo, usados))
         except Exception as exc:
             motivo = str(exc) if isinstance(exc, LLMError) else f"{type(exc).__name__}: {exc}"
-            return _fallback(padrao, f"A IA não respondeu: {motivo}", None)
+            return _fallback(default_branch, f"A IA não respondeu: {motivo}", None)
 
     def _context_tools(self, actor: User, config: dict[str, Any]) -> list[ToolSpec]:
         """Regra 3: só LEITURA, e ainda filtrado pelo que a automação declarou.

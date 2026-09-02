@@ -126,12 +126,15 @@ class AiInsightRepository(BaseRepository[AiInsight]):
 def _recommendation(sinais: dict[str, Any], lawsuit_id: uuid.UUID) -> NextAction:
     """Regra 6: cinco sinais, uma recomendação — decidida por REGRA, não por modelo.
 
-    A ordem das checagens é a ordem da urgência real do escritório: prazo primeiro, porque
-    prazo perdido não se recupera; dinheiro por último, porque cobrança espera um dia.
-    Trocar a ordem muda o produto, não o estilo — daí ela estar aqui sozinha, legível de
-    cima a baixo, separada da coleta dos sinais.
+    A ORDEM é o produto: prazo primeiro, porque prazo perdido não se recupera; dinheiro por
+    último, porque cobrança espera um dia. Ela está literalmente nesta linha, e trocar a
+    posição de um termo do `or` muda o que o escritório vê primeiro.
     """
+    return _deadline_action(sinais) or _flow_action(sinais, lawsuit_id) or _steady_action(sinais)
 
+
+def _deadline_action(sinais: dict[str, Any]) -> NextAction | None:
+    """Os dois sinais de prazo, que vêm antes de tudo (regra 6)."""
     if sinais["overdue_tasks"]:
         return NextAction(
             action="Concluir as tarefas em atraso",
@@ -144,6 +147,16 @@ def _recommendation(sinais: dict[str, Any], lawsuit_id: uuid.UUID) -> NextAction
             reason=f"Há prazo vencendo em {sinais['deadline_in_days']} dia(s).",
             signals=sinais,
         )
+    return None
+
+
+def _flow_action(sinais: dict[str, Any], lawsuit_id: uuid.UUID) -> NextAction | None:
+    """Andamento e cobrança: o processo parado, o processo sem dono, e o valor vencido.
+
+    Os dois primeiros sugerem `create_task` porque a ação é sempre a mesma — alguém precisa
+    pegar o processo. O terceiro não sugere ferramenta: cobrar é decisão do escritório, e a
+    IA não abre cobrança sozinha.
+    """
     if (
         sinais["days_without_movement"] is not None
         and sinais["days_without_movement"] >= STAGNATION_DAYS
@@ -175,6 +188,11 @@ def _recommendation(sinais: dict[str, Any], lawsuit_id: uuid.UUID) -> NextAction
             reason=f"Há R$ {sinais['overdue_amount']:.2f} vencidos neste processo.",
             signals=sinais,
         )
+    return None
+
+
+def _steady_action(sinais: dict[str, Any]) -> NextAction:
+    """Nenhum sinal disparou. Recomendar «siga» é uma recomendação — devolver nada não é."""
     return NextAction(
         action="Seguir o plano atual",
         reason="Sem prazo próximo, sem atraso e com tarefa em andamento.",
@@ -232,6 +250,19 @@ class AnalyticsService:
             raise
         return checado
 
+    async def _run_readonly(self, sql: str) -> tuple[list[str], list[dict[str, Any]]]:
+        """A consulta dentro do savepoint somente-leitura, com timeout.
+
+        `SET LOCAL` vale até o fim da subtransação, e é isso que torna o modo reversível:
+        o Postgres NÃO deixa voltar de read-only para read-write dentro da mesma
+        transação, mas desfaz o `SET LOCAL` ao abortar o savepoint.
+        """
+        await self.session.execute(text(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}"))
+        await self.session.execute(text("SET LOCAL transaction_read_only = on"))
+        resultado = await self.session.execute(text(sql))
+        colunas = list(resultado.keys())
+        return colunas, [dict(zip(colunas, row, strict=True)) for row in resultado.fetchall()]
+
     async def run_sql(self, *, user: User, question: str, checked: CheckedSql) -> AskResult:
         """Executa numa transação **somente leitura**, com timeout e o tenant setado.
 
@@ -247,13 +278,7 @@ class AnalyticsService:
         # o que rodou ali foi um SELECT e as linhas já estão em memória.
         await self.session.execute(text("SAVEPOINT ai_readonly"))
         try:
-            await self.session.execute(
-                text(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}")
-            )
-            await self.session.execute(text("SET LOCAL transaction_read_only = on"))
-            resultado = await self.session.execute(text(checked.sql))
-            colunas = list(resultado.keys())
-            linhas = [dict(zip(colunas, row, strict=True)) for row in resultado.fetchall()]
+            colunas, linhas = await self._run_readonly(checked.sql)
         except Exception as exc:
             await self.session.execute(text("ROLLBACK TO SAVEPOINT ai_readonly"))
             await self._log(

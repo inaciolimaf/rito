@@ -3,6 +3,18 @@ import { defineConfig } from "@playwright/test";
 
 const API_BASE_URL = process.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+// Quantas vezes esta máquina é mais lenta que a de referência (4 núcleos, onde os prazos
+// abaixo foram calibrados). O runner do GitHub tem 2 — metade da máquina, e ainda dividida
+// com o pytest e o vitest, que rodam CONCORRENTES (CLAUDE.md §3).
+//
+// Escalar o prazo não é afrouxar o teste: o que ele afirma é «a jornada acontece», não «a
+// jornada acontece em 30 s». Prazo fixo num host duas vezes mais lento mede a máquina, não
+// o produto — e falha em jornadas DIFERENTES a cada execução, que é como esta configuração
+// se manifestava no CI (auth/customers/financial numa corrida, inbox/publications na
+// seguinte). Um gate que sorteia qual teste reprova não diz nada sobre o código.
+const LENTIDAO = Math.max(1, 4 / Math.min(4, cpus().length));
+const prazo = (base: number): number => Math.round(base * LENTIDAO);
+
 // Máximo de 25 jornadas no projeto inteiro — ver CLAUDE.md §3.
 export default defineConfig({
   testDir: "./tests",
@@ -29,6 +41,8 @@ export default defineConfig({
     process.env.PLAYWRIGHT_WORKERS ??
       Math.max(1, Math.min(process.env.CI ? 4 : 3, cpus().length - 1)),
   ),
+  // 30 s na máquina de referência, 60 s em duas CPUs. O padrão do Playwright é 30 s fixos.
+  timeout: prazo(30_000),
   reporter: "list",
   globalSetup: "./global-setup.ts",
   use: {
@@ -44,14 +58,14 @@ export default defineConfig({
       env: { ...process.env, LOGIN_RATE_LIMIT: "100" },
       url: `${API_BASE_URL}/health`,
       reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
+      timeout: prazo(30_000),
     },
     {
       command: "npm run dev -- --port 5173 --strictPort",
       cwd: "../frontend",
       url: "http://localhost:5173",
       reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
+      timeout: prazo(30_000),
     },
   ],
 });

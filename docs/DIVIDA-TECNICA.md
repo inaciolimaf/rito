@@ -331,8 +331,8 @@ escopo da 045. O campo fica `NULL`, indistinguível na UI de "usuário não defi
 campo quando `task_type_name === "Intimações Judiciais"` e `deadline_date` é nulo —
 resolve a ambiguidade visual sem inventar um cálculo que não existe.
 
-**Spec-alvo:** 124 (prazo processual — spec própria, ainda a escrever). **Re-atribuída na
-122:** o número 122 foi ocupado pelo segundo degrau do teto de linhas por função, e este
+**Spec-alvo:** 126 (prazo processual — spec própria, ainda a escrever). **Re-atribuída na
+122** e renumerada na 123, quando ficou claro que 124 e 125 já tinham dono. **Na 122:** o número 122 foi ocupado pelo segundo degrau do teto de linhas por função, e este
 item passou a apontar para uma spec que entregou outra coisa — o mesmo acidente do handoff
 038→086 descrito abaixo, de novo. Vale a lição: **alvo de dívida é um número reservado, e
 quem abre spec nova precisa conferir se alguém já apontava para ele** (`grep -n "Spec-alvo"
@@ -594,9 +594,13 @@ Encontrado na 101 pelo meta-teste `test_nenhum_comentario_adia_para_spec_ja_conc
 não é um dos cinco stubs do escopo da 101 (§3 — "fora de escopo é vinculante"). O achado
 vale como prova de que o meta-teste funciona em caso que ninguém tinha mapeado.
 
-**Spec-alvo:** 123 — calcular sobre `posts` ou remover o campo do contrato. Devolver um
-campo sempre nulo é pior que não ter o campo: o front não distingue "nunca atribuído" de
-"não calculado".
+**Spec-alvo:** ~~123~~ → **125** — calcular sobre `posts` ou remover o campo do contrato.
+Devolver um campo sempre nulo é pior que não ter o campo: o front não distingue "nunca
+atribuído" de "não calculado".
+
+**Re-atribuída na 123**, pelo mesmo acidente da dívida 18 na spec anterior: o número 123 foi
+ocupado pelo terceiro degrau do teto de linhas por função. Duas vezes seguidas é padrão, não
+azar — ver a nota de método no fim deste arquivo.
 
 
 ## 26. "Atividades" não tem tela de listagem
@@ -1246,7 +1250,7 @@ nomes mudaram de comprimento e as assinaturas passaram a quebrar em outro ponto.
 
 ---
 
-## 38. O teto de tamanho de função do backend parou em 50
+## 38. ~~O teto de tamanho de função do backend parou em 50~~ — RESOLVIDO na spec 123
 
 A spec 121 pede **30 linhas líquidas por função**. A recontagem feita antes de mexer deu
 **118 funções** acima disso no backend — e o degrau 1 (teto 50) foi entregue: zero acima,
@@ -1275,8 +1279,102 @@ Fica registrado para não ser redescoberto: **não é dívida, é escopo recusad
 esta entrada no futuro não deve abrir spec para o frontend — a ausência do gate ali é
 deliberada.
 
-**Spec-alvo:** ~~**122** (backend ≤ 40, entregue)~~ e **123** (backend ≤ 30). Os degraus
-ganharam número de spec próprio em vez do sufixo `121b`/`121c`: alvo de dívida é lido por
-meta-teste, e `121b` não é um número que ele saiba comparar com a lista de specs concluídas
-— ficaria aberto para sempre sem ninguém perceber. O degrau de 40 fechou na 122, com duas
-exceções versionadas (os dois mapeadores de campo de `router.py`); resta o de 30.
+**RESOLVIDA na spec 123.** Os três degraus fecharam: 50 na 121, 40 na 122, 30 na 123 —
+160 funções reestruturadas ao todo, com duas exceções versionadas das cinco permitidas (os
+dois mapeadores de campo de `router.py`).
+
+Os degraus ganharam número de spec próprio em vez do sufixo `121b`/`121c`: alvo de dívida é
+lido por meta-teste, e `121b` não é um número que ele saiba comparar com a lista de specs
+concluídas — ficaria aberto para sempre sem ninguém perceber.
+
+---
+
+## 39. O gate de tamanho do bundle não roda em checkout com espaço ou acento no caminho
+
+`frontend/scripts/check-bundle.mjs` resolve o diretório do build assim:
+
+```js
+const DIST = new URL("../dist/assets/", import.meta.url).pathname;
+```
+
+`URL.pathname` devolve o caminho **percent-encoded**. Neste checkout,
+`/home/inacio/Área de trabalho/...` vira `/home/inacio/%C3%81rea%20de%20trabalho/...`, e o
+`readdirSync` estoura `ENOENT: scandir '.../frontend/dist/assets/'` mesmo com o `dist`
+construído e 75 arquivos `.js` dentro dele. Verificado em 02/09/2026, com o build recém-feito.
+
+**Por que nunca apareceu:** o passo roda no CI, onde o checkout mora em `/home/runner/work/…`
+— sem espaço, sem acento, e aí `pathname` e caminho real coincidem. É um gate que só quebra
+fora da máquina que o executa de verdade, que é a pior forma de um gate quebrar: quem
+desenvolve não consegue rodá-lo, e a única prova de que ele funciona é ele nunca ter sido
+exercitado localmente.
+
+**A correção é uma linha** — `fileURLToPath` existe exatamente para isto:
+
+```js
+import { fileURLToPath } from "node:url";
+const DIST = fileURLToPath(new URL("../dist/assets/", import.meta.url));
+```
+
+Confirmado no lugar: com `fileURLToPath`, o mesmo diretório lista os 75 `.js`.
+
+**Vale procurar o mesmo padrão em outros scripts** antes de fechar: qualquer
+`new URL(...).pathname` no repositório tem o mesmo defeito latente.
+
+**Spec-alvo:** 124 — junto de qualquer trabalho que toque scripts de build, ou isolada. Não
+entrou na 123 porque a 123 é teto de tamanho de função no backend, e misturar um conserto de
+gate de front-end nela apagaria o rastro de qual spec consertou o quê.
+
+---
+
+## 40. Oito auxiliares privados em português sobreviveram à renomeação da spec 120
+
+A dívida 37 está marcada **RESOLVIDO na spec 120**, com 88 símbolos renomeados e verificação
+por AST. A verificação era honesta para o que mediu — mas mediu os **45 arquivos do mapa**,
+não o `app/` inteiro. Uma varredura por AST feita na spec 123, sobre todas as funções
+privadas de `app/`, encontra oito que continuam em português:
+
+| Arquivo | Funções |
+|---|---|
+| `app/core/migrations.py` | `_quem_sou_eu`, `_anotar_dono`, `_tentar_travar`, `_destravar`, `_versao_atual`, `_aplicar_sincrono` |
+| `app/domain/ai/sql_guard.py` | `_relacoes_permitidas` |
+| `app/domain/financial/service.py` | `_aplicar_alteracoes` |
+
+Seis das oito estão no MESMO arquivo, o que sugere que `core/migrations.py` simplesmente não
+entrou na lista da 120 — e não que oito casos isolados escaparam.
+
+**Por que isso importa mais do que parece:** a 123 quase escreveu um auxiliar novo em
+português neste arquivo, por imitação do que estava em volta (`_esperar_a_vez`, corrigido
+para `_wait_for_turn` antes do commit). É exatamente o mecanismo que a dívida 37 descrevia:
+«cada spec nova escolhe sozinha e a inconsistência cresce». Um arquivo consistentemente em
+português é uma armadilha para quem edita nele.
+
+**Lição de método, que vale além deste caso:** verificação mecânica prova o que ela mede, e o
+que ela mede precisa ser conferido contra o universo, não contra a própria entrada. A da 120
+comparou «antes com o mapa aplicado» contra «depois» — o que garante que o mapa foi aplicado
+certo, e **não** que o mapa estava completo. A pergunta que faltou era outra: «existe alguma
+função privada de `app/` fora do mapa cujo nome pareça português?».
+
+**Spec-alvo:** 124 — renomeação mecânica, com o mesmo método da 120 (AST, não regex), mais o
+teste que a 120 não escreveu: um meta-teste que varra `app/` inteiro e reprove nome novo em
+português. Sem esse teste a dívida volta na próxima spec que editar `core/`.
+
+
+---
+
+### Nota de método: número de spec é recurso reservado
+
+Duas specs seguidas (122 e 123) tomaram um número que uma dívida já apontava — a 18 (prazo
+processual) e a 25 (`last_assigned_at`). Nos dois casos o meta-teste
+`test_toda_divida_aberta_tem_numero_e_alvo_no_futuro` pegou, mas **só na hora de FECHAR**, com
+o trabalho inteiro já feito no número errado.
+
+O CLAUDE.md §8 manda rodar `grep -n "Spec-alvo" docs/DIVIDA-TECNICA.md` ao fechar uma spec.
+Falta mandar rodar ao **ABRIR**, que é o único momento em que o número ainda pode mudar de
+graça. Uma linha:
+
+```bash
+grep -n "Spec-alvo:.*\bNNN\b" docs/DIVIDA-TECNICA.md   # antes de criar specs/NNN-*.md
+```
+
+Alvos reservados hoje: **124** (dívidas 39 e 40 — higiene de tooling), **125** (dívida 25 —
+contrato de `last_assigned_at`), **126** (dívida 18 — cálculo de prazo processual).

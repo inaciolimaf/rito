@@ -57,8 +57,15 @@ def _service(
     )
 
 
-def _to_response(extraction: DocumentExtraction, *, duplicate: Any = None) -> ExtractionResponse:
-    campos = {
+def _fields(extraction: DocumentExtraction) -> dict[str, ExtractionFieldResponse]:
+    """Os campos extraídos, com os defaults de quem lê JSON que um modelo escreveu.
+
+    Cada `get` tem default e cada valor é convertido: o `extracted` é JSON vindo do LLM, e
+    campo faltando ou com tipo errado é ocorrência normal, não corrupção. Entrada que não é
+    objeto é descartada em silêncio pelo mesmo motivo — um campo malformado não pode
+    derrubar a extração inteira que o usuário está prestes a revisar.
+    """
+    return {
         nome: ExtractionFieldResponse(
             value=str(dados.get("value", "")),
             confidence=float(dados.get("confidence", 0)),
@@ -68,6 +75,24 @@ def _to_response(extraction: DocumentExtraction, *, duplicate: Any = None) -> Ex
         for nome, dados in (extraction.extracted or {}).items()
         if isinstance(dados, dict)
     }
+
+
+def _duplicate(duplicate: Any) -> ExtractionDuplicateResponse | None:
+    """O contato que parece ser o mesmo, quando a extração achou um.
+
+    Vem separado da extração porque não é dado dela: é o resultado da busca por documento
+    já cadastrado, e serve para a tela oferecer «atualizar o existente» em vez de criar
+    duplicata.
+    """
+    if duplicate is None:
+        return None
+    return ExtractionDuplicateResponse(
+        customer_id=duplicate.id, name=duplicate.name, identification=duplicate.identification
+    )
+
+
+def _to_response(extraction: DocumentExtraction, *, duplicate: Any = None) -> ExtractionResponse:
+    campos = _fields(extraction)
     return ExtractionResponse(
         id=extraction.id,
         filename=extraction.filename,
@@ -84,15 +109,7 @@ def _to_response(extraction: DocumentExtraction, *, duplicate: Any = None) -> Ex
         model=extraction.model,
         tokens_used=extraction.tokens_used,
         created_at=extraction.created_at,
-        duplicate=(
-            ExtractionDuplicateResponse(
-                customer_id=duplicate.id,
-                name=duplicate.name,
-                identification=duplicate.identification,
-            )
-            if duplicate is not None
-            else None
-        ),
+        duplicate=_duplicate(duplicate),
     )
 
 

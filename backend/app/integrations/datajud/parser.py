@@ -181,6 +181,30 @@ def _parse_movements(source: dict[str, Any]) -> list[ParsedMovement]:
     ]
 
 
+def _parse_taxonomies(source: dict[str, Any]) -> dict[str, Any]:
+    """Os quatro objetos aninhados do DataJud, achatados em código + nome.
+
+    `or {}` em cada um porque o DataJud manda `null` no lugar do objeto quando o campo não
+    se aplica ao tribunal — e `None.get` derrubaria o processo inteiro por causa de uma
+    taxonomia ausente que não impede nada.
+    """
+    classe = source.get("classe") or {}
+    sistema = source.get("sistema") or {}
+    formato = source.get("formato") or {}
+    orgao = source.get("orgaoJulgador") or {}
+    return {
+        "class_code": _to_int(classe.get("codigo")),
+        "class_name": _to_str(classe.get("nome")),
+        "system_code": _to_int(sistema.get("codigo")),
+        "system_name": _to_str(sistema.get("nome")),
+        "format_code": _to_int(formato.get("codigo")),
+        "format_name": _to_str(formato.get("nome")),
+        "organ_code": _to_int(orgao.get("codigo")),
+        "organ_name": _to_str(orgao.get("nome")),
+        "organ_municipality_ibge": _to_int(orgao.get("codigoMunicipioIBGE")),
+    }
+
+
 def parse_process(source: dict[str, Any]) -> ParsedProcess:
     unknown = sorted(set(source) - _KNOWN_FIELDS)
     if unknown:
@@ -191,14 +215,6 @@ def parse_process(source: dict[str, Any]) -> ParsedProcess:
     if external_id is None or not process_number:
         raise DatajudParseError(f"_source sem id/numeroProcesso utilizável: {source.get('id')!r}")
 
-    classe = source.get("classe") or {}
-    sistema = source.get("sistema") or {}
-    formato = source.get("formato") or {}
-    orgao = source.get("orgaoJulgador") or {}
-
-    subjects = _parse_subjects(source)
-    movements = _parse_movements(source)
-
     return ParsedProcess(
         external_id=external_id,
         court_code=_to_str(source.get("tribunal")) or "",
@@ -206,17 +222,9 @@ def parse_process(source: dict[str, Any]) -> ParsedProcess:
         process_number=process_number,
         filed_at=_to_compact_datetime(source.get("dataAjuizamento")),
         secrecy_level=_to_int(source.get("nivelSigilo")) or 0,
-        class_code=_to_int(classe.get("codigo")),
-        class_name=_to_str(classe.get("nome")),
-        system_code=_to_int(sistema.get("codigo")),
-        system_name=_to_str(sistema.get("nome")),
-        format_code=_to_int(formato.get("codigo")),
-        format_name=_to_str(formato.get("nome")),
-        organ_code=_to_int(orgao.get("codigo")),
-        organ_name=_to_str(orgao.get("nome")),
-        organ_municipality_ibge=_to_int(orgao.get("codigoMunicipioIBGE")),
         last_updated_at=_to_datetime(source.get("dataHoraUltimaAtualizacao")),
-        subjects=subjects,
-        movements=movements,
+        subjects=_parse_subjects(source),
+        movements=_parse_movements(source),
         raw_source=source,
+        **_parse_taxonomies(source),
     )

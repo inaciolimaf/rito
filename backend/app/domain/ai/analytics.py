@@ -15,7 +15,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
-from typing import Any
+from typing import Any, NoReturn
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,6 +49,35 @@ PORTFOLIO_CONCENTRATION_PCT = 40
 _SQL_SYSTEM = load_prompt("analytics_sql")
 
 CLARIFICATION_PREFIX = "PRECISO_DE_ESCLARECIMENTO:"
+
+
+# Uma consulta só, com subqueries correlacionadas, e não seis: o orçamento de queries do
+# CLAUDE.md §11 conta statements, e o painel de sinais é lido dentro do detalhe do processo,
+# que tem 5 no total. Fora do corpo da função porque SQL de 25 linhas dentro de um método
+# esconde o que o método faz — aqui ele é um dado nomeado, não lógica.
+_SINAIS_SQL = """
+    SELECT s.name AS stage,
+           l.last_movement_at,
+           l.is_stagnant,
+           (SELECT count(*) FROM posts p
+             JOIN post_users pu ON pu.post_id = p.id
+            WHERE p.lawsuit_id = l.id AND pu.completed_at IS NULL) AS open_tasks,
+           (SELECT count(*) FROM posts p
+             JOIN post_users pu ON pu.post_id = p.id
+            WHERE p.lawsuit_id = l.id AND pu.completed_at IS NULL
+              AND p.deadline_date < :hoje) AS overdue_tasks,
+           (SELECT min(p.deadline_date) FROM posts p
+             JOIN post_users pu ON pu.post_id = p.id
+            WHERE p.lawsuit_id = l.id AND pu.completed_at IS NULL
+              AND p.deadline_date >= :hoje) AS next_deadline,
+           (SELECT coalesce(sum(t.amount), 0) FROM transactions t
+            WHERE t.lawsuit_id = l.id AND t.kind = 'RECEITA'
+              AND t.payment_date IS NULL AND t.due_date < :hoje
+              AND NOT t.is_internal) AS overdue_amount
+    FROM lawsuits l
+    JOIN stages s ON s.id = l.stage_id
+    WHERE l.id = :lawsuit_id
+"""
 
 
 class ClarificationNeeded(Exception):
@@ -150,6 +179,23 @@ def _deadline_action(sinais: dict[str, Any]) -> NextAction | None:
     return None
 
 
+def _task_action(
+    action: str, reason: str, sinais: dict[str, Any], lawsuit_id: uuid.UUID
+) -> NextAction:
+    """Sugestão que se resolve criando tarefa — as duas do fluxo têm a mesma ferramenta.
+
+    A ferramenta e os argumentos são idênticos porque a ação também é: alguém do escritório
+    precisa pegar o processo. O que muda é só o motivo mostrado ao usuário.
+    """
+    return NextAction(
+        action=action,
+        reason=reason,
+        signals=sinais,
+        suggested_tool="create_task",
+        suggested_arguments={"lawsuit_id": str(lawsuit_id)},
+    )
+
+
 def _flow_action(sinais: dict[str, Any], lawsuit_id: uuid.UUID) -> NextAction | None:
     """Andamento e cobrança: o processo parado, o processo sem dono, e o valor vencido.
 
@@ -161,26 +207,20 @@ def _flow_action(sinais: dict[str, Any], lawsuit_id: uuid.UUID) -> NextAction | 
         sinais["days_without_movement"] is not None
         and sinais["days_without_movement"] >= STAGNATION_DAYS
     ):
-        return NextAction(
-            action="Movimentar o processo",
-            reason=(
-                f"Sem movimentação há {sinais['days_without_movement']} dias, "
-                f"parado na etapa {sinais['stage']}."
-            ),
-            signals=sinais,
-            suggested_tool="create_task",
-            suggested_arguments={"lawsuit_id": str(lawsuit_id)},
+        return _task_action(
+            "Movimentar o processo",
+            f"Sem movimentação há {sinais['days_without_movement']} dias, "
+            f"parado na etapa {sinais['stage']}.",
+            sinais,
+            lawsuit_id,
         )
     if not sinais["open_tasks"]:
-        return NextAction(
-            action="Definir a próxima tarefa",
-            reason=(
-                f"O processo está na etapa {sinais['stage']} e não tem nenhuma tarefa "
-                "em aberto — ninguém está com ele."
-            ),
-            signals=sinais,
-            suggested_tool="create_task",
-            suggested_arguments={"lawsuit_id": str(lawsuit_id)},
+        return _task_action(
+            "Definir a próxima tarefa",
+            f"O processo está na etapa {sinais['stage']} e não tem nenhuma tarefa "
+            "em aberto — ninguém está com ele.",
+            sinais,
+            lawsuit_id,
         )
     if sinais["overdue_amount"]:
         return NextAction(
@@ -210,6 +250,24 @@ class AnalyticsService:
 
     # ------------------------------------------------------------- text-to-SQL
 
+    async def _raise_clarification(self, bruto: str, *, user: User, question: str) -> NoReturn:
+        """A pergunta ambígua vira `ClarificationNeeded`, registrada como tentativa negada.
+
+        Ambiguidade é resposta legítima do modelo, não erro — mas entra no log pelo mesmo
+        motivo que o SQL rejeitado (regra 8 do §5): quem audita precisa ver o que foi
+        perguntado e por que nada rodou.
+        """
+        duvida = bruto[len(CLARIFICATION_PREFIX) :].strip()
+        await self._log(
+            user=user,
+            question=question,
+            sql=bruto,
+            allowed=False,
+            reason=f"ambiguidade: {duvida}",
+        )
+        await self._commit_log()
+        raise ClarificationNeeded(duvida)
+
     async def generate_sql(self, question: str, *, user: User) -> CheckedSql:
         """Gera e VALIDA — sem executar (regra 3: o usuário vê o SQL antes)."""
         response = await self.runner.run(
@@ -225,16 +283,7 @@ class AnalyticsService:
         )
         bruto = (response.content or "").strip()
         if bruto.startswith(CLARIFICATION_PREFIX):
-            duvida = bruto[len(CLARIFICATION_PREFIX) :].strip()
-            await self._log(
-                user=user,
-                question=question,
-                sql=bruto,
-                allowed=False,
-                reason=f"ambiguidade: {duvida}",
-            )
-            await self._commit_log()
-            raise ClarificationNeeded(duvida)
+            await self._raise_clarification(bruto, user=user, question=question)
         if bruto.startswith("```"):
             bruto = bruto.strip("`").removeprefix("sql").strip()
         try:
@@ -263,37 +312,54 @@ class AnalyticsService:
         colunas = list(resultado.keys())
         return colunas, [dict(zip(colunas, row, strict=True)) for row in resultado.fetchall()]
 
+    async def _log_failed_run(
+        self,
+        exc: Exception,
+        *,
+        user: User,
+        question: str,
+        checked: CheckedSql,
+        started: float,
+    ) -> None:
+        """Desfaz o savepoint e registra a tentativa que falhou (regra 8 do §5).
+
+        O `ROLLBACK TO` vem ANTES do log: a sessão está abortada enquanto o savepoint não
+        volta, e um `INSERT` de auditoria numa transação abortada falharia — trocando o erro
+        real do usuário por um erro do próprio código de auditoria.
+        """
+        await self.session.execute(text("ROLLBACK TO SAVEPOINT ai_readonly"))
+        await self._log(
+            user=user,
+            question=question,
+            sql=checked.sql,
+            allowed=False,
+            reason=f"falha na execução: {type(exc).__name__}",
+            duration_ms=int((time.monotonic() - started) * 1000),
+        )
+        await self._commit_log()
+
     async def run_sql(self, *, user: User, question: str, checked: CheckedSql) -> AskResult:
         """Executa numa transação **somente leitura**, com timeout e o tenant setado.
 
         Esta é a quarta camada de guardrail (§5, item 4): mesmo que as três anteriores
         falhassem, a conexão não consegue escrever. É a única que não depende de análise
         de texto nenhuma.
+
+        O SAVEPOINT é o que torna o modo reversível — o porquê está em `_run_readonly`. O
+        `ROLLBACK TO` no fim não perde nada: o que rodou ali foi um SELECT, e as linhas já
+        estão em memória quando ele acontece.
         """
         started = time.monotonic()
-        # O SAVEPOINT é o que torna o modo somente-leitura reversível: o Postgres NÃO
-        # deixa voltar para read-write dentro da mesma transação, mas desfaz o `SET
-        # LOCAL` ao abortar a subtransação. Então a consulta roda dentro do savepoint e
-        # o `ROLLBACK TO` devolve a sessão ao estado de antes — sem perder nada, porque
-        # o que rodou ali foi um SELECT e as linhas já estão em memória.
         await self.session.execute(text("SAVEPOINT ai_readonly"))
         try:
             colunas, linhas = await self._run_readonly(checked.sql)
         except Exception as exc:
-            await self.session.execute(text("ROLLBACK TO SAVEPOINT ai_readonly"))
-            await self._log(
-                user=user,
-                question=question,
-                sql=checked.sql,
-                allowed=False,
-                reason=f"falha na execução: {type(exc).__name__}",
-                duration_ms=int((time.monotonic() - started) * 1000),
+            await self._log_failed_run(
+                exc, user=user, question=question, checked=checked, started=started
             )
-            await self._commit_log()
             raise
         await self.session.execute(text("ROLLBACK TO SAVEPOINT ai_readonly"))
 
-        duracao = int((time.monotonic() - started) * 1000)
         registro = await self._log(
             user=user,
             question=question,
@@ -301,7 +367,7 @@ class AnalyticsService:
             allowed=True,
             reason=None,
             rows=len(linhas),
-            duration_ms=duracao,
+            duration_ms=int((time.monotonic() - started) * 1000),
         )
         return AskResult(
             query=registro,
@@ -356,32 +422,7 @@ class AnalyticsService:
 
     async def _signals(self, lawsuit_id: uuid.UUID, hoje: date) -> dict[str, Any]:
         row = (
-            await self.session.execute(
-                text("""
-                    SELECT s.name AS stage,
-                           l.last_movement_at,
-                           l.is_stagnant,
-                           (SELECT count(*) FROM posts p
-                             JOIN post_users pu ON pu.post_id = p.id
-                            WHERE p.lawsuit_id = l.id AND pu.completed_at IS NULL) AS open_tasks,
-                           (SELECT count(*) FROM posts p
-                             JOIN post_users pu ON pu.post_id = p.id
-                            WHERE p.lawsuit_id = l.id AND pu.completed_at IS NULL
-                              AND p.deadline_date < :hoje) AS overdue_tasks,
-                           (SELECT min(p.deadline_date) FROM posts p
-                             JOIN post_users pu ON pu.post_id = p.id
-                            WHERE p.lawsuit_id = l.id AND pu.completed_at IS NULL
-                              AND p.deadline_date >= :hoje) AS next_deadline,
-                           (SELECT coalesce(sum(t.amount), 0) FROM transactions t
-                            WHERE t.lawsuit_id = l.id AND t.kind = 'RECEITA'
-                              AND t.payment_date IS NULL AND t.due_date < :hoje
-                              AND NOT t.is_internal) AS overdue_amount
-                    FROM lawsuits l
-                    JOIN stages s ON s.id = l.stage_id
-                    WHERE l.id = :lawsuit_id
-                    """),
-                {"lawsuit_id": lawsuit_id, "hoje": hoje},
-            )
+            await self.session.execute(text(_SINAIS_SQL), {"lawsuit_id": lawsuit_id, "hoje": hoje})
         ).first()
         if row is None:
             raise LookupError("Processo não encontrado neste escritório.")
@@ -398,6 +439,37 @@ class AnalyticsService:
 
     # -------------------------------------------------------------- insights
 
+    async def _add_insights(
+        self, kind: str, linhas: Sequence[dict[str, Any]], agora: datetime
+    ) -> int:
+        """Cria os insights de um tipo, pulando os que o escritório já viu.
+
+        Duas razões para pular, e as duas importam (regra 9): o insight foi dispensado há
+        pouco — reabri-lo todo dia transforma aviso em ruído —, ou já existe um aberto para
+        o mesmo assunto, e dois avisos idênticos na tela é pior que um.
+        """
+        criados = 0
+        for dados in linhas:
+            subject_id = dados.get("subject_id")
+            if await self.insights.recently_dismissed(kind=kind, subject_id=subject_id, now=agora):
+                continue
+            if await self.insights.open_for(kind=kind, subject_id=subject_id) is not None:
+                continue
+            self.session.add(
+                AiInsight(
+                    tenant_id=self.tenant_id,
+                    kind=kind,
+                    severity=dados["severity"],
+                    subject_type=dados.get("subject_type"),
+                    subject_id=subject_id,
+                    title=dados["title"],
+                    body=dados["body"],
+                    suggested_action=dados.get("suggested_action"),
+                )
+            )
+            criados += 1
+        return criados
+
     async def refresh_insights(self, *, today: date) -> int:
         """Job dos insights (regras 8, 9 e 12): determinístico, sem modelo nenhum.
 
@@ -413,27 +485,7 @@ class AnalyticsService:
             ("overdue", await self._overdue_rows(hoje)),
             ("portfolio", await self._portfolio_rows()),
         ):
-            for dados in linhas:
-                subject_id = dados.get("subject_id")
-                if await self.insights.recently_dismissed(
-                    kind=kind, subject_id=subject_id, now=agora
-                ):
-                    continue
-                if await self.insights.open_for(kind=kind, subject_id=subject_id) is not None:
-                    continue
-                self.session.add(
-                    AiInsight(
-                        tenant_id=self.tenant_id,
-                        kind=kind,
-                        severity=dados["severity"],
-                        subject_type=dados.get("subject_type"),
-                        subject_id=subject_id,
-                        title=dados["title"],
-                        body=dados["body"],
-                        suggested_action=dados.get("suggested_action"),
-                    )
-                )
-                criados += 1
+            criados += await self._add_insights(kind, linhas, agora)
         await self.session.flush()
         return criados
 

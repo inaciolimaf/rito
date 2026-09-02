@@ -208,18 +208,17 @@ async def _preview_update_customer(ctx: ToolContext, params: UpdateCustomerInput
     )
 
 
-async def _execute_update_customer(ctx: ToolContext, params: UpdateCustomerInput) -> Executed:
-    from app.domain.customers.schemas import CustomerUpdateRequest
-    from app.domain.customers.service import CustomerService
+def _merged_customer(customer: Any, params: "UpdateCustomerInput") -> dict[str, Any]:
+    """O cadastro atual com as mudanças da proposta por cima.
 
-    service = CustomerService(session=ctx.session, tenant_id=ctx.tenant_id)
-    customer = await service.get(params.customer_id)
-    if customer is None:
-        raise ToolError("not_found", "Contato não encontrado neste escritório.")
-    # O contrato de atualização do domínio é o cadastro inteiro (PUT), então o payload
-    # parte do estado ATUAL e só sobrescreve o que a proposta mudou — mandar só os
-    # campos alterados apagaria o resto.
-    payload = {
+    O contrato de atualização do domínio é o cadastro INTEIRO (PUT), então o payload parte
+    do estado atual — mandar só os campos alterados apagaria o resto.
+
+    `model_fields_set` (via `_informados`) em vez de `exclude_none`: desfazer (regra 10)
+    precisa conseguir devolver um campo para NULL, e "não informado" é diferente de
+    "informado como vazio".
+    """
+    return {
         "type": customer.type.value,
         "name": customer.name,
         "origin_id": customer.origin_id,
@@ -229,24 +228,38 @@ async def _execute_update_customer(ctx: ToolContext, params: UpdateCustomerInput
         "city": customer.city,
         "state": customer.state,
         "notes": customer.notes,
-        # `model_fields_set` em vez de `exclude_none`: desfazer (regra 10) precisa
-        # conseguir devolver um campo para NULL, e "não informado" é diferente de
-        # "informado como vazio".
         **_informados(params, exclude={"customer_id"}),
     }
+
+
+def _customer_state(customer: Any) -> dict[str, Any]:
+    """O depois da execução, guardado para a auditoria e para o desfazer (regra 10).
+
+    Só os campos que a ferramenta pode ter mudado: guardar a ficha inteira encheria o
+    `ai_audit_log` de dado que não participa de nenhum desfazer.
+    """
+    return {
+        "id": str(customer.id),
+        "name": customer.name,
+        "email": customer.email,
+        "cellphone": customer.cellphone,
+        "city": customer.city,
+        "state": customer.state,
+        "notes": customer.notes,
+    }
+
+
+async def _execute_update_customer(ctx: ToolContext, params: UpdateCustomerInput) -> Executed:
+    from app.domain.customers.schemas import CustomerUpdateRequest
+    from app.domain.customers.service import CustomerService
+
+    service = CustomerService(session=ctx.session, tenant_id=ctx.tenant_id)
+    customer = await service.get(params.customer_id)
+    if customer is None:
+        raise ToolError("not_found", "Contato não encontrado neste escritório.")
+    payload = _merged_customer(customer, params)
     updated = await service.update(customer, CustomerUpdateRequest.model_validate(payload))
-    return Executed(
-        affected_id=updated.id,
-        after_state={
-            "id": str(updated.id),
-            "name": updated.name,
-            "email": updated.email,
-            "cellphone": updated.cellphone,
-            "city": updated.city,
-            "state": updated.state,
-            "notes": updated.notes,
-        },
-    )
+    return Executed(affected_id=updated.id, after_state=_customer_state(updated))
 
 
 # ------------------------------------------------------------------ processos

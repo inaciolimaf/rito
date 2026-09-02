@@ -2,8 +2,10 @@
 Qualidade (075) e Tempo e Honorários (076)."""
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +14,7 @@ from app.core.materialized_view import MATERIALIZED_VIEWS, MaterializedViewSpec
 from app.core.ratios import safe_percentage, safe_ratio
 from app.domain.aggregates.schemas import AggregateMeta
 from app.domain.aggregates.service import realtime_meta, view_meta
-from app.domain.bi.models import SuccessMonthRow
+from app.domain.bi.models import SuccessMonthRow, VintageYearRow
 from app.domain.bi.repository import (
     BiCostsRepository,
     BiPipelineRepository,
@@ -78,6 +80,57 @@ def _month_start(value: date) -> date:
     return value.replace(day=1)
 
 
+async def _view_meta(session: AsyncSession) -> dict[str, Any]:
+    """Os três campos que TODA resposta de BI carrega sobre a própria procedência.
+
+    Painel de BI lê view materializada, então o número na tela é sempre de algum instante
+    passado — `staleness_hint` diz de quando, `meta` diz quando foi o refresh, e
+    `crm_warning` avisa que o CRM alimenta esses números manualmente. Juntos porque omitir
+    qualquer um deles transforma um número datado num número que parece atual.
+    """
+    return {
+        "staleness_hint": _BI_VIEW.staleness_hint(),
+        "crm_warning": CRM_WARNING,
+        "meta": await _meta(session, _BI_VIEW),
+    }
+
+
+@dataclass(frozen=True)
+class _Window:
+    """A janela pedida e a imediatamente anterior, que é com quem ela se compara.
+
+    As quatro datas andam juntas porque a comparação só faz sentido entre períodos
+    adjacentes: a variação de fechamentos do mês compara com o mês que terminou na véspera
+    do início da janela, não com um mês fixo.
+    """
+
+    start: date
+    end: date
+    previous_start: date
+    previous_end: date
+
+    @classmethod
+    def around(cls, from_: date | None, to: date | None, today: date) -> "_Window":
+        """Janela padrão: mês corrente até hoje. Ver regras 1–6."""
+        end = to or today
+        start = from_ or _month_start(end)
+        return cls(
+            start=start,
+            end=end,
+            previous_start=previous_month_start(start),
+            previous_end=start - timedelta(days=1),
+        )
+
+
+def _closed_card(closed: int, previous: int) -> ClosedMonthCard:
+    """O card de fechamentos com a variação sobre o período anterior (regra 4).
+
+    O valor anterior viaja junto do percentual porque «+30%» sozinho não diz nada: 30% sobre
+    dois processos é um, e a tela precisa poder mostrar de quanto para quanto.
+    """
+    return ClosedMonthCard(value=closed, delta_pct=_delta(closed, previous), previous=previous)
+
+
 class BiPipelineService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.repo = BiPipelineRepository(session)
@@ -93,14 +146,10 @@ class BiPipelineService:
     ) -> PipelineResponse:
         """Os 6 indicadores (regras 1–6). Janela padrão: mês corrente; a variação dos
         fechamentos compara com o mês imediatamente anterior ao início da janela."""
-        end = to or today
-        start = from_ or _month_start(end)
-        previous_start = previous_month_start(start)
-        previous_end = start - timedelta(days=1)
-
+        janela = _Window.around(from_, to, today)
         opportunities = await self.repo.opportunities(
-            month_start=_month_start(start),
-            month_end=_month_start(end),
+            month_start=_month_start(janela.start),
+            month_end=_month_start(janela.end),
             action_group_id=action_group_id,
         )
         stock = await self.repo.stock_counts(
@@ -108,27 +157,23 @@ class BiPipelineService:
             action_group_id=action_group_id,
         )
         closed, closed_prev = await self.repo.closed_counts(
-            start=start,
-            end=end,
-            previous_start=previous_start,
-            previous_end=previous_end,
+            start=janela.start,
+            end=janela.end,
+            previous_start=janela.previous_start,
+            previous_end=janela.previous_end,
             action_group_id=action_group_id,
         )
-        trend = await self._closed_trend(end=end, action_group_id=action_group_id)
+        trend = await self._closed_trend(end=janela.end, action_group_id=action_group_id)
 
         return PipelineResponse(
             opportunities_month=opportunities,
             active=stock.active,
             archived=stock.archived,
             idle_120=stock.idle_120,
-            closed_month=ClosedMonthCard(
-                value=closed, delta_pct=_delta(closed, closed_prev), previous=closed_prev
-            ),
+            closed_month=_closed_card(closed, closed_prev),
             in_service=stock.in_service,
             closed_trend=trend,
-            staleness_hint=_BI_VIEW.staleness_hint(),
-            crm_warning=CRM_WARNING,
-            meta=await _meta(self.repo.session, _BI_VIEW),
+            **await _view_meta(self.repo.session),
         )
 
     async def _closed_trend(
@@ -230,6 +275,44 @@ def _small_sample(won: int, lost: int, settled: int) -> bool:
     return won + lost + settled < _SMALL_SAMPLE_THRESHOLD
 
 
+def _vintage_items(rows: Sequence[VintageYearRow]) -> list[VintageYearItem]:
+    """As safras com taxa, aviso de amostra e comparação com a safra anterior.
+
+    A comparação é SEQUENCIAL: cada linha se compara com a de cima, e por isso isto é um
+    laço com estado e não uma compreensão. Regra 9: só há comparação quando as DUAS safras
+    têm taxa calculável — safra sem nenhum caso decidido não tem taxa, e comparar com ela
+    produziria uma variação inventada.
+    """
+    years: list[VintageYearItem] = []
+    previous_rate: float | None = None
+    for row in rows:
+        rate = _success_rate(row.won, row.lost, row.settled)
+        change = (
+            round(rate - previous_rate, 1)
+            if rate is not None and previous_rate is not None
+            else None
+        )
+        years.append(
+            VintageYearItem(
+                vintage_year=row.vintage_year,
+                total=row.total,
+                won=row.won,
+                lost=row.lost,
+                settled=row.settled,
+                in_progress=row.in_progress,
+                transited=row.transited,
+                archived=row.archived,
+                avg_cycle_days=row.avg_cycle_days,
+                success_rate=rate,
+                small_sample=_small_sample(row.won, row.lost, row.settled),
+                rate_change_pp=change,
+                highlighted=change is not None and abs(change) > _HIGHLIGHT_PP,
+            )
+        )
+        previous_rate = rate
+    return years
+
+
 class BiVintageService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.repo = BiVintageRepository(session)
@@ -248,36 +331,8 @@ class BiVintageService:
         rows = await self.repo.vintage_years(
             from_year=from_year, to_year=to_year, action_group_id=action_group_id
         )
-        years: list[VintageYearItem] = []
-        previous_rate: float | None = None
-        for row in rows:
-            rate = _success_rate(row.won, row.lost, row.settled)
-            # Regra 9: só há comparação quando as duas safras têm taxa calculável.
-            change = (
-                round(rate - previous_rate, 1)
-                if rate is not None and previous_rate is not None
-                else None
-            )
-            years.append(
-                VintageYearItem(
-                    vintage_year=row.vintage_year,
-                    total=row.total,
-                    won=row.won,
-                    lost=row.lost,
-                    settled=row.settled,
-                    in_progress=row.in_progress,
-                    transited=row.transited,
-                    archived=row.archived,
-                    avg_cycle_days=row.avg_cycle_days,
-                    success_rate=rate,
-                    small_sample=_small_sample(row.won, row.lost, row.settled),
-                    rate_change_pp=change,
-                    highlighted=change is not None and abs(change) > _HIGHLIGHT_PP,
-                )
-            )
-            previous_rate = rate
         return VintageResponse(
-            years=years,
+            years=_vintage_items(rows),
             staleness_hint=_BI_VINTAGE_VIEW.staleness_hint(),
             meta=await _meta(self.repo.session, _BI_VINTAGE_VIEW),
         )
@@ -503,6 +558,30 @@ _STAGE_LABELS: dict[str, str] = {
 }
 
 
+def _cost_item(row: Any) -> CostLawsuitItem:
+    """O custo de um processo: direto mais o rateio dos pontos.
+
+    `points_cost` continua `None` quando a view não soube ratear (mês sem custo por ponto
+    apurado) e é somado como zero no total — as duas coisas ao mesmo tempo: a tela mostra
+    «—» na coluna, e o total não fica menor do que a soma do que se sabe.
+
+    Regra 6: em andamento = sem arquivamento. Custo corre antes do fim, então processo vivo
+    entra na conta.
+    """
+    direct = round(float(row.direct_cost), 2)
+    points_cost = round(float(row.points_cost), 2) if row.points_cost is not None else None
+    return CostLawsuitItem(
+        lawsuit_id=row.lawsuit_id,
+        folder=row.folder,
+        process_number=row.process_number,
+        in_progress=row.archived_date is None,
+        direct_cost=direct,
+        points=row.points,
+        points_cost=points_cost,
+        allocated_cost=round(direct + (points_cost or 0.0), 2),
+    )
+
+
 class BiCostsService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.repo = BiCostsRepository(session)
@@ -519,32 +598,11 @@ class BiCostsService:
         custo por ponto do mês de cada conclusão. Processo em andamento entra — custo
         acontece antes do fechamento."""
         rows = await self.repo.lawsuit_costs(outcome=outcome, from_year=from_year, to_year=to_year)
-        items: list[CostLawsuitItem] = []
-        total_direct = 0.0
-        total_allocated = 0.0
-        for row in rows:
-            direct = round(float(row.direct_cost), 2)
-            points_cost = round(float(row.points_cost), 2) if row.points_cost is not None else None
-            allocated = round(direct + (points_cost or 0.0), 2)
-            total_direct += direct
-            total_allocated += allocated
-            items.append(
-                CostLawsuitItem(
-                    lawsuit_id=row.lawsuit_id,
-                    folder=row.folder,
-                    process_number=row.process_number,
-                    # Regra 6: em andamento = sem arquivamento — custo corre antes do fim.
-                    in_progress=row.archived_date is None,
-                    direct_cost=direct,
-                    points=row.points,
-                    points_cost=points_cost,
-                    allocated_cost=allocated,
-                )
-            )
+        items = [_cost_item(row) for row in rows]
         return CostsResponse(
             items=items,
-            total_direct=round(total_direct, 2),
-            total_allocated=round(total_allocated, 2),
+            total_direct=round(sum(item.direct_cost for item in items), 2),
+            total_allocated=round(sum(item.allocated_cost for item in items), 2),
             staleness_hint=_BI_COSTS_VIEW.staleness_hint(),
             allocation_note=ALLOCATION_NOTE,
             meta=await _meta(self.repo.session, _BI_COSTS_VIEW),

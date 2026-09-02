@@ -4,8 +4,10 @@ acesso (convertido para o timezone da conta) com `work_start` do usuário; dia s
 acesso não gera linha "zerada" — não presume falta."""
 
 import uuid
+from collections.abc import Container
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,6 +40,33 @@ _ANCHOR = date(2000, 1, 1)
 def _deviation_minutes(first_access_local: time, work_start: time) -> int:
     delta = datetime.combine(_ANCHOR, first_access_local) - datetime.combine(_ANCHOR, work_start)
     return int(delta.total_seconds() // 60)
+
+
+def _timesheet_day(
+    dia: date, row: Any, *, user: User, tz: ZoneInfo, holidays: Container[date]
+) -> TimesheetDay:
+    """Um dia do espelho de ponto — inclusive os dias em que ninguém acessou.
+
+    Dia sem acesso vira linha com zero, não linha ausente: o espelho é do MÊS, e um fim de
+    semana ou uma falta que sumisse da tabela esconderia justamente o que se quer ver.
+
+    Regra 6: sem jornada cadastrada, sem comparação — `deviation` fica `None` e nunca zero,
+    porque «chegou na hora» e «não sabemos o horário dele» não são a mesma informação. A
+    conversão para o fuso do escritório acontece aqui porque `first_access` é UTC no banco.
+    """
+    first_access = row.first_access if row is not None else None
+    deviation: int | None = None
+    if first_access is not None and user.work_start is not None:
+        deviation = _deviation_minutes(first_access.astimezone(tz).time(), user.work_start)
+    return TimesheetDay(
+        day=dia,
+        first_access=first_access,
+        last_access=row.last_access if row is not None else None,
+        access_count=row.access_count if row is not None else 0,
+        deviation_minutes=deviation,
+        is_weekend=dia.weekday() >= 5,
+        is_holiday=dia in holidays,
+    )
 
 
 class AccessLogService:
@@ -97,25 +126,9 @@ class AccessLogService:
         days: list[TimesheetDay] = []
         cursor = month_start
         while cursor <= end:
-            row = rows_by_day.get(cursor)
-            first_access = row.first_access if row is not None else None
-            last_access = row.last_access if row is not None else None
-            access_count = row.access_count if row is not None else 0
-
-            # Regra 6: sem jornada cadastrada, sem comparação — nunca desvio zero.
-            deviation: int | None = None
-            if first_access is not None and user.work_start is not None:
-                deviation = _deviation_minutes(first_access.astimezone(tz).time(), user.work_start)
-
             days.append(
-                TimesheetDay(
-                    day=cursor,
-                    first_access=first_access,
-                    last_access=last_access,
-                    access_count=access_count,
-                    deviation_minutes=deviation,
-                    is_weekend=cursor.weekday() >= 5,
-                    is_holiday=cursor in national_holidays,
+                _timesheet_day(
+                    cursor, rows_by_day.get(cursor), user=user, tz=tz, holidays=national_holidays
                 )
             )
             cursor = cursor + timedelta(days=1)

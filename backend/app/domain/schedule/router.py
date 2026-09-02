@@ -13,6 +13,7 @@ from app.domain.schedule.ical import build_ical
 from app.domain.schedule.service import (
     DateField,
     RangeTooLongError,
+    ScheduleEvent,
     ScheduleService,
     ScheduleStatus,
     resolve_feed_token,
@@ -59,6 +60,32 @@ class ICalEnableResponse(BaseModel):
     url: str
 
 
+def _to_response(event: ScheduleEvent) -> ScheduleEventResponse:
+    """O compromisso como a API o devolve.
+
+    O único renome do contrato está aqui: `axis_date` vira `date`. O front posiciona o card
+    por `date` sem saber qual eixo o usuário escolheu, e é isso que permite alternar entre
+    compromisso e prazo fatal (regra 2) sem o componente da agenda mudar.
+    """
+    return ScheduleEventResponse(
+        post_id=event.post_id,
+        lawsuit_id=event.lawsuit_id,
+        task_type_name=event.task_type_name,
+        date=event.axis_date,
+        scheduled_date=event.scheduled_date,
+        scheduled_time=event.scheduled_time,
+        end_date=event.end_date,
+        end_time=event.end_time,
+        deadline_date=event.deadline_date,
+        all_day=event.all_day,
+        location=event.location,
+        status=event.status,
+        is_urgent=event.is_urgent,
+        is_important=event.is_important,
+        assignee_names=event.assignee_names,
+    )
+
+
 @router.get("/schedule", response_model=ScheduleListResponse)
 async def list_schedule(
     from_: date = Query(alias="from"),
@@ -87,28 +114,7 @@ async def list_schedule(
         )
     except RangeTooLongError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return ScheduleListResponse(
-        items=[
-            ScheduleEventResponse(
-                post_id=event.post_id,
-                lawsuit_id=event.lawsuit_id,
-                task_type_name=event.task_type_name,
-                date=event.axis_date,
-                scheduled_date=event.scheduled_date,
-                scheduled_time=event.scheduled_time,
-                end_date=event.end_date,
-                end_time=event.end_time,
-                deadline_date=event.deadline_date,
-                all_day=event.all_day,
-                location=event.location,
-                status=event.status,
-                is_urgent=event.is_urgent,
-                is_important=event.is_important,
-                assignee_names=event.assignee_names,
-            )
-            for event in events
-        ]
-    )
+    return ScheduleListResponse(items=[_to_response(event) for event in events])
 
 
 @router.get("/schedule/ical", response_model=ICalStatusResponse)

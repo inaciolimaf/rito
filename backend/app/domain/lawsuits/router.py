@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Mapping
-from typing import Literal, NoReturn
+from typing import Any, Literal, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from redis.asyncio import Redis
@@ -151,6 +151,18 @@ _CREATION_MESSAGE: dict[type[Exception], str] = {
     CourtSystemIncompatibleError: "Sistema processual não pertence ao tribunal selecionado.",
 }
 
+# Os mesmos erros de domínio, na atualização. A tupla é PRÓPRIA e não `_CREATION_ERRORS`
+# porque a atualização não levanta os erros de parte (que têm status próprio, 409): incluí-los
+# aqui só criaria um `except` para algo que nunca acontece neste caminho — e que, se um dia
+# acontecesse, sairia com o status errado.
+_UPDATE_ERRORS = (
+    LawsuitTypeNotFoundError,
+    StageNotFoundError,
+    ResponsibleNotActiveError,
+    CourtSystemIncompatibleError,
+    CNJValidationError,
+)
+
 _CREATION_ERRORS = (
     LawsuitTypeNotFoundError,
     StageNotFoundError,
@@ -219,6 +231,38 @@ def _to_movement_response(movement: LawsuitMovement) -> MovementResponse:
     )
 
 
+def _money_fields(lawsuit: Lawsuit) -> dict[str, Any]:
+    """Valor da causa, honorários e prognóstico — o bloco financeiro do processo.
+
+    Andam juntos porque são lidos juntos: o card de valores da tela mostra os quatro, e a
+    `contingency` (provável/possível/remota) é o que dá sentido ao número — R$ 100 mil com
+    prognóstico remoto não é a mesma informação que R$ 100 mil com prognóstico provável.
+    """
+    return {
+        "case_value": lawsuit.case_value,
+        "fees_value": lawsuit.fees_value,
+        "fees_percentage": lawsuit.fees_percentage,
+        "contingency": lawsuit.contingency,
+    }
+
+
+def _closure_fields(lawsuit: Lawsuit) -> dict[str, Any]:
+    """As datas de fim do processo e o resultado, na ordem em que acontecem.
+
+    Encerramento, trânsito em julgado e arquivamento são três marcos distintos e não
+    intercambiáveis — um processo pode estar encerrado sem ter transitado, e arquivado sem
+    ter encerrado. `is_archived` é a bandeira que a listagem filtra; `archived_date` é
+    quando aconteceu.
+    """
+    return {
+        "closure_date": lawsuit.closure_date,
+        "transit_date": lawsuit.transit_date,
+        "archived_date": lawsuit.archived_date,
+        "outcome": lawsuit.outcome,
+        "is_archived": lawsuit.is_archived,
+    }
+
+
 def _to_response(detail: LawsuitDetail) -> LawsuitResponse:
     lawsuit = detail.lawsuit
     return LawsuitResponse(
@@ -242,17 +286,38 @@ def _to_response(detail: LawsuitDetail) -> LawsuitResponse:
         court_division=lawsuit.court_division,
         process_date=lawsuit.process_date,
         notes=lawsuit.notes,
-        case_value=lawsuit.case_value,
-        fees_value=lawsuit.fees_value,
-        fees_percentage=lawsuit.fees_percentage,
-        contingency=lawsuit.contingency,
-        closure_date=lawsuit.closure_date,
-        transit_date=lawsuit.transit_date,
-        archived_date=lawsuit.archived_date,
-        outcome=lawsuit.outcome,
-        is_archived=lawsuit.is_archived,
         created_at=lawsuit.created_at,
         updated_at=lawsuit.updated_at,
+        **_money_fields(lawsuit),
+        **_closure_fields(lawsuit),
+    )
+
+
+async def _folder_groups(session: AsyncSession) -> LawsuitGroupsResponse:
+    """Visão agrupada por pasta (spec 029 §5).
+
+    Grupos por contagem decrescente, com "Sem pasta" para os processos sem valor (regra 6)
+    — a ordenação e o rótulo saem do serviço, não daqui. Cada grupo traz só uma amostra dos
+    processos: a tela mostra os primeiros e carrega o resto ao expandir.
+    """
+    groups = await FolderService(session).group_by_folder()
+    return LawsuitGroupsResponse(
+        groups=[
+            FolderGroupResponse(
+                name=group.name,
+                count=group.count,
+                items=[
+                    FolderGroupItemResponse(
+                        id=item.id,
+                        process_number=item.process_number,
+                        is_archived=item.is_archived,
+                        created_at=item.created_at,
+                    )
+                    for item in group.items
+                ],
+            )
+            for group in groups
+        ]
     )
 
 
@@ -270,28 +335,7 @@ async def list_lawsuits(
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> LawsuitListResponse | LawsuitGroupsResponse:
     if group_by == "folder":
-        # Visão agrupada por pasta (spec 029 §5) — grupos por contagem decrescente,
-        # com "Sem pasta" para os sem valor (regra 6).
-        folder_service = FolderService(session)
-        groups = await folder_service.group_by_folder()
-        return LawsuitGroupsResponse(
-            groups=[
-                FolderGroupResponse(
-                    name=group.name,
-                    count=group.count,
-                    items=[
-                        FolderGroupItemResponse(
-                            id=item.id,
-                            process_number=item.process_number,
-                            is_archived=item.is_archived,
-                            created_at=item.created_at,
-                        )
-                        for item in group.items
-                    ],
-                )
-                for group in groups
-            ]
-        )
+        return await _folder_groups(session)
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     items, next_cursor, total = await service.list_lawsuits(
         payload=filters, order=order, cursor=cursor, limit=limit
@@ -546,20 +590,8 @@ async def update_lawsuit(
     previous_cycle_dates = (detail.lawsuit.closure_date, detail.lawsuit.archived_date)
     try:
         updated = await service.update(detail.lawsuit, payload, changed_by=current_user.id)
-    except LawsuitTypeNotFoundError as exc:
-        raise HTTPException(status_code=422, detail="Tipo de ação não encontrado.") from exc
-    except StageNotFoundError as exc:
-        raise HTTPException(status_code=422, detail="Etapa não encontrada.") from exc
-    except ResponsibleNotActiveError as exc:
-        raise HTTPException(
-            status_code=422, detail="Responsável precisa ser um usuário ativo do tenant."
-        ) from exc
-    except CourtSystemIncompatibleError as exc:
-        raise HTTPException(
-            status_code=422, detail="Sistema processual não pertence ao tribunal selecionado."
-        ) from exc
-    except CNJValidationError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except _UPDATE_ERRORS as exc:
+        raise HTTPException(422, _CREATION_MESSAGE.get(type(exc), str(exc))) from exc
     await invalidate_stats_cache(
         redis,
         current_user.tenant_id,
@@ -608,6 +640,27 @@ async def move_lawsuit_stage(
     return MoveStageResponse(lawsuit=_to_response(updated), suggested_workflow=suggested)
 
 
+def _workflow_error(exc: WorkflowAlreadyAppliedError | InactiveAssigneeError) -> HTTPException:
+    """Erro ao aplicar workflow → resposta HTTP, com status por tipo.
+
+    409 e não 422 na reaplicação: o pedido está bem formado, o que existe é um conflito com
+    o estado atual — e a mensagem carrega a data da aplicação anterior porque é o que o
+    usuário precisa para decidir se confirma. 422 no responsável inativo, com «nada foi
+    criado» explícito: a aplicação é tudo-ou-nada e o usuário precisa saber disso.
+    """
+    if isinstance(exc, WorkflowAlreadyAppliedError):
+        return HTTPException(
+            status_code=409,
+            detail=(
+                "Este workflow já foi aplicado neste processo em "
+                f"{exc.applied_at.isoformat()}. Confirme para aplicar de novo."
+            ),
+        )
+    return HTTPException(
+        status_code=422, detail="Um responsável configurado está inativo — nada foi criado."
+    )
+
+
 @router.post("/{lawsuit_id}/apply-workflow")
 async def apply_lawsuit_workflow(
     lawsuit_id: uuid.UUID,
@@ -633,18 +686,8 @@ async def apply_lawsuit_workflow(
             stage_id=payload.stage_id,
             confirm_duplicate=payload.confirm_duplicate,
         )
-    except WorkflowAlreadyAppliedError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "Este workflow já foi aplicado neste processo em "
-                f"{exc.applied_at.isoformat()}. Confirme para aplicar de novo."
-            ),
-        ) from exc
-    except InactiveAssigneeError as exc:
-        raise HTTPException(
-            status_code=422, detail="Um responsável configurado está inativo — nada foi criado."
-        ) from exc
+    except (WorkflowAlreadyAppliedError, InactiveAssigneeError) as exc:
+        raise _workflow_error(exc) from exc
     return ApplyWorkflowResponse(
         application_id=outcome.application.id,
         created=len(outcome.application.posts_created),

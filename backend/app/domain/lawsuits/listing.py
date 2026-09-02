@@ -167,6 +167,29 @@ def _int_csv(raw: str | None) -> list[int]:
     return [int(value) for value in _csv(raw)]
 
 
+def _date_ranges(payload: LawsuitFiltersQuery) -> dict[str, date | None]:
+    """Os cinco intervalos de data da listagem, copiados um a um.
+
+    Cinco marcos diferentes do processo — cadastro, distribuição, encerramento, trânsito e
+    arquivamento —, cada um com início e fim independentes. Ficam juntos porque são o mesmo
+    tipo de filtro e mudam juntos quando a tela ganha um marco novo; e ficam explícitos, e
+    não num laço sobre nomes, porque nome de campo montado em tempo de execução some do
+    `mypy` e do «vá para a definição».
+    """
+    return {
+        "created_from": payload.created_from,
+        "created_to": payload.created_to,
+        "process_date_from": payload.process_date_from,
+        "process_date_to": payload.process_date_to,
+        "closure_from": payload.closure_from,
+        "closure_to": payload.closure_to,
+        "transit_from": payload.transit_from,
+        "transit_to": payload.transit_to,
+        "archived_from": payload.archived_from,
+        "archived_to": payload.archived_to,
+    }
+
+
 def filters_from_query(payload: LawsuitFiltersQuery) -> LawsuitFilters:
     """Traduz o modelo de query string (multivalorados em CSV) para `LawsuitFilters`.
 
@@ -193,16 +216,7 @@ def filters_from_query(payload: LawsuitFiltersQuery) -> LawsuitFilters:
         contingencies=contingencies,
         origin_ids=_uuid_csv(payload.origin_id),
         customer_type=payload.customer_type,
-        created_from=payload.created_from,
-        created_to=payload.created_to,
-        process_date_from=payload.process_date_from,
-        process_date_to=payload.process_date_to,
-        closure_from=payload.closure_from,
-        closure_to=payload.closure_to,
-        transit_from=payload.transit_from,
-        transit_to=payload.transit_to,
-        archived_from=payload.archived_from,
-        archived_to=payload.archived_to,
+        **_date_ranges(payload),
         archived=payload.archived,
         display_stagnant=payload.display_stagnant,
     )
@@ -311,6 +325,52 @@ def _crm_base(
         return stmt
 
     return base
+
+
+def _top_per_step(conditions: list[ColumnElement[bool]], limit_per_column: int) -> Select[Any]:
+    """Os ids dos primeiros `limit_per_column` processos de CADA fase do board.
+
+    Spec 098, regra 1: este ranking é MATERIALIZADO antes do JOIN dos rótulos. Como
+    subconsulta de `IN (...)`, a janela `row_number() OVER (PARTITION BY step_id)` — que
+    precisa ordenar o conjunto filtrado inteiro — era avaliada dentro da query de cards, e o
+    planejador a executava junto do JOIN sobre 100 mil linhas. Rodando antes, ela sai uma vez
+    e o JOIN recebe algumas dezenas de ids literais.
+    """
+    rank_subq = (
+        select(
+            Lawsuit.id,
+            func.row_number()
+            .over(
+                partition_by=Stage.step_id,
+                order_by=(Lawsuit.stage_entered_at.desc(), Lawsuit.id),
+            )
+            .label("rn"),
+        )
+        .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+        .join(Stage, Stage.id == Lawsuit.stage_id)
+    )
+    for condition in conditions:
+        rank_subq = rank_subq.where(condition)
+    ranked = rank_subq.subquery()
+    return select(ranked.c.id).where(ranked.c.rn <= limit_per_column)
+
+
+def _list_row(row: Row[Any]) -> LawsuitListRow:
+    """Uma linha da listagem, lida por POSIÇÃO — a ordem é a do `_labels_query`.
+
+    Posicional e não por nome porque as colunas vêm de agregações e subconsultas que não têm
+    rótulo natural. As duas coalescências existem porque um processo sem parte cadastrada
+    devolve `NULL` no array e na contagem, e a listagem precisa de lista vazia e zero.
+    """
+    return LawsuitListRow(
+        lawsuit=row[0],
+        lawsuit_type_name=row[1],
+        action_group_name=row[2],
+        stage_name=row[3],
+        parties=list(row[4] or []),
+        parties_total=row[5] or 0,
+        last_movement_title=row[6],
+    )
 
 
 def _build_conditions(filters: LawsuitFilters) -> list[ColumnElement[bool]]:
@@ -511,19 +571,7 @@ class LawsuitListingRepository:
                 self._labels_query(ids_da_pagina, parties, sort_column, descending)
             )
         ).all()
-        items = [
-            LawsuitListRow(
-                lawsuit=row[0],
-                lawsuit_type_name=row[1],
-                action_group_name=row[2],
-                stage_name=row[3],
-                parties=list(row[4] or []),
-                parties_total=row[5] or 0,
-                last_movement_title=row[6],
-            )
-            for row in rows
-        ]
-        return items, total
+        return [_list_row(row) for row in rows], total
 
     def _board_select(self, conditions: list[ColumnElement[bool]]) -> Select[Any]:
         """Shape comum de `board`/`board_column`. Any: `Select` composto de 8 colunas
@@ -588,29 +636,9 @@ class LawsuitListingRepository:
         A fase (`step_id`) vem de um ranking por janela, materializado antes do JOIN
         (spec 098, regra 1 — ver comentário abaixo)."""
         conditions = _build_conditions(filters)
-        rank_subq = (
-            select(
-                Lawsuit.id,
-                func.row_number()
-                .over(
-                    partition_by=Stage.step_id,
-                    order_by=(Lawsuit.stage_entered_at.desc(), Lawsuit.id),
-                )
-                .label("rn"),
-            )
-            .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
-            .join(Stage, Stage.id == Lawsuit.stage_id)
+        ranked_ids = list(
+            (await self.session.scalars(_top_per_step(conditions, limit_per_column))).all()
         )
-        for condition in conditions:
-            rank_subq = rank_subq.where(condition)
-        ranked = rank_subq.subquery()
-        # Spec 098, regra 1: o ranking é MATERIALIZADO antes do JOIN. Como subconsulta de
-        # `IN (...)`, a janela `row_number() OVER (PARTITION BY step_id)` — que precisa
-        # ordenar o conjunto filtrado inteiro — era avaliada dentro da query de cards, e
-        # o planejador a executava junto do JOIN de rótulos sobre 100 mil linhas. Rodando
-        # antes, ela sai uma vez e o JOIN recebe algumas dezenas de ids literais.
-        ids_query = select(ranked.c.id).where(ranked.c.rn <= limit_per_column)
-        ranked_ids = list((await self.session.scalars(ids_query)).all())
         if not ranked_ids:
             return {}
 

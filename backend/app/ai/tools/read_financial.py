@@ -15,7 +15,7 @@ from app.ai.tools.base import MAX_ROWS, ToolContext, ToolError, tool, truncate_r
 from app.core.permissions import FinancialAccess
 from app.domain.financial.dashboard import get_dashboard_stats
 from app.domain.financial.models import TransactionKind
-from app.domain.financial.schemas import TransactionListParams
+from app.domain.financial.schemas import TransactionListParams, TransactionRow
 from app.domain.financial.service import TransactionService
 from app.domain.lawsuits.repository import LawsuitRepository
 from app.domain.lawsuits.service import LawsuitService
@@ -39,6 +39,26 @@ class FinancialSummaryInput(BaseModel):
 
 class LawsuitFinancialsInput(BaseModel):
     lawsuit_id: uuid.UUID
+
+
+def _transaction_row(row: TransactionRow) -> dict[str, Any]:
+    """Um lançamento como o modelo o enxerga.
+
+    `payment_date` nulo é o que distingue previsto de realizado, e é por isso que ele vai
+    explícito como `None` em vez de ser omitido: chave ausente faria o modelo tratar o
+    lançamento como se a informação não existisse, e não como «ainda não foi pago».
+    """
+    t = row.transaction
+    return {
+        "id": str(t.id),
+        "kind": t.kind.value,
+        "amount": float(t.amount),
+        "due_date": t.due_date.isoformat(),
+        "payment_date": t.payment_date.isoformat() if t.payment_date else None,
+        "description": t.description,
+        "customer": row.customer_name,
+        "category": row.category_name,
+    }
 
 
 @tool(
@@ -68,23 +88,7 @@ async def search_transactions(ctx: ToolContext, params: SearchTransactionsInput)
     )
     items, truncated = truncate_rows(rows, params.limit)
     return {
-        "items": [
-            {
-                "id": str(row.transaction.id),
-                "kind": row.transaction.kind.value,
-                "amount": float(row.transaction.amount),
-                "due_date": row.transaction.due_date.isoformat(),
-                "payment_date": (
-                    row.transaction.payment_date.isoformat()
-                    if row.transaction.payment_date
-                    else None
-                ),
-                "description": row.transaction.description,
-                "customer": row.customer_name,
-                "category": row.category_name,
-            }
-            for row in items
-        ],
+        "items": [_transaction_row(row) for row in items],
         "total": len(rows),
         "truncated": truncated,
     }

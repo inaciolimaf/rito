@@ -50,6 +50,48 @@ async def build_payload(
     return corpo
 
 
+async def _customer_blocks(session: AsyncSession, partes: list[Any]) -> list[dict[str, Any]]:
+    """Os clientes do processo, com os contatos que o webhook publica.
+
+    Parte sem contato é pulada em silêncio (a FK garante que não aconteça, mas um payload
+    de webhook não é lugar de levantar exceção por dado inconsistente): o consumidor recebe
+    a lista do que existe em vez de um erro que ele não pode consertar.
+    """
+    clientes: list[dict[str, Any]] = []
+    for parte in partes:
+        customer = await session.get(Customer, parte.customer_id)
+        if customer is None:  # pragma: no cover - FK garante
+            continue
+        clientes.append(
+            {
+                "id": str(customer.id),
+                "name": customer.name,
+                "identification": customer.identification,
+                "origin": str(customer.origin_id) if customer.origin_id else None,
+                "cellphone": customer.cellphone,
+                "phone": customer.phone,
+                "email": customer.email,
+            }
+        )
+    return clientes
+
+
+def _assignee_block(post: Post, linha: PostUser, nomes: dict[Any, Any]) -> dict[str, Any]:
+    """Um responsável pela tarefa, no formato que o Flowter espera.
+
+    `important`/`urgent` são da TAREFA (spec 032), não da linha do responsável; o contrato
+    do Flowter os traz por usuário, e repetir o valor da tarefa em cada linha é o mais fiel
+    possível sem inventar um campo que o Rito não tem.
+    """
+    return {
+        "id": str(linha.user_id),
+        "name": nomes.get(linha.user_id),
+        "completed_at": _iso(linha.completed_at),
+        "important": post.is_important,
+        "urgent": post.is_urgent,
+    }
+
+
 async def _task_completed(session: AsyncSession, trigger: dict[str, Any]) -> dict[str, Any]:
     post = await _get(session, Post, trigger.get("post_id"))
     if post is None:
@@ -73,20 +115,7 @@ async def _task_completed(session: AsyncSession, trigger: dict[str, Any]) -> dic
             "points": post.reward_snapshot,
         },
         "lawsuit": await _lawsuit_block(session, post.lawsuit_id),
-        "users": [
-            {
-                "id": str(linha.user_id),
-                "name": nomes.get(linha.user_id),
-                "completed_at": _iso(linha.completed_at),
-                # `important`/`urgent` são da TAREFA (spec 032), não da linha do
-                # responsável; o contrato do Flowter os traz por usuário, e mandar o
-                # valor da tarefa em cada linha é o mais fiel possível sem inventar um
-                # campo que o Rito não tem.
-                "important": post.is_important,
-                "urgent": post.is_urgent,
-            }
-            for linha in linhas
-        ],
+        "users": [_assignee_block(post, linha, nomes) for linha in linhas],
     }
 
 
@@ -119,22 +148,7 @@ async def _lawsuit_block(session: AsyncSession, lawsuit_id: Any) -> dict[str, An
             )
         ).all()
     )
-    clientes = []
-    for parte in partes:
-        customer = await session.get(Customer, parte.customer_id)
-        if customer is None:  # pragma: no cover - FK garante
-            continue
-        clientes.append(
-            {
-                "id": str(customer.id),
-                "name": customer.name,
-                "identification": customer.identification,
-                "origin": str(customer.origin_id) if customer.origin_id else None,
-                "cellphone": customer.cellphone,
-                "phone": customer.phone,
-                "email": customer.email,
-            }
-        )
+    clientes = await _customer_blocks(session, partes)
     return {
         "id": str(lawsuit.id),
         "process_number": lawsuit.process_number,

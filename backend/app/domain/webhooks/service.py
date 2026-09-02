@@ -257,32 +257,38 @@ class WebhookService:
         delivery.duration_ms = resultado.duration_ms
         delivery.error = resultado.error[:500] if resultado.error else None
 
-        # Spec 097, regra 6: entregas de webhook por desfecho. Aqui, no único ponto
-        # por onde toda tentativa (primeira ou retry) passa.
+        vai_retentar = retryable and delivery.attempt < MAX_ATTEMPTS
+        # Spec 097, regra 6: entregas de webhook por desfecho. Aqui, no único ponto por onde
+        # toda tentativa (primeira ou retry) passa.
         record_webhook_delivery(
-            status=(
-                "delivered"
-                if resultado.ok
-                else ("retrying" if retryable and delivery.attempt < MAX_ATTEMPTS else "failed")
-            )
+            status="delivered" if resultado.ok else ("retrying" if vai_retentar else "failed")
         )
         if resultado.ok:
             delivery.delivered_at = self.now()
             delivery.next_attempt_at = None
             # Regra 10: a sequência de falhas zera na primeira entrega boa.
             endpoint.failure_streak = 0
-            await self.session.flush()
-            return delivery
-
-        if retryable and delivery.attempt < MAX_ATTEMPTS:
-            delivery.next_attempt_at = self.now() + BACKOFF[delivery.attempt - 1]
         else:
-            delivery.next_attempt_at = None
+            await self._schedule_retry(delivery, endpoint, vai_retentar)
+        await self.session.flush()
+        return delivery
+
+    async def _schedule_retry(
+        self, delivery: WebhookDelivery, endpoint: WebhookEndpoint, vai_retentar: bool
+    ) -> None:
+        """Agenda a próxima tentativa, ou desiste — e conta a falha para o endpoint.
+
+        O contador de falhas é do ENDPOINT e não da entrega: uma entrega que esgotou as
+        tentativas é um evento perdido, mas um endpoint com muitas falhas seguidas é um
+        destino quebrado, e é ele que precisa ser desligado (regra 10) para o Rito parar de
+        gastar tentativas contra uma URL que não existe mais.
+        """
+        delivery.next_attempt_at = (
+            self.now() + BACKOFF[delivery.attempt - 1] if vai_retentar else None
+        )
         endpoint.failure_streak += 1
         if endpoint.failure_streak >= MAX_FAILURE_STREAK and endpoint.is_active:
             await self._disable(endpoint)
-        await self.session.flush()
-        return delivery
 
     async def _disable(self, endpoint: WebhookEndpoint) -> None:
         """Regra 10: vinte falhas seguidas é destino morto — e desativar em silêncio

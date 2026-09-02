@@ -6,9 +6,9 @@ import uuid
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
-from sqlalchemy import ColumnElement, and_, func, select
+from sqlalchemy import ColumnElement, Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.financial.models import (
@@ -61,6 +61,33 @@ def _period_filter(regime: ReportRegime, start: date, end: date) -> ColumnElemen
     return and_(Transaction.competence >= start, Transaction.competence <= end)
 
 
+def _group_totals_query(conditions: list[ColumnElement[bool]]) -> Select[Any]:
+    """Receita e despesa somadas por grupo do DRE, numa passada só.
+
+    Os dois `FILTER` no mesmo `GROUP BY` em vez de duas consultas: o DRE precisa das duas
+    colunas lado a lado, e somá-las separadamente daria dois planos sobre a mesma tabela. O
+    `coalesce` existe porque grupo sem lançamento de um dos tipos devolve NULL, e o DRE
+    mostra zero — grupo que existe no plano de contas aparece mesmo vazio.
+    """
+    is_receita = Transaction.kind == TransactionKind.RECEITA
+    is_despesa = Transaction.kind == TransactionKind.DESPESA
+    return (
+        select(
+            DreGroup.id,
+            DreGroup.name,
+            DreGroup.nature,
+            func.coalesce(func.sum(Transaction.amount).filter(is_receita), 0),
+            func.coalesce(func.sum(Transaction.amount).filter(is_despesa), 0),
+        )
+        .select_from(Transaction)
+        .join(FinancialCategory, FinancialCategory.id == Transaction.category_id)
+        .join(DreGroup, DreGroup.id == FinancialCategory.dre_group_id)
+        .where(*conditions)
+        .group_by(DreGroup.id, DreGroup.name, DreGroup.nature)
+        .order_by(DreGroup.id)
+    )
+
+
 class FinancialReportRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -76,24 +103,7 @@ class FinancialReportRepository:
         if account_id is not None:
             conditions.append(Transaction.debit_account_id == account_id)
 
-        is_receita = Transaction.kind == TransactionKind.RECEITA
-        is_despesa = Transaction.kind == TransactionKind.DESPESA
-        stmt = (
-            select(
-                DreGroup.id,
-                DreGroup.name,
-                DreGroup.nature,
-                func.coalesce(func.sum(Transaction.amount).filter(is_receita), 0),
-                func.coalesce(func.sum(Transaction.amount).filter(is_despesa), 0),
-            )
-            .select_from(Transaction)
-            .join(FinancialCategory, FinancialCategory.id == Transaction.category_id)
-            .join(DreGroup, DreGroup.id == FinancialCategory.dre_group_id)
-            .where(*conditions)
-            .group_by(DreGroup.id, DreGroup.name, DreGroup.nature)
-            .order_by(DreGroup.id)
-        )
-        rows = (await self.session.execute(stmt)).all()
+        rows = (await self.session.execute(_group_totals_query(conditions))).all()
         return [
             ReportGroupRow(
                 dre_group_id=group_id,

@@ -1,6 +1,7 @@
 """Ferramentas de leitura de processos e intimações (spec 083)."""
 
 import uuid
+from collections.abc import Sequence
 from datetime import date
 from typing import Any
 
@@ -10,7 +11,7 @@ from app.ai.tools.base import MAX_ROWS, ToolContext, ToolError, tool, truncate_r
 from app.domain.lawsuits.parties_service import PartiesService
 from app.domain.lawsuits.schemas import LawsuitFiltersQuery
 from app.domain.lawsuits.service import LawsuitService
-from app.domain.publications.schemas import PublicationFilters
+from app.domain.publications.schemas import PublicationFilters, PublicationListRow
 from app.domain.publications.service import PublicationService
 
 # Tipos da timeline unificada (spec 026) — o padrão traz tudo.
@@ -63,6 +64,59 @@ def _lawsuit_summary(row: Any) -> dict[str, Any]:
     }
 
 
+def _lawsuit_payload(detail: Any, parties: Sequence[Any], *, can_see_money: bool) -> dict[str, Any]:
+    """O processo como o modelo o enxerga (regra 2 da 083 + regra 9 da 079).
+
+    Sem acesso financeiro, valor e honorário saem como `None` E `financial_redacted` vem
+    `True`. As duas coisas: só omitir faria o modelo dizer «este processo não tem valor
+    informado», que é falso e pior que dizer «não posso ver».
+    """
+    lawsuit = detail.lawsuit
+    return {
+        "id": str(lawsuit.id),
+        "process_number": lawsuit.process_number,
+        "folder": lawsuit.folder,
+        "action_group": detail.action_group_name,
+        "step": detail.step_name,
+        "parties": [
+            {
+                "name": party.customer_name,
+                "pole": party.party.pole.value,
+                "is_client": party.party.is_client,
+            }
+            for party in parties
+        ],
+        "county": lawsuit.county,
+        "judiciary": lawsuit.judiciary,
+        "notes": lawsuit.notes,
+        "case_value": float(lawsuit.case_value) if can_see_money and lawsuit.case_value else None,
+        "fees_value": float(lawsuit.fees_value) if can_see_money and lawsuit.fees_value else None,
+        "closure_date": lawsuit.closure_date.isoformat() if lawsuit.closure_date else None,
+        "archived_date": lawsuit.archived_date.isoformat() if lawsuit.archived_date else None,
+        "outcome": lawsuit.outcome.value if lawsuit.outcome else None,
+        "financial_redacted": not can_see_money,
+    }
+
+
+def _publication_row(row: PublicationListRow) -> dict[str, Any]:
+    """Uma intimação como o modelo a enxerga.
+
+    `is_read` é por usuário, não por escritório (spec 044): o mesmo registro aparece lido
+    para quem já abriu e não lido para quem não abriu, e é `row.is_read` — não um campo da
+    publicação — que carrega essa distinção.
+    """
+    pub = row.publication
+    return {
+        "id": str(pub.id),
+        "availability_date": pub.availability_date.isoformat(),
+        "court": pub.court_code,
+        "process_number": pub.process_number,
+        "kind": pub.communication_type,
+        "is_read": row.is_read,
+        "lawsuit_id": str(pub.lawsuit_id) if pub.lawsuit_id else None,
+    }
+
+
 @tool(
     name="search_lawsuits",
     description=(
@@ -109,30 +163,7 @@ async def get_lawsuit(ctx: ToolContext, params: GetLawsuitInput) -> dict[str, An
     from app.core.permissions import FinancialAccess
 
     can_see_money = ctx.user.financial_access != FinancialAccess.NONE
-    return {
-        "id": str(lawsuit.id),
-        "process_number": lawsuit.process_number,
-        "folder": lawsuit.folder,
-        "action_group": detail.action_group_name,
-        "step": detail.step_name,
-        "parties": [
-            {
-                "name": party.customer_name,
-                "pole": party.party.pole.value,
-                "is_client": party.party.is_client,
-            }
-            for party in parties
-        ],
-        "county": lawsuit.county,
-        "judiciary": lawsuit.judiciary,
-        "notes": lawsuit.notes,
-        "case_value": float(lawsuit.case_value) if can_see_money and lawsuit.case_value else None,
-        "fees_value": float(lawsuit.fees_value) if can_see_money and lawsuit.fees_value else None,
-        "closure_date": lawsuit.closure_date.isoformat() if lawsuit.closure_date else None,
-        "archived_date": lawsuit.archived_date.isoformat() if lawsuit.archived_date else None,
-        "outcome": lawsuit.outcome.value if lawsuit.outcome else None,
-        "financial_redacted": not can_see_money,
-    }
+    return _lawsuit_payload(detail, parties, can_see_money=can_see_money)
 
 
 @tool(
@@ -193,20 +224,7 @@ async def search_publications(ctx: ToolContext, params: SearchPublicationsInput)
     )
     items, truncated = truncate_rows(rows, params.limit)
     return {
-        "items": [
-            {
-                "id": str(row.publication.id),
-                "availability_date": row.publication.availability_date.isoformat(),
-                "court": row.publication.court_code,
-                "process_number": row.publication.process_number,
-                "kind": row.publication.communication_type,
-                "is_read": row.is_read,
-                "lawsuit_id": (
-                    str(row.publication.lawsuit_id) if row.publication.lawsuit_id else None
-                ),
-            }
-            for row in items
-        ],
+        "items": [_publication_row(row) for row in items],
         "total": total,
         "truncated": truncated or total > len(items),
     }

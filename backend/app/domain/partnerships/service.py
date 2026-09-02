@@ -100,6 +100,33 @@ class PartnershipService:
             return partnership.partner_tenant_id
         return partnership.requester_tenant_id
 
+    async def _invited_partnership(
+        self, existing: Partnership | None, email: str, token_hash: str, actor: User
+    ) -> Partnership:
+        """A parceria pendente do convite — linha nova, ou a antiga reaproveitada.
+
+        Reaproveita porque o UNIQUE (tenant, e-mail) é por E-MAIL: convidar de novo quem
+        recusou ou encerrou colidiria com o histórico se criasse linha nova. Os campos da
+        parceria anterior são zerados (`partner_tenant_id`, `accepted_at`) para o convite
+        novo não nascer com o vínculo do antigo já aceito.
+        """
+        if existing is None:
+            partnership = Partnership(
+                requester_tenant_id=self.tenant_id,
+                invited_email=email,
+                token_hash=token_hash,
+                invited_by=actor.id,
+            )
+            await self.partnerships.create(partnership)
+            return partnership
+        existing.status = PartnershipStatus.PENDENTE
+        existing.token_hash = token_hash
+        existing.invited_by = actor.id
+        existing.partner_tenant_id = None
+        existing.accepted_at = None
+        await self.session.flush()
+        return existing
+
     async def invite(self, *, actor: User, email: str) -> tuple[PartnershipView, str, bool]:
         existing = await self.partnerships.get_by_invited_email(email)
         if existing is not None and existing.status in (
@@ -108,24 +135,7 @@ class PartnershipService:
         ):
             raise PartnershipAlreadyExistsError
         raw_token, token_hash = generate_refresh_token()
-        partnership = Partnership(
-            requester_tenant_id=self.tenant_id,
-            invited_email=email,
-            token_hash=token_hash,
-            invited_by=actor.id,
-        )
-        if existing is not None:
-            # Recusada/encerrada: o UNIQUE (tenant, e-mail) é por e-mail, então o convite
-            # novo reaproveita a linha em vez de colidir com o histórico.
-            existing.status = PartnershipStatus.PENDENTE
-            existing.token_hash = token_hash
-            existing.invited_by = actor.id
-            existing.partner_tenant_id = None
-            existing.accepted_at = None
-            partnership = existing
-            await self.session.flush()
-        else:
-            await self.partnerships.create(partnership)
+        partnership = await self._invited_partnership(existing, email, token_hash, actor)
         account_exists = await self.gateway.email_has_account(email)
         await self.audit.record(
             tenant_id=self.tenant_id,
@@ -173,6 +183,38 @@ class PartnershipService:
 
     # ------------------------------------------------- compartilhar (lado dono)
 
+    async def _upsert_share(
+        self,
+        partnership: Partnership,
+        partner_tenant_id: uuid.UUID,
+        lawsuit_id: uuid.UUID,
+        payload: ShareLawsuitRequest,
+        actor: User,
+    ) -> SharedLawsuit:
+        """Cria o compartilhamento, ou ATUALIZA as permissões do que já existe.
+
+        Recompartilhar um processo já compartilhado é reajustar permissão, não criar um
+        segundo vínculo: dois compartilhamentos ativos do mesmo processo com a mesma parceria
+        dariam duas respostas diferentes para «o parceiro pode ver o financeiro?».
+        """
+        existing = await self.shares.get_active(lawsuit_id, partner_tenant_id)
+        if existing is not None:
+            existing.can_view_financial = payload.can_view_financial
+            existing.can_create_tasks = payload.can_create_tasks
+            await self.session.flush()
+            return existing
+        return await self.shares.create(
+            SharedLawsuit(
+                partnership_id=partnership.id,
+                owner_tenant_id=self.tenant_id,
+                partner_tenant_id=partner_tenant_id,
+                lawsuit_id=lawsuit_id,
+                can_view_financial=payload.can_view_financial,
+                can_create_tasks=payload.can_create_tasks,
+                shared_by=actor.id,
+            )
+        )
+
     async def share_lawsuit(
         self, *, actor: User, lawsuit_id: uuid.UUID, payload: ShareLawsuitRequest
     ) -> SharedLawsuit:
@@ -186,24 +228,7 @@ class PartnershipService:
         partner_tenant_id = self._other_tenant_id(partnership)
         if partner_tenant_id is None:
             raise PartnershipNotFoundError
-        existing = await self.shares.get_active(lawsuit_id, partner_tenant_id)
-        if existing is not None:
-            existing.can_view_financial = payload.can_view_financial
-            existing.can_create_tasks = payload.can_create_tasks
-            share = existing
-            await self.session.flush()
-        else:
-            share = await self.shares.create(
-                SharedLawsuit(
-                    partnership_id=partnership.id,
-                    owner_tenant_id=self.tenant_id,
-                    partner_tenant_id=partner_tenant_id,
-                    lawsuit_id=lawsuit_id,
-                    can_view_financial=payload.can_view_financial,
-                    can_create_tasks=payload.can_create_tasks,
-                    shared_by=actor.id,
-                )
-            )
+        share = await self._upsert_share(partnership, partner_tenant_id, lawsuit_id, payload, actor)
         await self.audit.record(
             tenant_id=self.tenant_id,
             action=ACTION_SHARE,

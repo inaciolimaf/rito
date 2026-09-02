@@ -163,6 +163,36 @@ def _parse_lawyers(item: dict[str, Any]) -> list[ParsedLawyer]:
     return lawyers
 
 
+def _communication_metadata(item: dict[str, Any]) -> dict[str, Any]:
+    """Os rótulos da intimação: tribunal, órgão, classe, meio e situação.
+
+    Todos opcionais e todos convertidos com tolerância — o DJEN varia o conjunto de campos
+    entre tribunais, e um rótulo ausente não impede ninguém de ler a intimação. Os únicos
+    campos que a ausência derruba (id, hash e data) ficam de fora daqui, validados por quem
+    chama.
+
+    `ativo` tem default `True`: item sem a chave é item vigente, e tratá-lo como cancelado
+    esconderia uma intimação real do escritório.
+    """
+    return {
+        "court_code": _to_str(item.get("siglaTribunal")) or "",
+        "communication_type": _to_str(item.get("tipoComunicacao")),
+        "document_type": _to_str(item.get("tipoDocumento")),
+        "organ_name": _to_str(item.get("nomeOrgao")),
+        "organ_id": _to_int(item.get("idOrgao")),
+        "medium": _to_str(item.get("meio")),
+        "medium_full": _to_str(item.get("meiocompleto")),
+        "class_name": _to_str(item.get("nomeClasse")),
+        "class_code": _to_int(item.get("codigoClasse")),
+        "communication_number": _to_int(item.get("numeroComunicacao")),
+        "link": _to_str(item.get("link")),
+        "status": _to_str(item.get("status")),
+        "is_active": bool(item.get("ativo", True)),
+        "cancellation_reason": _to_str(item.get("motivo_cancelamento")),
+        "cancelled_at": _to_date(item.get("data_cancelamento")),
+    }
+
+
 def parse_communication(item: dict[str, Any]) -> ParsedCommunication:
     unknown = sorted(set(item) - _KNOWN_FIELDS)
     if unknown:
@@ -183,24 +213,10 @@ def parse_communication(item: dict[str, Any]) -> ParsedCommunication:
         external_id=external_id,
         hash=hash_,
         availability_date=availability,
-        court_code=_to_str(item.get("siglaTribunal")) or "",
-        communication_type=_to_str(item.get("tipoComunicacao")),
-        document_type=_to_str(item.get("tipoDocumento")),
-        organ_name=_to_str(item.get("nomeOrgao")),
-        organ_id=_to_int(item.get("idOrgao")),
         body=_to_str(item.get("texto")) or "",
         process_number=normalize_process_number(item.get("numero_processo")),
-        medium=_to_str(item.get("meio")),
-        medium_full=_to_str(item.get("meiocompleto")),
-        class_name=_to_str(item.get("nomeClasse")),
-        class_code=_to_int(item.get("codigoClasse")),
-        communication_number=_to_int(item.get("numeroComunicacao")),
-        link=_to_str(item.get("link")),
-        status=_to_str(item.get("status")),
-        is_active=bool(item.get("ativo", True)),
-        cancellation_reason=_to_str(item.get("motivo_cancelamento")),
-        cancelled_at=_to_date(item.get("data_cancelamento")),
         recipients=recipients,
         lawyers=lawyers,
         raw_payload=item,
+        **_communication_metadata(item),
     )

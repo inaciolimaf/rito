@@ -25,6 +25,7 @@ from app.domain.posts.recurrence_service import RecurrenceService
 from app.domain.posts.repository import PostRepository
 from app.domain.posts.schemas import PostCreateRequest, PostUpdateRequest
 from app.domain.squads.repository import SquadRepository
+from app.domain.task_types.models import TaskType
 from app.domain.task_types.repository import TaskTypeRepository
 from app.domain.users.models import User
 from app.domain.users.repository import UserRepository
@@ -93,6 +94,37 @@ class CreatePostUseCase:
             if await self.posts.assignee_ids_for(candidate.id) == wanted:
                 raise DuplicatePostError(candidate.id)
 
+    def _post_from(self, payload: PostCreateRequest, author: User, task_type: TaskType) -> Post:
+        """A tarefa a partir do pedido, com as duas regras que não são cópia.
+
+        Regra 10: `all_day` IGNORA os campos de hora — guardar a hora de um evento de dia
+        inteiro faria a agenda mostrar um horário que o usuário não escolheu.
+
+        Regra 3: a pontuação do catálogo é CONGELADA na criação. Se o escritório mudar o
+        valor do tipo de tarefa depois, quem já cumpriu mantém o que valia na época — sem
+        isso, o ranking do mês passado mudaria sozinho.
+        """
+        return Post(
+            tenant_id=self.tenant_id,
+            lawsuit_id=payload.lawsuit_id,
+            task_type_id=payload.task_type_id,
+            created_by=author.id,
+            scheduled_date=payload.scheduled_date,
+            scheduled_time=None if payload.all_day else payload.scheduled_time,
+            end_date=payload.end_date,
+            end_time=None if payload.all_day else payload.end_time,
+            deadline_date=payload.deadline_date,
+            all_day=payload.all_day,
+            location=payload.location,
+            comments=payload.comments,
+            reward_snapshot=task_type.reward,
+            is_important=payload.is_important,
+            is_urgent=payload.is_urgent,
+            is_future=payload.is_future,
+            is_private=payload.is_private,
+            show_in_schedule=payload.show_in_schedule,
+        )
+
     async def create(self, payload: PostCreateRequest, author: User) -> PostDetail:
         await validate_references(
             lawsuits=self.lawsuits, task_types=self.task_types, payload=payload
@@ -106,28 +138,7 @@ class CreatePostUseCase:
         await self._check_duplicate(payload, assignee_ids)
         task_type = await self.task_types.get_by_id(payload.task_type_id)
         task_type = not_none(task_type, "validado em validate_references")
-        post = Post(
-            tenant_id=self.tenant_id,
-            lawsuit_id=payload.lawsuit_id,
-            task_type_id=payload.task_type_id,
-            created_by=author.id,
-            scheduled_date=payload.scheduled_date,
-            # Regra 10: all_day ignora os campos de hora.
-            scheduled_time=None if payload.all_day else payload.scheduled_time,
-            end_date=payload.end_date,
-            end_time=None if payload.all_day else payload.end_time,
-            deadline_date=payload.deadline_date,
-            all_day=payload.all_day,
-            location=payload.location,
-            comments=payload.comments,
-            # Regra 3: congela a pontuação do catálogo na criação — nunca muda depois.
-            reward_snapshot=task_type.reward,
-            is_important=payload.is_important,
-            is_urgent=payload.is_urgent,
-            is_future=payload.is_future,
-            is_private=payload.is_private,
-            show_in_schedule=payload.show_in_schedule,
-        )
+        post = self._post_from(payload, author, task_type)
         created = await self.posts.create_with_assignees(post, assignee_ids)
         if payload.recurrence is not None:
             # Spec 034: o post criado é o template (e a 1ª ocorrência) da série.

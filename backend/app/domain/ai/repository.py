@@ -3,10 +3,39 @@ from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Row, func, select
+from sqlalchemy import ColumnElement, Row, func, select
 
 from app.core.repository import BaseRepository
 from app.domain.ai.models import AiCheckpoint, AiFeatureConfig, AiStep, AiThread, AiUsage
+
+
+def _usage_filters(
+    from_: date | None, to: date | None, feature_key: str | None
+) -> list[ColumnElement[bool]]:
+    """Os mesmos filtros para os grupos e para os totais — é o que faz as duas somas baterem.
+
+    O `to` vai até `datetime.max.time()` do dia, não à meia-noite dele: `<= 2026-09-02` com
+    hora zero deixaria de fora o dia inteiro que o usuário pediu.
+    """
+    filtros: list[ColumnElement[bool]] = []
+    if from_ is not None:
+        filtros.append(AiUsage.created_at >= datetime.combine(from_, datetime.min.time()))
+    if to is not None:
+        filtros.append(AiUsage.created_at <= datetime.combine(to, datetime.max.time()))
+    if feature_key is not None:
+        filtros.append(AiUsage.feature_key == feature_key)
+    return filtros
+
+
+# As mesmas colunas nos dois SELECTs. Uma lista só, porque um agregado que existisse em um
+# e não no outro daria um total que não fecha com a soma dos grupos na tela.
+_USAGE_AGGREGATES = (
+    func.count().label("calls"),
+    func.coalesce(func.sum(AiUsage.prompt_tokens), 0).label("prompt_tokens"),
+    func.coalesce(func.sum(AiUsage.completion_tokens), 0).label("completion_tokens"),
+    func.coalesce(func.sum(AiUsage.cost_usd), 0).label("cost_usd"),
+    func.count().filter(AiUsage.status == "error").label("errors"),
+)
 
 
 class AiFeatureConfigRepository(BaseRepository[AiFeatureConfig]):
@@ -50,34 +79,15 @@ class AiUsageRepository(BaseRepository[AiUsage]):
             "status": AiUsage.status,
         }[group_by]
 
-        filters = []
-        if from_ is not None:
-            filters.append(AiUsage.created_at >= datetime.combine(from_, datetime.min.time()))
-        if to is not None:
-            filters.append(AiUsage.created_at <= datetime.combine(to, datetime.max.time()))
-        if feature_key is not None:
-            filters.append(AiUsage.feature_key == feature_key)
-
+        filters = _usage_filters(from_, to, feature_key)
         grouped = (
-            select(
-                dimension.label("key"),
-                func.count().label("calls"),
-                func.coalesce(func.sum(AiUsage.prompt_tokens), 0).label("prompt_tokens"),
-                func.coalesce(func.sum(AiUsage.completion_tokens), 0).label("completion_tokens"),
-                func.coalesce(func.sum(AiUsage.cost_usd), 0).label("cost_usd"),
-                func.count().filter(AiUsage.status == "error").label("errors"),
-            )
+            select(dimension.label("key"), *_USAGE_AGGREGATES)
             .where(*filters)
             .group_by(dimension)
             .order_by(func.count().desc())
         )
         totals = select(
-            func.count().label("calls"),
-            func.coalesce(func.sum(AiUsage.prompt_tokens), 0).label("prompt_tokens"),
-            func.coalesce(func.sum(AiUsage.completion_tokens), 0).label("completion_tokens"),
-            func.coalesce(func.sum(AiUsage.cost_usd), 0).label("cost_usd"),
-            func.count().filter(AiUsage.status == "error").label("errors"),
-            func.avg(AiUsage.latency_ms).label("avg_latency_ms"),
+            *_USAGE_AGGREGATES, func.avg(AiUsage.latency_ms).label("avg_latency_ms")
         ).where(*filters)
 
         rows = (await self.session.execute(grouped)).all()

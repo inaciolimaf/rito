@@ -35,7 +35,14 @@ from app.domain.automations.models import (
     AutomationRun,
 )
 from app.domain.users.models import User
-from app.integrations.openrouter.types import LLMError, Message, ToolCall, ToolSpec, Usage
+from app.integrations.openrouter.types import (
+    LLMError,
+    LLMResponse,
+    Message,
+    ToolCall,
+    ToolSpec,
+    Usage,
+)
 
 FEATURE_KEY = "automation_decision"
 
@@ -171,6 +178,39 @@ def parse_decision(raw: str | None, *, branches: list[str]) -> tuple[str | None,
     return (ramo if ramo in branches else None), confianca, raciocinio
 
 
+def _accepted_or_fallback(
+    resultado: DecisionOutcome, nomes: list[str], padrao: str, minima: float
+) -> DecisionOutcome:
+    """A decisão do modelo, ou o ramo padrão quando ela não é aceitável.
+
+    Regra 1: ramo fora da lista é anomalia — o modelo inventou um caminho que a automação
+    não tem, e segui-lo pararia a execução num nó inexistente.
+
+    Regra 2: decidir com POUCA CERTEZA é pior que não decidir. O ramo padrão é o caminho
+    conservador que o escritório escolheu de antemão, justamente para o caso de a IA não
+    ter convicção — aceitar um palpite de 0,3 seria trocar uma decisão humana pensada por
+    um sorteio.
+
+    Um resultado que JÁ veio em fallback passa direto: ele carrega o motivo original, e
+    reescrevê-lo aqui apagaria a causa real (provider fora do ar, resposta ilegível).
+    """
+    if resultado.fell_back:
+        return resultado
+    if resultado.branch not in nomes:
+        return _fallback(
+            padrao,
+            f"O modelo respondeu um ramo fora da lista ({resultado.branch!r}).",
+            resultado,
+        )
+    if resultado.confidence is not None and resultado.confidence < minima:
+        return _fallback(
+            padrao,
+            f"Confiança {resultado.confidence:.2f} abaixo do mínimo de {minima:.2f}.",
+            resultado,
+        )
+    return resultado
+
+
 class DecisionRunner:
     """Executa um nó de decisão. Devolve sempre um ramo — nunca levanta por causa da IA."""
 
@@ -197,26 +237,7 @@ class DecisionRunner:
         resultado = await self._ask(
             run=run, action=action, automation=automation, actor=actor, config=config, nomes=nomes
         )
-        if resultado.fell_back:
-            escolhido = resultado
-        elif resultado.branch not in nomes:
-            # Regra 1: resposta fora da lista é anomalia — o modelo inventou um ramo.
-            escolhido = _fallback(
-                padrao,
-                f"O modelo respondeu um ramo fora da lista ({resultado.branch!r}).",
-                resultado,
-            )
-        elif resultado.confidence is not None and resultado.confidence < minima:
-            # Regra 2: decidir com pouca certeza é pior que não decidir — o padrão é o
-            # caminho conservador que o escritório escolheu de antemão.
-            escolhido = _fallback(
-                padrao,
-                f"Confiança {resultado.confidence:.2f} abaixo do mínimo de {minima:.2f}.",
-                resultado,
-            )
-        else:
-            escolhido = resultado
-
+        escolhido = _accepted_or_fallback(resultado, nomes, padrao, minima)
         if persist:
             await self._record(
                 run=run, action=action, automation=automation, pergunta=pergunta, outcome=escolhido
@@ -294,6 +315,68 @@ class DecisionRunner:
             actor=actor,
         )
 
+    async def _settled(
+        self,
+        resposta: LLMResponse,
+        gasto: "_Spent",
+        branches: list[str],
+        default_branch: str,
+        automation: Automation,
+    ) -> DecisionOutcome:
+        """O modelo parou de pedir ferramenta: lê a decisão e cobra o que foi gasto.
+
+        A cobrança só acontece quando a decisão VALE. Decisão que caiu em fallback não
+        consumiu o orçamento da automação de propósito — cobrar por uma resposta que não foi
+        usada faria o teto da spec 090 ser gasto justamente nos dias em que o provider está
+        instável, que é quando ele mais precisa sobrar.
+        """
+        decisao = _decision_from_response(
+            resposta.content,
+            branches=branches,
+            default_branch=default_branch,
+            usage=gasto,
+        )
+        if not decisao.fell_back:
+            await self._charge(automation, gasto.cost)
+        return decisao
+
+    async def _tool_rounds(
+        self,
+        runner: AiRunner,
+        tool_runner: ToolRunner,
+        *,
+        tools: list[ToolSpec],
+        history: list[Message],
+        branches: list[str],
+        default_branch: str,
+        automation: Automation,
+        actor: User,
+    ) -> DecisionOutcome:
+        """As voltas de ferramenta até o modelo decidir, ou até acabarem (spec 094).
+
+        O acumulado atravessa as voltas porque o custo da decisão é o de TODAS elas: um
+        modelo que consultou três ferramentas antes de responder gastou o que gastou, e
+        cobrar só a última chamada esconderia o custo real da automação.
+        """
+        historico = history
+        usados: list[str] = []
+        total_tokens = 0
+        custo = Decimal("0")
+        modelo = "desconhecido"
+        for _volta in range(MAX_TOOL_ROUNDS + 1):
+            resposta = await runner.run(
+                feature_key=FEATURE_KEY, messages=historico, tools=tools or None, user_id=actor.id
+            )
+            modelo = resposta.model
+            total_tokens, custo = _accumulated_usage(resposta.usage, total_tokens, custo)
+            if not resposta.tool_calls:
+                gasto = _Spent(modelo, total_tokens, custo, usados)
+                return await self._settled(resposta, gasto, branches, default_branch, automation)
+            historico, chamadas = await self._run_tools(tool_runner, historico, resposta.tool_calls)
+            usados.extend(chamadas)
+        await self._charge(automation, custo)
+        return _out_of_rounds(default_branch, _Spent(modelo, total_tokens, custo, usados))
+
     async def _converse(
         self,
         runner: AiRunner,
@@ -315,38 +398,17 @@ class DecisionRunner:
         tool_runner = ToolRunner(
             ToolContext(session=self.session, tenant_id=self.tenant_id, user=actor)
         )
-        historico = history
-        usados: list[str] = []
-        total_tokens = 0
-        custo = Decimal("0")
-        modelo = "desconhecido"
-
         try:
-            for _volta in range(MAX_TOOL_ROUNDS + 1):
-                resposta = await runner.run(
-                    feature_key=FEATURE_KEY,
-                    messages=historico,
-                    tools=tools or None,
-                    user_id=actor.id,
-                )
-                modelo = resposta.model
-                total_tokens, custo = _accumulated_usage(resposta.usage, total_tokens, custo)
-                if not resposta.tool_calls:
-                    decisao = _decision_from_response(
-                        resposta.content,
-                        branches=branches,
-                        default_branch=default_branch,
-                        usage=_Spent(modelo, total_tokens, custo, usados),
-                    )
-                    if not decisao.fell_back:
-                        await self._charge(automation, custo)
-                    return decisao
-                historico, chamadas = await self._run_tools(
-                    tool_runner, historico, resposta.tool_calls
-                )
-                usados.extend(chamadas)
-            await self._charge(automation, custo)
-            return _out_of_rounds(default_branch, _Spent(modelo, total_tokens, custo, usados))
+            return await self._tool_rounds(
+                runner,
+                tool_runner,
+                tools=tools,
+                history=history,
+                branches=branches,
+                default_branch=default_branch,
+                automation=automation,
+                actor=actor,
+            )
         except Exception as exc:
             motivo = str(exc) if isinstance(exc, LLMError) else f"{type(exc).__name__}: {exc}"
             return _fallback(default_branch, f"A IA não respondeu: {motivo}", None)

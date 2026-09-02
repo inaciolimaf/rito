@@ -164,6 +164,32 @@ async def _record_success(
     )
 
 
+async def _refresh_and_log(conn: AsyncConnection, name: str, log_id: int) -> RefreshOutcome:
+    """Recarrega a view, mede quanto levou e registra o desfecho.
+
+    A falha é gravada ANTES de subir (regra 7): `last_refresh_at` fica como estava e o dado
+    velho continua servindo — um painel com número de ontem é melhor que um painel vazio —,
+    mas `last_error` passa a dizer que a última tentativa falhou.
+    """
+    started = monotonic()
+    try:
+        await _refresh_view(conn, name)
+    except Exception as exc:
+        await _record_failure(conn, name, log_id, exc)
+        raise
+    duration_ms = int((monotonic() - started) * 1000)
+    # `# noqa: S608`: `name` é validado contra `_KNOWN_VIEWS` na entrada de
+    # `refresh_aggregate` — só passa nome que está em `MATERIALIZED_VIEWS`. Identificador
+    # não vai como bind param; a allowlist é a defesa real.
+    rows_affected = (
+        await conn.execute(text(f"SELECT count(*) FROM {name}"))  # noqa: S608
+    ).scalar_one()
+    await _record_success(conn, name, log_id, rows_affected, duration_ms)
+    if duration_ms > SLOW_REFRESH_ALERT_SECONDS * 1000:
+        await _maybe_alert_slow_refresh(conn, name, duration_ms)
+    return RefreshOutcome(name=name, duration_ms=duration_ms, rows_affected=rows_affected)
+
+
 async def refresh_aggregate(name: str, url: str | None = None) -> RefreshOutcome:
     """Refresh logado de UMA view. Em falha, registra o erro no log e em
     `last_error` (mantendo `last_refresh_at` anterior — o dado velho continua
@@ -180,23 +206,7 @@ async def refresh_aggregate(name: str, url: str | None = None) -> RefreshOutcome
                     {"name": name},
                 )
             ).scalar_one()
-            started = monotonic()
-            try:
-                await _refresh_view(conn, name)
-            except Exception as exc:
-                await _record_failure(conn, name, log_id, exc)
-                raise
-            duration_ms = int((monotonic() - started) * 1000)
-            # `# noqa: S608`: `name` é validado contra `_KNOWN_VIEWS` na entrada de
-            # `refresh_aggregate` — só passa nome que está em `MATERIALIZED_VIEWS`.
-            # Identificador não vai como bind param; a allowlist é a defesa real.
-            rows_affected = (
-                await conn.execute(text(f"SELECT count(*) FROM {name}"))  # noqa: S608
-            ).scalar_one()
-            await _record_success(conn, name, log_id, rows_affected, duration_ms)
-            if duration_ms > SLOW_REFRESH_ALERT_SECONDS * 1000:
-                await _maybe_alert_slow_refresh(conn, name, duration_ms)
-            return RefreshOutcome(name=name, duration_ms=duration_ms, rows_affected=rows_affected)
+            return await _refresh_and_log(conn, name, log_id)
         finally:
             await conn.close()
     finally:

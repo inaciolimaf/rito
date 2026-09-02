@@ -21,6 +21,7 @@ from app.domain.auth.exceptions import (
 from app.domain.auth.models import PasswordResetToken, RefreshToken
 from app.domain.auth.repository import PasswordResetTokenRepository, RefreshTokenRepository
 from app.domain.reports.models import AccessLog
+from app.domain.users.models import User
 from app.domain.users.repository import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,26 @@ class AuthService:
         self.refresh_tokens = RefreshTokenRepository(session)
         self.password_resets = PasswordResetTokenRepository(session)
         self.accounts = AccountRepository(session)
+
+    async def _log_access(self, user: User, client_ip: str, user_agent: str | None) -> None:
+        """Spec 073, regras 1 e 3: registra o acesso, se o escritório pediu para registrar.
+
+        Só um login BEM-SUCEDIDO passa por aqui — refresh de token não é acesso novo, e
+        contá-lo encheria o espelho de ponto de linhas que ninguém reconheceria. `unknown`
+        vira `None` em vez de ser gravado como texto: IP que não se sabe é ausência, e um
+        relatório com "unknown" na coluna de IP mente sobre ter medido alguma coisa.
+        """
+        account = await self.accounts.get_current()
+        if account is None or not account.track_access_logs:
+            return
+        self.session.add(
+            AccessLog(
+                tenant_id=self.tenant_id,
+                user_id=user.id,
+                ip_address=client_ip if client_ip != "unknown" else None,
+                user_agent=user_agent,
+            )
+        )
 
     async def login(
         self, email: str, password: str, client_ip: str, user_agent: str | None = None
@@ -64,19 +85,7 @@ class AuthService:
 
         user.last_login_at = datetime.now(UTC)
 
-        # Spec 073, regra 1/3: só grava se o rastreamento estiver ligado; refresh
-        # nunca passa por aqui — só um login bem-sucedido registra.
-        account = await self.accounts.get_current()
-        if account is not None and account.track_access_logs:
-            self.session.add(
-                AccessLog(
-                    tenant_id=self.tenant_id,
-                    user_id=user.id,
-                    ip_address=client_ip if client_ip != "unknown" else None,
-                    user_agent=user_agent,
-                )
-            )
-
+        await self._log_access(user, client_ip, user_agent)
         return await self._issue_tokens(user_id=user.id, family_id=uuid.uuid4())
 
     async def refresh(self, raw_refresh_token: str) -> tuple[str, str, int]:

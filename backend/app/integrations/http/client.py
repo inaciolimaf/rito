@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import NoReturn
 
 import httpx
-from opentelemetry.trace import SpanKind
+from opentelemetry.trace import Span, SpanKind
 from redis.asyncio import Redis
 
 from app.core.invariants import not_none
@@ -120,6 +120,20 @@ class _Call:
         return _Attempt(
             self.method, self.url, self.parsed, self.host, self.tenant_id, duration_ms, number
         )
+
+
+def _stream_span(method: str, host: str) -> Span:
+    """Abre o span que cobre o stream INTEIRO (spec 097, regra 4).
+
+    Inteiro, e não só a abertura da conexão: num SSE de LLM o que interessa medir é quanto
+    tempo a resposta levou para TERMINAR de chegar. Por isso o span é criado à mão e fechado
+    num `finally`, em vez de um `with` que morreria no primeiro `yield`.
+    """
+    return get_tracer().start_span(
+        f"http {method}",
+        kind=SpanKind.CLIENT,
+        attributes={"http.request.method": method, "server.address": host},
+    )
 
 
 class ResilientHttpClient:
@@ -407,6 +421,28 @@ class ResilientHttpClient:
             timeout_s=policy.timeout_s,
         )
 
+    async def _retryable_status(
+        self,
+        feita: _Attempt,
+        raw: httpx.Response,
+        *,
+        policy: HostPolicy,
+        total_attempts: int,
+    ) -> None:
+        """A resposta chegou, mas com status que a política manda retentar (429, 5xx).
+
+        Diferente do erro de transporte em um ponto que importa: aqui existe um `Retry-After`
+        para respeitar. É o servidor dizendo quanto esperar, e ignorá-lo é o caminho mais
+        curto para ser bloqueado por insistência.
+        """
+        await self._failed_attempt(
+            feita,
+            policy=policy,
+            total_attempts=total_attempts,
+            motivo=f"status {raw.status_code}",
+            retry_after=raw.headers.get("retry-after"),
+        )
+
     async def _retry_loop(
         self,
         call: _Call,
@@ -444,20 +480,11 @@ class ResilientHttpClient:
             last_error = None
             last_status = raw.status_code
             feita = call.attempt(self._elapsed_ms(started), attempt)
-
-            if raw.status_code in policy.retry_on:
-                await self._failed_attempt(
-                    feita,
-                    policy=policy,
-                    total_attempts=total_attempts,
-                    motivo=f"status {raw.status_code}",
-                    retry_after=raw.headers.get("retry-after"),
+            if raw.status_code not in policy.retry_on:
+                return await self._settle(
+                    feita, breaker=breaker, cache_key=cache_key, raw=raw, body=body
                 )
-                continue
-
-            return await self._settle(
-                feita, breaker=breaker, cache_key=cache_key, raw=raw, body=body
-            )
+            await self._retryable_status(feita, raw, policy=policy, total_attempts=total_attempts)
 
         _raise_exhausted(call.url, breaker, last_status, last_error)
 
@@ -583,21 +610,13 @@ class ResilientHttpClient:
         para ele, como em qualquer outra chamada.
         """
         method = method.upper()
-        parsed = httpx.URL(url)
-        host = parsed.host or "unknown"
+        host = httpx.URL(url).host or "unknown"
         policy = self._policy_for(host)
         breaker = self._breaker_for(host, policy)
         if not breaker.allow():
             raise CircuitOpenError(host)
 
-        # Spec 097, regra 4: o span cobre o stream INTEIRO, não só a abertura da
-        # conexão — num SSE de LLM o que interessa medir é quanto tempo a resposta
-        # levou para terminar de chegar.
-        span = get_tracer().start_span(
-            f"http {method}",
-            kind=SpanKind.CLIENT,
-            attributes={"http.request.method": method, "server.address": host},
-        )
+        span = _stream_span(method, host)
         request = self._client.build_request(
             method, url, headers=headers, content=content, timeout=timeout_s or policy.timeout_s
         )

@@ -119,12 +119,13 @@ class PublicationService:
         self.reads = PublicationReadRepository(session)
         self.users = UserRepository(session)
 
-    async def register(self, parsed: ParsedCommunication) -> Publication:
-        if await self.repository.get_by_hash(parsed.hash) is not None:
-            raise PublicationAlreadyExistsError
+    def _add_parties(self, publication: Publication, parsed: ParsedCommunication) -> None:
+        """Destinatários e advogados da intimação, como o DJEN os mandou.
 
-        publication = _publication_from(parsed, self.tenant_id)
-        await self.repository.create(publication)
+        Sem `flush` aqui: as duas listas entram na mesma unidade de trabalho da publicação,
+        e gravar a intimação sem as partes seria um estado que o resto do sistema não sabe
+        interpretar.
+        """
         for recipient in parsed.recipients:
             self.session.add(
                 PublicationRecipient(
@@ -145,9 +146,14 @@ class PublicationService:
                     oab_state=lawyer.oab_state,
                 )
             )
-        await self.session.flush()
-        # Spec 092: intimação recebida é gatilho — "chegou intimação nesse processo,
-        # avise o responsável" é a automação que todo escritório escreve primeiro.
+
+    async def _emit_received(self, publication: Publication) -> None:
+        """Spec 092: intimação recebida é gatilho.
+
+        «Chegou intimação nesse processo, avise o responsável» é a automação que todo
+        escritório escreve primeiro — e por isso o evento sai daqui, do único caminho por
+        onde uma intimação entra, e não do worker que por acaso a trouxe.
+        """
         await AutomationEngine(self.session, self.tenant_id).emit(
             TriggerKind.PUBLICATION_RECEIVED.value,
             payload={
@@ -159,6 +165,16 @@ class PublicationService:
             subject_type="publication",
             subject_id=publication.id,
         )
+
+    async def register(self, parsed: ParsedCommunication) -> Publication:
+        if await self.repository.get_by_hash(parsed.hash) is not None:
+            raise PublicationAlreadyExistsError
+
+        publication = _publication_from(parsed, self.tenant_id)
+        await self.repository.create(publication)
+        self._add_parties(publication, parsed)
+        await self.session.flush()
+        await self._emit_received(publication)
         return publication
 
     async def get_by_id(self, publication_id: uuid.UUID) -> Publication | None:

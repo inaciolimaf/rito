@@ -216,6 +216,43 @@ class TermSyncService:
             await self._commit()
             start = end + timedelta(days=1)
 
+    async def _mark_failed(
+        self, term: MonitoredTerm, run: TermSyncRun, exc: Exception, now: datetime
+    ) -> None:
+        """Registra a falha no termo e na run, e escala se já vem falhando (spec 049).
+
+        O contador de falhas CONSECUTIVAS é o que separa uma indisponibilidade momentânea do
+        DJEN de um termo realmente quebrado: alertar na primeira falha encheria a caixa do
+        escritório de ruído, e nunca alertar deixaria um termo parado por semanas.
+        """
+        message = str(exc)[:_STATUS_MESSAGE_MAX]
+        run.error = message
+        run.finished_at = now
+        term.status = TermStatus.FALHA  # regra 6
+        term.status_message = message
+        term.next_sync_at = next_daily_run(self.cron, now)
+        term.consecutive_failures += 1  # spec 049, regra 1
+        record_sync_run(integration="djen", status="error")  # spec 097, regra 6
+        if term.consecutive_failures >= CONSECUTIVE_FAILURE_ALERT_THRESHOLD:
+            await self._raise_or_update_alert(term, message)
+
+    async def _mark_succeeded(self, term: MonitoredTerm, run: TermSyncRun, now: datetime) -> None:
+        """Fecha a run com sucesso e zera o histórico de falhas.
+
+        Regra 11: SILÊNCIO É RESULTADO VÁLIDO — uma varredura que não encontrou nenhuma
+        intimação é sucesso, e `last_success_at` marca isso. Sem essa distinção, um termo
+        legítimo sem movimento seria indistinguível de um termo que parou de funcionar.
+        """
+        if term.consecutive_failures > 0 or term.alert_id is not None:
+            await self._resolve_alert(term, now)  # spec 049, regra 3
+        run.finished_at = now
+        term.status = TermStatus.ATIVO
+        term.status_message = None
+        term.last_success_at = now
+        record_sync_run(integration="djen", status="ok")  # spec 097, regra 6
+        term.next_sync_at = next_daily_run(self.cron, now)
+        term.consecutive_failures = 0
+
     async def _execute(self, term: MonitoredTerm, now: datetime) -> TermSyncRun:
         # Sync manual da 043 abre a run sem processar — a varredura consome a
         # run aberta em vez de criar outra (descoberta registrada na spec 043).
@@ -231,28 +268,11 @@ class TermSyncService:
             # logo abaixo, spec 049).
             await self._rollback()
             await self.session.refresh(term)
-            message = str(exc)[:_STATUS_MESSAGE_MAX]
-            run.error = message
-            run.finished_at = now
-            term.status = TermStatus.FALHA  # regra 6
-            term.status_message = message
-            term.next_sync_at = next_daily_run(self.cron, now)
-            term.consecutive_failures += 1  # spec 049, regra 1
-            record_sync_run(integration="djen", status="error")  # spec 097, regra 6
-            if term.consecutive_failures >= CONSECUTIVE_FAILURE_ALERT_THRESHOLD:
-                await self._raise_or_update_alert(term, message)
+            await self._mark_failed(term, run, exc, now)
             await self._commit()
             return run
 
-        if term.consecutive_failures > 0 or term.alert_id is not None:
-            await self._resolve_alert(term, now)  # spec 049, regra 3
-        run.finished_at = now
-        term.status = TermStatus.ATIVO
-        term.status_message = None
-        term.last_success_at = now  # regra 11: silêncio é resultado válido
-        record_sync_run(integration="djen", status="ok")  # spec 097, regra 6
-        term.next_sync_at = next_daily_run(self.cron, now)
-        term.consecutive_failures = 0
+        await self._mark_succeeded(term, run, now)
         await self._commit()
         return run
 

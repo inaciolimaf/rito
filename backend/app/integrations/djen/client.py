@@ -33,6 +33,43 @@ class DjenPage(BaseModel):
     items: list[ParsedCommunication]
 
 
+def _query_params(
+    availability_start: date,
+    availability_end: date,
+    page: int,
+    per_page: int,
+    *,
+    oab_number: str | None,
+    oab_state: str | None,
+    process_number: str | None,
+    text_query: str | None,
+) -> dict[str, str]:
+    """Os parâmetros da consulta ao DJEN, omitindo os filtros não informados.
+
+    Filtro vazio é OMITIDO e não mandado em branco: o DJEN trata parâmetro presente e vazio
+    como filtro, e devolveria zero intimações onde o esperado é «sem esse filtro».
+
+    Spec 044: termos de CPF/CNPJ vão em `texto` — o DJEN não filtra por documento, mas o
+    campo faz full-text no corpo da intimação (verificado ao vivo em 2026-08-10).
+    """
+    params = {
+        "dataDisponibilizacaoInicio": availability_start.isoformat(),
+        "dataDisponibilizacaoFim": availability_end.isoformat(),
+        "meio": "D",
+        "pagina": str(page),
+        "itensPorPagina": str(min(per_page, MAX_PER_PAGE)),
+    }
+    if oab_number:
+        params["numeroOab"] = oab_number
+    if oab_state:
+        params["ufOab"] = oab_state
+    if process_number:
+        params["numeroProcesso"] = process_number
+    if text_query:
+        params["texto"] = text_query
+    return params
+
+
 class DjenClient:
     def __init__(self, *, http: HttpClient, base_url: str, user_agent: str) -> None:
         if not user_agent.strip():
@@ -55,24 +92,16 @@ class DjenClient:
         page: int = 1,
         per_page: int = MAX_PER_PAGE,
     ) -> DjenPage:
-        params = {
-            "dataDisponibilizacaoInicio": availability_start.isoformat(),
-            "dataDisponibilizacaoFim": availability_end.isoformat(),
-            "meio": "D",
-            "pagina": str(page),
-            "itensPorPagina": str(min(per_page, MAX_PER_PAGE)),
-        }
-        if oab_number:
-            params["numeroOab"] = oab_number
-        if oab_state:
-            params["ufOab"] = oab_state
-        if process_number:
-            params["numeroProcesso"] = process_number
-        if text_query:
-            # Spec 044: termos CPF/CNPJ — o DJEN não filtra por documento, mas o
-            # `texto` faz full-text no corpo (verificado ao vivo em 2026-08-10).
-            params["texto"] = text_query
-
+        params = _query_params(
+            availability_start,
+            availability_end,
+            page,
+            per_page,
+            oab_number=oab_number,
+            oab_state=oab_state,
+            process_number=process_number,
+            text_query=text_query,
+        )
         response = await self._http.request(
             "GET",
             f"{self._base_url}/comunicacao",

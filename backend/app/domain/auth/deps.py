@@ -18,30 +18,43 @@ from app.domain.users.models import User
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def _claims_of(token: str) -> tuple[uuid.UUID, uuid.UUID]:
+    """Tenant e usuário do access token — nesta ordem (spec 004, regra 8).
+
+    O tenant vem do CLAIM, nunca de um header: header é escolhido por quem chama, e aceitá-lo
+    daria a qualquer autenticado a chave de qualquer escritório.
+
+    As três exceções viram a MESMA resposta 401 de propósito. Token expirado, claim ausente e
+    UUID malformado são defeitos diferentes para quem depura e a mesma informação para quem
+    tenta adivinhar — distinguir na resposta diria a um atacante o quanto ele chegou perto.
+    """
+    try:
+        payload = decode_access_token(token)
+        return uuid.UUID(payload["tenant_id"]), uuid.UUID(payload["sub"])
+    except (PyJWTError, KeyError, ValueError) as exc:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado.") from exc
+
+
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> User:
-    """Autentica pelo access token — tenant vem do claim, não do header (spec 004, regra 8)."""
+    """Autentica pelo access token — tenant vem do claim, não do header (spec 004, regra 8).
+
+    Spec 114: o fuso do escritório vem de CARONA nesta query, não numa segunda. `accounts`
+    é 1:1 com o tenant, então o JOIN não multiplica linha; e o orçamento de queries do §11
+    não tem folga nenhuma em `/customers/stats` (5 de 5) nem na listagem de contatos (3 de
+    3) para uma consulta a mais. `outerjoin` porque a conta pode ainda não existir no
+    instante do primeiro login de um tenant novo — aí o fuso é `None` e o `Clock` cai em
+    `DEFAULT_TIMEZONE`.
+    """
     if credentials is None:
         raise HTTPException(status_code=401, detail="Não autenticado.")
 
-    try:
-        payload = decode_access_token(credentials.credentials)
-        tenant_id = uuid.UUID(payload["tenant_id"])
-        user_id = uuid.UUID(payload["sub"])
-    except (PyJWTError, KeyError, ValueError) as exc:
-        raise HTTPException(status_code=401, detail="Token inválido ou expirado.") from exc
-
+    tenant_id, user_id = _claims_of(credentials.credentials)
     session_factory = request.app.state.session_factory
     async with session_factory() as session, session.begin():
         await set_tenant_context(session, tenant_id)
-        # Spec 114: o fuso do escritório vem de carona nesta query, não numa segunda.
-        # `accounts` é 1:1 com o tenant, então o JOIN não multiplica linha; e o orçamento
-        # de queries do §11 não tem folga nenhuma em `/customers/stats` (5 de 5) nem na
-        # listagem de contatos (3 de 3) para uma consulta a mais. `outerjoin` porque a
-        # conta pode ainda não existir no instante do primeiro login de um tenant novo —
-        # aí o fuso é None e o `Clock` cai em DEFAULT_TIMEZONE.
         linha = (
             await session.execute(
                 select(User, Account.timezone)

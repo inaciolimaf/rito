@@ -8,8 +8,9 @@ import uuid
 from collections.abc import Sequence
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Any
 
-from sqlalchemy import Date, func, select
+from sqlalchemy import ColumnElement, Date, Row, Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.lawsuits.models import Lawsuit
@@ -22,6 +23,39 @@ from app.domain.users.models import User
 # listas de detalhe (não os agregados) excluem posts privados por segurança — os
 # agregados (view de agilidade) já contam tudo sem expor conteúdo.
 _MOST_DELAYED_TASKS_LIMIT_CAP = 100
+
+
+def _delayed_row(row: Row[Any]) -> DelayedTaskRow:
+    """Uma tarefa entregue atrasada — posições na ordem do SELECT acima.
+
+    `delay_days` já vem calculado pelo banco como diferença de datas; o `int` aqui é só a
+    conversão do `interval`/`numeric` que o driver devolve.
+    """
+    return DelayedTaskRow(
+        post_id=row[0],
+        task_type_name=row[1],
+        user_name=row[2],
+        lawsuit_folder=row[3],
+        deadline_date=row[4],
+        completed_at_date=row[5],
+        delay_days=int(row[6]),
+    )
+
+
+def _count_by_day(dia: ColumnElement[Any], conditions: list[Any]) -> Select[Any]:
+    """Contagem de tarefas agrupada por dia, para uma coluna de data qualquer.
+
+    A mesma forma serve para «atribuídas» (data de criação) e «concluídas» (data de
+    conclusão) — o que muda é só qual coluna vira o dia. Ter uma origem só garante que as
+    duas séries do gráfico semanal sejam agrupadas do mesmo jeito.
+    """
+    return (
+        select(dia, func.count())
+        .select_from(PostUser)
+        .join(Post, Post.id == PostUser.post_id)
+        .where(*conditions)
+        .group_by(dia)
+    )
 
 
 class ReportsRepository:
@@ -105,18 +139,7 @@ class ReportsRepository:
             .limit(capped_limit)
         )
         rows = (await self.session.execute(stmt)).all()
-        return [
-            DelayedTaskRow(
-                post_id=row[0],
-                task_type_name=row[1],
-                user_name=row[2],
-                lawsuit_folder=row[3],
-                deadline_date=row[4],
-                completed_at_date=row[5],
-                delay_days=int(row[6]),
-            )
-            for row in rows
-        ]
+        return [_delayed_row(row) for row in rows]
 
     async def most_delayed_users(self, *, limit: int) -> Sequence[DelayedUserRow]:
         total_late = func.sum(agility_daily.c.late)
@@ -219,22 +242,16 @@ class ReportsRepository:
             assigned_conditions.append(PostUser.user_id == user_id)
             completed_conditions.append(PostUser.user_id == user_id)
 
-        assigned_stmt = (
-            select(func.cast(Post.created_at, Date), func.count())
-            .select_from(PostUser)
-            .join(Post, Post.id == PostUser.post_id)
-            .where(*assigned_conditions)
-            .group_by(func.cast(Post.created_at, Date))
-        )
-        completed_stmt = (
-            select(func.cast(PostUser.completed_at, Date), func.count())
-            .select_from(PostUser)
-            .join(Post, Post.id == PostUser.post_id)
-            .where(*completed_conditions)
-            .group_by(func.cast(PostUser.completed_at, Date))
-        )
-        assigned_rows = (await self.session.execute(assigned_stmt)).all()
-        completed_rows = (await self.session.execute(completed_stmt)).all()
+        assigned_rows = (
+            await self.session.execute(
+                _count_by_day(func.cast(Post.created_at, Date), assigned_conditions)
+            )
+        ).all()
+        completed_rows = (
+            await self.session.execute(
+                _count_by_day(func.cast(PostUser.completed_at, Date), completed_conditions)
+            )
+        ).all()
         return (
             {day: int(count) for day, count in assigned_rows},
             {day: int(count) for day, count in completed_rows},

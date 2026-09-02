@@ -31,6 +31,7 @@ from app.domain.posts.repository import PostRepository
 from app.domain.publications.exceptions import LawsuitNotFoundError, NoResponsibleAvailableError
 from app.domain.publications.models import Publication
 from app.domain.publications.repository import PublicationLawyerRepository, PublicationRepository
+from app.domain.task_types.models import TaskType
 from app.domain.task_types.repository import TaskTypeRepository
 from app.domain.users.repository import UserRepository
 from app.integrations.messaging.base import MessagingChannel
@@ -102,24 +103,15 @@ class PublicationRoutingService:
     def _append_comment(existing: str | None, note: str) -> str:
         return f"{existing}\n\n{note}" if existing else note
 
-    async def _apply(
-        self, publication: Publication, *, lawsuit: Lawsuit | None, matched_by: str | None
-    ) -> Publication:
-        publication.matched_by = matched_by
-        publication.lawsuit_id = lawsuit.id if lawsuit is not None else None
-        publication.processed_at = datetime.now(UTC)
-        if lawsuit is None or publication.post_id is not None:
-            # regra 6: sem processo casado não gera tarefa; regra 1: já tinha tarefa.
-            await self.session.flush()
-            return publication
+    async def _route_and_notify(
+        self, publication: Publication, lawsuit: Lawsuit, task_type: TaskType
+    ) -> None:
+        """Cria a tarefa da intimação, aponta o responsável e avisa quem precisa saber.
 
-        task_type = await self.task_types.get_by_name(PUBLICATIONS_TASK_TYPE_NAME)
-        if task_type is None:
-            # Tipo sistêmico ainda não seedado no tenant — fica vinculada, sem tarefa,
-            # até a configuração ser corrigida (reprocessar tenta de novo).
-            await self.session.flush()
-            return publication
-
+        O `flush` vem ANTES do aviso de propósito: a notificação leva um link para o
+        processo, e disparar antes de a tarefa existir levaria o usuário a uma tela em que
+        ela ainda não apareceu.
+        """
         user_id, routed_by = await self._route_responsible(lawsuit, publication)
         post = await self._create_task(
             lawsuit,
@@ -138,6 +130,26 @@ class PublicationRoutingService:
             body=publication.body[:_BODY_MAX_LENGTH],
             link=f"/lawsuits/{lawsuit.id}",
         )
+
+    async def _apply(
+        self, publication: Publication, *, lawsuit: Lawsuit | None, matched_by: str | None
+    ) -> Publication:
+        publication.matched_by = matched_by
+        publication.lawsuit_id = lawsuit.id if lawsuit is not None else None
+        publication.processed_at = datetime.now(UTC)
+        if lawsuit is None or publication.post_id is not None:
+            # regra 6: sem processo casado não gera tarefa; regra 1: já tinha tarefa.
+            await self.session.flush()
+            return publication
+
+        task_type = await self.task_types.get_by_name(PUBLICATIONS_TASK_TYPE_NAME)
+        if task_type is None:
+            # Tipo sistêmico ainda não seedado no tenant — fica vinculada, sem tarefa,
+            # até a configuração ser corrigida (reprocessar tenta de novo).
+            await self.session.flush()
+            return publication
+
+        await self._route_and_notify(publication, lawsuit, task_type)
         return publication
 
     async def _match(self, publication: Publication) -> tuple[Lawsuit | None, str | None]:

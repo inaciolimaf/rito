@@ -99,6 +99,41 @@ class NumberValidation:
     error: str | None
 
 
+def _assign_editable(lawsuit: Lawsuit, payload: LawsuitUpdateRequest) -> None:
+    """Copia para o processo tudo o que o PUT pode mudar sem efeito colateral.
+
+    Fora daqui ficam de propósito os três campos que NÃO são atribuição simples: `user_id` e
+    `lawsuit_type_id`, que dependem da validação de referências, e `stage_id`, que só muda por
+    `BoardService.change_stage` porque a troca precisa gravar histórico (spec 051, regra 5).
+
+    `updated_at` recebe valor explícito mesmo tendo `onupdate=func.now()` (server-side): sem
+    ele, o autoflush das consultas de `_with_derived` expira o atributo, e a leitura síncrona
+    em `_to_response` estoura `MissingGreenlet`. Mesmo idioma de `customers.upload_photo`.
+    """
+    lawsuit.court_id = payload.court_id
+    lawsuit.court_system_id = payload.court_system_id
+    lawsuit.process_number = _validated_digits(payload.process_number)
+    lawsuit.protocol_number = payload.protocol_number
+    lawsuit.originating_process = payload.originating_process
+    lawsuit.folder = payload.folder
+    lawsuit.filing_year = payload.filing_year
+    lawsuit.judiciary = payload.judiciary
+    lawsuit.county = payload.county
+    lawsuit.court_division = payload.court_division
+    lawsuit.process_date = payload.process_date
+    lawsuit.notes = payload.notes
+    lawsuit.case_value = payload.case_value
+    lawsuit.fees_value = payload.fees_value
+    lawsuit.fees_percentage = payload.fees_percentage
+    lawsuit.contingency = payload.contingency
+    lawsuit.closure_date = payload.closure_date
+    lawsuit.transit_date = payload.transit_date
+    lawsuit.archived_date = payload.archived_date
+    lawsuit.outcome = payload.outcome
+    lawsuit.is_archived = payload.is_archived
+    lawsuit.updated_at = datetime.now(UTC)
+
+
 class LawsuitService:
     """CRUD, listagem, dashboard e validação de número. Partes e movimentações vivem
     em `PartiesService`/`MovementsService` (spec 030 — um service por caso de uso)."""
@@ -253,33 +288,7 @@ class LawsuitService:
         await self.board_service.change_stage(
             lawsuit, to_stage_id=payload.stage_id, changed_by=changed_by
         )
-        lawsuit.court_id = payload.court_id
-        lawsuit.court_system_id = payload.court_system_id
-        lawsuit.process_number = _validated_digits(payload.process_number)
-        lawsuit.protocol_number = payload.protocol_number
-        lawsuit.originating_process = payload.originating_process
-        lawsuit.folder = payload.folder
-        lawsuit.filing_year = payload.filing_year
-        lawsuit.judiciary = payload.judiciary
-        lawsuit.county = payload.county
-        lawsuit.court_division = payload.court_division
-        lawsuit.process_date = payload.process_date
-        lawsuit.notes = payload.notes
-        lawsuit.case_value = payload.case_value
-        lawsuit.fees_value = payload.fees_value
-        lawsuit.fees_percentage = payload.fees_percentage
-        lawsuit.contingency = payload.contingency
-        lawsuit.closure_date = payload.closure_date
-        lawsuit.transit_date = payload.transit_date
-        lawsuit.archived_date = payload.archived_date
-        lawsuit.outcome = payload.outcome
-        lawsuit.is_archived = payload.is_archived
-        # `updated_at` tem `onupdate=func.now()` (server-side) — sem um valor explícito, o
-        # autoflush disparado pelas consultas de `_with_derived` abaixo expira o atributo
-        # (precisa de round-trip para reler) e a leitura síncrona em `_to_response` explode
-        # com `MissingGreenlet`. Setar aqui, como `customers.upload_photo` já faz, evita o
-        # round-trip por completo.
-        lawsuit.updated_at = datetime.now(UTC)
+        _assign_editable(lawsuit, payload)
         return await self._with_derived(lawsuit)
 
     async def delete(self, lawsuit: Lawsuit) -> None:

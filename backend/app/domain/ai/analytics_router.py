@@ -19,6 +19,7 @@ from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
 from app.domain.ai.analytics import (
     AnalyticsService,
+    AskResult,
     ClarificationNeeded,
     NextAction,
     SqlRejected,
@@ -27,7 +28,7 @@ from app.domain.ai.exceptions import FeatureDisabledError
 from app.domain.ai.models import AiInsight
 from app.domain.ai.router import get_llm_provider
 from app.domain.ai.service import AiRunner
-from app.domain.ai.sql_guard import check_sql
+from app.domain.ai.sql_guard import CheckedSql, check_sql
 from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.users.models import FinancialAccess, User
 from app.integrations.openrouter.types import LLMNotConfiguredError, LLMProvider
@@ -148,6 +149,25 @@ def _http_error_for(
     return HTTPException(status_code=409, detail=_UNAVAILABLE)
 
 
+async def _run_checked(
+    service: AnalyticsService, question: str, checado: CheckedSql, *, user: User
+) -> AskResult:
+    """Executa o SQL já aprovado, virando qualquer falha em 422.
+
+    422 e não 500: o SQL veio de um modelo, e estourar o `statement_timeout` ou um erro de
+    sintaxe que passou pelo guardrail é resultado esperado desta rota, não defeito do
+    servidor. O detalhe real fica no log; o usuário recebe o recado em português.
+    """
+    try:
+        return await service.run_sql(user=user, question=question, checked=checado)
+    except Exception as exc:
+        logger.warning("Consulta analítica falhou: %s: %s", type(exc).__name__, exc)
+        raise HTTPException(
+            status_code=422,
+            detail="A consulta não pôde ser executada (tempo limite ou erro de sintaxe).",
+        ) from exc
+
+
 @router.post("/analytics/ask")
 async def ask_metrics(
     payload: AskRequest,
@@ -175,16 +195,7 @@ async def ask_metrics(
     except (ClarificationNeeded, SqlRejected, LLMNotConfiguredError, FeatureDisabledError) as exc:
         raise _http_error_for(exc) from exc
 
-    try:
-        resultado = await service.run_sql(
-            user=current_user, question=payload.question, checked=checado
-        )
-    except Exception as exc:
-        logger.warning("Consulta analítica falhou: %s: %s", type(exc).__name__, exc)
-        raise HTTPException(
-            status_code=422,
-            detail="A consulta não pôde ser executada (tempo limite ou erro de sintaxe).",
-        ) from exc
+    resultado = await _run_checked(service, payload.question, checado, user=current_user)
     return AskResponse(
         sql=resultado.sql,
         relations=checado.relations,

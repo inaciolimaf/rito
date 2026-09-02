@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -63,6 +64,32 @@ class WorkflowPreview:
 class ApplyResult:
     created_ids: list[uuid.UUID]
     skipped: list[SkippedStep]
+
+
+def _preview_task(
+    step: WorkflowStep,
+    task_type: TaskType,
+    assignee_id: uuid.UUID,
+    names: dict[uuid.UUID, str],
+    today: date,
+    holidays: Collection[date],
+) -> PreviewTask:
+    """Uma tarefa como o preview a mostra — a MESMA que o apply criaria (regra 6).
+
+    A data sai de dias ÚTEIS a partir de hoje, e `None` quando o passo não tem prazo: passo
+    sem `days_offset` é tarefa sem data, não tarefa para hoje. Mostrar hoje ali encheria a
+    caixa de entrada de prazos que ninguém definiu.
+    """
+    return PreviewTask(
+        task_type_name=task_type.name,
+        user_id=assignee_id,
+        user_name=names.get(assignee_id, ""),
+        date=(
+            add_business_days(today, step.days_offset, holidays)
+            if step.days_offset is not None
+            else None
+        ),
+    )
 
 
 class WorkflowService:
@@ -158,18 +185,7 @@ class WorkflowService:
                 )
                 continue
             assignee_id = step.user_id if step.user_id is not None else lawsuit_user_id
-            tasks.append(
-                PreviewTask(
-                    task_type_name=task_type.name,
-                    user_id=assignee_id,
-                    user_name=names.get(assignee_id, ""),
-                    date=(
-                        add_business_days(today, step.days_offset, holidays)
-                        if step.days_offset is not None
-                        else None
-                    ),
-                )
-            )
+            tasks.append(_preview_task(step, task_type, assignee_id, names, today, holidays))
             effective.append((step, task_type, assignee_id))
         return tasks, skipped, effective
 

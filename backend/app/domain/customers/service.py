@@ -62,6 +62,18 @@ class MaritalStatusService:
         return list(await self.statuses.list_all())
 
 
+def _variation(this_month: int, last_month: int) -> float:
+    """Variação percentual do mês contra o anterior, sem divisão por zero.
+
+    Sem base, `100%` quando entrou alguém e `0%` quando não entrou — e não «infinito» nem
+    `None`. É a leitura que o usuário faz de qualquer jeito ao ver o card: partir de zero e
+    ganhar contatos é crescimento total; partir de zero e continuar em zero não é variação.
+    """
+    if last_month > 0:
+        return (this_month - last_month) / last_month * 100
+    return 100.0 if this_month > 0 else 0.0
+
+
 class CustomerService:
     def __init__(
         self, session: AsyncSession, tenant_id: uuid.UUID, *, cache: Cache | None = None
@@ -205,11 +217,7 @@ class CustomerService:
             this_month=(this_month_start, today),
             last_month=(last_month_start, last_month_end),
         )
-        if last_month_count > 0:
-            variation = (this_month_count - last_month_count) / last_month_count * 100
-        else:
-            variation = 100.0 if this_month_count > 0 else 0.0
-
+        variation = _variation(this_month_count, last_month_count)
         top_origins = await self.customers.top_origins()
         top_occupations = await self.customers.top_occupations()
         age_ranges = await self.customers.age_ranges()

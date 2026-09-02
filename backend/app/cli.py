@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine_from_url
@@ -81,6 +81,37 @@ async def _db_seed(settings: Settings) -> int:
     return 0
 
 
+async def _insert_tenant(
+    conn: AsyncConnection, tenant_id: uuid.UUID, args: argparse.Namespace, senha: str
+) -> dict[str, int]:
+    """Cria o escritório, provisiona os catálogos padrão e o usuário gestor.
+
+    Os três na MESMA transação de propósito: um tenant sem catálogos é uma conta em que
+    nenhuma tela funciona, e um tenant sem gestor é uma conta em que ninguém consegue
+    entrar. Se qualquer passo falhar, nada fica — melhor não existir do que existir pela
+    metade e alguém descobrir isso no primeiro login.
+    """
+    await conn.execute(
+        text("INSERT INTO tenants (id, slug, name) VALUES (:id, :slug, :name)"),
+        {"id": tenant_id, "slug": args.slug, "name": args.name},
+    )
+    criados = await provision_tenant(conn, tenant_id)
+    await conn.execute(
+        text("""
+            INSERT INTO users (tenant_id, email, password_hash, name, role,
+                               financial_access, is_active)
+            VALUES (:tenant, :email, :hash, :nome, 'GESTOR', 'FULL', true)
+            """),
+        {
+            "tenant": tenant_id,
+            "email": args.admin_email,
+            "hash": hash_password(senha),
+            "nome": "Administrador",
+        },
+    )
+    return criados
+
+
 def _report_tenant_created(
     args: argparse.Namespace, *, tenant_id: uuid.UUID, senha: str, criados: dict[str, int]
 ) -> None:
@@ -112,24 +143,7 @@ async def _tenant_create(settings: Settings, args: argparse.Namespace) -> int:
             if existente is not None:
                 print(f"escritório '{args.slug}' já existe ({existente})", file=sys.stderr)
                 return 1
-            await conn.execute(
-                text("INSERT INTO tenants (id, slug, name) VALUES (:id, :slug, :name)"),
-                {"id": tenant_id, "slug": args.slug, "name": args.name},
-            )
-            criados = await provision_tenant(conn, tenant_id)
-            await conn.execute(
-                text("""
-                    INSERT INTO users (tenant_id, email, password_hash, name, role,
-                                       financial_access, is_active)
-                    VALUES (:tenant, :email, :hash, :nome, 'GESTOR', 'FULL', true)
-                    """),
-                {
-                    "tenant": tenant_id,
-                    "email": args.admin_email,
-                    "hash": hash_password(senha),
-                    "nome": "Administrador",
-                },
-            )
+            criados = await _insert_tenant(conn, tenant_id, args, senha)
     finally:
         await engine.dispose()
 

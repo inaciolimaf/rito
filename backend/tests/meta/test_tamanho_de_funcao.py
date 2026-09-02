@@ -17,12 +17,15 @@ docstring, decoradores e assinatura de fora.
 statement só, e está certo que seja — para aquele gate. Este mede o que um revisor enxerga
 sem rolar a tela, e não existe regra do Ruff para isso.
 
-## Por que 40, e não 30
+## Por que 30
 
-A 121 previu o corte em degraus (50 → 40 → 30), cada um deixando o gate LIGADO e verde.
-Este é o segundo, entregue pela **spec 122**: 30 funções reestruturadas para chegar a zero
-acima de 40, mais as 29 que a 121 já tinha feito para chegar a zero acima de 50. O terceiro
-degrau é a spec 123.
+Trinta linhas é o que cabe numa tela sem rolar — a distância em que um revisor segura a
+função inteira na cabeça enquanto lê a última linha. É o alvo que a 121 pedia desde o começo;
+50 e 40 foram degraus de execução, não destinos.
+
+O corte veio em três degraus (specs 121 → 122 → 123), cada um deixando o gate LIGADO e verde:
+29 funções reestruturadas para chegar a zero acima de 50, 30 para chegar a zero acima de 40,
+e 101 para chegar a zero acima de 30.
 
 Como todo teto do projeto: **este número só desce**.
 
@@ -42,20 +45,25 @@ BACKEND = Path(__file__).resolve().parents[2]
 APP = BACKEND / "app"
 RAIZ = BACKEND.parent
 
-TETO_DE_LINHAS = 40
+TETO_DE_LINHAS = 30
 
 # Exceções versionadas (spec 121, regra 5): teto de 5 no projeto, cada uma justificada.
-# Duas usadas no degrau 2 (spec 122), as duas pelo mesmo motivo: mapeador de campo puro.
+# Duas em uso desde o degrau 2 (spec 122), as duas pelo mesmo motivo: mapeador de campo puro.
+# A 123 não precisou de uma terceira: dos cinco candidatos que a varredura por AST apontou,
+# quatro tinham um GRUPO de campos com nome próprio a extrair (as datas do ciclo de vida, os
+# valores financeiros, os intervalos de filtro) e só estes dois não têm.
 EXCECOES: dict[str, str] = {
     "app/domain/customers/router.py::_customer_to_response": (
-        "Mapeador puro: um único `return CustomerResponse(...)` com 40 campos "
-        "`campo=customer.campo`, sem ramo, laço nem cálculo. O tamanho é o do schema de "
-        "contato (spec 019), não da lógica; parti-lo criaria nomes que não descrevem nada."
+        "42 linhas contra o teto de 30. Mapeador puro: um único `return CustomerResponse(...)` "
+        "com 40 campos `campo=customer.campo`, sem ramo, laço nem cálculo — classificado por "
+        "AST, não a olho. O tamanho é o do schema de contato (spec 019), não da lógica, e "
+        "encolhe quando o schema encolher."
     ),
     "app/domain/posts/router.py::_to_response": (
-        "Mapeador puro depois da guarda: a parte com decisão (tarefa privada vista por "
-        "terceiro) já sai em `_redacted_response`; o que sobra é `return PostResponse(...)` "
-        "com 24 campos. Encolhe quando o schema de tarefa encolher, não antes."
+        "41 linhas contra o teto de 30. Mapeador puro DEPOIS da guarda: a parte com decisão "
+        "(tarefa privada vista por terceiro) já saiu em `_redacted_response`; o que sobra é "
+        "`return PostResponse(...)` com 24 campos. Encolhe quando o schema de tarefa "
+        "encolher, não antes."
     ),
 }
 
@@ -92,12 +100,12 @@ def _funcoes_acima_do_teto() -> list[tuple[str, int]]:
 
 
 def test_nenhuma_funcao_de_app_passa_do_teto() -> None:
-    """Regra 1 da 121, no degrau 2 (teto 40, spec 122).
+    """Regra 1 da 121, no degrau final (teto 30, spec 123).
 
     Uma função acima do teto quase nunca precisa de uma linha a menos: precisa de um bloco
-    com nome. Nas 59 reestruturadas até aqui, o bloco extraído sempre tinha um nome óbvio —
-    e a função que sobrou passou a dizer o que faz na primeira tela. As duas únicas
-    exceções são mapeadores, onde não existe bloco a nomear.
+    com nome. Nas 160 reestruturadas ao longo dos três degraus, o bloco extraído sempre teve
+    um nome óbvio — e a função que sobrou passou a dizer o que faz na primeira tela. As duas
+    únicas exceções são mapeadores de campo, onde não existe bloco a nomear.
     """
     fora = [f"{chave} ({n} linhas)" for chave, n in _funcoes_acima_do_teto()]
     assert fora == [], (

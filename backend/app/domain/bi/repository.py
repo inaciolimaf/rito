@@ -17,7 +17,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import CTE, ColumnElement, Date, Row, and_, case, func, or_, select
+from sqlalchemy import CTE, ColumnElement, Date, Row, Select, and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import next_month_start
@@ -267,6 +267,61 @@ def _vintage_conditions(
     return conditions
 
 
+# As colunas da tabela de safra, na ordem em que `VintageYearRow` as desempacota. O último
+# agregado é uma média PONDERADA pelos arquivados, e não `avg(avg_cycle_days)`: sem filtro de
+# grupo os grupos são somados por ano, e média de médias distorceria a regra 7 — um grupo com
+# três processos pesaria igual a um com trezentos. O `nullif` evita divisão por zero no ano
+# em que nada foi arquivado ainda.
+_VINTAGE_COLUMNS = (
+    bi_vintage.c.vintage_year,
+    func.sum(bi_vintage.c.total),
+    func.sum(bi_vintage.c.won),
+    func.sum(bi_vintage.c.lost),
+    func.sum(bi_vintage.c.settled),
+    func.sum(bi_vintage.c.in_progress),
+    func.sum(bi_vintage.c.transited),
+    func.sum(bi_vintage.c.archived),
+    (
+        func.sum(bi_vintage.c.avg_cycle_days * bi_vintage.c.archived)
+        / func.nullif(func.sum(bi_vintage.c.archived), 0)
+    ),
+)
+
+
+def _success_by_group_query(
+    month_start: date, month_end: date, action_group_id: uuid.UUID | None
+) -> Select[Any]:
+    """Ganhos, perdas e acordos por grupo de ação no período.
+
+    O recorte do período vive na condição do LEFT JOIN, não no WHERE — e essa é a diferença
+    que faz a regra funcionar: no WHERE, o grupo sem nenhum processo concluído no mês sumiria
+    da resposta; na condição do JOIN, ele aparece zerado. TODOS os grupos ativos na tela é o
+    comportamento pedido, porque «zero ganhos» é informação e ausência não é.
+    """
+    concluded_join = and_(
+        Lawsuit.lawsuit_type_id == LawsuitType.id,
+        Lawsuit.outcome.is_not(None),
+        Lawsuit.closure_date >= month_start,
+        Lawsuit.closure_date <= month_end,
+    )
+    group_filter = [ActionGroup.id == action_group_id] if action_group_id else []
+    return (
+        select(
+            ActionGroup.id,
+            ActionGroup.name,
+            func.count(Lawsuit.id).filter(Lawsuit.outcome == LawsuitOutcome.GANHO),
+            func.count(Lawsuit.id).filter(Lawsuit.outcome == LawsuitOutcome.PERDIDO),
+            func.count(Lawsuit.id).filter(Lawsuit.outcome == LawsuitOutcome.ACORDO),
+        )
+        .select_from(ActionGroup)
+        .outerjoin(LawsuitType, LawsuitType.action_group_id == ActionGroup.id)
+        .outerjoin(Lawsuit, concluded_join)
+        .where(ActionGroup.is_active.is_(True), *group_filter)
+        .group_by(ActionGroup.id, ActionGroup.name)
+        .order_by(ActionGroup.name)
+    )
+
+
 class BiVintageRepository:
     """Agregações do BI de Safra e Qualidade (spec 075).
 
@@ -297,23 +352,9 @@ class BiVintageRepository:
 
         Sem filtro de grupo, os grupos são somados por ano — `avg_cycle_days` vira
         média ponderada pelos arquivados (média de médias distorceria a regra 7)."""
-        conditions = _vintage_conditions(from_year, to_year, action_group_id)
         stmt = (
-            select(
-                bi_vintage.c.vintage_year,
-                func.sum(bi_vintage.c.total),
-                func.sum(bi_vintage.c.won),
-                func.sum(bi_vintage.c.lost),
-                func.sum(bi_vintage.c.settled),
-                func.sum(bi_vintage.c.in_progress),
-                func.sum(bi_vintage.c.transited),
-                func.sum(bi_vintage.c.archived),
-                (
-                    func.sum(bi_vintage.c.avg_cycle_days * bi_vintage.c.archived)
-                    / func.nullif(func.sum(bi_vintage.c.archived), 0)
-                ),
-            )
-            .where(*conditions)
+            select(*_VINTAGE_COLUMNS)
+            .where(*_vintage_conditions(from_year, to_year, action_group_id))
             .group_by(bi_vintage.c.vintage_year)
             .order_by(bi_vintage.c.vintage_year)
         )
@@ -341,28 +382,7 @@ class BiVintageRepository:
         """Regra 1: só concluídos (`outcome` preenchido) com fechamento no período
         contam — em tramitação fica de fora. TODOS os grupos ativos aparecem (LEFT
         JOIN); quem não tem concluído no período vem zerado, nunca some."""
-        concluded_join = and_(
-            Lawsuit.lawsuit_type_id == LawsuitType.id,
-            Lawsuit.outcome.is_not(None),
-            Lawsuit.closure_date >= month_start,
-            Lawsuit.closure_date <= month_end,
-        )
-        group_filter = [ActionGroup.id == action_group_id] if action_group_id else []
-        stmt = (
-            select(
-                ActionGroup.id,
-                ActionGroup.name,
-                func.count(Lawsuit.id).filter(Lawsuit.outcome == LawsuitOutcome.GANHO),
-                func.count(Lawsuit.id).filter(Lawsuit.outcome == LawsuitOutcome.PERDIDO),
-                func.count(Lawsuit.id).filter(Lawsuit.outcome == LawsuitOutcome.ACORDO),
-            )
-            .select_from(ActionGroup)
-            .outerjoin(LawsuitType, LawsuitType.action_group_id == ActionGroup.id)
-            .outerjoin(Lawsuit, concluded_join)
-            .where(ActionGroup.is_active.is_(True), *group_filter)
-            .group_by(ActionGroup.id, ActionGroup.name)
-            .order_by(ActionGroup.name)
-        )
+        stmt = _success_by_group_query(month_start, month_end, action_group_id)
         rows = (await self.session.execute(stmt)).all()
         return [
             SuccessGroupRow(
@@ -645,6 +665,19 @@ def _cost_row(row: Row[Any]) -> CostLawsuitRow:
     )
 
 
+def _stage_aggregate(days: Any, cost: Any) -> CostStageAggregateRow:
+    """Média de dias e de custo de uma etapa — `None` quando não há o que medir.
+
+    `None` e não zero (regra 8): etapa que nenhum processo alcançou ainda não tem custo
+    médio, e zero na tela seria lido como «custa nada», que é o oposto de «não sabemos». O
+    AVG do Postgres já devolve NULL nesse caso; aqui só se preserva a distinção.
+    """
+    return CostStageAggregateRow(
+        avg_days=float(days) if days is not None else None,
+        avg_cost=float(cost) if cost is not None else None,
+    )
+
+
 class BiCostsRepository:
     """Agregações do BI de Custos (spec 077).
 
@@ -818,32 +851,21 @@ class BiCostsRepository:
         def stage_cost(phase_days: ColumnElement[int | None]) -> ColumnElement[Any]:
             return func.avg(total_cost * phase_days / func.nullif(full_cycle_days, 0))
 
+        colunas = [
+            coluna
+            for fase in (prospecting_days, production_days, execution_days, full_cycle_days)
+            for coluna in (func.avg(fase), stage_cost(fase))
+        ]
         stmt = (
-            select(
-                func.avg(prospecting_days),
-                stage_cost(prospecting_days),
-                func.avg(production_days),
-                stage_cost(production_days),
-                func.avg(execution_days),
-                stage_cost(execution_days),
-                func.avg(full_cycle_days),
-                stage_cost(full_cycle_days),
-            )
+            select(*colunas)
             .select_from(Lawsuit)
             .outerjoin(direct, direct.c.lawsuit_id == Lawsuit.id)
             .outerjoin(allocated, allocated.c.lawsuit_id == Lawsuit.id)
         )
         row = (await self.session.execute(stmt)).one()
-
-        def build(days: Any, cost: Any) -> CostStageAggregateRow:
-            return CostStageAggregateRow(
-                avg_days=float(days) if days is not None else None,
-                avg_cost=float(cost) if cost is not None else None,
-            )
-
         return {
-            "prospecting": build(row[0], row[1]),
-            "production": build(row[2], row[3]),
-            "execution": build(row[4], row[5]),
-            "full_cycle": build(row[6], row[7]),
+            "prospecting": _stage_aggregate(row[0], row[1]),
+            "production": _stage_aggregate(row[2], row[3]),
+            "execution": _stage_aggregate(row[4], row[5]),
+            "full_cycle": _stage_aggregate(row[6], row[7]),
         }

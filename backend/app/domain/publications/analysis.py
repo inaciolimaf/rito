@@ -175,6 +175,23 @@ class PublicationAnalysisService:
         self.holidays = HolidayRepository(session)
         self.accounts = AccountRepository(session)
 
+    async def _deadline_for(self, publication: Publication, parsed: ParsedAnalysis) -> date | None:
+        """O prazo contado a partir da disponibilização, em dias úteis ou corridos.
+
+        Os feriados NACIONAIS entram na contagem; os estaduais e municipais não, e essa é uma
+        limitação conhecida — o prazo sugerido é ponto de partida para o advogado conferir,
+        nunca a palavra final sobre o vencimento.
+        """
+        feriados = await self.holidays.national_dates()
+        return compute_deadline(
+            availability_date=publication.availability_date,
+            days=parsed.deadline_days,
+            # `parse_model_output` valida o literal na saída do modelo; o tipo de retorno é
+            # `str` porque quem valida é o parser, não a anotação.
+            kind=parsed.deadline_kind,  # type: ignore[arg-type]
+            holidays=feriados,
+        )
+
     async def analyze(
         self, publication: Publication, *, user: User | None = None
     ) -> PublicationAnalysis:
@@ -195,17 +212,8 @@ class PublicationAnalysisService:
             use_cache=anterior is None,
         )
         parsed = parse_model_output(response.content)
-        feriados = await self.holidays.national_dates()
-        calculado = compute_deadline(
-            availability_date=publication.availability_date,
-            days=parsed.deadline_days,
-            # `parse_model_output` valida o literal na saída do modelo; o tipo de
-            # retorno é `str` porque quem valida é o parser, não a anotação.
-            kind=parsed.deadline_kind,  # type: ignore[arg-type]
-            holidays=feriados,
-        )
+        calculado = await self._deadline_for(publication, parsed)
         task_type_id = await self._suggest_task_type(parsed.act_type)
-
         analise = self._analysis_row(anterior, publication, parsed, response.model)
         _apply_parsed(
             analise,

@@ -50,6 +50,17 @@ class WebhookSender(Protocol):
     ) -> SendResult: ...
 
 
+def _failed(comeco: float, erro: str) -> SendResult:
+    """Uma entrega que não chegou, com o motivo que vai para o histórico do webhook.
+
+    `status_code=None` é o que distingue «não chegou» de «chegou e o servidor recusou»: um
+    500 do destino é uma resposta e conta para o circuito; um timeout não é. A duração é
+    medida mesmo no fracasso, porque «falhou depois de 30 s» e «falhou na hora» apontam para
+    problemas diferentes.
+    """
+    return SendResult(status_code=None, body="", duration_ms=_elapsed(comeco), error=erro)
+
+
 class HttpxWebhookSender:
     """Implementação real, sobre httpx."""
 
@@ -94,35 +105,18 @@ class HttpxWebhookSender:
                     client, url=url, body=body, headers=headers, allow_local=allow_local
                 )
             if resposta is None:
-                return SendResult(
-                    status_code=None,
-                    body="",
-                    duration_ms=_elapsed(comeco),
-                    error="Redirecionamentos demais.",
-                )
+                return _failed(comeco, "Redirecionamentos demais.")
             return SendResult(
                 status_code=resposta.status_code,
                 body=resposta.text,
                 duration_ms=_elapsed(comeco),
             )
         except UnsafeUrlError as exc:
-            return SendResult(
-                status_code=None,
-                body="",
-                duration_ms=_elapsed(comeco),
-                error=f"Redirecionamento bloqueado: {exc.detail}",
-            )
+            return _failed(comeco, f"Redirecionamento bloqueado: {exc.detail}")
         except httpx.TimeoutException:
-            return SendResult(
-                status_code=None,
-                body="",
-                duration_ms=_elapsed(comeco),
-                error=f"Sem resposta em {self._timeout:.0f}s.",
-            )
+            return _failed(comeco, f"Sem resposta em {self._timeout:.0f}s.")
         except httpx.HTTPError as exc:
-            return SendResult(
-                status_code=None, body="", duration_ms=_elapsed(comeco), error=str(exc)
-            )
+            return _failed(comeco, str(exc))
 
 
 def _elapsed(comeco: float) -> int:

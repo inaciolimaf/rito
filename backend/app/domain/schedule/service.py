@@ -97,6 +97,34 @@ def _event_status(*, completed: bool, axis: date, today: date) -> ScheduleStatus
     return ScheduleStatus.ATRASADA if axis < today else ScheduleStatus.PENDENTE
 
 
+def _event(
+    post: Post, task_type_name: str, axis: date, status: ScheduleStatus, assignees: list[Any]
+) -> ScheduleEvent:
+    """Um compromisso da agenda, com a data do EIXO escolhido em campo próprio.
+
+    `axis_date` é o que a agenda posiciona; `scheduled_date` e `deadline_date` continuam nos
+    seus campos. Os três porque a tela alterna o eixo (regra 2) e ainda mostra as duas datas
+    no card — colapsá-los perderia justamente a informação de que o prazo é outro dia.
+    """
+    return ScheduleEvent(
+        post_id=post.id,
+        lawsuit_id=post.lawsuit_id,
+        task_type_name=task_type_name,
+        axis_date=axis,
+        scheduled_date=post.scheduled_date,
+        scheduled_time=post.scheduled_time,
+        end_date=post.end_date,
+        end_time=post.end_time,
+        deadline_date=post.deadline_date,
+        all_day=post.all_day,
+        location=post.location,
+        status=status,
+        is_urgent=post.is_urgent,
+        is_important=post.is_important,
+        assignee_names=[name for _uid, name, _done in assignees],
+    )
+
+
 class ScheduleService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -136,25 +164,7 @@ class ScheduleService:
             axis = post.scheduled_date if date_field == DateField.SCHEDULED else post.deadline_date
             axis = not_none(axis, "o repositório já filtra eixo NULL")
             status = _event_status(completed=completed, axis=axis, today=today)
-            events.append(
-                ScheduleEvent(
-                    post_id=post.id,
-                    lawsuit_id=post.lawsuit_id,
-                    task_type_name=task_type_name,
-                    axis_date=axis,
-                    scheduled_date=post.scheduled_date,
-                    scheduled_time=post.scheduled_time,
-                    end_date=post.end_date,
-                    end_time=post.end_time,
-                    deadline_date=post.deadline_date,
-                    all_day=post.all_day,
-                    location=post.location,
-                    status=status,
-                    is_urgent=post.is_urgent,
-                    is_important=post.is_important,
-                    assignee_names=[name for _uid, name, _done in assignees],
-                )
-            )
+            events.append(_event(post, task_type_name, axis, status, assignees))
         return events
 
     async def feed_events(self, *, user_id: uuid.UUID, today: date) -> list[ICalEvent]:

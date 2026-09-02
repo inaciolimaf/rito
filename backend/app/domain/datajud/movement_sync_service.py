@@ -70,6 +70,21 @@ def _format_complements(movement: ParsedMovement) -> str | None:
     return "; ".join(part for part in parts if part) or None
 
 
+def _unchanged(lawsuit: Lawsuit, process: ParsedProcess) -> bool:
+    """Regra 3: sem novidade no CNJ, a varredura termina sem escrever nada.
+
+    `None` dos dois lados significa «não dá para comparar», e aí NÃO é inalterado: processo
+    nunca sincronizado, ou resposta do CNJ sem data de atualização, precisa ser absorvido.
+    Tratar ausência como «sem novidade» faria o primeiro sync de todo processo não gravar
+    movimento nenhum.
+    """
+    return (
+        lawsuit.datajud_last_update is not None
+        and process.last_updated_at is not None
+        and process.last_updated_at <= lawsuit.datajud_last_update
+    )
+
+
 class MovementSyncService:
     def __init__(
         self, session: AsyncSession, tenant_id: uuid.UUID, datajud: DatajudService
@@ -188,6 +203,20 @@ class MovementSyncService:
         await self.session.flush()
         return LawsuitSyncResult(lawsuit.id, "not_found")
 
+    async def _absorb(self, lawsuit: Lawsuit, process: ParsedProcess) -> int:
+        """Grava o que o CNJ trouxe de novo: movimentos, assuntos e capa.
+
+        `datajud_last_update` é atualizado por ÚLTIMO, depois de tudo gravado: ele é a marca
+        d'água que a próxima varredura usa para decidir o que já viu, e adiantá-la faria uma
+        falha no meio da absorção pular movimentos para sempre.
+        """
+        new_movements = await self._persist_movements(lawsuit, process)
+        await self._persist_subjects(lawsuit, process)
+        self._enrich_cover(lawsuit, process)
+        if process.last_updated_at is not None:
+            lawsuit.datajud_last_update = process.last_updated_at
+        return new_movements
+
     async def _sync_lawsuit_inner(self, lawsuit: Lawsuit) -> LawsuitSyncResult:
         court = await self.resolve_court(lawsuit)
         if court is None or not court.datajud_alias:
@@ -205,25 +234,34 @@ class MovementSyncService:
 
         process = status.process
         lawsuit.datajud_not_found_count = 0  # regra 5: sucesso reseta a sequência
-
-        # Regra 3: sem novidade no CNJ, termina sem escrever movimento/capa nenhum.
-        unchanged = (
-            lawsuit.datajud_last_update is not None
-            and process.last_updated_at is not None
-            and process.last_updated_at <= lawsuit.datajud_last_update
-        )
         new_movements = 0
-        if not unchanged:
-            new_movements = await self._persist_movements(lawsuit, process)
-            await self._persist_subjects(lawsuit, process)
-            self._enrich_cover(lawsuit, process)
-            if process.last_updated_at is not None:
-                lawsuit.datajud_last_update = process.last_updated_at
-
+        if not _unchanged(lawsuit, process):
+            new_movements = await self._absorb(lawsuit, process)
         lawsuit.datajud_last_sync_at = now
         await self.session.flush()
         status_label = "synced" if new_movements else "unchanged"
         return LawsuitSyncResult(lawsuit.id, status_label, new_movements=new_movements)
+
+    def _movement_row(
+        self, lawsuit: Lawsuit, movement: ParsedMovement, external_id: str
+    ) -> LawsuitMovement:
+        """Uma movimentação do tribunal na timeline do processo.
+
+        `origin=TRIBUNAL` é o que a torna IMUTÁVEL na UI (spec 026, regra 6): o que veio do
+        CNJ não é editável pelo escritório, porque o que está lá é o que o juízo publicou —
+        corrigi-lo aqui criaria uma versão paralela do andamento oficial.
+        """
+        return LawsuitMovement(
+            tenant_id=self.tenant_id,
+            lawsuit_id=lawsuit.id,
+            origin=MovementOrigin.TRIBUNAL,
+            occurred_at=movement.occurred_at,
+            title=movement.name,
+            body=_format_complements(movement),
+            header=movement.organ_name,
+            external_code=movement.code,
+            external_id=external_id,
+        )
 
     async def _persist_movements(self, lawsuit: Lawsuit, process: ParsedProcess) -> int:
         new_count = 0
@@ -239,19 +277,7 @@ class MovementSyncService:
             existing = await self.movements.find_by_external_id(lawsuit.id, external_id)
             if existing is not None:
                 continue  # regra 2: dedup — defesa extra além do filtro de data acima
-            self.session.add(
-                LawsuitMovement(
-                    tenant_id=self.tenant_id,
-                    lawsuit_id=lawsuit.id,
-                    origin=MovementOrigin.TRIBUNAL,  # regra 6: imutável na UI (026)
-                    occurred_at=movement.occurred_at,
-                    title=movement.name,
-                    body=_format_complements(movement),
-                    header=movement.organ_name,
-                    external_code=movement.code,
-                    external_id=external_id,
-                )
-            )
+            self.session.add(self._movement_row(lawsuit, movement, external_id))
             new_count += 1
         if new_count:
             # last_movement_at é a trigger trg_movements_last_movement (027) — nunca

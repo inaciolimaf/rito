@@ -11,6 +11,7 @@ Duas garantias ficam do lado do CÓDIGO, não do prompt: citação sem respaldo 
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +25,7 @@ from app.domain.legal_agents.models import AgentGeneration, LegalAgent
 from app.domain.templates.models import Template, TemplateType
 from app.domain.templates.repository import TemplateRepository
 from app.domain.users.models import User
-from app.integrations.openrouter.types import Message
+from app.integrations.openrouter.types import LLMResponse, Message
 
 FEATURE_KEY = "petition_draft"
 CONTENT_FORMAT = "html"
@@ -86,6 +87,18 @@ class AgentGenerationRepository(BaseRepository[AgentGeneration]):
         return (await self.session.scalars(stmt)).all()
 
 
+def _usage_fields(response: LLMResponse) -> dict[str, Any]:
+    """Modelo e tokens da geração, para o custo poder ser auditado depois.
+
+    Os tokens vão SOMADOS num campo só porque é assim que a tela de uso os mostra; o
+    detalhe entrada/saída fica em `ai_usage`, que é onde a auditoria de custo mora.
+    """
+    return {
+        "model": response.model,
+        "tokens_used": response.usage.prompt_tokens + response.usage.completion_tokens,
+    }
+
+
 class LegalAgentService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID, runner: AiRunner) -> None:
         self.session = session
@@ -94,6 +107,22 @@ class LegalAgentService:
         self.agents = LegalAgentRepository(session)
         self.generations = AgentGenerationRepository(session)
         self.templates = TemplateRepository(session)
+
+    async def _ask(self, agent: LegalAgent, prompt: str, user: User) -> LLMResponse:
+        """A chamada ao modelo com o papel do agente no `system`.
+
+        O `system_prompt` é do AGENTE e não da feature: cada agente jurídico tem um papel
+        diferente (petição, contestação, parecer), e é ele que define o tom e a estrutura
+        que o modelo deve seguir. A feature só decide qual modelo atende.
+        """
+        return await self.runner.run(
+            feature_key=FEATURE_KEY,
+            messages=[
+                Message(role="system", content=agent.system_prompt),
+                Message(role="user", content=prompt),
+            ],
+            user_id=user.id,
+        )
 
     async def generate(
         self,
@@ -113,14 +142,7 @@ class LegalAgentService:
         template = await self._resolve_template(agent, template_id)
         prompt = self._build_prompt(agent, contexto, template, instructions)
 
-        response = await self.runner.run(
-            feature_key=FEATURE_KEY,
-            messages=[
-                Message(role="system", content=agent.system_prompt),
-                Message(role="user", content=prompt),
-            ],
-            user_id=user.id,
-        )
+        response = await self._ask(agent, prompt, user)
         # Regra 6: o prompt pede; aqui é onde a regra é cumprida.
         html, removidas = strip_unsupported_citations(response.content or "", contexto)
 
@@ -132,10 +154,9 @@ class LegalAgentService:
             user_instructions=instructions,
             content={"format": CONTENT_FORMAT, "html": html},
             template_used_id=template.id if template else None,
-            model=response.model,
-            tokens_used=response.usage.prompt_tokens + response.usage.completion_tokens,
             warnings=removidas,
             generated_by=user.id,
+            **_usage_fields(response),
         )
         self.session.add(generation)
         await self.session.flush()

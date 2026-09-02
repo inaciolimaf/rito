@@ -192,6 +192,29 @@ def _stats_from_cache(cached: bytes | str) -> LawsuitStats:
     )
 
 
+def _card(value: int, previous: int) -> StatsCard:
+    """Um card de topo com a variação sobre o período anterior.
+
+    O valor anterior viaja junto do percentual porque «+50%» sozinho não diz nada: 50% sobre
+    dois processos é um, e a tela precisa poder mostrar de quanto para quanto.
+    """
+    return StatsCard(value=value, delta_pct=_delta(value, previous), previous=previous)
+
+
+def _closure_goal(target: int, achieved: int) -> ClosureGoalWidget | None:
+    """O widget de meta de encerramento — ou nada, quando não há meta.
+
+    `None` e não uma meta de zero: escritório que não configurou meta não deve ver um
+    medidor cravado em 0%, que parece desempenho ruim em vez de ausência de meta. E é o que
+    protege a divisão logo abaixo.
+    """
+    if target <= 0:
+        return None
+    return ClosureGoalWidget(
+        target=target, achieved=achieved, pct=round(achieved / target * 100, 1)
+    )
+
+
 async def get_stats(
     session: AsyncSession, tenant_id: uuid.UUID, month: date, cache: StatsCache
 ) -> LawsuitStats:
@@ -209,24 +232,14 @@ async def get_stats(
     total = sum(count for _name, count in volumes)
 
     stats = LawsuitStats(
-        active=StatsCard(
-            value=active_now, delta_pct=_delta(active_now, active_prev), previous=active_prev
-        ),
-        closed_this_month=StatsCard(
-            value=closed, delta_pct=_delta(closed, closed_prev), previous=closed_prev
-        ),
-        archived_this_month=StatsCard(
-            value=archived, delta_pct=_delta(archived, archived_prev), previous=archived_prev
-        ),
+        active=_card(active_now, active_prev),
+        closed_this_month=_card(closed, closed_prev),
+        archived_this_month=_card(archived, archived_prev),
         volume_by_step=[
             StepVolume(step=name, count=count, pct=round(count / total * 100, 1))
             for name, count in volumes
         ],
-        closure_goal=(
-            ClosureGoalWidget(target=target, achieved=closed, pct=round(closed / target * 100, 1))
-            if target > 0
-            else None
-        ),
+        closure_goal=_closure_goal(target, closed),
     )
     await cache.set(key, json.dumps(asdict(stats)), ex=CACHE_TTL_SECONDS)
     return stats

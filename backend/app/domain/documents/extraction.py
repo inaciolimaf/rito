@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.prompts import load_prompt
 from app.ai.tools.base import ToolContext
-from app.ai.tools.write import get_write_tool
+from app.ai.tools.write import WriteToolDef, get_write_tool
 from app.core.br_documents import (
     is_valid_cpf_or_cnpj,
     is_valid_postal_code,
@@ -38,7 +38,7 @@ from app.domain.documents.models import (
 )
 from app.domain.users.models import User
 from app.integrations.ocr.base import OcrError, OcrProvider
-from app.integrations.openrouter.types import Message
+from app.integrations.openrouter.types import LLMResponse, Message
 from app.integrations.storage.base import FileStorage
 
 FEATURE_KEY = "document_extraction"
@@ -216,6 +216,60 @@ class DocumentExtractionRepository(BaseRepository[DocumentExtraction]):
         return list((await self.session.scalars(stmt)).all())
 
 
+def _read_fields(
+    lido: Any, dados: dict[str, Any], resposta: LLMResponse, expected_kind: str | None
+) -> dict[str, Any]:
+    """O que a LEITURA produziu, separado do que veio do upload.
+
+    Três procedências num bloco só, e é isso que ele nomeia: o texto e a contagem de páginas
+    saem do OCR, o tipo de documento e o alvo saem do modelo (validados contra o esperado), e
+    modelo e tokens saem da chamada. O que o usuário mandou — arquivo, tipo MIME, tamanho —
+    fica com quem chama, porque não depende de nada disso ter dado certo.
+    """
+    return {
+        "page_count": lido.page_count,
+        "document_kind": _kind_of(dados.get("document_kind"), expected_kind),
+        "ocr_text": lido.text,
+        "used_ocr": lido.used_ocr,
+        "target_type": _target_of(dados.get("target_type")),
+        "model": resposta.model,
+        "tokens_used": resposta.usage.completion_tokens + resposta.usage.prompt_tokens,
+    }
+
+
+def _fields_or_fail(dados: dict[str, Any], lido: Any) -> dict[str, Any]:
+    """Os campos normalizados, ou o erro que a tela sabe mostrar.
+
+    Documento lido sem NENHUM campo reconhecível é falha de leitura, não extração vazia: a
+    diferença importa porque `UnreadableDocumentError` leva o texto do OCR junto, e é ele que
+    permite ao usuário ver o que o sistema enxergou e decidir se digita à mão.
+    """
+    campos = normalize_fields(dados.get("fields"))
+    if not campos:
+        raise UnreadableDocumentError(
+            "O documento foi lido, mas nenhum campo reconhecível foi encontrado nele.",
+            ocr_text=lido.text,
+        )
+    return campos
+
+
+def _write_tool_for(target_type: str) -> WriteToolDef:
+    """A ferramenta de escrita que aplica uma extração deste tipo de alvo.
+
+    Duas checagens porque são dois erros distintos: alvo que a extração inventou (o modelo
+    devolveu um `target_type` fora do catálogo) e ferramenta ausente do registro, que seria
+    defeito nosso e não do modelo. Misturar as duas numa mensagem só esconderia qual das
+    duas aconteceu.
+    """
+    ferramenta = _TOOL_BY_TARGET.get(target_type)
+    if ferramenta is None:
+        raise ValueError(f"Alvo desconhecido: {target_type}")
+    definition = get_write_tool(ferramenta)
+    if definition is None:  # pragma: no cover - registro é estático
+        raise ValueError(f"Ferramenta ausente: {ferramenta}")
+    return definition
+
+
 class DocumentExtractionService:
     def __init__(
         self,
@@ -286,13 +340,7 @@ class DocumentExtractionService:
             use_cache=True,
         )
         dados = parse_extraction(resposta.content)
-        campos = normalize_fields(dados.get("fields"))
-        if not campos:
-            raise UnreadableDocumentError(
-                "O documento foi lido, mas nenhum campo reconhecível foi encontrado nele.",
-                ocr_text=lido.text,
-            )
-
+        campos = _fields_or_fail(dados, lido)
         extraction = DocumentExtraction(
             tenant_id=self.tenant_id,
             attachment_id=attachment_id,
@@ -300,15 +348,9 @@ class DocumentExtractionService:
             filename=filename,
             content_type=content_type,
             size_bytes=len(content),
-            page_count=lido.page_count,
             user_id=user.id,
-            document_kind=_kind_of(dados.get("document_kind"), expected_kind),
-            ocr_text=lido.text,
-            used_ocr=lido.used_ocr,
             extracted=campos,
-            target_type=_target_of(dados.get("target_type")),
-            model=resposta.model,
-            tokens_used=resposta.usage.completion_tokens + resposta.usage.prompt_tokens,
+            **_read_fields(lido, dados, resposta, expected_kind),
         )
         self.session.add(extraction)
         await self.session.flush()
@@ -351,13 +393,7 @@ class DocumentExtractionService:
             ExtractionStatus.REVIEWED.value,
         ):
             raise ExtractionNotPendingError
-        ferramenta = _TOOL_BY_TARGET.get(target_type)
-        if ferramenta is None:
-            raise ValueError(f"Alvo desconhecido: {target_type}")
-        definition = get_write_tool(ferramenta)
-        if definition is None:  # pragma: no cover - registro é estático
-            raise ValueError(f"Ferramenta ausente: {ferramenta}")
-
+        definition = _write_tool_for(target_type)
         ctx = ToolContext(session=self.session, tenant_id=self.tenant_id, user=user)
         action = await self.actions.propose(
             ctx=ctx,

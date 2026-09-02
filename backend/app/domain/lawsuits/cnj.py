@@ -80,6 +80,26 @@ def format_cnj(number: CNJNumber) -> str:
     )
 
 
+def _validate_cnj(digits: str, *, year: int, segment: int, check_digit: str) -> None:
+    """Regra 3: cada recusa diz a causa exata, nunca «número inválido».
+
+    A ordem é do mais barato ao mais caro e do mais provável ao menos: ano e segmento são
+    comparações diretas e pegam o erro de digitação comum; o dígito verificador exige o
+    cálculo do módulo 97 e fica por último. Quem digitou errado o ano lê «ano fora do
+    intervalo», não «dígito não confere», que não ajudaria ninguém a corrigir.
+    """
+    max_year = datetime.now(UTC).year + 1
+    if not 1900 <= year <= max_year:
+        raise CNJValidationError(f"Ano do processo fora do intervalo 1900–{max_year}: {year}.")
+    if segment not in SEGMENT_NAMES:
+        raise CNJValidationError(f"Segmento de justiça inválido: {segment}.")
+    expected = compute_check_digit(digits[:7] + digits[9:20])
+    if check_digit != expected:
+        raise CNJValidationError(
+            f"Dígito verificador não confere: informado {check_digit}, esperado {expected}."
+        )
+
+
 def parse_cnj(value: str) -> CNJNumber:
     """Normaliza (regra 1: aceita com/sem máscara e espaços) e valida.
 
@@ -95,18 +115,7 @@ def parse_cnj(value: str) -> CNJNumber:
     year = int(digits[9:13])
     segment = int(digits[13])
     court, origin = digits[14:16], digits[16:20]
-
-    max_year = datetime.now(UTC).year + 1
-    if not 1900 <= year <= max_year:
-        raise CNJValidationError(f"Ano do processo fora do intervalo 1900–{max_year}: {year}.")
-    if segment not in SEGMENT_NAMES:
-        raise CNJValidationError(f"Segmento de justiça inválido: {segment}.")
-
-    expected = compute_check_digit(digits[:7] + digits[9:20])
-    if check_digit != expected:
-        raise CNJValidationError(
-            f"Dígito verificador não confere: informado {check_digit}, esperado {expected}."
-        )
+    _validate_cnj(digits, year=year, segment=segment, check_digit=check_digit)
 
     return CNJNumber(
         sequential=sequential,

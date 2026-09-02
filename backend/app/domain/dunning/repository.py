@@ -101,6 +101,23 @@ def _aging_sum(min_days: int, max_days: int | None, today: date) -> ColumnElemen
     return func.coalesce(func.sum(Transaction.amount).filter(*conditions), 0)
 
 
+def _top_debtors_query(base: list[ColumnElement[bool]]) -> Select[Any]:
+    """Os dez maiores devedores do escritório, por soma de valor vencido.
+
+    Dez porque é uma lista para AGIR: a régua de cobrança é trabalho manual, e um ranking de
+    duzentos nomes não é acionável. As mesmas condições do total (`base`) garantem que a
+    soma dos dez nunca passe do total mostrado ao lado.
+    """
+    return (
+        select(Customer.id, Customer.name, func.sum(Transaction.amount).label("total"))
+        .join(Customer, Customer.id == Transaction.customer_id)
+        .where(*base)
+        .group_by(Customer.id, Customer.name)
+        .order_by(func.sum(Transaction.amount).desc())
+        .limit(10)
+    )
+
+
 class OverdueRepository:
     """Leituras sobre `transactions` para o painel de inadimplência — não é dono da
     tabela (financial/repository.py é), só agrega por cima dela, mesmo padrão de
@@ -189,21 +206,15 @@ class OverdueRepository:
             for bucket, value in zip(_AGING_RANGES.keys(), aging_row, strict=True)
         }
 
-        top_stmt = (
-            select(Customer.id, Customer.name, func.sum(Transaction.amount).label("total"))
-            .join(Customer, Customer.id == Transaction.customer_id)
-            .where(*base)
-            .group_by(Customer.id, Customer.name)
-            .order_by(func.sum(Transaction.amount).desc())
-            .limit(10)
+        top_rows = (await self.session.execute(_top_debtors_query(base))).all()
+        return OverdueSummary(
+            total=Decimal(total or 0),
+            by_aging=by_aging,
+            top_debtors=[
+                DebtorTotal(customer_id=row[0], customer_name=row[1], total=Decimal(row[2]))
+                for row in top_rows
+            ],
         )
-        top_rows = (await self.session.execute(top_stmt)).all()
-        top_debtors = [
-            DebtorTotal(customer_id=row[0], customer_name=row[1], total=Decimal(row[2]))
-            for row in top_rows
-        ]
-
-        return OverdueSummary(total=Decimal(total or 0), by_aging=by_aging, top_debtors=top_debtors)
 
     async def list_due_for_rule(self, *, target_due_date: date) -> Sequence[OverdueRow]:
         """Lançamentos elegíveis pra régua (regra 3): `due_date` bate com o alvo do

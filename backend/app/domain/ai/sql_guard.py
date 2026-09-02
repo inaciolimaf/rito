@@ -18,7 +18,7 @@ função para o que é execução.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sqlglot import exp
@@ -90,6 +90,27 @@ def _relations(tree: exp.Expression) -> list[str]:
     return nomes
 
 
+def _single_statement(sqlglot: Any, raw_sql: str) -> Any:
+    """Faz o parse e exige EXATAMENTE um comando.
+
+    `SELECT 1; DROP TABLE x` é a forma clássica de contrabandear o segundo comando: o
+    primeiro passa em qualquer checagem de texto que olhe só o começo. Contar os comandos
+    depois do parse é o que fecha isso — e o `rstrip(";")` antes existe para o ponto e
+    vírgula final legítimo não virar um segundo comando vazio.
+    """
+    texto = (raw_sql or "").strip().rstrip(";").strip()
+    if not texto:
+        raise SqlRejected("A IA não gerou nenhuma consulta.")
+    try:
+        arvores = sqlglot.parse(texto, dialect=DIALECT)
+    except Exception as exc:  # sqlglot levanta várias formas de ParseError
+        raise SqlRejected(f"A consulta gerada não é SQL válido: {exc}") from exc
+    arvores = [arvore for arvore in arvores if arvore is not None]
+    if len(arvores) != 1:
+        raise SqlRejected("Só é permitida UMA consulta por pergunta.")
+    return arvores[0]
+
+
 def _read_only_tree(raw_sql: str) -> exp.Expression:
     """Camada 2: uma consulta, e só de leitura.
 
@@ -101,19 +122,7 @@ def _read_only_tree(raw_sql: str) -> exp.Expression:
     import sqlglot
     from sqlglot import exp
 
-    texto = (raw_sql or "").strip().rstrip(";").strip()
-    if not texto:
-        raise SqlRejected("A IA não gerou nenhuma consulta.")
-    try:
-        arvores = sqlglot.parse(texto, dialect=DIALECT)
-    except Exception as exc:  # sqlglot levanta várias formas de ParseError
-        raise SqlRejected(f"A consulta gerada não é SQL válido: {exc}") from exc
-
-    arvores = [arvore for arvore in arvores if arvore is not None]
-    if len(arvores) != 1:
-        raise SqlRejected("Só é permitida UMA consulta por pergunta.")
-    tree = arvores[0]
-
+    tree = _single_statement(sqlglot, raw_sql)
     if not isinstance(tree, exp.Select | exp.Union | exp.Subquery):
         raise SqlRejected(
             "Só consultas de leitura (SELECT) são permitidas — nada de alterar dados."

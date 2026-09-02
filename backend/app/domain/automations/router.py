@@ -1,6 +1,7 @@
 """Rotas de automação (spec 092 §5)."""
 
 import uuid
+from collections.abc import Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,12 +11,14 @@ from app.domain.ai.router import get_llm_provider
 from app.domain.ai.service import AiRunner
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.automations.conditions import InvalidConditionError
-from app.domain.automations.decision import DecisionRunner
+from app.domain.automations.decision import DecisionOutcome, DecisionRunner
 from app.domain.automations.engine import AutomationEngine, AutomationLimitError
 from app.domain.automations.models import (
     ActionKind,
     Automation,
+    AutomationAction,
     AutomationRun,
+    AutomationRunStep,
 )
 from app.domain.automations.schemas import (
     ActionResponse,
@@ -222,6 +225,40 @@ async def test_automation(
     )
 
 
+def _run_response(run: AutomationRun, passos: Sequence[AutomationRunStep]) -> RunResponse:
+    """Uma execução de automação com os passos que ela deu.
+
+    Os passos vêm inteiros e não resumidos porque esta tela é a de DIAGNÓSTICO: quando uma
+    automação não fez o que o escritório esperava, a resposta está em qual passo parou e com
+    que erro — e um resumo obrigaria a uma segunda consulta para descobrir isso.
+    """
+    return RunResponse(
+        id=run.id,
+        automation_id=run.automation_id,
+        subject_type=run.subject_type,
+        subject_id=run.subject_id,
+        status=run.status,
+        actions_completed=run.actions_completed,
+        chain_depth=run.chain_depth,
+        next_position=run.next_position,
+        next_action_at=run.next_action_at,
+        error=run.error,
+        started_at=run.started_at,
+        finished_at=run.finished_at,
+        steps=[
+            RunStepResponse(
+                position=passo.position,
+                action_kind=passo.action_kind,
+                status=passo.status,
+                detail=passo.detail,
+                error=passo.error,
+                created_at=passo.created_at,
+            )
+            for passo in passos
+        ],
+    )
+
+
 @router.get("/{automation_id}/runs")
 async def list_runs(
     automation_id: uuid.UUID,
@@ -232,36 +269,7 @@ async def list_runs(
     service = AutomationService(session, current_user.tenant_id)
     automation = await _get(session, automation_id)
     execucoes = await service.runs_of(automation, limit=limit)
-    items = []
-    for run in execucoes:
-        passos = await service.steps_of(run)
-        items.append(
-            RunResponse(
-                id=run.id,
-                automation_id=run.automation_id,
-                subject_type=run.subject_type,
-                subject_id=run.subject_id,
-                status=run.status,
-                actions_completed=run.actions_completed,
-                chain_depth=run.chain_depth,
-                next_position=run.next_position,
-                next_action_at=run.next_action_at,
-                error=run.error,
-                started_at=run.started_at,
-                finished_at=run.finished_at,
-                steps=[
-                    RunStepResponse(
-                        position=passo.position,
-                        action_kind=passo.action_kind,
-                        status=passo.status,
-                        detail=passo.detail,
-                        error=passo.error,
-                        created_at=passo.created_at,
-                    )
-                    for passo in passos
-                ],
-            )
-        )
+    items = [_run_response(run, await service.steps_of(run)) for run in execucoes]
     return RunListResponse(items=items, total=len(items))
 
 
@@ -316,6 +324,44 @@ async def list_decisions(
     )
 
 
+def _decision_action(acoes: Sequence[AutomationAction], position: int | None) -> AutomationAction:
+    """O nó de decisão por IA que a simulação vai rodar.
+
+    Sem `position`, a PRIMEIRA decisão da automação — é o caso comum, automação com um nó
+    só. Com `position`, exatamente aquela; automação com vários nós precisa poder simular
+    cada um. Não achar nenhuma é 422 e não 404: a automação existe, o que falta é ela ter um
+    nó de decisão, e isso é problema do que foi pedido.
+    """
+    decisoes = [item for item in acoes if item.action_kind == ActionKind.LLM_DECISION.value]
+    if position is not None:
+        decisoes = [item for item in decisoes if item.position == position]
+    if not decisoes:
+        raise HTTPException(
+            status_code=422, detail="Esta automação não tem um nó de decisão por IA."
+        )
+    return decisoes[0]
+
+
+def _simulation_response(
+    action: AutomationAction, outcome: DecisionOutcome
+) -> SimulateDecisionResponse:
+    """O resultado da simulação, com a pergunta que o modelo respondeu.
+
+    `fell_back` e `fallback_reason` são o par que interessa a quem escreve a automação: uma
+    decisão que caiu no ramo padrão sem o modelo responder parece igual a uma decisão tomada,
+    e só esses dois campos distinguem as duas na tela.
+    """
+    return SimulateDecisionResponse(
+        position=action.position,
+        question=str((action.action_config or {}).get("question", "")),
+        chosen_branch=outcome.branch,
+        confidence=outcome.confidence,
+        reasoning=outcome.reasoning,
+        fell_back=outcome.fell_back,
+        fallback_reason=outcome.fallback_reason,
+    )
+
+
 @router.post("/{automation_id}/decisions/simulate")
 async def simulate_decision(
     automation_id: uuid.UUID,
@@ -331,16 +377,7 @@ async def simulate_decision(
     """
     service = AutomationService(session, current_user.tenant_id)
     automation = await _get(session, automation_id)
-    acoes = await service.actions_of(automation)
-    decisoes = [item for item in acoes if item.action_kind == ActionKind.LLM_DECISION.value]
-    if payload.position is not None:
-        decisoes = [item for item in decisoes if item.position == payload.position]
-    if not decisoes:
-        raise HTTPException(
-            status_code=422, detail="Esta automação não tem um nó de decisão por IA."
-        )
-    action = decisoes[0]
-
+    action = _decision_action(await service.actions_of(automation), payload.position)
     engine = AutomationEngine(
         session,
         current_user.tenant_id,
@@ -360,12 +397,4 @@ async def simulate_decision(
     # A execução de simulação não vira histórico: ela existiu só para carregar o payload.
     await session.delete(run)
     await session.flush()
-    return SimulateDecisionResponse(
-        position=action.position,
-        question=str((action.action_config or {}).get("question", "")),
-        chosen_branch=outcome.branch,
-        confidence=outcome.confidence,
-        reasoning=outcome.reasoning,
-        fell_back=outcome.fell_back,
-        fallback_reason=outcome.fallback_reason,
-    )
+    return _simulation_response(action, outcome)

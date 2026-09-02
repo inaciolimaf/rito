@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.ai.tools.base import MAX_ROWS, ToolContext, tool, truncate_rows
 from app.domain.inbox.service import InboxService
+from app.domain.posts.detail import PostDetail
 from app.domain.posts.repository import TaskQuery
 from app.domain.posts.service import PostService
 
@@ -39,6 +40,28 @@ class GetInboxInput(BaseModel):
         description="deadline | publications | unread | urgent | important | others",
     )
     limit: int = Field(default=20, ge=1, le=MAX_ROWS)
+
+
+def _task_row(detail: PostDetail) -> dict[str, Any]:
+    """Uma tarefa como o modelo a enxerga.
+
+    `completed` exige responsável E todos concluídos: tarefa sem ninguém atribuído não está
+    concluída, está órfã — e `all([])` é `True`, que faria o modelo dizer ao usuário que a
+    tarefa de ninguém já foi feita.
+    """
+    post = detail.post
+    return {
+        "post_id": str(post.id),
+        "lawsuit_id": str(post.lawsuit_id),
+        "task_type": detail.task_type_name,
+        "scheduled_date": post.scheduled_date.isoformat() if post.scheduled_date else None,
+        "deadline_date": post.deadline_date.isoformat() if post.deadline_date else None,
+        "completed": bool(detail.assignees)
+        and all(item.line.completed_at is not None for item in detail.assignees),
+        "is_urgent": post.is_urgent,
+        "is_important": post.is_important,
+        "assignees": [item.user.name for item in detail.assignees],
+    }
 
 
 @tool(
@@ -67,25 +90,7 @@ async def search_tasks(ctx: ToolContext, params: SearchTasksInput) -> dict[str, 
     items, truncated = truncate_rows(details, params.limit)
     return {
         "period": {"from": start.isoformat(), "to": end.isoformat()},
-        "items": [
-            {
-                "post_id": str(detail.post.id),
-                "lawsuit_id": str(detail.post.lawsuit_id),
-                "task_type": detail.task_type_name,
-                "scheduled_date": (
-                    detail.post.scheduled_date.isoformat() if detail.post.scheduled_date else None
-                ),
-                "deadline_date": (
-                    detail.post.deadline_date.isoformat() if detail.post.deadline_date else None
-                ),
-                "completed": bool(detail.assignees)
-                and all(item.line.completed_at is not None for item in detail.assignees),
-                "is_urgent": detail.post.is_urgent,
-                "is_important": detail.post.is_important,
-                "assignees": [item.user.name for item in detail.assignees],
-            }
-            for detail in items
-        ],
+        "items": [_task_row(detail) for detail in items],
         "total": len(details),
         "truncated": truncated,
     }

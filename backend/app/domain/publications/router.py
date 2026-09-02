@@ -82,6 +82,32 @@ def _row_to_item_response(row: PublicationListRow) -> PublicationListItemRespons
     )
 
 
+def _recipients(detail: PublicationDetail) -> list[PublicationRecipientResponse]:
+    """As partes destinatárias da intimação, na ordem em que o DJEN as mandou.
+
+    A ordem importa: o DJEN lista o polo ativo primeiro, e reordenar aqui faria a tela
+    discordar do documento oficial que o advogado tem na outra aba.
+    """
+    return [
+        PublicationRecipientResponse(name=recipient.name, pole=recipient.pole)
+        for recipient in detail.recipients
+    ]
+
+
+def _lawyers(detail: PublicationDetail) -> list[PublicationLawyerResponse]:
+    """Os advogados citados na intimação, com a OAB que o DJEN informou.
+
+    Número e UF vêm sempre juntos porque OAB sem seccional não identifica ninguém — a
+    mesma inscrição existe em cada estado.
+    """
+    return [
+        PublicationLawyerResponse(
+            name=lawyer.name, oab_number=lawyer.oab_number, oab_state=lawyer.oab_state
+        )
+        for lawyer in detail.lawyers
+    ]
+
+
 def _detail_to_response(detail: PublicationDetail) -> PublicationDetailResponse:
     publication = detail.publication
     return PublicationDetailResponse(
@@ -105,16 +131,8 @@ def _detail_to_response(detail: PublicationDetail) -> PublicationDetailResponse:
         routed_to=publication.routed_to,
         routed_by=publication.routed_by,
         created_at=publication.created_at,
-        recipients=[
-            PublicationRecipientResponse(name=recipient.name, pole=recipient.pole)
-            for recipient in detail.recipients
-        ],
-        lawyers=[
-            PublicationLawyerResponse(
-                name=lawyer.name, oab_number=lawyer.oab_number, oab_state=lawyer.oab_state
-            )
-            for lawyer in detail.lawyers
-        ],
+        recipients=_recipients(detail),
+        lawyers=_lawyers(detail),
         is_read=detail.is_read,
     )
 

@@ -41,6 +41,27 @@ RUN_TIMEOUT_S = 900.0
 MAX_PAYLOAD_BYTES = 100 * 1024
 
 
+def _mark_failed(
+    thread: AiThread, state: dict[str, Any], message: str, *, count_step: bool
+) -> tuple[uuid.UUID, int]:
+    """Marca o thread como falho e devolve `(id, passo)` LIDOS ANTES de qualquer escrita.
+
+    Ler antes não é estilo: uma escrita que falha expira o objeto na sessão, e a partir daí
+    `thread.id` dispara um carregamento preguiçoso numa sessão que já morreu — o erro real
+    viraria um `DetachedInstanceError` sem relação com a causa.
+
+    `count_step=False` existe para o estouro de passos, onde o contador já subiu ao tentar o
+    passo proibido; contar de novo faria o thread parecer ter dado um passo a mais.
+    """
+    if count_step:
+        thread.step_count += 1
+    thread.status = ThreadStatus.ERROR.value
+    thread.error = message
+    thread.finished_at = datetime.now(UTC)
+    thread.state = state
+    return thread.id, thread.step_count
+
+
 class NodeTimeoutError(Exception):
     """Nó estourou o tempo (regra 5) — o thread termina em `error`, nunca pendurado."""
 
@@ -289,6 +310,32 @@ class GraphRuntime:
 
         yield await self._finish(thread, state)
 
+    async def _node_event(
+        self,
+        thread: AiThread,
+        state: dict[str, Any],
+        node: str,
+        delta: dict[str, Any] | None,
+        duration_ms: int,
+    ) -> StepEvent:
+        """Grava o passo e devolve o evento correspondente.
+
+        O `kind` sai do MESMO cálculo nos dois lugares — gravado e emitido: um passo salvo
+        como `node` e emitido como `interrupt` faria a retomada da conversa discordar do que
+        o usuário viu na tela. O payload do evento é truncado; o gravado, não.
+        """
+        kind = "interrupt" if state.get(PENDING_ACTION_KEY) else "node"
+        await self._record_step(
+            thread, node=node, kind=kind, output=delta, duration_ms=duration_ms, state=state
+        )
+        return StepEvent(
+            step=thread.step_count,
+            node=node,
+            kind=kind,
+            output=truncate_payload(delta),
+            duration_ms=duration_ms,
+        )
+
     async def _steps_of_update(
         self,
         thread: AiThread,
@@ -315,22 +362,7 @@ class GraphRuntime:
                     count_step=False,
                 )
                 return
-            kind = "interrupt" if state.get(PENDING_ACTION_KEY) else "node"
-            await self._record_step(
-                thread,
-                node=str(node),
-                kind=kind,
-                output=delta,
-                duration_ms=duration_ms,
-                state=state,
-            )
-            yield state, StepEvent(
-                step=thread.step_count,
-                node=str(node),
-                kind=kind,
-                output=truncate_payload(delta),
-                duration_ms=duration_ms,
-            )
+            yield state, await self._node_event(thread, state, str(node), delta, duration_ms)
             if state.get(PENDING_ACTION_KEY):
                 yield state, await self._interrupt(thread, state)
                 return
@@ -407,17 +439,7 @@ class GraphRuntime:
         count_step: bool = True,
     ) -> GraphResult:
         logger.warning("Grafo %s falhou em %s: %s", thread.graph_name, node, message)
-        if count_step:
-            # No estouro de passos o contador já subiu ao tentar o passo proibido —
-            # contar de novo faria o thread parecer ter dado um passo a mais do que deu.
-            thread.step_count += 1
-        thread.status = ThreadStatus.ERROR.value
-        thread.error = message
-        thread.finished_at = datetime.now(UTC)
-        thread.state = state
-        # Lidos ANTES da escrita: uma escrita que falha expira o objeto, e a partir daí
-        # ler `thread.id` dispara um carregamento preguiçoso na sessão que já morreu.
-        thread_id, step = thread.id, thread.step_count
+        thread_id, step = _mark_failed(thread, state, message, count_step=count_step)
         try:
             await self._record_step(
                 thread,

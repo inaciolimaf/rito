@@ -68,6 +68,24 @@ def _no_filter(filters: LawsuitFilters) -> bool:
     )
 
 
+def _move_to_stage(lawsuit: Lawsuit, to_stage_id: uuid.UUID) -> None:
+    """Põe o processo na etapa nova e zera o relógio de estagnação.
+
+    `updated_at` recebe valor EXPLÍCITO mesmo tendo `onupdate=func.now()` (server-side):
+    sem ele, o autoflush de uma query seguinte expira o atributo, e relê-lo fora de um
+    `await` — na serialização da resposta — estoura `MissingGreenlet`. Mesmo motivo
+    documentado em `LawsuitService.update`.
+
+    Spec 052, regra 4: mover reseta o relógio da etapa (o trigger cuida de
+    `stage_entered_at`). Zero dia na etapa nova nunca é estagnação, então zera direto em vez
+    de rodar `StagnationService.recalculate_stage` por uma query a mais.
+    """
+    lawsuit.stage_id = to_stage_id
+    lawsuit.updated_at = datetime.now(UTC)
+    lawsuit.is_stagnant = False
+    lawsuit.stagnant_since = None
+
+
 class BoardService:
     def __init__(
         self, session: AsyncSession, tenant_id: uuid.UUID, *, cache: Cache | None = None
@@ -169,6 +187,27 @@ class BoardService:
         é exatamente o tipo de incoerência que faz o usuário desconfiar da tela."""
         await invalidate(self.cache, board_counts_cache_key(self.tenant_id))
 
+    async def _emit_stage_changed(
+        self, lawsuit: Lawsuit, to_stage_id: uuid.UUID, from_stage_id: uuid.UUID | None
+    ) -> None:
+        """Spec 092: o gatilho vive AQUI, e não no router.
+
+        Pelo mesmo motivo que o histórico vive aqui — mudar de etapa por fora do Kanban é
+        mudar de etapa, e uma automação que só disparasse pelo arrasto do card perderia
+        metade dos movimentos reais do escritório.
+        """
+        await AutomationEngine(self.session, self.tenant_id).emit(
+            TriggerKind.LAWSUIT_STAGE_CHANGED.value,
+            payload={
+                "lawsuit_id": str(lawsuit.id),
+                "stage_id": str(to_stage_id),
+                "from_stage_id": str(from_stage_id) if from_stage_id else None,
+                "lawsuit_type_id": str(lawsuit.lawsuit_type_id),
+            },
+            subject_type="lawsuit",
+            subject_id=lawsuit.id,
+        )
+
     async def change_stage(
         self, lawsuit: Lawsuit, *, to_stage_id: uuid.UUID, changed_by: uuid.UUID
     ) -> None:
@@ -187,28 +226,6 @@ class BoardService:
                 changed_by=changed_by,
             )
         )
-        lawsuit.stage_id = to_stage_id
-        # updated_at tem onupdate=func.now() (server-side); sem valor explícito o
-        # autoflush de uma query subsequente (ex.: _with_derived) expira o atributo, e
-        # relê-lo fora de um await (na serialização do response) explode com
-        # MissingGreenlet — mesmo motivo documentado em LawsuitService.update.
-        lawsuit.updated_at = datetime.now(UTC)
-        # Spec 052, regra 4: mover reseta o relógio da etapa (trigger cuida de
-        # stage_entered_at) — 0 dias na etapa nova nunca é estagnação, então zera direto
-        # em vez de rodar StagnationService.recalculate_stage por uma query a mais.
-        lawsuit.is_stagnant = False
-        lawsuit.stagnant_since = None
-        # Spec 092: o gatilho vive AQUI, e não no router, pelo mesmo motivo que o
-        # histórico vive aqui — mudar de etapa por fora do Kanban é mudar de etapa.
-        await AutomationEngine(self.session, self.tenant_id).emit(
-            TriggerKind.LAWSUIT_STAGE_CHANGED.value,
-            payload={
-                "lawsuit_id": str(lawsuit.id),
-                "stage_id": str(to_stage_id),
-                "from_stage_id": str(anterior) if anterior else None,
-                "lawsuit_type_id": str(lawsuit.lawsuit_type_id),
-            },
-            subject_type="lawsuit",
-            subject_id=lawsuit.id,
-        )
+        _move_to_stage(lawsuit, to_stage_id)
+        await self._emit_stage_changed(lawsuit, to_stage_id, anterior)
         await self._invalidate_board_counts()

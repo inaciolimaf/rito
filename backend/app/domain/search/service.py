@@ -22,7 +22,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import Select, delete, desc, func, literal, literal_column, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    Select,
+    delete,
+    desc,
+    func,
+    literal,
+    literal_column,
+    or_,
+    select,
+)
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -111,6 +121,23 @@ def _lawsuit_criteria(parsed: ParsedQuery) -> tuple[Any, Any] | None:
     por_pasta = select(Lawsuit.id).where(Lawsuit.folder.ilike(f"%{parsed.raw}%"))
     condicao = Lawsuit.id.in_(por_texto.union(por_pasta).subquery().select())
     return condicao, desc(func.ts_rank(vetor, tsquery))
+
+
+def _involved(user: User) -> ColumnElement[bool]:
+    """Regra 6: tarefa privada só aparece para quem está envolvido nela.
+
+    Mesma regra de `visibility.is_involved` (spec 033), aqui escrita como PREDICADO SQL:
+    filtrar em Python exigiria carregar a base inteira para depois cortar dez linhas, e a
+    busca global tem orçamento de 4 queries (CLAUDE.md §11).
+
+    Envolvido é quem criou ou é responsável. O `EXISTS` correlacionado é o que evita
+    multiplicar a linha da tarefa por responsável, como um JOIN faria.
+    """
+    return or_(
+        Post.is_private.is_(False),
+        Post.created_by == user.id,
+        select(literal(1)).where(PostUser.post_id == Post.id, PostUser.user_id == user.id).exists(),
+    )
 
 
 class SearchService:
@@ -210,21 +237,13 @@ class SearchService:
         if parsed.is_exact:
             return FacetResult(items=[], total=0)
         padrao = f"%{parsed.raw}%"
-        # Regra 6: tarefa privada só aparece para quem está envolvido. A regra é a mesma
-        # de `visibility.is_involved` (spec 033), aqui escrita como predicado SQL porque
-        # filtrar em Python exigiria carregar a base inteira antes de cortar dez.
-        envolvido = or_(
-            Post.is_private.is_(False),
-            Post.created_by == user.id,
-            select(literal(1))
-            .where(PostUser.post_id == Post.id, PostUser.user_id == user.id)
-            .exists(),
-        )
-        condicao = or_(Post.comments.ilike(padrao), Post.location.ilike(padrao))
         stmt = (
             select(Post, TaskType.name, _facet_total())
             .join(TaskType, TaskType.id == Post.task_type_id)
-            .where(condicao, envolvido)
+            .where(
+                or_(Post.comments.ilike(padrao), Post.location.ilike(padrao)),
+                _involved(user),
+            )
             .order_by(desc(Post.created_at))
             .limit(limit)
         )

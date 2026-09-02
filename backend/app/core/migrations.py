@@ -32,6 +32,7 @@ import logging
 import os
 import socket
 from datetime import UTC, datetime, timedelta
+from typing import NoReturn
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -131,6 +132,37 @@ def _aplicar_sincrono() -> None:
     command.upgrade(Config("alembic.ini"), "head")
 
 
+def _raise_lock_timeout() -> NoReturn:
+    """A espera pela trava estourou — o processo não sobe, e essa é a decisão certa.
+
+    A mensagem citava a query a rodar (`SELECT ... FROM migration_locks`) e o `S608` casava
+    com o TEXTO, achando que era SQL montado por string. Dizer as colunas em vez de escrever
+    o comando informa o mesmo e não parece query — falso positivo removido na origem, sem
+    silenciar a regra (spec 115).
+    """
+    raise RuntimeError(
+        "outra instância está aplicando migrations há mais de "
+        f"{LOCK_TIMEOUT.total_seconds():.0f}s. Quem está com a trava aparece na "
+        "tabela `migration_locks`, colunas `locked_by` e `locked_at`; se aquele "
+        "processo morreu, o advisory lock caiu junto com a conexão dele e uma "
+        "nova tentativa passa."
+    )
+
+
+async def _wait_for_turn(engine: AsyncEngine) -> None:
+    """Uma volta de espera, comparando a versão antes e depois.
+
+    A comparação existe para o LOG, não para a decisão: quem opera precisa distinguir «estou
+    esperando e a outra instância está progredindo» de «estou esperando e nada acontece» —
+    o segundo caso é uma instância morta segurando a trava, e o diagnóstico é outro.
+    """
+    antes = await _versao_atual(engine)
+    await asyncio.sleep(POLL_INTERVAL_SECONDS)
+    depois = await _versao_atual(engine)
+    if antes != depois:
+        logger.info("migrations aplicadas por outra instância", extra={"version": depois})
+
+
 async def upgrade_with_lock(engine: AsyncEngine) -> None:
     """Aplica as migrations pendentes sob trava, ou espera quem está aplicando.
 
@@ -143,22 +175,8 @@ async def upgrade_with_lock(engine: AsyncEngine) -> None:
     trava = await _tentar_travar(engine, dono)
     while trava is None:
         if datetime.now(UTC) > limite:
-            # A mensagem citava a query a rodar (`SELECT ... FROM migration_locks`) e o
-            # `S608` casava com o TEXTO, achando que era SQL montado por string. Dizer as
-            # colunas em vez de escrever o comando informa o mesmo e não parece query —
-            # falso positivo removido na origem, sem `noqa` (spec 115).
-            raise RuntimeError(
-                "outra instância está aplicando migrations há mais de "
-                f"{LOCK_TIMEOUT.total_seconds():.0f}s. Quem está com a trava aparece na "
-                "tabela `migration_locks`, colunas `locked_by` e `locked_at`; se aquele "
-                "processo morreu, o advisory lock caiu junto com a conexão dele e uma "
-                "nova tentativa passa."
-            )
-        antes = await _versao_atual(engine)
-        await asyncio.sleep(POLL_INTERVAL_SECONDS)
-        depois = await _versao_atual(engine)
-        if antes != depois:
-            logger.info("migrations aplicadas por outra instância", extra={"version": depois})
+            _raise_lock_timeout()
+        await _wait_for_turn(engine)
         trava = await _tentar_travar(engine, dono)
 
     try:

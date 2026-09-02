@@ -19,7 +19,7 @@ from opentelemetry.trace import SpanKind
 from sqlalchemy import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.observability.metrics import record_llm_usage
 from app.core.observability.tracing import get_tracer
 from app.domain.ai.budget import AiBudgetService
@@ -63,6 +63,37 @@ class ResolvedFeature:
     is_default: bool
 
 
+def _feature_from_env(feature_key: str, settings: Settings) -> ResolvedFeature:
+    """A feature que ninguém configurou ainda, resolvida pelo ambiente (regra 3).
+
+    Aviso, nunca exceção: feature de IA nova precisa funcionar antes de alguém abrir a tela
+    de configuração, senão o deploy que a introduz derruba a tela que a usa. `is_default`
+    marca a linha como não-configurada para a UI poder dizer isso ao usuário.
+
+    O tier escolhe entre o modelo econômico e o padrão — é a única decisão de custo que o
+    código toma sozinho, e ela existe porque feature econômica sem configuração cair no
+    modelo caro seria a forma silenciosa de estourar o teto da spec 090.
+    """
+    logger.warning(
+        "Feature de IA %s sem configuração — usando o modelo padrão do ambiente.",
+        feature_key,
+    )
+    return ResolvedFeature(
+        feature_key=feature_key,
+        model=(
+            settings.openrouter_economy_model
+            if FEATURES_BY_KEY[feature_key].tier == "economico"
+            else settings.openrouter_default_model
+        ),
+        fallback_model=settings.openrouter_fallback_model,
+        temperature=0.2,
+        max_tokens=None,
+        is_enabled=True,
+        store_prompts=False,
+        is_default=True,
+    )
+
+
 class AiConfigService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.session = session
@@ -75,26 +106,7 @@ class AiConfigService:
         settings = get_settings()
         config = await self.configs.get_by_feature(feature_key)
         if config is None:
-            # Regra 3: aviso, nunca exceção — feature nova funciona antes de alguém
-            # abrir a tela de configuração.
-            logger.warning(
-                "Feature de IA %s sem configuração — usando o modelo padrão do ambiente.",
-                feature_key,
-            )
-            return ResolvedFeature(
-                feature_key=feature_key,
-                model=(
-                    settings.openrouter_economy_model
-                    if FEATURES_BY_KEY[feature_key].tier == "economico"
-                    else settings.openrouter_default_model
-                ),
-                fallback_model=settings.openrouter_fallback_model,
-                temperature=0.2,
-                max_tokens=None,
-                is_enabled=True,
-                store_prompts=False,
-                is_default=True,
-            )
+            return _feature_from_env(feature_key, settings)
         return ResolvedFeature(
             feature_key=config.feature_key,
             model=config.model,
@@ -258,6 +270,40 @@ class AiRunner:
         )
         await self._commit_usage()
 
+    async def _record_fallback(
+        self,
+        response: LLMResponse,
+        feature: ResolvedFeature,
+        model: str,
+        first_error: LLMError,
+        started: float,
+        user_id: uuid.UUID | None,
+        messages: Sequence[Message],
+    ) -> None:
+        """Registra a chamada que só deu certo na reserva.
+
+        O status é `STATUS_FALLBACK` e não `STATUS_OK` de propósito: para o usuário a
+        resposta chegou, mas para quem opera é um modelo principal falhando — e uma
+        sequência disso é o sinal de que a configuração da feature precisa mudar. O erro
+        original viaja junto pelo mesmo motivo.
+
+        `model` vem por parâmetro e não de `feature.fallback_model` porque quem chama já
+        provou que ele não é nulo, e repetir a checagem aqui seria um ramo morto.
+        """
+        await self._record(
+            CallOutcome(
+                model=model,
+                status=STATUS_FALLBACK,
+                usage=response.usage,
+                latency_ms=_elapsed_ms(started),
+                error=str(first_error),
+                response=response,
+            ),
+            feature=feature,
+            user_id=user_id,
+            messages=messages,
+        )
+
     async def _try_fallback(
         self,
         *,
@@ -301,18 +347,8 @@ class AiRunner:
                 messages=messages,
             )
             raise
-        await self._record(
-            CallOutcome(
-                model=feature.fallback_model,
-                status=STATUS_FALLBACK,
-                usage=response.usage,
-                latency_ms=_elapsed_ms(started),
-                error=str(first_error),
-                response=response,
-            ),
-            feature=feature,
-            user_id=user_id,
-            messages=messages,
+        await self._record_fallback(
+            response, feature, feature.fallback_model, first_error, started, user_id, messages
         )
         return response
 
@@ -343,6 +379,18 @@ class AiRunner:
             messages=messages,
         )
 
+    async def _cached(
+        self, feature_key: str, feature: ResolvedFeature, messages: Sequence[Message]
+    ) -> LLMResponse | None:
+        """A resposta já paga para esta mesma pergunta, se existir.
+
+        A chave inclui o modelo: trocar o modelo da feature invalida o cache inteiro dela,
+        e tem que invalidar mesmo — a resposta de um modelo não vale pela do outro.
+        """
+        return await self.budget.cached(
+            feature_key=feature_key, model=feature.model, messages=messages
+        )
+
     async def run(
         self,
         *,
@@ -352,17 +400,26 @@ class AiRunner:
         tools: Sequence[ToolSpec] | None = None,
         use_cache: bool = False,
     ) -> LLMResponse:
-        feature = await self._enabled_feature(feature_key)
-        # Spec 090, alvo 2: o teto é checado ANTES de gastar — bloquear depois seria
-        # cobrar a chamada e negar o resultado.
-        await self.budget.ensure_within_budget()
-        if use_cache:
-            em_cache = await self.budget.cached(
-                feature_key=feature_key, model=feature.model, messages=messages
-            )
-            if em_cache is not None:
-                return em_cache
+        """Uma chamada ao modelo da feature, com teto de custo, cache e reserva.
 
+        A ORDEM aqui é a regra, não conveniência:
+
+        1. **Teto antes de gastar** (spec 090, alvo 2). Checar depois seria cobrar a chamada
+           e negar o resultado ao usuário.
+        2. **Cache antes de chamar.** O `and` curto-circuita: sem `use_cache` a consulta ao
+           cache nem acontece, e o caminho sem cache custa o mesmo de antes da 090. O
+           `is not None` é explícito porque a pergunta é «tem resposta guardada?», não «a
+           resposta guardada é verdadeira?» — hoje coincidem, e podem divergir.
+        3. **Reserva só depois do erro** (regra 5). O tempo é contado desde antes da
+           primeira tentativa, então a latência registrada é a que o usuário esperou.
+        """
+        feature = await self._enabled_feature(feature_key)
+        await self.budget.ensure_within_budget()
+        if (
+            use_cache
+            and (em_cache := await self._cached(feature_key, feature, messages)) is not None
+        ):
+            return em_cache
         started = time.monotonic()
         try:
             response = await self._call(feature, messages, tools, feature.model)
@@ -400,6 +457,35 @@ class AiRunner:
         """
         await self.session.commit()
 
+    async def _record_stream(
+        self,
+        feature: ResolvedFeature,
+        erro: str | None,
+        recebido: int,
+        *,
+        started: float,
+        user_id: uuid.UUID | None,
+        messages: Sequence[Message],
+    ) -> None:
+        """O uso de uma resposta em streaming, registrado no `finally` (regra 6 da 081).
+
+        O protocolo só manda o consumo de tokens no fim, e nem sempre manda. Sem número
+        confiável, estimar por caractere (≈4 por token) é melhor que gravar zero: zero
+        entraria na soma do teto de custo da spec 090 como se a chamada fosse grátis.
+        """
+        await self._record(
+            CallOutcome(
+                model=feature.model,
+                status=STATUS_ERROR if erro else STATUS_OK,
+                usage=Usage(completion_tokens=recebido // 4),
+                latency_ms=_elapsed_ms(started),
+                error=erro,
+            ),
+            feature=feature,
+            user_id=user_id,
+            messages=messages,
+        )
+
     async def stream(
         self,
         *,
@@ -434,19 +520,8 @@ class AiRunner:
                     erro = chunk.error
                 yield chunk
         finally:
-            await self._record(
-                CallOutcome(
-                    model=feature.model,
-                    status=STATUS_ERROR if erro else STATUS_OK,
-                    # O protocolo só manda o uso no fim, e nem sempre manda: sem número
-                    # confiável, estimar por caractere é melhor que gravar zero.
-                    usage=Usage(completion_tokens=recebido // 4),
-                    latency_ms=_elapsed_ms(started),
-                    error=erro,
-                ),
-                feature=feature,
-                user_id=user_id,
-                messages=messages,
+            await self._record_stream(
+                feature, erro, recebido, started=started, user_id=user_id, messages=messages
             )
 
     async def _call(
@@ -481,6 +556,40 @@ class AiRunner:
             return None
         return Decimal(str(round(info.cost_for(usage), 6)))
 
+    def _usage_row(
+        self,
+        outcome: CallOutcome,
+        custo: Decimal | None,
+        *,
+        feature: ResolvedFeature,
+        user_id: uuid.UUID | None,
+        messages: Sequence[Message],
+    ) -> AiUsage:
+        """A linha de `ai_usage`. Regra 13: conteúdo só entra com opt-in do tenant.
+
+        `store_prompts` decide prompt e resposta JUNTOS — guardar um sem o outro daria um
+        registro que não serve para depurar (pergunta sem resposta) nem para auditar
+        (resposta sem pergunta), e ainda assim guardaria conteúdo do cliente.
+        """
+        return AiUsage(
+            tenant_id=self.tenant_id,
+            user_id=user_id,
+            feature_key=feature.feature_key,
+            model=outcome.model,
+            prompt_tokens=outcome.usage.prompt_tokens,
+            completion_tokens=outcome.usage.completion_tokens,
+            cost_usd=custo,
+            latency_ms=outcome.latency_ms,
+            status=outcome.status,
+            error=outcome.error[:_MAX_ERROR_LENGTH] if outcome.error else None,
+            prompt=_render_prompt(messages) if feature.store_prompts else None,
+            response_text=(
+                (outcome.response.content if outcome.response else None)
+                if feature.store_prompts
+                else None
+            ),
+        )
+
     async def _record(
         self,
         outcome: CallOutcome,
@@ -504,24 +613,7 @@ class AiRunner:
             cost_usd=float(custo) if custo is not None else 0.0,
         )
         return await self.usage.record(
-            AiUsage(
-                tenant_id=self.tenant_id,
-                user_id=user_id,
-                feature_key=feature.feature_key,
-                model=model,
-                prompt_tokens=usage.prompt_tokens,
-                completion_tokens=usage.completion_tokens,
-                cost_usd=custo,
-                latency_ms=outcome.latency_ms,
-                status=outcome.status,
-                error=outcome.error[:_MAX_ERROR_LENGTH] if outcome.error else None,
-                prompt=_render_prompt(messages) if feature.store_prompts else None,
-                response_text=(
-                    (outcome.response.content if outcome.response else None)
-                    if feature.store_prompts
-                    else None
-                ),
-            )
+            self._usage_row(outcome, custo, feature=feature, user_id=user_id, messages=messages)
         )
 
 

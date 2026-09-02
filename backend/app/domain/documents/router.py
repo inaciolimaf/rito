@@ -83,12 +83,8 @@ async def list_documents(
         folders, documents = await service.list_contents(
             scope_type=scope_type, scope_id=scope_id, folder_id=folder_id, sort=sort, order=order
         )
-    except DocumentScopeNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=_SCOPE_NOT_FOUND_DETAIL) from exc
-    except DocumentFolderNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=_FOLDER_NOT_FOUND_DETAIL) from exc
-    except FolderScopeMismatchError as exc:
-        raise HTTPException(status_code=404, detail=_FOLDER_NOT_FOUND_DETAIL) from exc
+    except tuple(_UPLOAD_NOT_FOUND) as exc:
+        raise HTTPException(status_code=404, detail=_UPLOAD_NOT_FOUND[type(exc)]) from exc
     return DocumentListResponse(
         folders=[_folder_to_response(item) for item in folders],
         documents=[_document_to_response(item) for item in documents],
@@ -110,6 +106,19 @@ async def search_documents(
     except DocumentScopeNotFoundError as exc:
         raise HTTPException(status_code=404, detail=_SCOPE_NOT_FOUND_DETAIL) from exc
     return DocumentSearchResponse(documents=[_document_to_response(item) for item in documents])
+
+
+# Os três erros de destino de documento, todos 404 — repetidos em três rotas antes da spec
+# 123, agora numa origem só (§6, regra dos 3 usos).
+#
+# A pasta de OUTRO escopo devolve "pasta não encontrada" e não "pasta de outro processo":
+# para quem pediu, uma pasta que ele não pode usar é indistinguível de uma que não existe, e
+# dizer a diferença confirmaria a existência de algo que ele não tem direito de enxergar.
+_UPLOAD_NOT_FOUND: dict[type[Exception], str] = {
+    DocumentScopeNotFoundError: _SCOPE_NOT_FOUND_DETAIL,
+    DocumentFolderNotFoundError: _FOLDER_NOT_FOUND_DETAIL,
+    FolderScopeMismatchError: _FOLDER_NOT_FOUND_DETAIL,
+}
 
 
 @router.post("/documents", status_code=201)
@@ -139,12 +148,8 @@ async def upload_documents(
             folder_id=folder_id,
             files=payload,
         )
-    except DocumentScopeNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=_SCOPE_NOT_FOUND_DETAIL) from exc
-    except DocumentFolderNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=_FOLDER_NOT_FOUND_DETAIL) from exc
-    except FolderScopeMismatchError as exc:
-        raise HTTPException(status_code=404, detail=_FOLDER_NOT_FOUND_DETAIL) from exc
+    except tuple(_UPLOAD_NOT_FOUND) as exc:
+        raise HTTPException(status_code=404, detail=_UPLOAD_NOT_FOUND[type(exc)]) from exc
     return [
         UploadResultResponse(
             filename=result.filename,
@@ -201,12 +206,8 @@ async def create_document_folder(
             parent_folder_id=payload.parent_folder_id,
             name=payload.name,
         )
-    except DocumentScopeNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=_SCOPE_NOT_FOUND_DETAIL) from exc
-    except DocumentFolderNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=_FOLDER_NOT_FOUND_DETAIL) from exc
-    except FolderScopeMismatchError as exc:
-        raise HTTPException(status_code=404, detail=_FOLDER_NOT_FOUND_DETAIL) from exc
+    except tuple(_UPLOAD_NOT_FOUND) as exc:
+        raise HTTPException(status_code=404, detail=_UPLOAD_NOT_FOUND[type(exc)]) from exc
     except DuplicateFolderNameError as exc:
         raise HTTPException(
             status_code=409, detail="Já existe uma pasta com esse nome aqui."

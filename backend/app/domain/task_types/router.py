@@ -54,6 +54,34 @@ def _to_response(task_type: TaskType, step_name: str | None) -> TaskTypeResponse
     )
 
 
+async def _list_payload(
+    service: TaskTypeService,
+    step_id: int | None,
+    status_: Literal["active", "inactive"] | None,
+    q: str | None,
+) -> dict[str, object]:
+    """A listagem de tipos de tarefa já serializada, pronta para ir ao cache.
+
+    Devolve `dict` e não o modelo porque quem chama pode gravar isto no Redis: o cache
+    guarda JSON, e serializar aqui é o que permite `cached_json` tratar acerto e erro de
+    cache pelo mesmo caminho.
+
+    As 9 fases são catálogo GLOBAL — um dict em memória resolve o `step_name` de todos os
+    itens sem uma consulta por linha.
+    """
+    items = await service.list_types(
+        step_id=step_id, is_active=parse_active_status(status_), query=q
+    )
+    step_names = {step.id: step.name for step in await service.steps.list_all()}
+    return TaskTypeListResponse(
+        items=[
+            _to_response(item, step_names.get(item.step_id) if item.step_id is not None else None)
+            for item in items
+        ],
+        total=len(items),
+    ).model_dump()
+
+
 @router.get("")
 async def list_task_types(
     step_id: int | None = Query(default=None),
@@ -66,20 +94,7 @@ async def list_task_types(
     service = TaskTypeService(session=session, tenant_id=current_user.tenant_id)
 
     async def montar() -> dict[str, object]:
-        items = await service.list_types(
-            step_id=step_id, is_active=parse_active_status(status_), query=q
-        )
-        # As 9 fases são catálogo global — um dict em memória evita N+1 no step_name.
-        step_names = {step.id: step.name for step in await service.steps.list_all()}
-        return TaskTypeListResponse(
-            items=[
-                _to_response(
-                    item, step_names.get(item.step_id) if item.step_id is not None else None
-                )
-                for item in items
-            ],
-            total=len(items),
-        ).model_dump()
+        return await _list_payload(service, step_id, status_, q)
 
     # Spec 098, regra 9: só a chamada SEM filtro é cacheada — é a que todo formulário de
     # tarefa faz, e é uma chave por escritório. Cachear a filtrada multiplicaria o espaço

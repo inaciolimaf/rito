@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
@@ -126,6 +127,26 @@ async def _run_boot_migrations(settings: Settings) -> None:
         await migrations_engine.dispose()
 
 
+def _wire_services(app: FastAPI, engine: AsyncEngine) -> None:
+    """Monta em `app.state` tudo o que as rotas recebem por injeção.
+
+    Uma instância por PROCESSO, não por requisição: pool de conexões, cliente de Redis e
+    transporte HTTP são caros de abrir e feitos para serem compartilhados. Montá-los aqui é
+    também o que faz o DIP do §5 valer — nenhuma rota constrói client de LLM, de OCR ou de
+    webhook por conta própria (specs 081, 091 e 093), e por isso o teste consegue trocar
+    qualquer um deles por um dublê sem tocar no código de produção.
+    """
+    app.state.engine = engine
+    app.state.session_factory = create_session_factory(engine)
+    app.state.redis = create_redis_client()
+    app.state.file_storage = create_file_storage()
+    app.state.messaging_channels = create_messaging_channels()
+    app.state.document_mailer = create_document_mailer()
+    app.state.llm_provider = create_llm_provider(redis=app.state.redis)
+    app.state.ocr_provider = create_ocr_provider()
+    app.state.webhook_sender = HttpxWebhookSender()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings = get_settings()
@@ -140,19 +161,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # RECORD_ONLY para o que não foi sorteado, o custo em 1.400 testes ficou dentro do
     # ruído — não vale condicionar a regra 4 a ter coletor configurado.
     instrument_engine_tracing(engine)
-    app.state.engine = engine
-    app.state.session_factory = create_session_factory(engine)
-    app.state.redis = create_redis_client()
-    app.state.file_storage = create_file_storage()
-    app.state.messaging_channels = create_messaging_channels()
-    app.state.document_mailer = create_document_mailer()
-    # Spec 081: um provider para o app inteiro — nenhuma rota monta client de LLM.
-    app.state.llm_provider = create_llm_provider(redis=app.state.redis)
-    # Spec 091: idem para o OCR — e um servidor sem Tesseract continua de pé.
-    app.state.ocr_provider = create_ocr_provider()
-    # Spec 093: o transporte dos webhooks, com timeout de 10 s e redirect validado.
-    app.state.webhook_sender = HttpxWebhookSender()
-
+    _wire_services(app, engine)
     yield
 
     # Spec 099, regra 10: desligamento gracioso. O uvicorn já parou de aceitar conexão e

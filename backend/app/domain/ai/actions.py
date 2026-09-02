@@ -101,6 +101,32 @@ class AiActionService:
 
     # ------------------------------------------------------------- propor
 
+    async def _check_pending_limit(self, thread_id: uuid.UUID | None) -> None:
+        """Uma conversa não acumula confirmações pendentes sem limite.
+
+        Sem thread não há limite a checar: a ação veio de fora de uma conversa (worker,
+        chamada avulsa) e não existe fila em que ela se empilhe.
+        """
+        if thread_id is None:
+            return
+        if await self.actions.count_pending_in_thread(thread_id) >= MAX_PENDING_PER_THREAD:
+            raise TooManyPendingError
+
+    async def _born_rejected(self, action: AiAction, motivo: str) -> AiAction:
+        """Regra 6: sem permissão, a ação NASCE rejeitada — e mesmo assim é gravada.
+
+        Gravar a tentativa é o ponto: é o que permite ao usuário ver que o agente quis fazer
+        algo que ele não pode fazer. Apagar a tentativa esconderia justamente o caso que
+        alguém precisa revisar.
+        """
+        action.preview = {"summary": motivo, "changes": {}}
+        action.status = AiActionStatus.REJECTED.value
+        action.rejection_reason = motivo
+        action.decided_at = datetime.now(UTC)
+        self.session.add(action)
+        await self.session.flush()
+        return action
+
     async def propose(
         self,
         *,
@@ -115,11 +141,7 @@ class AiActionService:
         registrado. Ela existe mesmo assim porque a tentativa é informação: é o que
         permite ao usuário ver que o agente quis fazer algo que ele não pode fazer.
         """
-        if ctx.thread_id is not None:
-            pendentes = await self.actions.count_pending_in_thread(ctx.thread_id)
-            if pendentes >= MAX_PENDING_PER_THREAD:
-                raise TooManyPendingError
-
+        await self._check_pending_limit(ctx.thread_id)
         params = definition.params_model.model_validate(arguments)
         action = AiAction(
             tenant_id=self.tenant_id,
@@ -133,13 +155,7 @@ class AiActionService:
 
         motivo = _permission_error(definition, ctx.user)
         if motivo is not None:
-            action.preview = {"summary": motivo, "changes": {}}
-            action.status = AiActionStatus.REJECTED.value
-            action.rejection_reason = motivo
-            action.decided_at = datetime.now(UTC)
-            self.session.add(action)
-            await self.session.flush()
-            return action
+            return await self._born_rejected(action, motivo)
 
         proposal = await definition.preview(ctx, params)
         action.preview = proposal.to_preview()
@@ -187,6 +203,19 @@ class AiActionService:
             )
         )
 
+    async def _execute_in_savepoint(
+        self, definition: WriteToolDef, ctx: ToolContext, params: Any
+    ) -> Any:
+        """Regra 5: a execução passa pelo service do domínio, dentro de um SAVEPOINT.
+
+        Validação que reprova humano reprova IA — e a reprovação vira `failed` com o motivo,
+        não 500. O SAVEPOINT existe porque parte das validações só falha no banco (FK,
+        constraint): sem ele, a transação abortada levaria junto o registro da própria
+        falha, que é o que o usuário precisa ler.
+        """
+        async with self.session.begin_nested():
+            return await definition.execute(ctx, params)
+
     async def approve(
         self, action: AiAction, *, user: User, model: str = "desconhecido"
     ) -> AiAction:
@@ -207,14 +236,7 @@ class AiActionService:
         action.decided_by = user.id
         action.decided_at = datetime.now(UTC)
         try:
-            # Regra 5: a execução passa pelo service do domínio. Validação que reprova
-            # humano reprova IA — e a reprovação vira `failed` com o motivo, não 500.
-            #
-            # O SAVEPOINT existe porque parte das validações só falha no banco (FK,
-            # constraint): sem ele, a transação abortada levaria junto o registro da
-            # própria falha, que é o que o usuário precisa ler.
-            async with self.session.begin_nested():
-                executed = await definition.execute(ctx, params)
+            executed = await self._execute_in_savepoint(definition, ctx, params)
         except Exception as exc:
             action.status = AiActionStatus.FAILED.value
             action.error = f"{type(exc).__name__}: {exc}"[:500]

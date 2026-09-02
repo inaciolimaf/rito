@@ -1,6 +1,7 @@
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -69,6 +70,31 @@ def validate_section_order(order: list[str]) -> list[str]:
     return order
 
 
+def _inbox_row(row: Any, parties: dict[Any, Any], assignees: dict[Any, Any]) -> InboxRow:
+    """Uma linha da caixa de entrada, com partes e responsáveis já resolvidos.
+
+    Os dois dicionários vêm de consultas em LOTE feitas por quem chama — é o que impede o
+    N+1 de reaparecer: montar a linha aqui só LÊ o que já foi buscado, e nunca vai ao banco.
+    O default `[]` cobre processo sem parte e tarefa sem responsável, que existem os dois.
+    """
+    return InboxRow(
+        post_id=row.id,
+        lawsuit_id=row.lawsuit_id,
+        task_type_name=row.task_type_name,
+        scheduled_date=row.scheduled_date,
+        scheduled_time=row.scheduled_time,
+        deadline_date=row.deadline_date,
+        is_urgent=row.is_urgent,
+        is_important=row.is_important,
+        is_private=row.is_private,
+        is_read=row.is_read,
+        is_starred=row.is_starred,
+        created_at=row.created_at,
+        parties=parties.get(row.lawsuit_id, []),
+        assignee_names=assignees.get(row.id, []),
+    )
+
+
 class InboxService:
     def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
         self.session = session
@@ -108,28 +134,7 @@ class InboxService:
         page = rows[:limit]
         parties = await self.inbox.parties_for({row.lawsuit_id for row in page})
         assignees = await self.inbox.assignee_names_for([row.id for row in page])
-        return (
-            [
-                InboxRow(
-                    post_id=row.id,
-                    lawsuit_id=row.lawsuit_id,
-                    task_type_name=row.task_type_name,
-                    scheduled_date=row.scheduled_date,
-                    scheduled_time=row.scheduled_time,
-                    deadline_date=row.deadline_date,
-                    is_urgent=row.is_urgent,
-                    is_important=row.is_important,
-                    is_private=row.is_private,
-                    is_read=row.is_read,
-                    is_starred=row.is_starred,
-                    created_at=row.created_at,
-                    parties=parties.get(row.lawsuit_id, []),
-                    assignee_names=assignees.get(row.id, []),
-                )
-                for row in page
-            ],
-            has_more,
-        )
+        return [_inbox_row(row, parties, assignees) for row in page], has_more
 
     async def counts(self, user: User, today: date) -> dict[str, int]:
         order = await self._section_order(user.id)

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, and_, func, literal, or_, select, union_all
+from sqlalchemy import ColumnElement, Row, Select, and_, func, literal, or_, select, union_all
 from sqlalchemy.sql.selectable import Subquery
 
 from app.core.repository import BaseRepository
@@ -94,6 +94,25 @@ def _timeline_keyset(timeline: Any, cursor: tuple[datetime, str, uuid.UUID]) -> 
             timeline.c.kind == cursor_kind,
             timeline.c.id > cursor_id,
         ),
+    )
+
+
+def _timeline_row(row: Row[Any]) -> TimelineRow:
+    """Um evento da timeline, lido por NOME — o UNION ALL nomeia todas as colunas.
+
+    Por nome e não por posição justamente porque são várias fontes unidas: cada `SELECT` do
+    UNION precisa declarar as mesmas colunas na mesma ordem, e ler por nome faz um erro
+    nessa ordem virar `AttributeError` no teste em vez de campo trocado em produção.
+    """
+    return TimelineRow(
+        kind=row.kind,
+        id=row.id,
+        occurred_at=row.occurred_at,
+        title=row.title,
+        summary=row.summary,
+        actor=row.actor,
+        header=row.header,
+        external_code=row.external_code,
     )
 
 
@@ -304,20 +323,7 @@ class LawsuitMovementRepository(BaseRepository[LawsuitMovement]):
         # Sem linhas na página não há janela para contar. `total = 0` é o valor certo:
         # a única forma de a página vir vazia é não haver o que paginar.
         total = rows[0].total if rows else 0
-        items = [
-            TimelineRow(
-                kind=row.kind,
-                id=row.id,
-                occurred_at=row.occurred_at,
-                title=row.title,
-                summary=row.summary,
-                actor=row.actor,
-                header=row.header,
-                external_code=row.external_code,
-            )
-            for row in rows
-        ]
-        return items, total
+        return [_timeline_row(row) for row in rows], total
 
 
 class LawsuitSubjectRepository(BaseRepository[LawsuitSubject]):

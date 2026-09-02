@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from app.ai.tools.base import MAX_ROWS, ToolContext, ToolError, tool, truncate_rows
 from app.domain.customers.schemas import CustomerFilters
 from app.domain.customers.service import CustomerService
+from app.domain.lawsuits.listing import LawsuitListRow
 from app.domain.lawsuits.schemas import LawsuitFiltersQuery
 from app.domain.lawsuits.service import LawsuitService
 
@@ -38,6 +39,21 @@ def _customer_summary(customer: Any) -> dict[str, Any]:
         "state": customer.state,
         "email": customer.email,
         "cellphone": customer.cellphone,
+    }
+
+
+def _lawsuit_brief(row: LawsuitListRow) -> dict[str, Any]:
+    """O processo na ficha do contato: só o que identifica e a fase.
+
+    Resumo e não ficha completa de propósito — o contato pode ter dezenas de processos, e
+    devolver cada um inteiro estouraria o teto de saída da ferramenta (`cap_output`) antes
+    de o modelo ver a lista toda. Quem quiser um deles chama `get_lawsuit` pelo id.
+    """
+    return {
+        "id": str(row.lawsuit.id),
+        "process_number": row.lawsuit.process_number,
+        "folder": row.lawsuit.folder,
+        "stage_name": row.stage_name,
     }
 
 
@@ -96,14 +112,6 @@ async def get_customer(ctx: ToolContext, params: GetCustomerInput) -> dict[str, 
             "street": customer.street,
             "notes": customer.notes,
         },
-        "lawsuits": [
-            {
-                "id": str(row.lawsuit.id),
-                "process_number": row.lawsuit.process_number,
-                "folder": row.lawsuit.folder,
-                "stage_name": row.stage_name,
-            }
-            for row in rows
-        ],
+        "lawsuits": [_lawsuit_brief(row) for row in rows],
         "lawsuits_total": total,
     }

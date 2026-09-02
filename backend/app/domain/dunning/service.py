@@ -216,6 +216,29 @@ class DunningService:
             return DunningStatus.FAILED, str(exc)[:500]
         return DunningStatus.SENT, None
 
+    async def _render(self, template: str, row: OverdueRow, days_overdue: int) -> str:
+        """A mensagem de cobrança com os dados do lançamento e do escritório.
+
+        O nome do escritório vem do tenant e não de configuração da régua: quem recebe a
+        cobrança precisa saber de quem ela é, e um template que esquecesse essa variável
+        mandaria uma cobrança anônima — que é como golpe se parece.
+        """
+        tenant = not_none(
+            await self.session.get(Tenant, self.tenant_id),
+            "o tenant da sessão atual sempre existe",
+        )
+        return render_template(
+            template,
+            TemplateContext(
+                customer_name=row.customer_name or "",
+                amount=row.transaction.amount,
+                due_date=row.transaction.due_date,
+                days_overdue=days_overdue,
+                process_number=row.process_number,
+                tenant_name=tenant.name,
+            ),
+        )
+
     async def _attempt_send(
         self,
         row: OverdueRow,
@@ -237,31 +260,19 @@ class DunningService:
                 motivo="Cliente sem contato cadastrado para este canal.",
             )
 
-        tenant = await self.session.get(Tenant, self.tenant_id)
-        tenant = not_none(tenant, "o tenant da sessão atual sempre existe")
-        message = render_template(
-            template,
-            TemplateContext(
-                customer_name=row.customer_name or "",
-                amount=transaction.amount,
-                due_date=transaction.due_date,
-                days_overdue=days_overdue,
-                process_number=row.process_number,
-                tenant_name=tenant.name,
-            ),
-        )
+        message = await self._render(template, row, days_overdue)
         status_, error = await self._deliver(channel, contact, message, days_overdue)
-
-        attempt = DunningAttempt(
-            tenant_id=self.tenant_id,
-            transaction_id=transaction.id,
-            rule_id=rule_id,
-            channel=channel,
-            sent_to=contact,
-            status=status_,
-            error=error,
+        return await self.attempts.create(
+            DunningAttempt(
+                tenant_id=self.tenant_id,
+                transaction_id=transaction.id,
+                rule_id=rule_id,
+                channel=channel,
+                sent_to=contact,
+                status=status_,
+                error=error,
+            )
         )
-        return await self.attempts.create(attempt)
 
     @staticmethod
     def _resolve_contact(channel: DunningChannel, row: OverdueRow) -> str | None:

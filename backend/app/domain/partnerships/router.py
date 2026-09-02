@@ -129,6 +129,40 @@ async def list_shared_with_me(
     return SharedWithMeResponse(items=items, total=len(items), report=built_report)
 
 
+def _shared_movement(row: Any) -> SharedMovementResponse:
+    """Uma movimentação como o PARCEIRO a vê.
+
+    Recorte deliberado do que a timeline interna tem: sem `actor` e sem `external_code`. O
+    parceiro enxerga o andamento do processo, não quem do outro escritório mexeu nele.
+    """
+    return SharedMovementResponse(
+        id=row.id,
+        occurred_at=row.occurred_at,
+        title=row.title,
+        body=row.body,
+        origin=row.origin,
+    )
+
+
+def _shared_task(row: Any) -> SharedTaskResponse:
+    """Uma tarefa como o parceiro a vê.
+
+    `from_partner` é o campo que a tela usa para separar «o que eu criei» de «o que o dono
+    do processo criou» — sem ele os dois escritórios veriam a mesma lista sem saber de quem
+    é cada linha.
+    """
+    return SharedTaskResponse(
+        id=row.id,
+        task_type_name=row.task_type_name,
+        scheduled_date=row.scheduled_date,
+        deadline_date=row.deadline_date,
+        comments=row.comments,
+        completed=row.completed,
+        from_partner=row.from_partner,
+        created_at=row.created_at,
+    )
+
+
 @router.get("/shared-with-me/{lawsuit_id}")
 async def get_shared_lawsuit(
     lawsuit_id: uuid.UUID,
@@ -146,29 +180,8 @@ async def get_shared_lawsuit(
             SharedPartyResponse(pole=row.pole, name=row.name, is_client=row.is_client)
             for row in detail.parties
         ],
-        timeline=[
-            SharedMovementResponse(
-                id=row.id,
-                occurred_at=row.occurred_at,
-                title=row.title,
-                body=row.body,
-                origin=row.origin,
-            )
-            for row in detail.timeline
-        ],
-        tasks=[
-            SharedTaskResponse(
-                id=row.id,
-                task_type_name=row.task_type_name,
-                scheduled_date=row.scheduled_date,
-                deadline_date=row.deadline_date,
-                comments=row.comments,
-                completed=row.completed,
-                from_partner=row.from_partner,
-                created_at=row.created_at,
-            )
-            for row in detail.tasks
-        ],
+        timeline=[_shared_movement(row) for row in detail.timeline],
+        tasks=[_shared_task(row) for row in detail.tasks],
     )
 
 

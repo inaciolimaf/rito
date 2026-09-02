@@ -10,8 +10,9 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import ColumnElement
@@ -63,6 +64,33 @@ class FolderRenameResult:
     folder: str  # grafia final armazenada (a do alvo existente, em caso de fusão)
     updated: int
     merged: bool
+
+
+def _first_per_folder_query(per_group: int) -> Select[Any]:
+    """Os primeiros `per_group` processos de CADA pasta, por janela.
+
+    Uma query e não uma por pasta: com 200 pastas o caminho ingênuo seria 200 `SELECT` com
+    `LIMIT`, e o `row_number() OVER (PARTITION BY folder)` faz o mesmo recorte num plano só.
+    A ordem `created_at DESC, id` é a mesma da listagem, para a amostra da pasta bater com o
+    topo da lista quando o usuário expande.
+    """
+    windowed = select(
+        Lawsuit.id,
+        Lawsuit.process_number,
+        Lawsuit.folder,
+        Lawsuit.is_archived,
+        Lawsuit.created_at,
+        func.row_number()
+        .over(partition_by=Lawsuit.folder, order_by=(Lawsuit.created_at.desc(), Lawsuit.id))
+        .label("rn"),
+    ).subquery()
+    return select(
+        windowed.c.id,
+        windowed.c.process_number,
+        windowed.c.folder,
+        windowed.c.is_archived,
+        windowed.c.created_at,
+    ).where(windowed.c.rn <= per_group)
 
 
 class FolderRepository:
@@ -134,29 +162,7 @@ class FolderRepository:
         ]
 
     async def first_items_per_folder(self, per_group: int) -> Sequence[FolderGroupItem]:
-        windowed = (
-            select(
-                Lawsuit.id,
-                Lawsuit.process_number,
-                Lawsuit.folder,
-                Lawsuit.is_archived,
-                Lawsuit.created_at,
-                func.row_number()
-                .over(
-                    partition_by=Lawsuit.folder,
-                    order_by=(Lawsuit.created_at.desc(), Lawsuit.id),
-                )
-                .label("rn"),
-            )
-        ).subquery()
-        stmt = select(
-            windowed.c.id,
-            windowed.c.process_number,
-            windowed.c.folder,
-            windowed.c.is_archived,
-            windowed.c.created_at,
-        ).where(windowed.c.rn <= per_group)
-        rows = await self.session.execute(stmt)
+        rows = await self.session.execute(_first_per_folder_query(per_group))
         return [
             FolderGroupItem(
                 id=row.id,

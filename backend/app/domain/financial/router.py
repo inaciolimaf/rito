@@ -894,6 +894,17 @@ async def delete_transaction_series(
         ) from exc
 
 
+# Erros de anexo → status e mensagem. 422 nos três primeiros porque o pedido está bem
+# formado e é o CONTEÚDO que não serve; 404 no último porque o lançamento não existe — ou não
+# é deste escritório, e o RLS não deixa distinguir os dois casos, nem deveria.
+_ATTACHMENT_ERRORS: dict[type[Exception], tuple[int, str]] = {
+    AttachmentTooLargeError: (422, "Anexo acima de 50 MB."),
+    AttachmentTypeBlockedError: (422, "Tipo de arquivo não permitido."),
+    TransactionAttachmentLimitError: (422, "Limite de 20 anexos por lançamento atingido."),
+    AttachmentTargetNotFoundError: (404, "Lançamento não encontrado."),
+}
+
+
 @router.post("/transactions/{transaction_id}/attachments", status_code=201)
 async def upload_transaction_attachment(
     transaction_id: uuid.UUID,
@@ -913,16 +924,9 @@ async def upload_transaction_attachment(
             content_type=file.content_type or "application/octet-stream",
             content=content,
         )
-    except AttachmentTooLargeError as exc:
-        raise HTTPException(status_code=422, detail="Anexo acima de 50 MB.") from exc
-    except AttachmentTypeBlockedError as exc:
-        raise HTTPException(status_code=422, detail="Tipo de arquivo não permitido.") from exc
-    except TransactionAttachmentLimitError as exc:
-        raise HTTPException(
-            status_code=422, detail="Limite de 20 anexos por lançamento atingido."
-        ) from exc
-    except AttachmentTargetNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Lançamento não encontrado.") from exc
+    except tuple(_ATTACHMENT_ERRORS) as exc:
+        status, detail = _ATTACHMENT_ERRORS[type(exc)]
+        raise HTTPException(status_code=status, detail=detail) from exc
     return AttachmentResponse(
         id=attachment.id,
         filename=attachment.filename,

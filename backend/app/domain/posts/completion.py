@@ -50,6 +50,26 @@ class CompletePostUseCase:
     async def _detail(self, post: Post) -> PostDetail:
         return await build_detail(post, posts=self.posts, task_types=self.task_types)
 
+    async def _emit_completed(self, post: Post, actor: User) -> None:
+        """Spec 092: a tarefa concluída dispara automação e acorda quem esperava por ela.
+
+        As duas coisas, e nessa ordem: `emit` roda as automações que têm a conclusão como
+        gatilho, e `resume_waiting_on` destrava as tarefas configuradas como
+        `after_previous`. Sem automação configurada isto é um SELECT indexado e nada mais.
+        """
+        await self.automations.emit(
+            TriggerKind.TASK_COMPLETED.value,
+            payload={
+                "post_id": str(post.id),
+                "lawsuit_id": str(post.lawsuit_id),
+                "task_type_id": str(post.task_type_id),
+                "completed_by": str(actor.id),
+            },
+            subject_type="post",
+            subject_id=post.id,
+        )
+        await self.automations.resume_waiting_on(post.id)
+
     async def complete(self, post: Post, actor: User, payload: PostCompleteRequest) -> PostDetail:
         line, by_other = await self._resolve_completion_line(post, actor, payload.user_id)
         if line.completed_at is not None:
@@ -70,21 +90,7 @@ class CompletePostUseCase:
             # atual como um todo (todos os responsáveis).
             await self.recurrences.advance_on_completion(post)
         if await self.posts.all_completed(post.id):
-            # Spec 092: a tarefa concluída é um dos 5 gatilhos, e é também o que acorda
-            # quem esperava por ela (`after_previous`). Sem automação configurada isto é
-            # um SELECT indexado e nada mais.
-            await self.automations.emit(
-                TriggerKind.TASK_COMPLETED.value,
-                payload={
-                    "post_id": str(post.id),
-                    "lawsuit_id": str(post.lawsuit_id),
-                    "task_type_id": str(post.task_type_id),
-                    "completed_by": str(actor.id),
-                },
-                subject_type="post",
-                subject_id=post.id,
-            )
-            await self.automations.resume_waiting_on(post.id)
+            await self._emit_completed(post, actor)
         return await self._detail(post)
 
     async def reopen(self, post: Post, actor: User, payload: PostReopenRequest) -> PostDetail:

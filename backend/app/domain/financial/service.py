@@ -606,6 +606,44 @@ class TransactionSeriesService:
     async def preview(self, series_id: uuid.UUID) -> list[Transaction]:
         return list(await self.transactions.list_by_series(series_id))
 
+    def _installment(
+        self,
+        payload: TransactionCreateRequest,
+        actor: User,
+        series: TransactionSeries,
+        number: int,
+        count: int,
+        share: Decimal,
+        due_date: date,
+        base_description: str | None,
+    ) -> Transaction:
+        """Uma parcela da série.
+
+        Regra 3: o sufixo "(n/N)" está SEMPRE presente, mesmo quando o lançamento não tem
+        descrição própria — no extrato, "(2/12)" sozinho ainda diz ao usuário que aquilo é
+        a segunda de doze, e uma linha sem nenhuma marca de parcelamento não diria nada.
+        """
+        suffix = f"({number}/{count})"
+        return Transaction(
+            tenant_id=self.tenant_id,
+            kind=payload.kind,
+            user_id=payload.user_id or actor.id,
+            debit_account_id=payload.debit_account_id,
+            credit_account_id=payload.credit_account_id,
+            category_id=payload.category_id,
+            cost_center_id=payload.cost_center_id,
+            customer_id=payload.customer_id,
+            lawsuit_id=payload.lawsuit_id,
+            description=f"{base_description} {suffix}" if base_description else suffix,
+            amount=share,
+            due_date=due_date,
+            competence=due_date.replace(day=1),
+            series_id=series.id,
+            installment_number=number,
+            is_internal=payload.is_internal,
+            internal_note=payload.internal_note,
+        )
+
     async def create_installments(
         self, payload: TransactionCreateRequest, actor: User, *, count: int
     ) -> Transaction:
@@ -621,29 +659,11 @@ class TransactionSeriesService:
 
         first: Transaction | None = None
         for number, (share, due_date) in enumerate(zip(shares, due_dates, strict=True), start=1):
-            # Regra 3: sufixo "(n/N)" — sempre presente, mesmo sem descrição própria.
-            suffix = f"({number}/{count})"
-            description = f"{base_description} {suffix}" if base_description else suffix
-            transaction = Transaction(
-                tenant_id=self.tenant_id,
-                kind=payload.kind,
-                user_id=payload.user_id or actor.id,
-                debit_account_id=payload.debit_account_id,
-                credit_account_id=payload.credit_account_id,
-                category_id=payload.category_id,
-                cost_center_id=payload.cost_center_id,
-                customer_id=payload.customer_id,
-                lawsuit_id=payload.lawsuit_id,
-                description=description,
-                amount=share,
-                due_date=due_date,
-                competence=due_date.replace(day=1),
-                series_id=series.id,
-                installment_number=number,
-                is_internal=payload.is_internal,
-                internal_note=payload.internal_note,
+            created = await self.transactions.create(
+                self._installment(
+                    payload, actor, series, number, count, share, due_date, base_description
+                )
             )
-            created = await self.transactions.create(transaction)
             if first is None:
                 first = created
         return not_none(first, "InstallmentRequest.count >= 2, então o laço criou ao menos uma")

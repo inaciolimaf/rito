@@ -65,6 +65,25 @@ def _active_party_name() -> Any:
     )
 
 
+def _first_assignee_name() -> Any:
+    """O nome de UM responsável pela tarefa, como subquery correlacionada.
+
+    Audiência costuma ter mais de um responsável e a coluna do relatório mostra um. A ordem
+    alfabética torna a escolha ESTÁVEL: sem `order_by`, o Postgres pode devolver responsáveis
+    diferentes entre duas execuções da mesma consulta, e o relatório mudaria sozinho.
+    """
+    return (
+        select(User.name)
+        .select_from(PostUser)
+        .join(User, User.id == PostUser.user_id)
+        .where(PostUser.post_id == Post.id)
+        .order_by(User.name)
+        .limit(1)
+        .correlate(Post)
+        .scalar_subquery()
+    )
+
+
 def _delayed_tasks_base(
     customer_name: ColumnElement[Any], delay: ColumnElement[Any]
 ) -> Select[Any]:
@@ -129,20 +148,11 @@ class TabularReportRepository:
     def _productivity_base(
         self, *, user_id: uuid.UUID | None, action_group_id: uuid.UUID | None
     ) -> Select[Any]:
-        customer_name = (
-            select(Customer.name)
-            .select_from(LawsuitParty)
-            .join(Customer, Customer.id == LawsuitParty.customer_id)
-            .where(LawsuitParty.lawsuit_id == Lawsuit.id, LawsuitParty.pole == PartyPole.ATIVO)
-            .correlate(Lawsuit)
-            .limit(1)
-            .scalar_subquery()
-        )
         stmt = (
             select(
                 Post.id,
                 User.name,
-                customer_name,
+                _active_party_name(),
                 TaskType.name,
                 PostUser.points_earned,
                 Post.scheduled_date,
@@ -340,16 +350,6 @@ class TabularReportRepository:
     async def hearings(
         self, *, cursor: tuple[Any, uuid.UUID] | None, limit: int, today: date
     ) -> tuple[Sequence[Row[Any]], int]:
-        responsible_name = (
-            select(User.name)
-            .select_from(PostUser)
-            .join(User, User.id == PostUser.user_id)
-            .where(PostUser.post_id == Post.id)
-            .order_by(User.name)
-            .limit(1)
-            .correlate(Post)
-            .scalar_subquery()
-        )
         stmt = (
             select(
                 Post.id,
@@ -359,7 +359,7 @@ class TabularReportRepository:
                 Lawsuit.process_number,
                 _parties_label(),
                 Post.location,
-                responsible_name,
+                _first_assignee_name(),
             )
             .select_from(Post)
             .join(TaskType, TaskType.id == Post.task_type_id)

@@ -42,8 +42,12 @@ BASELINE: dict[str, int] = {
     # Spec 114: caiu de 29 para 21 ao extrair `_check_tenant` — o corpo do laço cresceu
     # quando o fuso passou a ser resolvido por tenant, e a catraca só desce.
     "integration_health.py::run_daily_check": 20,
-    "datajud_sync.py::run_scheduled_sync": 26,
-    "aggregates.py::refresh_aggregate": 19,
+    # Spec 123: saiu do BASELINE — caiu de 26 para 15 statements ao extrair
+    # `_sync_each_tenant`, e 15 é o teto. Entrada removida em vez de atualizada:
+    # catraca para função que já cabe é ruído que parece proteção.
+    # Spec 123: saiu do BASELINE — caiu de 19 para 9 statements ao extrair
+    # `_refresh_and_log`, e 15 é o teto. Entrada removida em vez de atualizada:
+    # catraca para função que já cabe é ruído que parece proteção.
     "aggregates.py::refresh_due_aggregates": 19,
 }
 

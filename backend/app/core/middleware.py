@@ -21,6 +21,7 @@ e o contexto é o mesmo dos dois lados — que é a premissa inteira da regra 1.
 
 import logging
 import time
+from contextlib import AbstractContextManager
 from contextvars import Token
 from typing import Any
 
@@ -149,6 +150,24 @@ def _reset_context(tokens: tuple[Token[Any], ...]) -> None:
     user_id_var.reset(tokens[4])
 
 
+def _server_span(request: Request, request_id: str) -> AbstractContextManager[Span]:
+    """Abre o span da requisição, nomeado pelo caminho CRU.
+
+    Cru porque o roteamento ainda não aconteceu — o template (`/lawsuits/{id}`) só é
+    conhecido depois, e é `_close_span` quem corrige o nome. Nomear com o caminho cru e
+    deixar assim geraria uma série de métricas por UUID.
+    """
+    return get_tracer().start_as_current_span(
+        f"{request.method} {request.url.path}",
+        kind=SpanKind.SERVER,
+        attributes={
+            "http.request.method": request.method,
+            "url.path": request.url.path,
+            "rito.request_id": request_id,
+        },
+    )
+
+
 class ObservabilityMiddleware:
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -172,15 +191,7 @@ class ObservabilityMiddleware:
             await send(message)
 
         try:
-            with get_tracer().start_as_current_span(
-                f"{request.method} {request.url.path}",
-                kind=SpanKind.SERVER,
-                attributes={
-                    "http.request.method": request.method,
-                    "url.path": request.url.path,
-                    "rito.request_id": request_id,
-                },
-            ) as span:
+            with _server_span(request, request_id) as span:
                 await self.app(scope, receive, send_com_request_id)
                 _close_span(span, request, scope, status_code)
         finally:

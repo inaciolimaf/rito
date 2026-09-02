@@ -84,6 +84,32 @@ def _health_http_client(
     )
 
 
+def _health_checkers(
+    settings: Settings, http: ResilientHttpClient
+) -> list[IntegrationHealthChecker]:
+    """As integrações externas que respondem por si mesmas.
+
+    Lista e não registro global: quem entra aqui precisa de credencial e URL montadas com as
+    `Settings` do processo, e um registro por import esconderia que a checagem faz chamada de
+    rede de verdade. Os dois clientes compartilham o MESMO `http`, que é o que aplica o rate
+    limit por host da spec 041 — cada um com o seu furaria o limite.
+    """
+    return [
+        DjenHealthChecker(
+            DjenClient(
+                http=http, base_url=settings.djen_base_url, user_agent=settings.djen_user_agent
+            )
+        ),
+        DatajudHealthChecker(
+            DatajudClient(
+                http=http,
+                base_url=settings.datajud_base_url,
+                api_key=settings.datajud_api_key or "",
+            )
+        ),
+    ]
+
+
 async def run_daily_check() -> dict[str, int]:
     settings = get_settings()
     url = migrations_url("a varredura cross-tenant de saúde das integrações")
@@ -92,21 +118,7 @@ async def run_daily_check() -> dict[str, int]:
     redis = create_redis_client()
     http = _health_http_client(settings, redis, session_factory)
     try:
-        checkers: list[IntegrationHealthChecker] = [
-            DjenHealthChecker(
-                DjenClient(
-                    http=http, base_url=settings.djen_base_url, user_agent=settings.djen_user_agent
-                )
-            ),
-            DatajudHealthChecker(
-                DatajudClient(
-                    http=http,
-                    base_url=settings.datajud_base_url,
-                    api_key=settings.datajud_api_key or "",
-                )
-            ),
-        ]
-
+        checkers = _health_checkers(settings, http)
         async with session_factory() as session:
             health_service = IntegrationHealthService(session)
             for checker in checkers:

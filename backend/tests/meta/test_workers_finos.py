@@ -37,7 +37,9 @@ MAX_STATEMENTS = 15
 # permanente — o teste também falha se uma entrada ficar sobrando.
 BASELINE: dict[str, int] = {
     "djen_sync.py::run_due_syncs": 34,
-    "integration_health.py::run_daily_check": 29,
+    # Spec 114: caiu de 29 para 21 ao extrair `_check_tenant` — o corpo do laço cresceu
+    # quando o fuso passou a ser resolvido por tenant, e a catraca só desce.
+    "integration_health.py::run_daily_check": 21,
     "datajud_sync.py::run_scheduled_sync": 27,
     "aggregates.py::refresh_aggregate": 26,
     "aggregates.py::refresh_due_aggregates": 19,

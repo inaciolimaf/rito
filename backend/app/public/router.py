@@ -10,15 +10,17 @@ efeito colateral de um dicionário.
 """
 
 import uuid
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.deps import get_file_storage
 from app.core.repository import decode_cursor, encode_cursor
+from app.domain.account.repository import AccountRepository
 from app.domain.customers.models import Customer
 from app.domain.customers.repository import CustomerRepository
 from app.domain.customers.schemas import CustomerCreateRequest
@@ -243,7 +245,10 @@ async def list_customers(
     session: AsyncSession = Depends(get_public_session),
 ) -> PublicCustomerPage:
     items, total = await CustomerRepository(session).list_filtered(
-        query=query, cursor=_decode(cursor), limit=limit
+        today=Clock(await AccountRepository(session).timezone()).today(),
+        query=query,
+        cursor=_decode(cursor),
+        limit=limit,
     )
     pagina = _page(
         [_to_customer(item) for item in items],
@@ -285,9 +290,14 @@ async def list_birthdays(
 ) -> PublicCustomerPage:
     """Aniversariantes do mês — o caso de uso que existe em todo escritório: a mensagem
     de parabéns disparada por fora do Rito."""
-    alvo = month or date.today().month
+    # Uma query a mais aqui é legítima: a API pública não está no orçamento do §11, e o
+    # fuso não tem como vir de carona — `api_token_lookup` é função SECURITY DEFINER e
+    # mudá-la pediria migration, que a spec 114 §5 não autoriza.
+    alvo = month or Clock(await AccountRepository(session).timezone()).today().month
     items, total = await CustomerRepository(session).list_filtered(
-        birthdays=f"month:{alvo}", limit=1000
+        today=Clock(await AccountRepository(session).timezone()).today(),
+        birthdays=f"month:{alvo}",
+        limit=1000,
     )
     return PublicCustomerPage(
         items=[_to_customer(item) for item in items], next_cursor=None, total=total
@@ -638,6 +648,7 @@ async def create_transaction(
     linha = await service.create(
         TransactionCreateRequest.model_validate(payload.model_dump(exclude_none=True)),
         await _acting_user(session, caller),
+        today=Clock(await AccountRepository(session).timezone()).today(),
     )
     return _to_transaction(linha.transaction)
 

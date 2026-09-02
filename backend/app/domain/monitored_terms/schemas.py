@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 from pydantic import BaseModel, model_validator
 
@@ -37,12 +37,9 @@ class MonitoredTermCreateRequest(BaseModel):
         elif self.kind is TermKind.CNPJ and not is_valid_cnpj(digits):
             raise ValueError("CNPJ inválido.")
         self.value = digits
-
-        # Regra 6: backfill padrão de 30 dias, máximo de 12 meses.
-        if self.backfill_from is not None and self.backfill_from < date.today() - timedelta(
-            days=BACKFILL_MAX_DAYS
-        ):
-            raise ValueError("Captura inicial limitada a 12 meses.")
+        # Regra 6 (o teto de 12 meses) mora no service desde a spec 114: aqui não há fuso
+        # do escritório, e "12 meses atrás" medido no relógio do servidor é a mesma classe
+        # de erro que a spec veio consertar.
         return self
 
 
@@ -51,14 +48,6 @@ class MonitoredTermUpdateRequest(BaseModel):
     user_id: uuid.UUID | None = None
     backfill_from: date | None = None
     is_active: bool = True
-
-    @model_validator(mode="after")
-    def validate_backfill(self) -> "MonitoredTermUpdateRequest":
-        if self.backfill_from is not None and self.backfill_from < date.today() - timedelta(
-            days=BACKFILL_MAX_DAYS
-        ):
-            raise ValueError("Captura inicial limitada a 12 meses.")
-        return self
 
 
 class MonitoredTermResponse(BaseModel):

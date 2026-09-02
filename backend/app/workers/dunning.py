@@ -10,13 +10,14 @@ exercitada direto, sem fila (CLAUDE.md §3)."""
 import asyncio
 import logging
 import uuid
-from datetime import date
 
 from sqlalchemy import select
 
+from app.core.clock import Clock
 from app.core.db import create_engine, create_session_factory
 from app.core.models import Tenant
 from app.core.rls import set_tenant_context
+from app.domain.account.repository import AccountRepository
 from app.domain.dunning.service import DunningService
 from app.integrations.messaging.registry import create_messaging_channels
 from app.workers.celery_app import celery_app
@@ -24,7 +25,7 @@ from app.workers.celery_app import celery_app
 logger = logging.getLogger(__name__)
 
 
-async def _run_for_tenant(tenant_id: uuid.UUID, reference_date: date) -> int:
+async def _run_for_tenant(tenant_id: uuid.UUID) -> int:
     engine = create_engine()
     session_factory = create_session_factory(engine)
     try:
@@ -33,12 +34,18 @@ async def _run_for_tenant(tenant_id: uuid.UUID, reference_date: date) -> int:
             service = DunningService(
                 session=session, tenant_id=tenant_id, channels=create_messaging_channels()
             )
-            return await service.run_daily_rules(reference_date)
+            # Spec 114, regra 3: o dia é o DO TENANT. A varredura roda para todos
+            # os escritórios numa passada só, e usar um `date.today()` do processo
+            # dava o mesmo dia para quem está em Lisboa e para quem está em Rio
+            # Branco — seis fusos de diferença, e a régua disparando no dia errado
+            # para quem não estivesse no fuso do servidor.
+            hoje = Clock(await AccountRepository(session).timezone()).today()
+            return await service.run_daily_rules(hoje)
     finally:
         await engine.dispose()
 
 
-async def _sweep_all_tenants(reference_date: date) -> int:
+async def _sweep_all_tenants() -> int:
     engine = create_engine()
     session_factory = create_session_factory(engine)
     total = 0
@@ -49,7 +56,7 @@ async def _sweep_all_tenants(reference_date: date) -> int:
             ).all()
         for tenant_id in tenant_ids:
             try:
-                total += await _run_for_tenant(tenant_id, reference_date)
+                total += await _run_for_tenant(tenant_id)
             except Exception:  # um tenant com problema não pode travar os demais
                 logger.exception("dunning: falha inesperada no tenant %s", tenant_id)
     finally:
@@ -60,4 +67,4 @@ async def _sweep_all_tenants(reference_date: date) -> int:
 @celery_app.task(name="app.workers.dunning.sweep_dunning_rules")
 def sweep_dunning_rules() -> int:
     """Regra 10: job diário — varre todos os tenants ativos."""
-    return asyncio.run(_sweep_all_tenants(date.today()))
+    return asyncio.run(_sweep_all_tenants())

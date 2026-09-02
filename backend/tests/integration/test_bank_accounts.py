@@ -10,7 +10,6 @@ excluível e `initial_amount` trava depois do 1º lançamento (regras 9-12 da 10
 
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -22,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.rls import set_tenant_context
 from app.core.tokens import create_access_token
 from app.domain.users.models import FinancialAccess, UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 
 SessionFactory = async_sessionmaker[AsyncSession]
@@ -97,7 +97,7 @@ async def _create_movement(
         "category_id": await _create_category(client, headers, type_=kind),
         "cost_center_id": await _create_cost_center(client, headers),
         "amount": amount,
-        "due_date": due_date or date.today().isoformat(),
+        "due_date": due_date or hoje().isoformat(),
     }
     payload.update(extra)
     response = await client.post("/api/v1/transactions", json=payload, headers=headers)
@@ -107,7 +107,7 @@ async def _create_movement(
     if pay:
         paid = await client.post(
             f"/api/v1/transactions/{transaction_id}/pay",
-            json={"payment_date": date.today().isoformat()},
+            json={"payment_date": hoje().isoformat()},
             headers=headers,
         )
         assert paid.status_code == 200, paid.text
@@ -380,7 +380,7 @@ async def test_saldo_de_cartao_de_credito_devolve_a_fatura_do_ciclo(
     """Spec 101, regra 10: cartão não tem saldo, tem fatura do ciclo corrente — a mesma
     conta que `/bank-accounts/balances` já marcava com `is_invoice`."""
     _gestor, headers = await _make_gestor_full(make_user)
-    hoje = date.today()
+    dia = hoje()
     account = await _create_account(
         client,
         headers,
@@ -392,7 +392,7 @@ async def test_saldo_de_cartao_de_credito_devolve_a_fatura_do_ciclo(
     account_id = str(account["id"])
     # Despesa vencendo hoje cai no ciclo corrente (cycle_day=1), paga ou não.
     await _create_despesa(
-        client, headers, account_id=account_id, amount="70.00", due_date=hoje.isoformat()
+        client, headers, account_id=account_id, amount="70.00", due_date=dia.isoformat()
     )
 
     response = await client.get(f"/api/v1/bank-accounts/{account_id}/balance", headers=headers)

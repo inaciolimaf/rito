@@ -3,10 +3,12 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.monitored_terms.exceptions import (
+    BackfillTooOldError,
     InvalidTermStateError,
     SyncAlreadyRunningError,
     TermAlreadyExistsError,
@@ -92,10 +94,13 @@ async def create_monitored_term(
     payload: MonitoredTermCreateRequest,
     current_user: User = Depends(require_role(UserRole.GESTOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> MonitoredTermResponse:
     service = MonitoredTermService(session=session, tenant_id=current_user.tenant_id)
     try:
-        term = await service.create(payload)
+        term = await service.create(payload, clock.today())
+    except BackfillTooOldError as exc:
+        raise HTTPException(status_code=422, detail="Captura inicial limitada a 12 meses.") from exc
     except TermAlreadyExistsError as exc:
         raise HTTPException(status_code=409, detail="Esse termo já está monitorado.") from exc
     except InvalidOabStateError as exc:
@@ -111,11 +116,14 @@ async def update_monitored_term(
     payload: MonitoredTermUpdateRequest,
     current_user: User = Depends(require_role(UserRole.GESTOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> MonitoredTermResponse:
     service = MonitoredTermService(session=session, tenant_id=current_user.tenant_id)
     term = await _get_term(service, term_id)
     try:
-        await service.update(term, payload)
+        await service.update(term, payload, clock.today())
+    except BackfillTooOldError as exc:
+        raise HTTPException(status_code=422, detail="Captura inicial limitada a 12 meses.") from exc
     except ResponsibleUserNotFoundError as exc:
         raise HTTPException(status_code=422, detail="Responsável não encontrado.") from exc
     return _term_to_response(term)

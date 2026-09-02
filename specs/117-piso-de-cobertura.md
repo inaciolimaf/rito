@@ -1,7 +1,7 @@
 # 117 — Piso de cobertura
 
 **Fase:** 11 · **Tipo:** refatoração · **Orçamento:** +0 s no `make test` (passo próprio no CI)
-**Depende de:** 009 · **Status:** ⬜ pendente
+**Depende de:** 009 · **Status:** ✅ concluída
 
 ---
 

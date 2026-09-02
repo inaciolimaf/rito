@@ -7,7 +7,7 @@ persiste) e 10 (keyset independente por seção).
 """
 
 from collections.abc import Awaitable, Callable
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -17,12 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.rls import set_tenant_context
 from app.domain.users.models import UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import _auth_header
 from tests.integration.test_lawsuits_listing import LawsuitFactory, _make_factory
 from tests.integration.test_posts import _create_task_type
 
-_TODAY = date.today()
+_TODAY = hoje()
 _NEAR_DEADLINE = (_TODAY + timedelta(days=3)).isoformat()
 _FAR_DEADLINE = (_TODAY + timedelta(days=30)).isoformat()
 _FUTURE = (_TODAY + timedelta(days=5)).isoformat()

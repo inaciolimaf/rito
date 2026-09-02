@@ -79,7 +79,13 @@ class TabularReportService:
         self.tenant_id = tenant_id
 
     async def fetch(
-        self, report_key: ReportKey, filters: ReportFilters, *, cursor: str | None, limit: int
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        cursor: str | None,
+        limit: int,
+        today: date,
     ) -> ReportListResponse:
         if report_key == "productivity":
             rows, total, points_total = await self.repo.productivity(
@@ -234,7 +240,9 @@ class TabularReportService:
             return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
 
         if report_key == "hearings":
-            rows, total = await self.repo.hearings(cursor=_decode_date_cursor(cursor), limit=limit)
+            rows, total = await self.repo.hearings(
+                cursor=_decode_date_cursor(cursor), limit=limit, today=today
+            )
             items = [
                 HearingRow(
                     post_id=r[0],
@@ -269,10 +277,17 @@ class TabularReportService:
         return ReportListResponse(items=items, next_cursor=next_cursor, total=total)
 
     async def export(
-        self, report_key: ReportKey, filters: ReportFilters, *, format_: Literal["xlsx", "pdf"]
+        self,
+        report_key: ReportKey,
+        filters: ReportFilters,
+        *,
+        format_: Literal["xlsx", "pdf"],
+        today: date,
     ) -> bytes:
         # Regra 10: respeita os filtros ativos; teto de 50.000 linhas.
-        result = await self.fetch(report_key, filters, cursor=None, limit=_EXPORT_ROW_CAP)
+        result = await self.fetch(
+            report_key, filters, cursor=None, limit=_EXPORT_ROW_CAP, today=today
+        )
         columns = _EXPORT_COLUMNS[report_key]
         export = TableExport(sheet_title=report_key, columns=columns)
         return export.xlsx(result.items) if format_ == "xlsx" else export.pdf(result.items)

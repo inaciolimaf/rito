@@ -20,6 +20,7 @@ from app.domain.financial.exceptions import (
     DreGroupNotFoundError,
     FinancialCategoryInUseError,
     FinancialCategoryNameAlreadyExistsError,
+    FuturePaymentDateError,
     InitialAmountLockedError,
     InstitutionNotFoundError,
     PaidTransactionCannotBecomeInternalError,
@@ -325,7 +326,7 @@ class BankAccountService:
             raise BankAccountInUseError
         await self.accounts.delete(account)
 
-    async def get_balance(self, account: BankAccount, *, at: date | None) -> Decimal:
+    async def get_balance(self, account: BankAccount, *, at: date | None, today: date) -> Decimal:
         """Regras 9-10 (101). Fecha a dívida nº 20: até aqui devolvia só o saldo inicial.
 
         Cartão de crédito não tem "saldo" — tem fatura do ciclo corrente (regra 10),
@@ -333,7 +334,7 @@ class BankAccountService:
         do ciclo é a de `FinancialDashboardRepository.card_invoice` (059), reaproveitada
         em vez de reescrita.
         """
-        as_of = at or date.today()
+        as_of = at or today
         if account.kind == AccountKind.CARTAO_CREDITO:
             from app.domain.financial.dashboard import FinancialDashboardRepository
 
@@ -441,7 +442,10 @@ class TransactionService:
     async def get(self, transaction_id: uuid.UUID) -> TransactionRow | None:
         return await self.transactions.get_by_id_detail(transaction_id)
 
-    async def create(self, payload: TransactionCreateRequest, actor: User) -> TransactionRow:
+    async def create(
+        self, payload: TransactionCreateRequest, actor: User, *, today: date
+    ) -> TransactionRow:
+        self._check_payment_date(payload.payment_date, today)
         await self._validate_references(payload)
         if payload.installment is not None:
             series_service = TransactionSeriesService(
@@ -484,9 +488,21 @@ class TransactionService:
         assert detail is not None  # acabou de criar — sempre existe
         return detail
 
+    @staticmethod
+    def _check_payment_date(payment_date: date | None, today: date) -> None:
+        """Spec 024: baixa não se lança para o futuro. `today` é o do escritório (114)."""
+        if payment_date is not None and payment_date > today:
+            raise FuturePaymentDateError
+
     async def update(
-        self, transaction: Transaction, payload: TransactionUpdateRequest, actor: User
+        self,
+        transaction: Transaction,
+        payload: TransactionUpdateRequest,
+        actor: User,
+        *,
+        today: date,
     ) -> TransactionRow:
+        self._check_payment_date(payload.payment_date, today)
         await self._validate_references(payload)
         # Regra 4 (spec 058): efetivo PAGO não pode virar interno silenciosamente —
         # estornar primeiro. Já interno (ou ainda não pago) segue liberado.
@@ -752,7 +768,12 @@ class TransactionSeriesService:
         return generated
 
     async def update_series(
-        self, series: TransactionSeries, payload: TransactionSeriesUpdateRequest, scope: str
+        self,
+        series: TransactionSeries,
+        payload: TransactionSeriesUpdateRequest,
+        scope: str,
+        *,
+        today: date,
     ) -> list[Transaction]:
         """Regra 7: `scope=future` afeta as não pagas com vencimento a partir de hoje;
         `scope=all` afeta todas as não pagas. Parcela/ocorrência paga nunca muda."""
@@ -768,7 +789,6 @@ class TransactionSeriesService:
             if kind is not TransactionKind.TRANSFERENCIA and category.type != expected:
                 raise TransactionCategoryTypeMismatchError(category.type)
 
-        today = date.today()
         updated: list[Transaction] = []
         for transaction in await self.transactions.list_by_series(series.id):
             if transaction.payment_date is not None:

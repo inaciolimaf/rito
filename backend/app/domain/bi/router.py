@@ -4,9 +4,10 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.http import parse_month_query
 from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.bi.schemas import (
     CacResponse,
     ConversionResponse,
@@ -45,10 +46,11 @@ async def get_bi_pipeline(
     action_group_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> PipelineResponse:
     service = BiPipelineService(session=session, tenant_id=current_user.tenant_id)
     return await service.pipeline(
-        from_=from_, to=to, action_group_id=action_group_id, today=date.today()
+        from_=from_, to=to, action_group_id=action_group_id, today=clock.today()
     )
 
 
@@ -57,8 +59,9 @@ async def get_bi_pipeline_conversion(
     period: str | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> ConversionResponse:
-    period_start = parse_month_query(period)
+    period_start = parse_month_query(period, clock.today())
     service = BiPipelineService(session=session, tenant_id=current_user.tenant_id)
     return await service.conversion(period=period_start)
 
@@ -69,10 +72,11 @@ async def get_bi_pipeline_portfolio(
     action_group_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> PortfolioResponse:
     service = BiPipelineService(session=session, tenant_id=current_user.tenant_id)
     return await service.portfolio(
-        group_by=group_by, action_group_id=action_group_id, today=date.today()
+        group_by=group_by, action_group_id=action_group_id, today=clock.today()
     )
 
 
@@ -98,8 +102,9 @@ async def get_bi_success_rate(
     action_group_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> SuccessRateResponse:
-    period_start = parse_month_query(period)
+    period_start = parse_month_query(period, clock.today())
     service = BiVintageService(session=session, tenant_id=current_user.tenant_id)
     return await service.success_rate(period=period_start, action_group_id=action_group_id)
 
@@ -110,10 +115,11 @@ async def get_bi_success_rate_trend(
     months: int = Query(default=24, ge=1, le=60),
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> SuccessTrendResponse:
     service = BiVintageService(session=session, tenant_id=current_user.tenant_id)
     return await service.success_trend(
-        action_group_id=action_group_id, months=months, today=date.today()
+        action_group_id=action_group_id, months=months, today=clock.today()
     )
 
 
@@ -190,8 +196,9 @@ async def get_bi_costs_cac(
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     _financial: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> CacResponse:
-    period_start = parse_month_query(period)
+    period_start = parse_month_query(period, clock.today())
     service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
     return await service.cac(period=period_start)
 
@@ -202,8 +209,9 @@ async def get_bi_costs_per_point(
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     _financial: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> CostPerPointResponse:
-    period_start = parse_month_query(period)
+    period_start = parse_month_query(period, clock.today())
     service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
     return await service.per_point(period=period_start)
 

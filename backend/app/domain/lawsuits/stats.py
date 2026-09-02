@@ -80,14 +80,17 @@ def cache_key(tenant_id: uuid.UUID, month: date) -> str:
 
 
 async def invalidate_stats_cache(
-    cache: StatsCache, tenant_id: uuid.UUID, *cycle_dates: date | None
+    cache: StatsCache, tenant_id: uuid.UUID, *cycle_dates: date | None, today: date
 ) -> None:
     """Regra 7: criar, fechar ou arquivar processo derruba o cache do tenant.
 
     Toca sempre o mês corrente (ativos e volume por fase refletem o agora) e os meses
     das datas de ciclo envolvidas — fechamento/arquivamento retroativo muda o card
     daquele mês, não o do mês corrente."""
-    months = {date.today().replace(day=1)}
+    # `today` vem de quem invalida (spec 114): o "mês corrente" cujo card cai é o do
+    # escritório, não o do processo — em 31/12 às 22h em Rio Branco, o servidor já
+    # derrubaria o card de janeiro e deixaria dezembro velho na tela.
+    months = {today.replace(day=1)}
     months.update(value.replace(day=1) for value in cycle_dates if value is not None)
     await cache.delete(*(cache_key(tenant_id, month) for month in sorted(months)))
 

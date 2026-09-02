@@ -3,7 +3,7 @@
 import json
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from httpx import AsyncClient
@@ -15,6 +15,7 @@ from app.core.tokens import create_access_token
 from app.domain.monitored_terms.models import MonitoredTerm
 from app.domain.monitored_terms.repository import MonitoredTermRepository
 from app.domain.users.models import UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 
 SessionFactory = async_sessionmaker[AsyncSession]
@@ -50,7 +51,7 @@ async def test_crud_dos_tres_tipos(
     assert oab["status"] == "PENDENTE"  # regra 5
     assert oab["oab_state"] == "MG"
     # Regra 6: backfill padrão de 30 dias.
-    assert oab["backfill_from"] == str(date.today() - timedelta(days=30))
+    assert oab["backfill_from"] == str(hoje() - timedelta(days=30))
     assert oab["next_sync_at"] is not None
 
     cpf = await _create_term(client, gestor_headers, {"kind": "CPF", "value": VALID_CPF})
@@ -149,7 +150,7 @@ async def test_backfill_acima_de_12_meses_retorna_422(
         json={
             "kind": "CPF",
             "value": VALID_CPF,
-            "backfill_from": str(date.today() - timedelta(days=400)),
+            "backfill_from": str(hoje() - timedelta(days=400)),
         },
         headers=_auth_header(gestor),
     )

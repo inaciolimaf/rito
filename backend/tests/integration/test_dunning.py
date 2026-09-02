@@ -14,10 +14,11 @@ from app.domain.dunning.service import DunningService
 from app.integrations.messaging.base import MessagingChannel
 from app.integrations.messaging.sms import SmsChannel
 from app.integrations.messaging.whatsapp import WhatsAppChannel
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_transactions import _fixtures, _make_gestor_full, _receita_payload
 
-_TODAY = date.today()
+_TODAY = hoje()
 
 
 @dataclass

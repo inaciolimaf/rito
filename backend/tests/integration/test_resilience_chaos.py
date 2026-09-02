@@ -40,6 +40,7 @@ from app.integrations.datajud.client import DatajudClient
 from app.integrations.djen.client import DjenClient
 from app.integrations.djen.source import DjenPublicationSource
 from app.integrations.http.client import ResilientHttpClient
+from tests.clock import dia_do_escritorio
 from tests.integration.conftest import SeededUser
 from tests.integration.test_datajud_movement_sync import (
     API_KEY as DATAJUD_API_KEY,
@@ -408,7 +409,7 @@ async def test_relogio_adiantado_fatia_em_janelas_limitadas(
         term = await session.get(MonitoredTerm, term_id)
         assert term is not None
         assert term.status is TermStatus.ATIVO
-        assert term.last_captured_date == skewed_now.date()  # fechou, não travou
+        assert term.last_captured_date == dia_do_escritorio(skewed_now)  # fechou, não travou
 
 
 # ---- 6. Falha externa nunca deixa lock preso nem sessão poluída ---------------------

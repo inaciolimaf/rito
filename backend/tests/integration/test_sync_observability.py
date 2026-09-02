@@ -33,6 +33,7 @@ from app.domain.monitored_terms.models import MonitoredTerm, TermKind, TermStatu
 from app.domain.publications.metrics import PublicationMetricsService
 from app.domain.publications.models import Publication
 from app.domain.users.models import UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_djen_sync import FakeSource, make_term, run_sync
 from tests.integration.test_lawsuits import _auth_header
@@ -250,7 +251,7 @@ async def test_taxa_de_vinculo_abaixo_de_70_gera_aviso(
 ) -> None:
     gestor = await make_user(role=UserRole.GESTOR)
     tenant_id = gestor.tenant_id
-    today = date.today()
+    today = hoje()
     async with app_session_factory() as session, session.begin():
         await set_tenant_context(session, tenant_id)
         for seq in range(6):
@@ -272,13 +273,17 @@ async def test_taxa_de_vinculo_abaixo_de_70_gera_aviso(
         assert metrics.auto_linked == 6
         assert metrics.auto_link_rate == pytest.approx(0.6)
 
-        alert = await service.check_auto_link_rate()
+        alert = await service.check_auto_link_rate(
+            today=hoje(),
+        )
         assert alert is not None
         assert alert.code == "low_auto_link_rate"
         assert alert.severity == "warning"
         assert alert.tenant_id == tenant_id
 
-        again = await service.check_auto_link_rate()
+        again = await service.check_auto_link_rate(
+            today=hoje(),
+        )
         assert again is None  # regra de dedup: já tem um aberto
 
 

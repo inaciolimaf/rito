@@ -7,11 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFi
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.deps import get_file_storage, get_messaging_channels, get_redis
 from app.core.http import get_or_404
 from app.core.image_processing import InvalidImageError
 from app.core.permissions import UserRole, require_role
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.customers.exceptions import CustomerIdentificationAlreadyExistsError
 from app.domain.customers.models import Customer, PersonType
 from app.domain.customers.schemas import (
@@ -148,6 +149,7 @@ async def list_customers(
     limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=100),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> CustomerListResponse:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id)
     filters = CustomerFilters(
@@ -163,7 +165,7 @@ async def list_customers(
         archived=archived,
     )
     items, next_cursor, total = await service.list_customers(
-        filters=filters, sort=sort, order=order, cursor=cursor, limit=limit
+        today=clock.today(), filters=filters, sort=sort, order=order, cursor=cursor, limit=limit
     )
     return CustomerListResponse(
         items=[_item_to_response(item) for item in items], next_cursor=next_cursor, total=total
@@ -175,9 +177,10 @@ async def get_customer_stats(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     redis: Redis = Depends(get_redis),
+    clock: Clock = Depends(get_clock),
 ) -> CustomerStatsResponse:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id, cache=redis)
-    return await service.get_stats()
+    return await service.get_stats(clock.today())
 
 
 @customers_router.get("/birthdays")
@@ -185,9 +188,10 @@ async def get_customer_birthdays(
     scope: Literal["day", "month"] = Query(...),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> list[BirthdayItemResponse]:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id)
-    customers = await service.get_birthdays(scope=scope)
+    customers = await service.get_birthdays(today=clock.today(), scope=scope)
     return [
         BirthdayItemResponse(id=c.id, name=c.name, birthdate=c.birthdate)
         for c in customers
@@ -200,9 +204,12 @@ async def export_customers(
     payload: CustomerExportRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> Response:
     service = CustomerService(session=session, tenant_id=current_user.tenant_id)
-    content = await service.export(format_=payload.format, filters=payload.filters)
+    content = await service.export(
+        today=clock.today(), format_=payload.format, filters=payload.filters
+    )
     media_type = (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         if payload.format == "xlsx"

@@ -18,11 +18,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.rls import set_tenant_context
 from app.domain.account.models import Account
 from app.domain.users.models import UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits_listing import LawsuitFactory, _make_factory
 from tests.integration.test_posts import _create_task_type
 
-_TODAY = date.today()
+_TODAY = hoje()
 _IN = _TODAY + timedelta(days=10)
 _OUT = _TODAY + timedelta(days=45)
 

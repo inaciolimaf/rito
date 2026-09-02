@@ -23,12 +23,18 @@ def parse_active_status(status_: Literal["active", "inactive"] | None) -> bool |
     return {"active": True, "inactive": False}.get(status_) if status_ else None
 
 
-def parse_month_query(month: str | None) -> date:
+def parse_month_query(month: str | None, today: date) -> date:
     """`?month=YYYY-MM` → dia 1 do mês (ou o mês corrente se omitido) — repetido em
     todo filtro de período mensal (`lawsuits/stats`, spec 028; `transactions/stats` e
-    `/chart`, spec 059; extraído na refatoração 060, Alvo "duplicação")."""
+    `/chart`, spec 059; extraído na refatoração 060, Alvo "duplicação").
+
+    `today` é obrigatório de propósito (spec 114): este helper decide qual é o «mês
+    corrente» de doze painéis, e com um default ele voltaria a ser o mês do servidor em
+    qualquer chamador novo que esquecesse de passar. Sem default, quem esquece não
+    compila.
+    """
     if month is None:
-        return date.today().replace(day=1)
+        return today.replace(day=1)
     if not _MONTH_PATTERN.fullmatch(month):
         raise HTTPException(status_code=422, detail="Mês inválido — use YYYY-MM.")
     return date.fromisoformat(f"{month}-01")

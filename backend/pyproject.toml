@@ -60,7 +60,7 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RET", "PTH", "ERA", "TID", "ICN", "ASYNC"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RET", "PTH", "ERA", "TID", "ICN", "ASYNC", "DTZ"]
 # B008: Depends()/Header() em default de parâmetro é o idioma padrão do FastAPI.
 ignore = ["B008"]
 

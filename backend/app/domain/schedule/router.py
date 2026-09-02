@@ -5,9 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.permissions import UserRole, require_role
 from app.core.rls import set_tenant_context
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.schedule.ical import build_ical
 from app.domain.schedule.service import (
     DateField,
@@ -67,6 +68,7 @@ async def list_schedule(
     show_completed: bool = Query(default=True),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> ScheduleListResponse:
     """Agenda (spec 037): só tarefas com `show_in_schedule` (regra 1), eixo alternável
     entre compromisso e prazo fatal (regra 2), intervalo máximo de 90 dias (regra 8)."""
@@ -81,7 +83,7 @@ async def list_schedule(
             date_field=date_field,
             user_id=user_id,
             show_completed=show_completed,
-            today=date.today(),
+            today=clock.today(),
         )
     except RangeTooLongError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -157,7 +159,12 @@ async def ical_feed(token: str, request: Request) -> Response:
             raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL)
         service = ScheduleService(session)
         timezone_name = await service.feed_timezone()
-        events = await service.feed_events(user_id=user_id, today=date.today())
+        # Spec 114, regra 7: o feed já resolvia o fuso do escritório para escrever o
+        # DTSTART e mesmo assim perguntava ao servidor que dia era hoje — as duas
+        # respostas discordavam por horas todo fim de noite. Agora é o mesmo fuso nas
+        # duas pontas. Aqui o relógio não vem por `Depends`: rota pública por token não
+        # tem usuário logado, e o tenant sai do próprio token.
+        events = await service.feed_events(user_id=user_id, today=Clock(timezone_name).today())
         content = build_ical(
             events,
             timezone_name=timezone_name,

@@ -14,7 +14,6 @@ import time
 import uuid
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from datetime import date
 
 import pytest
 from sqlalchemy import text
@@ -23,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.rls import set_tenant_context
 from app.domain.inbox.repository import InboxRepository
 from app.domain.inbox.sections import DEFAULT_SECTION_ORDER, InboxSection
+from tests.clock import hoje
 
 _PENDING = 10_000
 _COMPLETED = 10_000
@@ -192,7 +192,7 @@ async def test_counts_das_6_secoes_em_uma_query_rapida(
         repo = InboxRepository(session)
         started = time.perf_counter()
         counts = await repo.counts(
-            perf_seed.user_id, section_order=DEFAULT_SECTION_ORDER, today=date.today()
+            perf_seed.user_id, section_order=DEFAULT_SECTION_ORDER, today=hoje()
         )
         elapsed_ms = (time.perf_counter() - started) * 1000
 
@@ -215,7 +215,7 @@ async def test_pagina_de_secao_rapida_e_indice_parcial_em_uso(
             perf_seed.user_id,
             section_order=DEFAULT_SECTION_ORDER,
             section=InboxSection.UNREAD.value,
-            today=date.today(),
+            today=hoje(),
             cursor=None,
             limit=20,
         )

@@ -516,9 +516,12 @@ Sete funções acima de 6 returns; três são o mesmo resolvedor de variável de
 31 diretivas mortas. Uma delas suprime `S608` e é herdada pela 115 — registrada em Descobertas para não sumir.
 **Aceite:** as 31 removidas; diff só com comentários; registro da linha herdada. **t:** 0 s. **Deps:** 107, 108, 109, 111, 112
 
-### ⬜ 114 — DTZ: «hoje» é o hoje de quem, exatamente?
+### ✅ 114 — DTZ: «hoje» é o hoje de quem, exatamente?
 90 chamadas a `date.today()` num sistema de prazos que guarda timezone por escritório desde a 011, e só dois módulos usam esse dado. Cria `core/clock.py` injetado via `Depends`. **Muda comportamento de propósito.**
 **Aceite:** dois tenants em fusos diferentes recebem dias diferentes no mesmo endpoint; `"America/Sao_Paulo"` literal só em `DEFAULT_TIMEZONE`. **t:** 2 s. **Deps:** 011, 037
+Recontagem: **96** chamadas, não 90. O fuso vem por `JOIN` na query de autenticação que já existe — `/customers/stats` usava 5 de 5 queries e a listagem 3 de 3, folga zero, e as 13 rotas do gate mantiveram a contagem exata.
+**O gate não teria bastado:** cinco pontos liam `datetime.now(UTC).date()`, que o `DTZ` não pega — tem fuso, só que o errado. Eram a janela do DJEN, os prazos do motor de automações e quatro arquivos de teste. Foram os testes que apontaram cada um.
+Fecha a **dívida 30** (a suíte deixou de depender da hora: de 12 falhas para 0). Abre a **31** (`func.now()` constante dentro do teste) e a **32** (timestamp UTC comparado com data de escritório). Duas rotas mudaram o corpo do 422, de propósito.
 
 ### ⬜ 115 — Bandit (S): a superfície de segurança que o lint alcança
 3.880 violações, das quais 3.827 são `assert` em teste — `per-file-ignores` resolve. Sobram 53 reais, sendo 44 `assert` em código de produção, que somem sob `python -O`.

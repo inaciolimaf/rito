@@ -1,7 +1,7 @@
 # 107 — Higiene de estilo: RET, PTH, ERA, TID, ICN
 
 **Fase:** 10 · **Tipo:** refatoração · **Orçamento:** +0 s (gate de lint)
-**Depende de:** — · **Status:** ⬜ pendente
+**Depende de:** — · **Status:** ✅ concluída
 
 ---
 

@@ -48,7 +48,7 @@ class GetInboxInput(BaseModel):
     ),
 )
 async def search_tasks(ctx: ToolContext, params: SearchTasksInput) -> dict[str, Any]:
-    today = date.today()
+    today = await ctx.today()
     start = params.date_from or today
     end = params.date_to or (start + timedelta(days=_DEFAULT_WINDOW_DAYS))
     service = PostService(session=ctx.session, tenant_id=ctx.tenant_id)
@@ -97,9 +97,11 @@ async def search_tasks(ctx: ToolContext, params: SearchTasksInput) -> dict[str, 
 )
 async def get_inbox(ctx: ToolContext, params: GetInboxInput) -> dict[str, Any]:
     service = InboxService(session=ctx.session, tenant_id=ctx.tenant_id)
-    counts = await service.counts(ctx.user)
+    hoje = await ctx.today()
+    counts = await service.counts(ctx.user, hoje)
     rows, has_more = await service.list_section(
         ctx.user,
+        today=hoje,
         section=params.section,
         cursor=None,
         limit=min(params.limit, MAX_ROWS),

@@ -5,10 +5,11 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.export import ExportColumn, TableExport
 from app.core.http import parse_month_query
 from app.core.permissions import UserRole, require_role
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.reports.access_service import AccessLogService
 from app.domain.reports.models import TimesheetDay
 from app.domain.reports.schemas import (
@@ -61,9 +62,10 @@ async def get_agility_report(
     user_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> AgilityResponse:
     scope_user_id = _resolve_user_scope(current_user, user_id)
-    end = to or date.today()
+    end = to or clock.today()
     start = from_ or end.replace(day=1)
     service = ReportsService(session=session, tenant_id=current_user.tenant_id)
     return await service.agility(user_id=scope_user_id, start=start, end=end)
@@ -75,11 +77,12 @@ async def get_productivity_report(
     user_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> ProductivityResponse:
     scope_user_id = _resolve_user_scope(current_user, user_id)
-    month_start = parse_month_query(month)
+    month_start = parse_month_query(month, clock.today())
     service = ReportsService(session=session, tenant_id=current_user.tenant_id)
-    return await service.productivity(user_id=scope_user_id, month=month_start)
+    return await service.productivity(user_id=scope_user_id, month=month_start, today=clock.today())
 
 
 @router.get("/productivity/weekly")
@@ -87,10 +90,11 @@ async def get_productivity_weekly_report(
     user_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> WeeklyChartResponse:
     scope_user_id = _resolve_user_scope(current_user, user_id)
     service = ReportsService(session=session, tenant_id=current_user.tenant_id)
-    return await service.productivity_weekly(user_id=scope_user_id, today=date.today())
+    return await service.productivity_weekly(user_id=scope_user_id, today=clock.today())
 
 
 @router.get("/most-delayed")
@@ -140,6 +144,7 @@ async def get_tabular_report(
     limit: int = Query(default=_DEFAULT_TABULAR_LIMIT, ge=1, le=100),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> ReportListResponse:
     if report_key not in REPORT_KEYS:
         raise HTTPException(status_code=404, detail="Relatório desconhecido.")
@@ -148,7 +153,7 @@ async def get_tabular_report(
         from_=from_, to=to, user_id=scope_user_id, action_group_id=action_group_id
     )
     service = TabularReportService(session=session, tenant_id=current_user.tenant_id)
-    return await service.fetch(report_key, filters, cursor=cursor, limit=limit)
+    return await service.fetch(report_key, filters, cursor=cursor, limit=limit, today=clock.today())
 
 
 @router.post("/tabular/{report_key}/export")
@@ -161,6 +166,7 @@ async def export_tabular_report(
     action_group_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> Response:
     if report_key not in REPORT_KEYS:
         raise HTTPException(status_code=404, detail="Relatório desconhecido.")
@@ -169,7 +175,7 @@ async def export_tabular_report(
         from_=from_, to=to, user_id=scope_user_id, action_group_id=action_group_id
     )
     service = TabularReportService(session=session, tenant_id=current_user.tenant_id)
-    content = await service.export(report_key, filters, format_=format_)
+    content = await service.export(report_key, filters, format_=format_, today=clock.today())
     return Response(content=content, media_type=_MIME_TYPES[format_])
 
 
@@ -251,13 +257,14 @@ async def get_timesheet_report(
     user_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> TimesheetResponse:
     target = await _resolve_timesheet_target(session, current_user, user_id)
     service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
     account = await service.get_account()
     if account is None:
         raise HTTPException(status_code=404, detail="Conta ainda não configurada.")
-    month_start = parse_month_query(month)
+    month_start = parse_month_query(month, clock.today())
     days = await service.timesheet(user=target, account=account, month_start=month_start)
     return TimesheetResponse(
         user_id=target.id,
@@ -272,13 +279,14 @@ async def export_timesheet_report(
     user_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> Response:
     target = await _resolve_timesheet_target(session, current_user, user_id)
     service = AccessLogService(session=session, tenant_id=current_user.tenant_id)
     account = await service.get_account()
     if account is None:
         raise HTTPException(status_code=404, detail="Conta ainda não configurada.")
-    month_start = parse_month_query(month)
+    month_start = parse_month_query(month, clock.today())
     days = await service.timesheet(user=target, account=account, month_start=month_start)
     rows = [_to_timesheet_day_response(day) for day in days]
     export = TableExport(sheet_title="timesheet", columns=_TIMESHEET_EXPORT_COLUMNS)

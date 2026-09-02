@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import date, timedelta
+from datetime import timedelta
 
 from httpx import AsyncClient
 from sqlalchemy import text
@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.core.tokens import create_access_token
 from app.domain.users.models import UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 
 
@@ -143,7 +144,7 @@ async def test_faixas_etarias_incluindo_nao_informado(
     gestor = await make_user(role=UserRole.GESTOR)
     headers = _auth_header(gestor)
     origin_id = await _create_origin(client, headers, "Origem")
-    today = date.today()
+    today = hoje()
 
     def _years_ago(years: int) -> str:
         return (today.replace(year=today.year - years)).isoformat()
@@ -169,7 +170,7 @@ async def test_aniversariantes_do_dia_e_do_mes(
     gestor = await make_user(role=UserRole.GESTOR)
     headers = _auth_header(gestor)
     origin_id = await _create_origin(client, headers, "Origem")
-    today = date.today()
+    today = hoje()
     other_day_this_month = today.replace(day=1) if today.day != 1 else today.replace(day=2)
 
     await _create_customer(
@@ -355,8 +356,8 @@ async def test_created_from_e_created_to_filtram_periodo(
     origin_id = await _create_origin(client, headers, "Origem")
     await _create_customer(client, headers, origin_id, name="Criado Agora")
 
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    tomorrow = (hoje() + timedelta(days=1)).isoformat()
+    yesterday = (hoje() - timedelta(days=1)).isoformat()
 
     in_range = await client.get(
         "/api/v1/customers",
@@ -398,7 +399,7 @@ async def test_aniversariantes_no_filtro_da_listagem(
     gestor = await make_user(role=UserRole.GESTOR)
     headers = _auth_header(gestor)
     origin_id = await _create_origin(client, headers, "Origem")
-    today = date.today()
+    today = hoje()
     await _create_customer(
         client,
         headers,
@@ -433,7 +434,7 @@ async def test_variacao_vs_mes_anterior_com_cadastro_no_mes_passado(
     last_month_id = await _create_customer(client, headers, origin_id, name="Mês Passado")
     await _create_customer(client, headers, origin_id, name="Este Mês")
 
-    this_month_start = date.today().replace(day=1)
+    this_month_start = hoje().replace(day=1)
     last_month_end = this_month_start - timedelta(days=1)
     async with admin_engine.begin() as conn:
         await conn.execute(

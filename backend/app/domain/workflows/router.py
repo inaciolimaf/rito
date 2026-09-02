@@ -5,9 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.users.models import User
 from app.domain.workflows.service import (
     AlreadyAppliedError,
@@ -223,12 +224,13 @@ async def preview_workflow(
     payload: WorkflowApplyRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> WorkflowPreviewResponse:
     """Regra 6: preview não persiste NADA — mesma resolução do apply, mesmo dia base."""
     service = WorkflowService(session=session, tenant_id=current_user.tenant_id)
     workflow = await get_or_404(lambda: service.workflows.get_by_id(workflow_id), _NOT_FOUND_DETAIL)
     try:
-        preview = await service.preview(workflow, payload.lawsuit_id, date.today())
+        preview = await service.preview(workflow, payload.lawsuit_id, clock.today())
     except LawsuitNotFoundError as exc:
         raise HTTPException(status_code=404, detail=_LAWSUIT_NOT_FOUND_DETAIL) from exc
     return WorkflowPreviewResponse(
@@ -255,6 +257,7 @@ async def apply_workflow(
     payload: WorkflowApplyRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> WorkflowApplyResponse:
     service = WorkflowService(session=session, tenant_id=current_user.tenant_id)
     workflow = await get_or_404(lambda: service.workflows.get_by_id(workflow_id), _NOT_FOUND_DETAIL)
@@ -263,7 +266,7 @@ async def apply_workflow(
             workflow,
             payload.lawsuit_id,
             current_user,
-            date.today(),
+            clock.today(),
             confirm_duplicate=payload.confirm_duplicate,
         )
     except LawsuitNotFoundError as exc:

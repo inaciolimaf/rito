@@ -222,8 +222,9 @@ class _TransactionMixin(BaseModel):
                 raise ValueError("credit_account_id é só para transferência.")
         if self.lawsuit_id is not None and self.customer_id is None:
             raise ValueError("Vincular processo exige cliente.")
-        if self.payment_date is not None and self.payment_date > date.today():
-            raise ValueError("Data de pagamento não pode ser no futuro.")
+        # "Data de pagamento no futuro" saiu daqui na spec 114: `model_validator` não
+        # tem fuso do escritório, e o futuro de quem está em Rio Branco não é o mesmo de
+        # quem está em Lisboa. A regra virou FuturePaymentDateError no service.
         return self
 
 

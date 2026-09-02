@@ -28,9 +28,15 @@ class AccessLogItem:
     occurred_at: datetime
 
 
+# Âncora arbitrária: os dois horários são combinados com a MESMA data e subtraídos, então
+# o dia se cancela e o resultado só depende das horas. Era `date.today()` — o que dava a
+# entender que o dia importava, e ainda fazia o cálculo depender do fuso do servidor sem
+# necessidade nenhuma (spec 114).
+_ANCHOR = date(2000, 1, 1)
+
+
 def _deviation_minutes(first_access_local: time, work_start: time) -> int:
-    anchor = date.today()
-    delta = datetime.combine(anchor, first_access_local) - datetime.combine(anchor, work_start)
+    delta = datetime.combine(_ANCHOR, first_access_local) - datetime.combine(_ANCHOR, work_start)
     return int(delta.total_seconds() // 60)
 
 

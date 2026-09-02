@@ -6,12 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.config import get_settings
 from app.core.deps import get_messaging_channels, get_redis
 from app.core.http import get_or_404, parse_month_query
 from app.core.locks import RedisSyncLock
 from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.datajud.exceptions import LawsuitSyncInProgressError
 from app.domain.datajud.movement_sync_service import MovementSyncService, sync_lock_key
 from app.domain.datajud.service import DatajudService, LawsuitSyncRunService
@@ -312,10 +313,11 @@ async def get_lawsuits_stats(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     redis: Redis = Depends(get_redis),
+    clock: Clock = Depends(get_clock),
 ) -> LawsuitStatsResponse:
     # Registrada ANTES de "/{lawsuit_id}" — depois dele, "stats" casaria como UUID e
     # daria 422 de path, nunca 200.
-    reference = parse_month_query(month)
+    reference = parse_month_query(month, clock.today())
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     stats = await service.get_stats(month=reference, cache=redis)
     return LawsuitStatsResponse(
@@ -357,6 +359,7 @@ async def create_lawsuit(
     session: AsyncSession = Depends(get_session_for_current_user),
     redis: Redis = Depends(get_redis),
     channels: Mapping[str, MessagingChannel] = Depends(get_messaging_channels),
+    clock: Clock = Depends(get_clock),
 ) -> LawsuitResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     try:
@@ -379,7 +382,11 @@ async def create_lawsuit(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     # Regra 7 (spec 028): criar processo invalida o cache do dashboard.
     await invalidate_stats_cache(
-        redis, current_user.tenant_id, created.lawsuit.closure_date, created.lawsuit.archived_date
+        redis,
+        current_user.tenant_id,
+        created.lawsuit.closure_date,
+        created.lawsuit.archived_date,
+        today=clock.today(),
     )
     # Spec 078, regra 5: processo criado já fechado/arquivado (importação) invalida
     # as views de BI.
@@ -479,6 +486,7 @@ async def update_lawsuit(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     redis: Redis = Depends(get_redis),
+    clock: Clock = Depends(get_clock),
 ) -> LawsuitResponse:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
@@ -507,6 +515,7 @@ async def update_lawsuit(
         *previous_cycle_dates,
         updated.lawsuit.closure_date,
         updated.lawsuit.archived_date,
+        today=clock.today(),
     )
     # Spec 078, regra 5: fechou ou arquivou nesta atualização → refresh das views de BI.
     _schedule_cycle_events(
@@ -670,6 +679,7 @@ async def delete_lawsuit(
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     redis: Redis = Depends(get_redis),
+    clock: Clock = Depends(get_clock),
 ) -> None:
     service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
@@ -677,7 +687,11 @@ async def delete_lawsuit(
     await service.delete(detail.lawsuit)
     # Soft delete arquiva (is_archived) — o card de ativos muda (regra 7, spec 028).
     await invalidate_stats_cache(
-        redis, current_user.tenant_id, detail.lawsuit.closure_date, detail.lawsuit.archived_date
+        redis,
+        current_user.tenant_id,
+        detail.lawsuit.closure_date,
+        detail.lawsuit.archived_date,
+        today=clock.today(),
     )
     # Spec 078, regra 5: arquivar pelo soft delete também invalida as views de BI.
     if not was_archived:

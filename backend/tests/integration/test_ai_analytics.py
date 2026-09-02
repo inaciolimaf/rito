@@ -7,7 +7,7 @@ recomendação por processo é **decidida por regra**, não por modelo.
 
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -21,6 +21,7 @@ from app.domain.ai.models import AiInsight, AiSqlQuery
 from app.domain.ai.service import AiRunner
 from app.domain.users.models import FinancialAccess, User, UserRole
 from app.integrations.openrouter.types import LLMResponse, Usage
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_ai_copilot import ScriptedProvider, _use
 from tests.integration.test_lawsuits import (
@@ -241,8 +242,8 @@ async def test_next_best_action_considera_os_sinais_do_processo(
         lawsuit_id=lawsuit_id,
         task_type_id=task_type_id,
         user_ids=[str(user.user_id)],
-        deadline_date=(date.today() - timedelta(days=2)).isoformat(),
-        scheduled_date=(date.today() - timedelta(days=2)).isoformat(),
+        deadline_date=(hoje() - timedelta(days=2)).isoformat(),
+        scheduled_date=(hoje() - timedelta(days=2)).isoformat(),
     )
     com_atraso = await client.get(
         f"/api/v1/lawsuits/{lawsuit_id}/next-best-action", headers=auth_header(user)
@@ -269,8 +270,8 @@ async def test_insights_apontam_registro_e_nao_repetem(
         lawsuit_id=lawsuit_id,
         task_type_id=task_type_id,
         user_ids=[str(user.user_id)],
-        deadline_date=(date.today() + timedelta(days=1)).isoformat(),
-        scheduled_date=(date.today() + timedelta(days=1)).isoformat(),
+        deadline_date=(hoje() + timedelta(days=1)).isoformat(),
+        scheduled_date=(hoje() + timedelta(days=1)).isoformat(),
     )
     _use(ScriptedProvider())
 
@@ -303,8 +304,8 @@ async def test_insight_dispensado_nao_volta_por_trinta_dias(
         lawsuit_id=lawsuit_id,
         task_type_id=task_type_id,
         user_ids=[str(user.user_id)],
-        deadline_date=(date.today() + timedelta(days=1)).isoformat(),
-        scheduled_date=(date.today() + timedelta(days=1)).isoformat(),
+        deadline_date=(hoje() + timedelta(days=1)).isoformat(),
+        scheduled_date=(hoje() + timedelta(days=1)).isoformat(),
     )
     _use(ScriptedProvider())
     await client.post("/api/v1/ai/insights/refresh", headers=auth_header(user))
@@ -333,6 +334,8 @@ async def test_insight_dispensado_nao_volta_por_trinta_dias(
             tenant_id=user.tenant_id,
             runner=AiRunner(session, user.tenant_id, ScriptedProvider()),
         )
-        criados = await service.refresh_insights()
+        criados = await service.refresh_insights(
+            today=hoje(),
+        )
 
     assert criados >= 1

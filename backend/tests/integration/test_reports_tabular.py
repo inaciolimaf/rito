@@ -10,12 +10,24 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domain.users.models import UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_lawsuits import _create_customer, _create_lawsuit
 from tests.integration.test_lawsuits_listing import LawsuitFactory, _make_factory
 from tests.integration.test_taskscore import _complete, _setup_post
 
-_TODAY = datetime.now(UTC).date()
+# Spec 114: o dia é o do ESCRITÓRIO. Era o dia UTC — três horas à frente de São
+# Paulo, que é o fuso em
+# que as fixtures criam a conta. O `DTZ` não pega este caso: `datetime.now(UTC)` TEM
+# fuso, só que o fuso errado para a pergunta «que dia é hoje no escritório».
+_TODAY = hoje()
+# Dívida 32: `created_at` é timestamp UTC, e os relatórios que filtram por ele comparam
+# com um intervalo de DATAS. Enquanto essa conversão não existir, os dois testes que
+# dependem de `created_at` precisam perguntar em dia UTC — senão, das 21h em diante, o
+# contato criado agora cai no dia UTC seguinte e some do filtro «de hoje até hoje».
+# O resto do arquivo usa `_TODAY` (dia do escritório), que é o certo para `scheduled_date`
+# e `closure_date`, que são DATAS e não timestamps.
+_HOJE_UTC = datetime.now(UTC).date()
 
 
 @pytest.fixture
@@ -85,7 +97,7 @@ async def test_new_customers_filtra_por_periodo(
         client,
         factory.headers,
         "new_customers",
-        **{"from": _TODAY.isoformat(), "to": _TODAY.isoformat()},
+        **{"from": _HOJE_UTC.isoformat(), "to": _HOJE_UTC.isoformat()},
     )
     assert body["total"] >= 1
     assert all(item["created_at"] for item in body["items"])
@@ -110,7 +122,7 @@ async def test_ganhos_e_perdidos_por_closure_date_com_tempo_total(
         lawsuit_type_id=factory.type_id,
         stage_id=factory.stage_id,
         outcome="GANHO",
-        closure_date=_TODAY.isoformat(),
+        closure_date=_HOJE_UTC.isoformat(),  # dívida 32: comparado com created_at (UTC)
         fees_value="1500.00",
     )
     lost = await _create_lawsuit(
@@ -120,7 +132,7 @@ async def test_ganhos_e_perdidos_por_closure_date_com_tempo_total(
         lawsuit_type_id=factory.type_id,
         stage_id=factory.stage_id,
         outcome="PERDIDO",
-        closure_date=_TODAY.isoformat(),
+        closure_date=_HOJE_UTC.isoformat(),  # dívida 32
     )
 
     won_body = await _tabular(client, factory.headers, "won_lawsuits")

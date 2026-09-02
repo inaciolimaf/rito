@@ -1,7 +1,7 @@
 # 114 — DTZ: «hoje» é o hoje de quem, exatamente?
 
 **Fase:** 11 · **Tipo:** correção · **Orçamento:** +2 s
-**Depende de:** 011, 037 · **Status:** ⬜ pendente
+**Depende de:** 011, 037 · **Status:** ✅ concluída
 
 ---
 
@@ -163,19 +163,112 @@ uma propriedade do contexto autenticado — resolvida onde o contexto é constru
 Worker e task do Celery não têm requisição nem usuário; esses resolvem a conta explicitamente
 e ficam fora do gate, que só mede rota HTTP.
 
-**Obrigatório, ainda a preencher:** a lista dos testes existentes que precisaram ser
-reescritos por dependerem do fuso do servidor.
+### O ponto cego do próprio gate — o achado maior desta spec
+
+`DTZ` pega `date.today()` e `datetime.now()` sem `tz`. Ele **não** pega
+`datetime.now(UTC).date()`, que tem fuso — só que o fuso errado para a pergunta «que dia
+é hoje no escritório». Cinco lugares liam assim, e nenhum aparecia no inventário de 96:
+
+| Onde | O que saía errado |
+|---|---|
+| `monitored_terms/sync.py` | a janela pedida ao DJEN começava no dia seguinte a partir das 21h |
+| `automations/engine.py` | prazo de automação nascia com um dia a mais |
+| `automations/actions.py` | `scheduled_date` da tarefa criada por automação |
+| `automations/decision.py` | competência do mês do gasto com LLM |
+| 4 arquivos de teste | `_TODAY = _NOW.date()` |
+
+Ou seja: **ligar o gate não teria fechado a dívida 30.** Foram os testes que apontaram
+cada um. Vale para a 120: gate verde de `DTZ` não significa «sem bug de fuso», e o
+meta-teste `test_nenhum_date_today_em_app` tem a mesma limitação por construção.
+
+### Testes reescritos (obrigatório pela §10)
+
+**16 arquivos** passaram a usar `tests/clock.py::hoje()` no lugar de `date.today()`:
+`test_ai_analytics`, `test_ai_tools`, `test_automation_decisions`, `test_automations`,
+`test_bank_accounts`, `test_customers_listing`, `test_dunning`, `test_inbox`,
+`test_inbox_perf`, `test_monitored_terms`, `test_post_recurrence`, `test_schedule`,
+`test_sync_observability`, `test_taskscore`, `test_transactions`, `test_workflows`.
+
+Mais quatro que derivavam o dia de UTC: `test_bi_time_fees`, `test_bi_vintage`,
+`test_bi_pipeline` e `test_reports_tabular`.
+
+E dois que passaram a falar o relógio **do banco**, de propósito, por causa da dívida 32:
+`test_reports_tabular` (`_HOJE_UTC`, para os filtros sobre `created_at`) e
+`test_transactions` (o CHECK `ck_tx_payment_not_future`, que compara com `CURRENT_DATE`).
+
+`test_resilience_chaos` ganhou `dia_do_escritorio(instante)` — o par de `hoje()` para
+quando o teste injeta um instante em vez de usar o presente.
+
+### Mudança de contrato de erro, deliberada
+
+Duas rotas mudaram o **corpo** do 422 (o status é o mesmo). A validação de data saiu do
+`model_validator` do Pydantic — que roda sem contexto de requisição e por isso só sabia
+perguntar ao servidor — e virou exceção de domínio:
+
+| Rota | Antes | Depois |
+|---|---|---|
+| `POST/PUT /transactions` | `detail: "Um ou mais campos são inválidos."` + `errors[]` | `detail: "Data de pagamento não pode ser no futuro."` |
+| `POST/PUT /monitored-terms` | idem | `detail: "Captura inicial limitada a 12 meses."` |
+
+Nenhum teste dependia do corpo (os dois afirmavam só `status_code == 422`), e a regra 1
+da spec proíbe `noqa`/`per-file-ignores` — não havia alternativa defensável.
+
+### Os cinco workers que davam o mesmo dia para todos os tenants
+
+`dunning`, `automations`, `recurrences`, `financial_recurrence` e `integration_health`
+calculavam `date.today()` **uma vez** e passavam o mesmo dia para cada escritório do laço.
+Numa varredura multi-tenant o defeito é sistemático, não uma janela de duas horas: um
+cliente em Lisboa e um em Rio Branco recebiam a régua de cobrança disparada com a data de
+quem estivesse no fuso do servidor. O dia passou a ser resolvido dentro do laço, depois do
+`set_tenant_context`.
+
+Extrair `_check_tenant` de `run_daily_check` foi consequência disso: o corpo cresceu e a
+catraca da spec 117 só desce. A função caiu de 30 para 21 statements e o baseline foi
+**apertado** de 29 para 21.
+
+### Exceções justificadas
+
+- **`integrations/djen/health.py`** usa `datetime.now(UTC).date()` de propósito: é sonda
+  contra a API nacional do DJEN, sem tenant e sem conta a quem perguntar o fuso. Forçar um
+  fuso de escritório onde não existe escritório seria pior que o bug original.
+- **`reports/access_service.py`** trocou `date.today()` por uma constante: o dia era
+  âncora de subtração entre dois horários e se cancelava na conta. Não era caso de fuso,
+  era literal disfarçado de «hoje».
+
+### Por que o teste de dois tenants não afirma «dias diferentes»
+
+`America/Rio_Branco` e `Atlantic/Azores` são as duas pontas de `ALLOWED_TIMEZONES`, com
+4–5 h de diferença: os dias deles só divergem numa janela de poucas horas. Afirmar a
+divergência literalmente daria um teste que passa 4 h por dia e falha nas outras 20 — a
+dívida 30 outra vez, e o remédio não pode ter a doença. A afirmação central é mais forte e
+vale 24 h: **cada tenant recebe o dia do seu fuso**, calculado no teste com `ZoneInfo` a
+partir de um instante capturado antes das requisições; e quando os fusos divergem, o teste
+exige que a diferença seja exatamente um dia.
+
+### Dívidas encontradas durante o ciclo
+
+- **31** — `func.now()` é constante dentro de um teste (transação única da spec 105), o
+  que empata `created_at` e faz a ordenação desempatar por UUID. Achada ao investigar uma
+  falha que parecia regressão desta spec e não era.
+- **32** — timestamp UTC comparado com data de escritório, em três lugares. É a fatia
+  desta família que exigiria mexer em SQL e migration, o que o §5 desta spec proíbe.
+
+### Inversão de camada, para a 120 revisar
+
+A regra 4 manda `DEFAULT_TIMEZONE` vir de `app/domain/account/models.py`, e isso faz
+`app/core/clock.py` importar de `app/domain/` — camada de baixo dependendo da de cima.
+Segui a spec, mas o lugar da constante provavelmente é `core/`.
 
 ## 11. Definição de pronto
 
-- [ ] `app/core/clock.py` com `today()`/`now()` por tenant, injetado via `Depends`
-- [ ] As 54 chamadas de `app/` e as 36 de `tests/` resolvidas
-- [ ] `"America/Sao_Paulo"` literal só em `DEFAULT_TIMEZONE`
-- [ ] `DTZ` no `select`, sem `per-file-ignores` e sem `noqa`
-- [ ] Teste de dois tenants em fusos diferentes recebendo dias diferentes
-- [ ] Meta-teste por AST impedindo a reincidência
-- [ ] Testes reescritos listados em §10
-- [ ] `make test` verde e wall-clock dentro do orçamento
-- [ ] `make lint` verde — repositório inteiro
-- [ ] `ROADMAP.md` com a linha da 114 em ✅
-- [ ] Commit `fix(114): «hoje» passa a ser o hoje do escritório`
+- [x] `app/core/clock.py` com `today()`/`now()` por tenant, injetado via `Depends`
+- [x] As 54 chamadas de `app/` e as 36 de `tests/` resolvidas
+- [x] `"America/Sao_Paulo"` literal só em `DEFAULT_TIMEZONE`
+- [x] `DTZ` no `select`, sem `per-file-ignores` e sem `noqa`
+- [x] Teste de dois tenants em fusos diferentes recebendo dias diferentes
+- [x] Meta-teste por AST impedindo a reincidência
+- [x] Testes reescritos listados em §10
+- [x] `make test` verde e wall-clock dentro do orçamento
+- [x] `make lint` verde — repositório inteiro
+- [x] `ROADMAP.md` com a linha da 114 em ✅
+- [x] Commit `fix(114): «hoje» passa a ser o hoje do escritório`

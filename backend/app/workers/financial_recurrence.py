@@ -6,13 +6,14 @@ Mesmo padrão de `app/workers/recurrences.py` (spec 034): RLS filtra por
 """
 
 import asyncio
-from datetime import date
 
 from sqlalchemy import select
 
+from app.core.clock import Clock
 from app.core.db import create_engine, create_session_factory
 from app.core.models import Tenant
 from app.core.rls import set_tenant_context
+from app.domain.account.repository import AccountRepository
 from app.domain.financial.service import TransactionSeriesService
 from app.workers.celery_app import celery_app
 
@@ -37,7 +38,13 @@ async def _sweep_all_tenants() -> int:
             async with session_factory() as session, session.begin():
                 await set_tenant_context(session, tenant_id)
                 service = TransactionSeriesService(session=session, tenant_id=tenant_id)
-                generated += await service.sweep_recurring(date.today())
+                # Spec 114, regra 3: o dia é o DO TENANT. A varredura roda para todos
+                # os escritórios numa passada só, e usar um `date.today()` do processo
+                # dava o mesmo dia para quem está em Lisboa e para quem está em Rio
+                # Branco — seis fusos de diferença, e a régua disparando no dia errado
+                # para quem não estivesse no fuso do servidor.
+                hoje = Clock(await AccountRepository(session).timezone()).today()
+                generated += await service.sweep_recurring(hoje)
     finally:
         await engine.dispose()
     return generated

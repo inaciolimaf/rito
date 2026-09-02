@@ -11,15 +11,19 @@ Nenhum teste importa este módulo (mesmo padrão de `djen_sync.py`/
 
 import asyncio
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.clock import Clock
 from app.core.config import get_settings
 from app.core.db import create_engine_from_url, create_session_factory
 from app.core.models import Tenant
 from app.core.redis import create_redis_client
 from app.core.rls import set_tenant_context
+from app.domain.account.repository import AccountRepository
 from app.domain.integrations.service import IntegrationHealthChecker, IntegrationHealthService
 from app.domain.monitored_terms.repository import TermSyncRunRepository
 from app.domain.monitored_terms.schemas import SYNC_RUN_RETENTION_DAYS
@@ -37,6 +41,26 @@ logger = logging.getLogger(__name__)
 
 _DJEN_HOST = "comunicaapi.pje.jus.br"
 _DATAJUD_HOST = "api-publica.datajud.cnj.jus.br"
+
+
+async def _check_tenant(
+    session_factory: async_sessionmaker[AsyncSession], tenant_id: uuid.UUID, cutoff: datetime
+) -> int:
+    """Alerta de taxa de vínculo e expurgo de execuções, para um escritório.
+
+    Extraído de `run_daily_check` na spec 114: o corpo do laço cresceu ao resolver o fuso
+    por tenant, e a catraca de tamanho de task da spec 117 (regra 5) só desce — subir o
+    baseline seria afrouxar o gate em vez de pagar o que ele cobra.
+    """
+    async with session_factory() as session:
+        await set_tenant_context(session, tenant_id)
+        # Spec 114, regra 3: o dia é o do tenant. O alerta compara uma janela de dias e
+        # sairia deslocado para todo escritório fora do fuso do servidor.
+        hoje = Clock(await AccountRepository(session).timezone()).today()
+        alert = await PublicationMetricsService(session, tenant_id).check_auto_link_rate(today=hoje)
+        await TermSyncRunRepository(session).purge_older_than(cutoff)  # regra 9
+        await session.commit()
+        return 1 if alert is not None else 0
 
 
 async def run_daily_check() -> dict[str, int]:
@@ -80,15 +104,9 @@ async def run_daily_check() -> dict[str, int]:
             )
 
         cutoff = datetime.now(UTC) - timedelta(days=SYNC_RUN_RETENTION_DAYS)
-        alerts = 0
-        for tenant_id in tenant_ids:
-            async with session_factory() as session:
-                await set_tenant_context(session, tenant_id)
-                alert = await PublicationMetricsService(session, tenant_id).check_auto_link_rate()
-                await TermSyncRunRepository(session).purge_older_than(cutoff)  # regra 9
-                await session.commit()
-                if alert is not None:
-                    alerts += 1
+        alerts = sum(
+            [await _check_tenant(session_factory, tenant_id, cutoff) for tenant_id in tenant_ids]
+        )
         return {"integrations": len(checkers), "tenants": len(tenant_ids), "alerts": alerts}
     finally:
         await http.aclose()

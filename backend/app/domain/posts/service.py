@@ -51,10 +51,9 @@ class PostService:
         return await self._detail(post)
 
     async def list_for_lawsuit(
-        self, lawsuit_id: uuid.UUID, *, viewer_id: uuid.UUID
+        self, lawsuit_id: uuid.UUID, *, viewer_id: uuid.UUID, today: date
     ) -> list[PostDetail]:
         posts = await self.posts.list_for_lawsuit(lawsuit_id)
-        today = date.today()
         details: list[PostDetail] = []
         lines_by_post = await self.posts.assignee_lines_for([post.id for post in posts])
         names = await self.task_types.names_for({post.task_type_id for post in posts})

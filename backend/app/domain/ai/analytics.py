@@ -260,16 +260,14 @@ class AnalyticsService:
 
     # -------------------------------------------------------- next-best-action
 
-    async def next_best_action(
-        self, lawsuit_id: uuid.UUID, *, today: date | None = None
-    ) -> NextAction:
+    async def next_best_action(self, lawsuit_id: uuid.UUID, *, today: date) -> NextAction:
         """Regra 6: cinco sinais, uma recomendação — decidida por regra, não por modelo.
 
         A ordem das checagens é a ordem da urgência real do escritório: prazo primeiro,
         porque prazo perdido não se recupera; dinheiro por último, porque cobrança
         espera um dia.
         """
-        hoje = today or date.today()
+        hoje = today
         sinais = await self._signals(lawsuit_id, hoje)
 
         if sinais["overdue_tasks"]:
@@ -368,13 +366,13 @@ class AnalyticsService:
 
     # -------------------------------------------------------------- insights
 
-    async def refresh_insights(self, *, today: date | None = None) -> int:
+    async def refresh_insights(self, *, today: date) -> int:
         """Job dos insights (regras 8, 9 e 12): determinístico, sem modelo nenhum.
 
         Insight é aviso sobre dado — se dependesse de LLM, custaria token por dia e
         variaria de texto sem que nada tivesse mudado no escritório.
         """
-        hoje = today or date.today()
+        hoje = today
         agora = datetime.now(UTC)
         criados = 0
         for kind, linhas in (

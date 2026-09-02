@@ -40,19 +40,22 @@ class PublicationDetail:
     is_read: bool
 
 
-def _resolve_interval(filters: PublicationFilters) -> tuple[date | None, date | None]:
-    """Regra 1: padrão "últimos 7 dias" — `custom` usa as datas informadas."""
+def _resolve_interval(filters: PublicationFilters, today: date) -> tuple[date | None, date | None]:
+    """Regra 1: padrão "últimos 7 dias" — `custom` usa as datas informadas.
+
+    `today` é o do escritório (spec 114): "últimos 7 dias" contado do dia do servidor
+    devolvia uma janela deslocada para quem não estivesse no fuso dele.
+    """
     if filters.interval == "custom":
         return filters.date_from, filters.date_to
-    today = date.today()
     days = {"today": 1, "3d": 3, "7d": 7}[filters.interval]
     return today - timedelta(days=days - 1), today
 
 
 def _to_filter_params(
-    filters: PublicationFilters, *, current_user_id: uuid.UUID
+    filters: PublicationFilters, *, current_user_id: uuid.UUID, today: date
 ) -> PublicationFilterParams:
-    date_from, date_to = _resolve_interval(filters)
+    date_from, date_to = _resolve_interval(filters, today)
     process_number_digits = (
         strip_document_mask(filters.process_number) if filters.process_number else None
     )
@@ -176,8 +179,9 @@ class PublicationService:
         current_user_id: uuid.UUID,
         cursor: str | None,
         limit: int,
+        today: date,
     ) -> tuple[list[PublicationListRow], str | None, int]:
-        params = _to_filter_params(filters, current_user_id=current_user_id)
+        params = _to_filter_params(filters, current_user_id=current_user_id, today=today)
         decoded = None
         if cursor:
             raw_value, cursor_id = decode_cursor(cursor)
@@ -195,9 +199,9 @@ class PublicationService:
         return rows, next_cursor, total
 
     async def get_counts(
-        self, *, filters: PublicationFilters, current_user_id: uuid.UUID
+        self, *, filters: PublicationFilters, current_user_id: uuid.UUID, today: date
     ) -> PublicationCounts:
-        params = _to_filter_params(filters, current_user_id=current_user_id)
+        params = _to_filter_params(filters, current_user_id=current_user_id, today=today)
         return await self.repository.counts(filters=params, current_user_id=current_user_id)
 
     async def get_detail(
@@ -229,9 +233,10 @@ class PublicationService:
         format_: Literal["xlsx", "pdf"],
         filters: PublicationFilters,
         current_user_id: uuid.UUID,
+        today: date,
     ) -> bytes:
         # Regra 9: respeita os filtros ativos; teto de 50.000 linhas.
-        params = _to_filter_params(filters, current_user_id=current_user_id)
+        params = _to_filter_params(filters, current_user_id=current_user_id, today=today)
         items, _total = await self.repository.list_filtered(
             filters=params, cursor=None, limit=_EXPORT_ROW_CAP
         )

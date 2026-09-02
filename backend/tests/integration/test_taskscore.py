@@ -7,7 +7,7 @@ MIGRATIONS_DATABASE_URL — a fila (Celery) nunca participa de teste (CLAUDE.md 
 
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import get_settings
 from app.domain.users.models import UserRole
 from app.workers.scores import refresh_user_monthly_scores
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import _auth_header
 from tests.integration.test_lawsuits_listing import LawsuitFactory, _make_factory
@@ -337,7 +338,7 @@ async def test_meta_de_fechamento_alimenta_widget_da_028(
         headers=factory.headers,
     )
     assert saved.status_code == 200, saved.json()
-    await factory.create("Fechado no mês", closure_date=str(date.today()))
+    await factory.create("Fechado no mês", closure_date=str(hoje()))
 
     stats = await client.get("/api/v1/lawsuits/stats", headers=factory.headers)
     goal = stats.json()["closure_goal"]

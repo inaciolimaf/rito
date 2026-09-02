@@ -31,6 +31,7 @@ from app.domain.lawsuits.models import Lawsuit
 from app.domain.notifications.models import Notification
 from app.domain.posts.models import Post
 from app.domain.users.models import FinancialAccess, UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_lawsuits import (
     _auth_header,
@@ -519,7 +520,7 @@ async def test_teste_nao_persiste(
     corpo = simulacao.json()
     assert corpo["persisted"] is False
     assert [passo["action_kind"] for passo in corpo["steps"]] == ["create_task", "notify"]
-    assert corpo["steps"][1]["scheduled_for"] == (date.today() + timedelta(days=3)).isoformat()
+    assert corpo["steps"][1]["scheduled_for"] == (hoje() + timedelta(days=3)).isoformat()
     assert await _posts(app_session_factory, cena.user) == []
     assert await _runs(app_session_factory, cena.user) == []
 
@@ -633,7 +634,7 @@ async def test_lancamento_vencido_hoje_dispara_uma_vez(
     receita_id, _despesa, centro_id, conta_id, _outra = await _fixtures(
         client, _auth_header(financeiro)
     )
-    vencimento = date.today()
+    vencimento = hoje()
     criada = await client.post(
         "/api/v1/transactions",
         json={

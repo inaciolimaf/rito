@@ -413,3 +413,38 @@ def test_toda_rota_do_menu_lateral_existe_em_app_tsx() -> None:
         "item do menu aponta para rota que não existe em App.tsx (cai no NotFoundPage): "
         f"{faltando}"
     )
+
+
+def test_nenhum_date_today_em_app() -> None:
+    """Spec 114, regras 1 e 2: «hoje» é sempre o do escritório, nunca o do processo.
+
+    Por AST e não por regex: `# date.today()` num comentário, `"date.today()"` numa
+    docstring e `hoje.today()` num objeto qualquer casariam num `grep` e não são o
+    defeito. O que se procura é a chamada de atributo `today` sobre o nome `date` —
+    exatamente o que o `DTZ011` do Ruff pega, replicado aqui para que a proibição
+    sobreviva a alguém desligar a regra do `select`.
+
+    A regra do Ruff e este teste se cobrem mutuamente: quem apagar `DTZ` do
+    `pyproject.toml` continua reprovando aqui; quem apagar este teste continua
+    reprovando no `make lint`.
+    """
+    ofensores: list[str] = []
+    for arquivo in sorted((BACKEND / "app").rglob("*.py")):
+        arvore = ast.parse(arquivo.read_text(), filename=str(arquivo))
+        for node in ast.walk(arvore):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "today"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "date"
+            ):
+                relativo = arquivo.relative_to(BACKEND)
+                ofensores.append(f"{relativo}:{node.lineno}")
+
+    assert ofensores == [], (
+        "`date.today()` lê o relógio do processo, não o do escritório (spec 114). "
+        "Receba o dia por `Depends(get_clock)` na rota, por parâmetro no service, ou "
+        "resolva com `Clock(await AccountRepository(session).timezone())` em worker.\n"
+        + "\n".join(ofensores)
+    )

@@ -18,11 +18,14 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.dates import add_business_days
+from app.domain.account.repository import AccountRepository
 from app.domain.automations.actions import ConditionNotMet
 from app.domain.automations.conditions import evaluate
 from app.domain.automations.decision import DecisionRunner, branch_owner_map
@@ -91,9 +94,26 @@ class AutomationEngine:
         self._ai_runner = ai_runner
         self._now = now
         self._holiday_cache: set[date] | None = None
+        self._timezone_cache: ZoneInfo | None = None
 
     def now(self) -> datetime:
+        """O instante. Continua em UTC — carimbo de tempo não tem fuso de escritório."""
         return self._now or datetime.now(UTC)
+
+    async def today(self) -> date:
+        """O DIA, no fuso do escritório (spec 114, regra 3).
+
+        Prazo de automação conta em dias úteis do escritório: `self.now().date()` dava o
+        dia UTC, e das 21h de Brasília em diante toda tarefa criada por automação nascia
+        com um dia a mais de prazo. O `DTZ` não pega este caso — `datetime.now(UTC)` tem
+        fuso, só que o fuso errado para virar «dia».
+
+        O fuso é memorizado: um `advance()` percorre vários passos e todos têm que
+        enxergar o mesmo dia, além de não pagar uma query por passo.
+        """
+        if self._timezone_cache is None:
+            self._timezone_cache = Clock(await AccountRepository(self.session).timezone()).timezone
+        return self.now().astimezone(self._timezone_cache).date()
 
     @property
     def ai_runner(self) -> Any:
@@ -301,10 +321,10 @@ class AutomationEngine:
         if action.delay_kind == DelayKind.BUSINESS_DAYS.value:
             # Regra 5: dias úteis com os feriados do banco — o mesmo cálculo da 040.
             alvo = add_business_days(
-                self.now().date(), int(action.delay_value or 0), await self._holidays()
+                await self.today(), int(action.delay_value or 0), await self._holidays()
             )
         else:
-            alvo = self.now().date() + timedelta(days=int(action.delay_value or 0))
+            alvo = await self.today() + timedelta(days=int(action.delay_value or 0))
         return datetime.combine(alvo, self.now().timetz())
 
     async def _execute(
@@ -336,7 +356,7 @@ class AutomationEngine:
         armadilha possível numa tela chamada Testar.
         """
         passos: list[SimulatedStep] = []
-        quando = self.now().date()
+        quando = await self.today()
         for action in await self._actions_of(automation):
             if not evaluate(action.condition, payload):
                 passos.append(

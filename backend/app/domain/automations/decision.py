@@ -334,7 +334,7 @@ class DecisionRunner:
         teto = automation.monthly_ai_budget_usd
         if teto is None:
             return None
-        hoje = self.engine.now().date()
+        hoje = await self.engine.today()
         competencia = date(hoje.year, hoje.month, 1)
         if automation.spend_month != competencia:
             # Virou o mês: o contador reinicia. Sem isso, "gasto do mês" viraria "gasto
@@ -354,7 +354,7 @@ class DecisionRunner:
     async def _charge(self, automation: Automation, custo: Decimal) -> None:
         if custo <= 0:
             return
-        hoje = self.engine.now().date()
+        hoje = await self.engine.today()
         competencia = date(hoje.year, hoje.month, 1)
         if automation.spend_month != competencia:
             automation.spend_month = competencia

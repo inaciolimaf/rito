@@ -16,11 +16,13 @@ inteira:
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.permissions import FinancialAccess, UserRole
 from app.domain.users.models import User
 from app.integrations.openrouter.types import ToolSpec
@@ -63,6 +65,22 @@ class ToolContext:
     thread_id: uuid.UUID | None = None
     # De onde a conversa nasceu: tela, processo aberto, cliente aberto (get_current_context).
     screen_context: dict[str, Any] = field(default_factory=dict)
+    _clock: "Clock | None" = field(default=None, repr=False)
+
+    async def today(self) -> date:
+        """O dia do escritório (spec 114, regra 3).
+
+        A ferramenta roda no grafo do agente, sem requisição HTTP — o fuso não tem como
+        vir de carona no `get_current_user`, então é resolvido aqui, uma query, e
+        memorizado no contexto: cinco ferramentas perguntavam «que dia é hoje» e cada uma
+        respondia com o relógio do processo. Uma conversa pode chamar várias ferramentas,
+        e todas devem enxergar o mesmo dia.
+        """
+        if self._clock is None:
+            from app.domain.account.repository import AccountRepository
+
+            self._clock = Clock(await AccountRepository(self.session).timezone())
+        return self._clock.today()
 
 
 ParamsT = TypeVar("ParamsT", bound=BaseModel)

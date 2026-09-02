@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.permissions import UserRole, require_role
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.inbox.service import (
     BulkPartialFailureError,
     BulkReassignForbiddenError,
@@ -139,6 +140,7 @@ async def list_inbox(
     limit: int = Query(default=50, ge=1, le=100),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> InboxPageResponse:
     service = _service(session, current_user)
     try:
@@ -147,6 +149,7 @@ async def list_inbox(
             section=section,
             cursor=_decode_cursor(cursor) if cursor else None,
             limit=limit,
+            today=clock.today(),
         )
     except InvalidSectionError as exc:
         raise HTTPException(status_code=422, detail="Seção desconhecida.") from exc
@@ -160,9 +163,10 @@ async def list_inbox(
 async def inbox_counts(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> dict[str, int]:
     service = _service(session, current_user)
-    return await service.counts(current_user)
+    return await service.counts(current_user, clock.today())
 
 
 @router.get("/inbox/preferences")

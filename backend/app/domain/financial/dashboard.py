@@ -134,12 +134,17 @@ class FinancialDashboardRepository:
             Decimal(expense_realized),
         )
 
-    async def overdue_total(self, *, account_id: uuid.UUID | None) -> Decimal:
+    async def overdue_total(self, *, account_id: uuid.UUID | None, today: date) -> Decimal:
         """Regra 5: due_date < hoje e payment_date nulo, excluindo internos —
-        independente do regime escolhido (atrasado é sempre por vencimento)."""
+        independente do regime escolhido (atrasado é sempre por vencimento).
+
+        `today` é o do escritório (spec 114): "atrasado" é a pergunta em que o fuso mais
+        custa dinheiro — uma parcela que vence hoje aparecia como vencida durante as
+        horas em que o servidor já tinha virado o dia e o escritório não.
+        """
         conditions: list[ColumnElement[bool]] = [
             Transaction.is_internal.is_(False),
-            Transaction.due_date < date.today(),
+            Transaction.due_date < today,
             Transaction.payment_date.is_(None),
         ]
         if account_id is not None:
@@ -267,7 +272,12 @@ class FinancialDashboardRepository:
 
 
 async def get_dashboard_stats(
-    session: AsyncSession, *, regime: Regime, month: date, account_id: uuid.UUID | None
+    session: AsyncSession,
+    *,
+    regime: Regime,
+    month: date,
+    account_id: uuid.UUID | None,
+    today: date,
 ) -> DashboardStats:
     start = month.replace(day=1)
     end_exclusive = next_month_start(start)
@@ -281,11 +291,10 @@ async def get_dashboard_stats(
     ) = await repository.period_totals(
         regime=regime, start=start, end_exclusive=end_exclusive, account_id=account_id
     )
-    overdue = await repository.overdue_total(account_id=account_id)
+    overdue = await repository.overdue_total(account_id=account_id, today=today)
 
     # Regra 9 (ADVBOX): saldo do card é sempre "agora vs mês anterior" — independente
     # do `month` navegado, que só afeta previsto/realizado/atrasados acima.
-    today = date.today()
     previous_month_end = today.replace(day=1) - timedelta(days=1)
     accounts = await repository.balance_accounts(account_id=account_id)
     account_ids = [account.id for account in accounts]
@@ -361,7 +370,7 @@ async def get_cash_flow_series(
 
 
 async def get_account_balances(
-    session: AsyncSession, *, account_id: uuid.UUID | None
+    session: AsyncSession, *, account_id: uuid.UUID | None, today: date
 ) -> list[AccountBalanceRow]:
     """Regra 7: cartão de crédito mostra a fatura do ciclo, não saldo — as duas
     entram na mesma lista pro card `AccountBalanceRow` do front, com `is_invoice`
@@ -373,7 +382,6 @@ async def get_account_balances(
     stmt = select(BankAccount).where(*stmt_conditions).order_by(BankAccount.name)
     accounts = (await session.scalars(stmt)).all()
 
-    today = date.today()
     non_card_ids = [
         account.id for account in accounts if account.kind != AccountKind.CARTAO_CREDITO
     ]

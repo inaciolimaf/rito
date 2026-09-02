@@ -707,7 +707,7 @@ funcionar porque o caminho que o exercita nunca é tomado.
 
 ---
 
-## 30. A suíte backend fica vermelha depois das 21h de Brasília
+## 30. ~~A suíte backend fica vermelha depois das 21h de Brasília~~ — RESOLVIDO na spec 114
 
 Medida no ciclo da spec 117: rodando às 22h13 locais (01h13 UTC do dia seguinte), **12
 testes falham** por fronteira de data. Confirmado de novo às 22h25 locais.
@@ -727,7 +727,20 @@ dívida acrescenta é a **prioridade**: enquanto ela não fecha, qualquer mediç
 suíte — cobertura, wall-clock, orçamento de query — sai errada para baixo, e ninguém sabe
 disso ao ler o número.
 
-**Spec-alvo:** 114.
+### ✅ RESOLVIDO na spec 114
+
+As 12 falhas sumiram. Mas fechá-la exigiu mais do que trocar `date.today()`: cinco pontos
+liam `datetime.now(UTC).date()`, que o `DTZ` **não** pega — tem fuso, só que o errado.
+Eram a janela de busca do DJEN (`monitored_terms/sync.py`), os prazos do motor de
+automações (`automations/{engine,actions,decision}.py`) e quatro arquivos de teste que
+derivavam `_TODAY` de `_NOW.date()`.
+
+A lição que fica para a 120: **`DTZ` verde não significa «sem bug de fuso»**. Ele pega
+`date.today()` e `datetime.now()` sem `tz`; não pega quem converte para o fuso errado de
+propósito ou por descuido. O meta-teste `test_nenhum_date_today_em_app` tem a mesma
+limitação, por construção.
+
+O que sobrou dessa família virou a **dívida 32**.
 
 ---
 
@@ -767,3 +780,69 @@ da correção.
 3. Desempate por algo determinístico no teste (nome), o que enfraquece o que ele afirma.
 
 **Spec-alvo:** 110 — auditoria da 105, que é de onde o efeito colateral veio.
+
+
+---
+
+## 32. Timestamp em UTC comparado com data de escritório
+
+Achada ao fechar a spec 114, que resolveu «que dia é hoje» mas não esta: há três lugares
+onde um **timestamp gravado em UTC** é comparado com uma **data pensada no fuso do
+escritório**, e os dois discordam nas horas em que o dia UTC já virou e o do escritório
+não.
+
+**1. Relatórios que filtram por `created_at`.** `new_customers` e `new_lawsuits`
+(`reports/tabular_repository.py`) recebem `from`/`to` como datas e comparam com
+`created_at`, que é `timestamp` UTC. Um contato cadastrado às 23:47 em São Paulo tem
+`created_at` no dia seguinte em UTC e **some** do filtro «de hoje até hoje».
+
+**2. Tempo total de processo.** O mesmo relatório calcula `closure_date - created_at`, e
+com `closure_date` no dia do escritório e `created_at` em UTC o resultado pode sair
+**negativo** — foi assim que a dívida apareceu (`assert -1 == 0`).
+
+**3. O CHECK `ck_tx_payment_not_future`.** Ele vive no banco e compara com
+`CURRENT_DATE`, que é o dia do servidor. Depois da 114 a aplicação recusa em fuso do
+escritório e o banco em UTC: por três horas por dia os dois discordam. Hoje isso não
+quebra escrita nenhuma — a aplicação é a mais restritiva das duas, então ela recusa antes
+—, mas são duas regras com o mesmo nome e respostas diferentes, e a próxima pessoa a
+mexer vai assumir que concordam.
+
+**Contorno em vigor:** os testes afetados falam explicitamente o relógio do banco
+(`_HOJE_UTC` em `test_reports_tabular.py`, `datetime.now(UTC).date()` em
+`test_transactions.py`), com comentário citando esta dívida. Eles documentam o
+comportamento atual em vez de escondê-lo.
+
+**Correção:** converter o timestamp para o fuso da conta na própria query
+(`created_at AT TIME ZONE ...`) antes de comparar com data, e decidir se o CHECK do banco
+deve sair ou virar uma regra que aceita o fuso. As duas mexem em SQL — a segunda pede
+migration —, e é por isso que ficaram fora da 114, cujo §5 declara «nenhuma migration».
+
+**Spec-alvo:** própria, a definir. A 120 deve pautá-la ao revisar o que o gate de `DTZ`
+não alcança.
+
+---
+
+## 33. Uma jornada e2e falha quando as três suítes disputam CPU
+
+Observada uma vez, ao fechar a spec 114: no primeiro `make test` com as portas livres, a
+jornada 6/25 (`schedule.spec.ts` — criar compromisso na agenda) falhou ao não achar a
+opção do cliente no `EntityPicker`; nas duas execuções seguintes ela passou, e o e2e
+fechou 10/10.
+
+O que distingue as execuções não é o código: é a **carga**. O `make test` roda as três
+suítes concorrentes (CLAUDE.md §3), e o Playwright ainda usa `workers: undefined` fora do
+CI — ou seja, um worker por núcleo, competindo com o `pytest -n auto` e o Vitest pelos
+mesmos 12 núcleos. O seletor esperou 5 s por uma opção que a máquina ocupada demorou mais
+que isso para renderizar.
+
+**Uma observação só**, e é por isso que isto entra como dívida e não como correção: pode
+ser um caso isolado ou pode ser o começo de um gate que só passa em máquina folgada — que
+é o estrago das dívidas 28 e 31 por um terceiro caminho. O que fica registrado é o sinal e
+como reconhecê-lo: se voltar, **não reexecute até dar sorte**.
+
+**Correção provável:** limitar `workers` do Playwright também fora do CI, para o e2e não
+disputar núcleo com as outras duas suítes; ou dar ao seletor de entidade uma espera por
+condição com teto próprio, em vez do teto padrão de 5 s.
+
+**Spec-alvo:** 110 ou 120 — a auditoria que perguntar se os gates ainda mordem pelo motivo
+certo.

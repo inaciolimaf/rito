@@ -18,12 +18,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domain.users.models import UserRole
 from app.domain.workflows.business_days import add_business_days
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import _auth_header
 from tests.integration.test_lawsuits_listing import LawsuitFactory, _make_factory
 from tests.integration.test_posts import _create_task_type
 
-_TODAY = date.today()
+_TODAY = hoje()
 
 
 @pytest.fixture

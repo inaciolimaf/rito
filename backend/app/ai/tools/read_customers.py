@@ -51,6 +51,7 @@ def _customer_summary(customer: Any) -> dict[str, Any]:
 async def search_customers(ctx: ToolContext, params: SearchCustomersInput) -> dict[str, Any]:
     service = CustomerService(session=ctx.session, tenant_id=ctx.tenant_id)
     items, _cursor, total = await service.list_customers(
+        today=await ctx.today(),
         filters=CustomerFilters(
             q=params.query, city=params.city, state=params.state, origin_id=params.origin_id
         ),

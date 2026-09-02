@@ -96,11 +96,12 @@ async def search_transactions(ctx: ToolContext, params: SearchTransactionsInput)
     requires_financial=FinancialAccess.READ_ONLY,
 )
 async def get_financial_summary(ctx: ToolContext, params: FinancialSummaryInput) -> dict[str, Any]:
-    month = (params.month or date.today()).replace(day=1)
+    month = (params.month or await ctx.today()).replace(day=1)
     if params.regime not in ("due", "payment", "competence", "cash_flow"):
         raise ToolError("invalid_argument", "Regime inválido: use due, payment ou competence.")
     stats = await get_dashboard_stats(
         ctx.session,
+        today=await ctx.today(),
         # A guarda acima já restringiu `regime` aos quatro literais do `Regime`, mas o
         # mypy não estreita um `str` por um `not in` com tupla.
         regime=params.regime,  # type: ignore[arg-type]

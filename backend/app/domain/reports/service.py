@@ -73,10 +73,12 @@ class ReportsService:
             ],
         )
 
-    async def productivity(self, *, user_id: uuid.UUID | None, month: date) -> ProductivityResponse:
+    async def productivity(
+        self, *, user_id: uuid.UUID | None, month: date, today: date
+    ) -> ProductivityResponse:
         end = month_end(month.year, month.month)
         assigned, completed, late, due_soon = await self.repo.productivity_summary(
-            user_id=user_id, month_start=month, month_end=end
+            user_id=user_id, month_start=month, month_end=end, today=today
         )
         return ProductivityResponse(
             assigned=assigned, completed=completed, late=late, due_in_5_days=due_soon

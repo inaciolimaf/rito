@@ -92,6 +92,7 @@ class CustomerRepository(BaseRepository[Customer]):
         has_active_lawsuit: bool | None,
         birthdays: str | None,
         archived: bool,
+        today: date,
     ) -> list[ColumnElement[bool]]:
         filters: list[ColumnElement[bool]] = [Customer.is_archived.is_(archived)]
 
@@ -122,11 +123,10 @@ class CustomerRepository(BaseRepository[Customer]):
             # contato com três processos ativos não pode aparecer três vezes na listagem.
             filters.append(_has_active_lawsuit_clause(has_active_lawsuit))
         if birthdays == "day":
-            today = date.today()
             filters.append(func.date_part("month", Customer.birthdate) == today.month)
             filters.append(func.date_part("day", Customer.birthdate) == today.day)
         elif birthdays == "month":
-            filters.append(func.date_part("month", Customer.birthdate) == date.today().month)
+            filters.append(func.date_part("month", Customer.birthdate) == today.month)
 
         return filters
 
@@ -143,6 +143,9 @@ class CustomerRepository(BaseRepository[Customer]):
         has_active_lawsuit: bool | None = None,
         birthdays: str | None = None,
         archived: bool = False,
+        # Sem default (spec 114): o filtro de aniversário depende do dia do escritório, e
+        # um default aqui devolveria silenciosamente o dia do servidor.
+        today: date,
         sort: str = "created_at",
         descending: bool = True,
         cursor: tuple[str, uuid.UUID] | None = None,
@@ -150,6 +153,7 @@ class CustomerRepository(BaseRepository[Customer]):
     ) -> tuple[Sequence[Customer], int]:
         """Listagem paginada (CLAUDE.md §6) — keyset, nunca offset (regra 10)."""
         filters = self._build_filters(
+            today=today,
             query=query,
             person_type=person_type,
             state=state,
@@ -185,9 +189,13 @@ class CustomerRepository(BaseRepository[Customer]):
         items = (await self.session.scalars(stmt)).all()
         return items, total
 
-    async def get_birthdays(self, *, scope: str) -> Sequence[Customer]:
-        """Regra 6: aniversariantes ignoram o ano (compara mês e dia)."""
-        today = date.today()
+    async def get_birthdays(self, *, scope: str, today: date) -> Sequence[Customer]:
+        """Regra 6: aniversariantes ignoram o ano (compara mês e dia).
+
+        `today` vem do escritório (spec 114): "quem faz aniversário hoje" é a pergunta
+        que mais depende do fuso — de madrugada, o servidor já está no dia seguinte e a
+        lista sai com os aniversariantes errados.
+        """
         filters: list[ColumnElement[bool]] = [
             Customer.is_archived.is_(False),
             Customer.birthdate.is_not(None),

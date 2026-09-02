@@ -42,9 +42,8 @@ class PublicationMetricsService:
         self.alerts = IntegrationAlertRepository(session)
 
     async def get_metrics(
-        self, *, period_days: int = METRICS_PERIOD_DAYS_DEFAULT, today: date | None = None
+        self, *, period_days: int = METRICS_PERIOD_DAYS_DEFAULT, today: date
     ) -> PublicationMetrics:
-        today = today or date.today()
         since = today - timedelta(days=period_days - 1)
         row = await self.repository.metrics(since=since)
         return PublicationMetrics(
@@ -55,10 +54,12 @@ class PublicationMetricsService:
             per_court=row.per_court,
         )
 
-    async def check_auto_link_rate(self, *, now: datetime | None = None) -> IntegrationAlert | None:
+    async def check_auto_link_rate(
+        self, *, now: datetime | None = None, today: date
+    ) -> IntegrationAlert | None:
         """Regra 8, chamada pelo job diário por tenant. Dedup igual ao alerta
         crítico de saúde da 049: um aberto já basta, não empilha."""
-        metrics = await self.get_metrics(period_days=METRICS_PERIOD_DAYS_DEFAULT)
+        metrics = await self.get_metrics(period_days=METRICS_PERIOD_DAYS_DEFAULT, today=today)
         rate = metrics.auto_link_rate
         if rate is None or rate >= AUTO_LINK_RATE_THRESHOLD:
             return None

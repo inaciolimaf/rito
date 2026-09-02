@@ -91,3 +91,13 @@ class BankAccountInUseError(Exception):
 class InitialAmountLockedError(Exception):
     """Regra 12 (spec 101): `initial_amount` é imutável depois do 1º lançamento — mudá-lo
     reescreveria retroativamente todo saldo já calculado sobre a conta."""
+
+
+class FuturePaymentDateError(Exception):
+    """Data de pagamento no futuro (spec 024).
+
+    Vinha de um `model_validator` do Pydantic, que roda sem contexto de requisição e por
+    isso comparava com o dia do SERVIDOR (spec 114). O endpoint de baixa
+    (`pay_transaction`) já fazia a mesma checagem no router com o relógio do escritório;
+    agora as duas pontas concordam.
+    """

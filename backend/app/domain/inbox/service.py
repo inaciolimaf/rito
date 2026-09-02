@@ -88,6 +88,7 @@ class InboxService:
         section: str,
         cursor: tuple[datetime, uuid.UUID] | None,
         limit: int,
+        today: date,
     ) -> tuple[list[InboxRow], bool]:
         if section not in {item.value for item in InboxSection}:
             raise InvalidSectionError
@@ -97,7 +98,7 @@ class InboxService:
                 user.id,
                 section_order=order,
                 section=section,
-                today=date.today(),
+                today=today,
                 cursor=cursor,
                 limit=limit,
             )
@@ -129,9 +130,9 @@ class InboxService:
             has_more,
         )
 
-    async def counts(self, user: User) -> dict[str, int]:
+    async def counts(self, user: User, today: date) -> dict[str, int]:
         order = await self._section_order(user.id)
-        return await self.inbox.counts(user.id, section_order=order, today=date.today())
+        return await self.inbox.counts(user.id, section_order=order, today=today)
 
     async def get_preferences(self, user: User) -> tuple[list[str], list[str], int]:
         preference = await self.preferences.get_or_default(user.id, self.tenant_id)

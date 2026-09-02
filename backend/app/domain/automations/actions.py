@@ -88,14 +88,14 @@ async def _create_task(
     if prazo_em is not None:
         from app.core.dates import add_business_days
 
-        deadline = add_business_days(engine.now().date(), int(prazo_em), await engine._holidays())
+        deadline = add_business_days(await engine.today(), int(prazo_em), await engine._holidays())
     responsaveis = [uuid.UUID(str(item)) for item in config.get("user_ids", [])] or [
         lawsuit.user_id
     ]
     payload = PostCreateRequest(
         lawsuit_id=lawsuit.id,
         task_type_id=uuid.UUID(str(config["task_type_id"])),
-        scheduled_date=deadline or engine.now().date(),
+        scheduled_date=deadline or await engine.today(),
         deadline_date=deadline,
         comments=config.get("comments"),
         user_ids=responsaveis,

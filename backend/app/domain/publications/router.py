@@ -6,10 +6,11 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.deps import get_messaging_channels
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.publications.exceptions import (
     LawsuitNotFoundError,
     PublicationAlreadyExistsError,
@@ -166,6 +167,7 @@ async def list_publications(
     limit: int = Query(default=_DEFAULT_PAGE_SIZE, ge=1, le=100),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> PublicationListResponse:
     filters = PublicationFilters(
         interval=interval,
@@ -181,7 +183,11 @@ async def list_publications(
     )
     service = PublicationService(session=session, tenant_id=current_user.tenant_id)
     rows, next_cursor, total = await service.list_publications(
-        filters=filters, current_user_id=current_user.id, cursor=cursor, limit=limit
+        filters=filters,
+        current_user_id=current_user.id,
+        cursor=cursor,
+        limit=limit,
+        today=clock.today(),
     )
     return PublicationListResponse(
         items=[_row_to_item_response(row) for row in rows], next_cursor=next_cursor, total=total
@@ -199,6 +205,7 @@ async def get_publication_counts(
     process_number: str | None = Query(default=None),
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> PublicationCountsResponse:
     """Regra do §8: total/não vinculadas/canceladas/não lidas numa query só —
     os toggles (`linked`/`cancelled`/`read`) não entram aqui, são o que se conta."""
@@ -212,7 +219,9 @@ async def get_publication_counts(
         process_number=process_number,
     )
     service = PublicationService(session=session, tenant_id=current_user.tenant_id)
-    counts = await service.get_counts(filters=filters, current_user_id=current_user.id)
+    counts = await service.get_counts(
+        filters=filters, current_user_id=current_user.id, today=clock.today()
+    )
     return PublicationCountsResponse(
         total=counts.total,
         unlinked=counts.unlinked,
@@ -226,10 +235,11 @@ async def get_publication_metrics(
     period: int = Query(default=7, ge=1, le=90),
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> PublicationMetricsResponse:
     """Spec 049, §5/§7: publicações por dia/tribunal e taxa de vínculo automático."""
     service = PublicationMetricsService(session=session, tenant_id=current_user.tenant_id)
-    metrics = await service.get_metrics(period_days=period)
+    metrics = await service.get_metrics(period_days=period, today=clock.today())
     return PublicationMetricsResponse(
         period_days=metrics.period_days,
         total=metrics.total,
@@ -245,10 +255,14 @@ async def export_publications(
     payload: PublicationExportRequest,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> Response:
     service = PublicationService(session=session, tenant_id=current_user.tenant_id)
     content = await service.export(
-        format_=payload.format, filters=payload.filters, current_user_id=current_user.id
+        format_=payload.format,
+        filters=payload.filters,
+        current_user_id=current_user.id,
+        today=clock.today(),
     )
     media_type = (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

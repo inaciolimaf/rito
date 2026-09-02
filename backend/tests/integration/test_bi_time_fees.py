@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import get_settings
 from app.domain.users.models import FinancialAccess, UserRole
 from app.workers.bi_cycles import refresh_bi_cycles
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_bi_pipeline import _factory_group_id
 from tests.integration.test_lawsuits import (
@@ -34,7 +35,11 @@ from tests.integration.test_transactions import (
 )
 
 _NOW = datetime.now(UTC)
-_TODAY = _NOW.date()
+# Spec 114: o dia é o do ESCRITÓRIO. `_NOW` continua UTC porque é carimbo de tempo,
+# mas `_NOW.date()` era o dia UTC — três horas à frente de São Paulo, que é o fuso em
+# que as fixtures criam a conta. O `DTZ` não pega este caso: `datetime.now(UTC)` TEM
+# fuso, só que o fuso errado para a pergunta «que dia é hoje no escritório».
+_TODAY = hoje()
 
 
 @pytest.fixture

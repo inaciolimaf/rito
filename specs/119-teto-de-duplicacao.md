@@ -1,7 +1,7 @@
 # 119 — Teto de duplicação
 
 **Fase:** 11 · **Tipo:** refatoração · **Orçamento:** +0 s (gate fora da suíte)
-**Depende de:** 007 · **Status:** ⬜ pendente
+**Depende de:** 007 · **Status:** ✅ concluída
 
 ---
 

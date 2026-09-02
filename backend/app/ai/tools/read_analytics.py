@@ -66,9 +66,9 @@ async def get_productivity(ctx: ToolContext, params: ProductivityInput) -> dict[
             "forbidden",
             "O usuário só pode consultar a própria produtividade. Explique isso a ele.",
         )
-    month = (params.month or date.today()).replace(day=1)
+    month = (params.month or await ctx.today()).replace(day=1)
     service = ReportsService(session=ctx.session, tenant_id=ctx.tenant_id)
-    report = await service.productivity(user_id=target, month=month)
+    report = await service.productivity(user_id=target, month=month, today=await ctx.today())
     return {
         "month": month.isoformat(),
         "user_id": str(target),
@@ -89,7 +89,7 @@ async def get_productivity(ctx: ToolContext, params: ProductivityInput) -> dict[
 )
 async def get_bi_metrics(ctx: ToolContext, params: BiMetricsInput) -> dict[str, Any]:
     service = BiPipelineService(session=ctx.session, tenant_id=ctx.tenant_id)
-    today = date.today()
+    today = await ctx.today()
     if params.metric == "pipeline":
         pipeline = await service.pipeline(from_=None, to=None, action_group_id=None, today=today)
         return {

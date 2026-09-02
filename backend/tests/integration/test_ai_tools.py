@@ -9,7 +9,7 @@ usuário mais persistente que o sistema já teve.
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -22,6 +22,7 @@ from app.core.rls import set_tenant_context
 from app.domain.ai.models import AiToolCall
 from app.domain.lawsuits.cnj import CNJNumber, compute_check_digit, format_cnj
 from app.domain.users.models import FinancialAccess, User, UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import (
     _auth_header,
@@ -94,7 +95,7 @@ async def _seed_office(
         lawsuit_id=str(lawsuit["id"]),
         task_type_id=task_type_id,
         user_ids=[str(gestor.user_id)],
-        scheduled_date=date.today().isoformat(),
+        scheduled_date=hoje().isoformat(),
     )
     publication_id = await make_publication(
         sessions, gestor.tenant_id, process_number=process_number
@@ -145,7 +146,7 @@ async def _call(
 def _leak_arguments(fixture: Fixture) -> dict[str, dict[str, Any]]:
     """Para cada ferramenta, o argumento que MAIS tentaria vazar o dado do outro
     escritório: o id exato, ou a busca pelo nome/número exato."""
-    hoje = date.today()
+    dia = hoje()
     return {
         "search_customers": {"query": fixture.customer_name},
         "get_customer": {"customer_id": fixture.customer_id},
@@ -153,13 +154,13 @@ def _leak_arguments(fixture: Fixture) -> dict[str, dict[str, Any]]:
         "get_lawsuit": {"lawsuit_id": fixture.lawsuit_id},
         "get_lawsuit_timeline": {"lawsuit_id": fixture.lawsuit_id},
         "search_tasks": {
-            "date_from": (hoje - timedelta(days=1)).isoformat(),
-            "date_to": (hoje + timedelta(days=1)).isoformat(),
+            "date_from": (dia - timedelta(days=1)).isoformat(),
+            "date_to": (dia + timedelta(days=1)).isoformat(),
         },
         "get_inbox": {"section": "unread"},
         "search_publications": {
-            "date_from": (hoje - timedelta(days=7)).isoformat(),
-            "date_to": hoje.isoformat(),
+            "date_from": (dia - timedelta(days=7)).isoformat(),
+            "date_to": dia.isoformat(),
             "process_number": fixture.process_number,
         },
         "get_publication": {"publication_id": str(fixture.publication_id)},
@@ -264,7 +265,7 @@ async def test_tarefa_privada_de_terceiro_nao_aparece(
         lawsuit_id=str(lawsuit["id"]),
         task_type_id=task_type_id,
         user_ids=[str(dono.user_id)],
-        scheduled_date=date.today().isoformat(),
+        scheduled_date=hoje().isoformat(),
         is_private=True,
     )
 
@@ -272,13 +273,13 @@ async def test_tarefa_privada_de_terceiro_nao_aparece(
         app_session_factory,
         dono,
         "search_tasks",
-        {"date_from": date.today().isoformat(), "date_to": date.today().isoformat()},
+        {"date_from": hoje().isoformat(), "date_to": hoje().isoformat()},
     )
     do_colega = await _call(
         app_session_factory,
         colega,
         "search_tasks",
-        {"date_from": date.today().isoformat(), "date_to": date.today().isoformat()},
+        {"date_from": hoje().isoformat(), "date_to": hoje().isoformat()},
     )
 
     assert str(privada["id"]) in str(do_dono)

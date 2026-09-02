@@ -316,7 +316,7 @@ class TabularReportRepository:
     # ---- pauta de audiências ----------------------------------------------------
 
     async def hearings(
-        self, *, cursor: tuple[Any, uuid.UUID] | None, limit: int
+        self, *, cursor: tuple[Any, uuid.UUID] | None, limit: int, today: date
     ) -> tuple[Sequence[Row[Any]], int]:
         responsible_name = (
             select(User.name)
@@ -345,7 +345,7 @@ class TabularReportRepository:
             .where(
                 TaskType.name == _HEARING_TASK_TYPE_NAME,
                 Post.scheduled_date.is_not(None),
-                Post.scheduled_date >= date.today(),
+                Post.scheduled_date >= today,
             )
         )
         return await self._paginate(

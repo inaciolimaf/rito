@@ -1,7 +1,7 @@
 # 118 — Gate de camadas: os sintomas de SOLID que dá para verificar
 
 **Fase:** 11 · **Tipo:** refatoração · **Orçamento:** +0,4 s
-**Depende de:** 003, 005 · **Status:** ⬜ pendente
+**Depende de:** 003, 005 · **Status:** ✅ concluída
 
 ---
 

@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
 from app.domain.ai.analytics import (
@@ -27,7 +28,7 @@ from app.domain.ai.models import AiInsight
 from app.domain.ai.router import get_llm_provider
 from app.domain.ai.service import AiRunner
 from app.domain.ai.sql_guard import check_sql
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.users.models import FinancialAccess, User
 from app.integrations.openrouter.types import LLMNotConfiguredError, LLMProvider
 
@@ -219,9 +220,10 @@ async def refresh_insights(
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     provider: LLMProvider = Depends(get_llm_provider),
+    clock: Clock = Depends(get_clock),
 ) -> RefreshResponse:
     service = _service(session, current_user, provider)
-    return RefreshResponse(created=await service.refresh_insights())
+    return RefreshResponse(created=await service.refresh_insights(today=clock.today()))
 
 
 @lawsuits_router.get("/{lawsuit_id}/next-best-action")
@@ -230,12 +232,13 @@ async def get_next_best_action(
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
     provider: LLMProvider = Depends(get_llm_provider),
+    clock: Clock = Depends(get_clock),
 ) -> NextActionResponse:
     """Regra 6: a recomendação é calculada por regra sobre os sinais do processo — sem
     modelo, sem custo por consulta e igual toda vez que os dados forem iguais."""
     service = _service(session, current_user, provider)
     try:
-        acao = await service.next_best_action(lawsuit_id)
+        acao = await service.next_best_action(lawsuit_id, today=clock.today())
     except LookupError as exc:
         raise HTTPException(status_code=404, detail="Processo não encontrado.") from exc
     return _to_next_action(lawsuit_id, acao)

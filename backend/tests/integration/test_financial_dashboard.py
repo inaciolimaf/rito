@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.core.rls import set_tenant_context
 from app.domain.financial.dashboard import get_dashboard_stats
 from app.workers.financial_dashboard import refresh_account_daily_balances
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_transactions import _fixtures, _make_gestor_full, _receita_payload
 from tests.perf import e_plumbing
@@ -406,7 +407,11 @@ async def test_dashboard_dentro_do_budget_de_queries(
         async with session.begin():
             await set_tenant_context(session, gestor.tenant_id)
             stats = await get_dashboard_stats(
-                session, regime="due", month=date(2026, 8, 1), account_id=None
+                session,
+                regime="due",
+                month=date(2026, 8, 1),
+                account_id=None,
+                today=hoje(),
             )
             assert stats.income_expected == 33
 
@@ -564,3 +569,41 @@ async def test_saldo_da_view_bate_com_soma_direta_no_mesmo_dataset(
         )
 
     assert row["balance"] == float(direct_sum)
+
+
+async def test_parcela_que_vence_hoje_no_fuso_do_escritorio_nao_esta_vencida(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 114, regra 3 aplicada ao dinheiro: «atrasado» é `due_date < hoje`, e o hoje
+    é o do escritório.
+
+    Este é o caso que a spec usa para explicar por que o defeito custava caro: uma
+    parcela que vence HOJE aparecia como vencida durante as horas em que o processo (UTC)
+    já tinha virado o dia e o escritório (`America/Sao_Paulo`, o fuso em que as fixtures
+    criam a conta) ainda não. Três horas por noite, todo dia, o cliente via cobrança
+    indevida no painel.
+
+    O teste roda no mês da parcela para não depender do mês corrente, e usa
+    `tests.clock.hoje()` — o mesmo «hoje» que a aplicação agora enxerga.
+    """
+    _gestor, headers = await _make_gestor_full(make_user)
+    receita_id, _d, cost_center_id, account_a, _b = await _fixtures(client, headers)
+
+    vence_hoje = hoje()
+    resposta = await client.post(
+        "/api/v1/transactions",
+        json=_receita_payload(
+            category_id=receita_id,
+            cost_center_id=cost_center_id,
+            account_id=account_a,
+            amount="500.00",
+            due_date=vence_hoje.isoformat(),
+        ),
+        headers=headers,
+    )
+    assert resposta.status_code == 201, resposta.text
+
+    body = await _stats(client, headers, regime="due", month=f"{vence_hoje:%Y-%m}")
+    # Vence hoje ainda não venceu. Se este número for 500, o servidor virou o dia antes
+    # do escritório — que é exatamente o bug da spec 114.
+    assert body["overdue"] == 0

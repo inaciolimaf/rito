@@ -26,9 +26,11 @@ from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.locks import SyncLock
 from app.core.observability.metrics import record_sync_run
 from app.core.rls import set_tenant_context
+from app.domain.account.repository import AccountRepository
 from app.domain.integration_alerts.models import IntegrationAlert
 from app.domain.integration_alerts.repository import IntegrationAlertRepository
 from app.domain.monitored_terms.models import MonitoredTerm, TermStatus, TermSyncRun
@@ -187,7 +189,15 @@ class TermSyncService:
         await self._commit()
 
         try:
-            today = now.date()
+            # Spec 114, regra 3: a janela de busca é em dias do ESCRITÓRIO, não em dias
+            # UTC. `now` continua sendo o instante (carimbo de `started_at` e
+            # `last_sync_at`, e a costura por onde os testes de caos injetam relógio
+            # torto); o que muda é em que fuso esse instante é convertido para «dia».
+            # `now.date()` pedia ao DJEN as publicações de amanhã a partir das 21h de
+            # Brasília. O `DTZ` não pega este caso: `datetime.now(UTC)` TEM fuso, só que
+            # o fuso errado para a pergunta.
+            fuso = Clock(await AccountRepository(self.session).timezone()).timezone
+            today = now.astimezone(fuso).date()
             start = self._window_start(term, today)
             while start <= today:
                 end = min(start + timedelta(days=MAX_WINDOW_DAYS), today)

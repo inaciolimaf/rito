@@ -189,6 +189,7 @@ async def search_publications(ctx: ToolContext, params: SearchPublicationsInput)
         current_user_id=ctx.user.id,
         cursor=None,
         limit=min(params.limit, MAX_ROWS),
+        today=await ctx.today(),
     )
     items, truncated = truncate_rows(rows, params.limit)
     return {

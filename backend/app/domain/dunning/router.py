@@ -5,10 +5,11 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.deps import get_messaging_channels
 from app.core.http import get_or_404
 from app.core.permissions import FinancialAccess, require_financial
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.dunning.exceptions import CustomerRequiredError, TransactionNotEligibleError
 from app.domain.dunning.models import DunningAttempt
 from app.domain.dunning.schemas import (
@@ -72,11 +73,12 @@ async def list_overdue(
     limit: int = Query(default=20, ge=1, le=100),
     current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> OverdueListResponse:
     if aging is not None and aging not in _AGING_BUCKETS:
         raise HTTPException(status_code=422, detail="Faixa de aging inválida.")
     service = DunningService(session=session, tenant_id=current_user.tenant_id, channels={})
-    today = date.today()
+    today = clock.today()
     rows, next_cursor, total = await service.list_overdue(
         today=today, aging=aging, customer_id=customer_id, cursor=cursor, limit=limit
     )
@@ -91,9 +93,10 @@ async def list_overdue(
 async def get_overdue_summary(
     current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> OverdueSummaryResponse:
     service = DunningService(session=session, tenant_id=current_user.tenant_id, channels={})
-    summary = await service.summary(today=date.today())
+    summary = await service.summary(today=clock.today())
     return OverdueSummaryResponse(
         total=summary.total,
         by_aging=[
@@ -158,6 +161,7 @@ async def send_dunning(
     current_user: User = Depends(require_financial(FinancialAccess.FULL)),
     session: AsyncSession = Depends(get_session_for_current_user),
     channels: Mapping[str, MessagingChannel] = Depends(get_messaging_channels),
+    clock: Clock = Depends(get_clock),
 ) -> DunningAttemptResponse:
     service = DunningService(session=session, tenant_id=current_user.tenant_id, channels=channels)
     row = await get_or_404(
@@ -165,7 +169,7 @@ async def send_dunning(
     )
     try:
         attempt = await service.send_manual(
-            row, channel=payload.channel, template=payload.template, today=date.today()
+            row, channel=payload.channel, template=payload.template, today=clock.today()
         )
     except TransactionNotEligibleError as exc:
         raise HTTPException(

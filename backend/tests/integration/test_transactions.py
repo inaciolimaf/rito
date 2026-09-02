@@ -5,7 +5,7 @@ tenant."""
 
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.rls import set_tenant_context
 from app.domain.users.models import FinancialAccess, UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import (
     _auth_header,
@@ -334,7 +335,7 @@ async def test_pagamento_futuro_retorna_422(
 ) -> None:
     _gestor, headers = await _make_gestor_full(make_user)
     receita_id, _d, cost_center_id, account_a, _b = await _fixtures(client, headers)
-    amanha = (date.today() + timedelta(days=1)).isoformat()
+    amanha = (hoje() + timedelta(days=1)).isoformat()
 
     response = await client.post(
         "/api/v1/transactions",
@@ -626,7 +627,11 @@ async def test_os_4_check_da_migration_barram_escrita_direta_no_banco(
             "lawsuit_id": uuid.UUID(str(lawsuit["id"])),
             "customer_id": None,
         },
-        "ck_tx_payment_not_future": {"payment_date": date.today() + timedelta(days=1)},
+        # Dívida 32: este CHECK vive no BANCO e compara com `CURRENT_DATE`, que é o dia
+        # do servidor (UTC), não o do escritório. O teste prova a trava do banco, então
+        # fala o relógio do banco — usar `hoje()` aqui faria o teste falhar das 21h em
+        # diante, quando o "amanhã de São Paulo" já é "hoje em UTC".
+        "ck_tx_payment_not_future": {"payment_date": datetime.now(UTC).date() + timedelta(days=1)},
     }
     for constraint_name, override in violations.items():
         params = {**valid_params, **override}

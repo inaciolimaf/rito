@@ -6,7 +6,7 @@ isolamento de tenant na tabela nova (CLAUDE.md §4 — obrigatório por tabela).
 """
 
 from collections.abc import Awaitable, Callable
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.rls import set_tenant_context
 from app.domain.posts.recurrence_service import RecurrenceService
 from app.domain.users.models import UserRole
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser
 from tests.integration.test_lawsuits import _auth_header
 from tests.integration.test_lawsuits_listing import LawsuitFactory, _make_factory
@@ -258,7 +259,7 @@ async def test_worker_gera_atrasada_sem_duplicar(
 ) -> None:
     # Regra 2: série diária criada há 3 dias e nunca concluída — o worker coloca a
     # série em dia; rodar de novo no mesmo dia não cria nada (guarda de data única).
-    start = (date.today() - timedelta(days=3)).isoformat()
+    start = (hoje() - timedelta(days=3)).isoformat()
     post = await _create_recurring_post(
         client, factory, scheduled_date=start, recurrence={"period": "DIARIA"}
     )
@@ -267,7 +268,7 @@ async def test_worker_gera_atrasada_sem_duplicar(
         async with app_session_factory() as session, session.begin():
             await set_tenant_context(session, factory.gestor.tenant_id)
             service = RecurrenceService(session=session, tenant_id=factory.gestor.tenant_id)
-            return await service.sweep_overdue(date.today())
+            return await service.sweep_overdue(hoje())
 
     generated = await _sweep()
     assert generated == 3  # D-2, D-1 e hoje — o template (D-3) já existia

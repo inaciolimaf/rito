@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import get_settings
 from app.domain.users.models import UserRole
 from app.workers.bi_vintage import refresh_bi_vintage
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_bi_pipeline import _factory_group_id
 from tests.integration.test_lawsuits import (
@@ -29,7 +30,11 @@ from tests.integration.test_lawsuits import (
 from tests.integration.test_lawsuits_listing import LawsuitFactory, _make_factory
 
 _NOW = datetime.now(UTC)
-_TODAY = _NOW.date()
+# Spec 114: o dia é o do ESCRITÓRIO. `_NOW` continua UTC porque é carimbo de tempo,
+# mas `_NOW.date()` era o dia UTC — três horas à frente de São Paulo, que é o fuso em
+# que as fixtures criam a conta. O `DTZ` não pega este caso: `datetime.now(UTC)` TEM
+# fuso, só que o fuso errado para a pergunta «que dia é hoje no escritório».
+_TODAY = hoje()
 _THIS_MONTH = _TODAY.replace(day=1)
 
 # Fases fixas do seed da migration 015 (mesma convenção de test_lawsuits.py).

@@ -523,8 +523,11 @@ async def _execute_create_transaction(ctx: ToolContext, params: CreateTransactio
     from app.domain.financial.service import TransactionService
 
     service = TransactionService(session=ctx.session, tenant_id=ctx.tenant_id)
+    hoje = await ctx.today()
     row = await service.create(
-        TransactionCreateRequest.model_validate(params.model_dump(exclude_none=True)), ctx.user
+        TransactionCreateRequest.model_validate(params.model_dump(exclude_none=True)),
+        ctx.user,
+        today=hoje,
     )
     return Executed(
         affected_id=row.transaction.id,

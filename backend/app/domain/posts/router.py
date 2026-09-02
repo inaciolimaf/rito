@@ -3,9 +3,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.posts.completion import CompletePostUseCase
 from app.domain.posts.creation import CreatePostUseCase
 from app.domain.posts.detail import PostDetail
@@ -342,9 +343,12 @@ async def list_lawsuit_posts(
     lawsuit_id: uuid.UUID,
     current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> list[PostResponse]:
     service = PostService(session=session, tenant_id=current_user.tenant_id)
-    details = await service.list_for_lawsuit(lawsuit_id, viewer_id=current_user.id)
+    details = await service.list_for_lawsuit(
+        lawsuit_id, viewer_id=current_user.id, today=clock.today()
+    )
     return [_to_response(detail) for detail in details]
 
 

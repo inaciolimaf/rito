@@ -143,13 +143,13 @@ class ReportsRepository:
     # ---- produtividade (tempo real, direto em post_users/posts) ----------------
 
     async def productivity_summary(
-        self, *, user_id: uuid.UUID | None, month_start: date, month_end: date
+        self, *, user_id: uuid.UUID | None, month_start: date, month_end: date, today: date
     ) -> tuple[int, int, int, int]:
         """assigned, completed, late, due_in_5_days."""
         assigned = await self._count_assigned(user_id, month_start, month_end)
         completed = await self._count_completed(user_id, month_start, month_end, late_only=False)
         late = await self._count_completed(user_id, month_start, month_end, late_only=True)
-        due_soon = await self._count_due_in_5_days(user_id)
+        due_soon = await self._count_due_in_5_days(user_id, today)
         return assigned, completed, late, due_soon
 
     async def _count_assigned(self, user_id: uuid.UUID | None, start: date, end: date) -> int:
@@ -183,8 +183,7 @@ class ReportsRepository:
         stmt = stmt.where(*conditions)
         return int(await self.session.scalar(stmt) or 0)
 
-    async def _count_due_in_5_days(self, user_id: uuid.UUID | None) -> int:
-        today = date.today()
+    async def _count_due_in_5_days(self, user_id: uuid.UUID | None, today: date) -> int:
         conditions = [
             PostUser.completed_at.is_(None),
             Post.deadline_date.is_not(None),

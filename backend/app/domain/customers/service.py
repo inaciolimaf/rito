@@ -146,9 +146,11 @@ class CustomerService:
         order: Literal["asc", "desc"],
         cursor: str | None,
         limit: int,
+        today: date,
     ) -> tuple[list[Customer], str | None, int]:
         decoded_cursor = decode_cursor(cursor) if cursor else None
         items, total = await self.customers.list_filtered(
+            today=today,
             query=filters.q,
             person_type=filters.type,
             state=filters.state,
@@ -171,10 +173,10 @@ class CustomerService:
             next_cursor = encode_cursor(last_sort_value, last.id)
         return list(items), next_cursor, total
 
-    async def get_birthdays(self, *, scope: Literal["day", "month"]) -> list[Customer]:
-        return list(await self.customers.get_birthdays(scope=scope))
+    async def get_birthdays(self, *, scope: Literal["day", "month"], today: date) -> list[Customer]:
+        return list(await self.customers.get_birthdays(scope=scope, today=today))
 
-    async def get_stats(self) -> CustomerStatsResponse:
+    async def get_stats(self, today: date) -> CustomerStatsResponse:
         """Dashboard de contatos com cache de 5 minutos (spec 098, regra 9).
 
         São seis agregações sobre a base inteira de contatos; num escritório com 100 mil
@@ -189,13 +191,14 @@ class CustomerService:
             await cached_json(
                 self.cache,
                 stats_cache_key(self.tenant_id),
-                self._compute_stats,
+                # `cached_json` chama a função sem argumento; o dia do escritório entra
+                # pelo fecho, não pela assinatura (spec 114).
+                lambda: self._compute_stats(today),
                 decode=CustomerStatsResponse.model_validate,
             ),
         )
 
-    async def _compute_stats(self) -> dict[str, Any]:
-        today = date.today()
+    async def _compute_stats(self, today: date) -> dict[str, Any]:
         this_month_start = today.replace(day=1)
         last_month_end = this_month_start - timedelta(days=1)
         last_month_start = last_month_end.replace(day=1)
@@ -231,9 +234,12 @@ class CustomerService:
             ],
         ).model_dump()
 
-    async def export(self, *, format_: Literal["xlsx", "pdf"], filters: CustomerFilters) -> bytes:
+    async def export(
+        self, *, format_: Literal["xlsx", "pdf"], filters: CustomerFilters, today: date
+    ) -> bytes:
         # Regra 7: respeita os filtros ativos, não a página visível; teto de 50.000 linhas.
         items, _total = await self.customers.list_filtered(
+            today=today,
             query=filters.q,
             person_type=filters.type,
             state=filters.state,

@@ -6,7 +6,7 @@ endpoint de ping dedicado. Não é importado por nenhum teste (mesmo padrão de
 """
 
 import time
-from datetime import date
+from datetime import UTC, datetime
 
 from app.domain.integrations.service import HealthCheckResult
 from app.integrations.djen.client import DjenApiError, DjenClient, DjenConfigError
@@ -20,7 +20,11 @@ class DjenHealthChecker:
 
     async def check(self) -> HealthCheckResult:
         started = time.monotonic()
-        today = date.today()
+        # UTC explícito, e não o relógio do escritório (spec 114): esta é uma sonda
+        # contra a API nacional do DJEN, não uma consulta de tenant. Não há escritório
+        # aqui — há um probe que precisa de uma data válida qualquer, e a do servidor
+        # em UTC é a única defensável quando não existe conta para perguntar.
+        today = datetime.now(UTC).date()
         try:
             await self._client.fetch_communications(
                 availability_start=today, availability_end=today, per_page=1

@@ -6,6 +6,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.clock import Clock
 from app.core.deps import get_file_storage
 from app.core.exceptions import InvalidTransferError
 from app.core.export import ExportColumn, TableExport
@@ -18,7 +19,7 @@ from app.domain.attachments.service import (
     AttachmentTargetNotFoundError,
     TransactionAttachmentLimitError,
 )
-from app.domain.auth.deps import get_session_for_current_user
+from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.financial.dashboard import (
     ChartGroupBy,
     Regime,
@@ -38,6 +39,7 @@ from app.domain.financial.exceptions import (
     DreGroupNotFoundError,
     FinancialCategoryInUseError,
     FinancialCategoryNameAlreadyExistsError,
+    FuturePaymentDateError,
     InitialAmountLockedError,
     InstitutionNotFoundError,
     PaidTransactionCannotBecomeInternalError,
@@ -432,10 +434,11 @@ async def list_bank_account_balances(
     account_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> BankAccountBalancesResponse:
     """Spec 059, regra 6/7: saldo real (view materializada) por conta; cartão de
     crédito devolve a fatura do ciclo em vez de saldo (`is_invoice=True`)."""
-    rows = await get_account_balances(session, account_id=account_id)
+    rows = await get_account_balances(session, account_id=account_id, today=clock.today())
     return BankAccountBalancesResponse(
         items=[
             AccountBalanceItem(
@@ -545,19 +548,22 @@ async def get_bank_account_balance(
     at: date | None = Query(default=None),
     current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> AccountBalanceResponse:
     """Regras 3/4 (spec 055) ainda devolvem só o saldo inicial — completar com os
     lançamentos reais (spec 056) ficou pra um refactor futuro, ver
     docs/DIVIDA-TECNICA.md e Descobertas da spec 056."""
     service = BankAccountService(session=session, tenant_id=current_user.tenant_id)
     account, _ = await get_or_404(lambda: service.get(account_id), "Conta não encontrada.")
-    balance = await service.get_balance(account, at=at)
+    balance = await service.get_balance(account, at=at, today=clock.today())
     return AccountBalanceResponse(
-        account_id=account.id, kind=account.kind, balance=balance, as_of=at or date.today()
+        account_id=account.id, kind=account.kind, balance=balance, as_of=at or clock.today()
     )
 
 
 def _handle_transaction_errors(exc: Exception) -> HTTPException:
+    if isinstance(exc, FuturePaymentDateError):
+        return HTTPException(status_code=422, detail="Data de pagamento não pode ser no futuro.")
     if isinstance(exc, TransactionCategoryNotFoundError):
         return HTTPException(status_code=422, detail="Categoria não encontrada.")
     if isinstance(exc, TransactionCategoryTypeMismatchError):
@@ -578,6 +584,7 @@ def _handle_transaction_errors(exc: Exception) -> HTTPException:
 
 
 _TRANSACTION_VALIDATION_ERRORS = (
+    FuturePaymentDateError,
     TransactionCategoryNotFoundError,
     TransactionCategoryTypeMismatchError,
     TransactionCostCenterNotFoundError,
@@ -647,10 +654,11 @@ async def get_transaction_stats(
     account_id: uuid.UUID | None = Query(default=None),
     _current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> TransactionStatsResponse:
-    reference = parse_month_query(month)
+    reference = parse_month_query(month, clock.today())
     stats = await get_dashboard_stats(
-        session, regime=regime, month=reference, account_id=account_id
+        session, regime=regime, month=reference, account_id=account_id, today=clock.today()
     )
     return TransactionStatsResponse(
         balance=stats.balance,
@@ -671,9 +679,10 @@ async def get_transaction_chart(
     account_id: uuid.UUID | None = Query(default=None),
     _current_user: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> TransactionChartResponse:
     """ADVBOX: gráfico "Receitas x Despesas por vencimento"."""
-    reference = parse_month_query(month)
+    reference = parse_month_query(month, clock.today())
     points = await get_chart_series(
         session, month=reference, group_by=group_by, account_id=account_id
     )
@@ -713,10 +722,11 @@ async def create_transaction(
     payload: TransactionCreateRequest,
     current_user: User = Depends(require_financial(FinancialAccess.FULL)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> TransactionResponse:
     service = TransactionService(session=session, tenant_id=current_user.tenant_id)
     try:
-        row = await service.create(payload, current_user)
+        row = await service.create(payload, current_user, today=clock.today())
     except _TRANSACTION_VALIDATION_ERRORS as exc:
         raise _handle_transaction_errors(exc) from exc
     return _transaction_to_response(row)
@@ -728,11 +738,12 @@ async def update_transaction(
     payload: TransactionUpdateRequest,
     current_user: User = Depends(require_financial(FinancialAccess.FULL)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> TransactionResponse:
     service = TransactionService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(transaction_id), "Lançamento não encontrado.")
     try:
-        row = await service.update(detail.transaction, payload, current_user)
+        row = await service.update(detail.transaction, payload, current_user, today=clock.today())
     except _TRANSACTION_VALIDATION_ERRORS as exc:
         raise _handle_transaction_errors(exc) from exc
     except PaidTransactionCannotBecomeInternalError as exc:
@@ -770,10 +781,11 @@ async def pay_transaction(
     payload: PayTransactionRequest,
     current_user: User = Depends(require_financial(FinancialAccess.FULL)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> TransactionResponse:
     service = TransactionService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(transaction_id), "Lançamento não encontrado.")
-    if payload.payment_date > date.today():
+    if payload.payment_date > clock.today():
         raise HTTPException(status_code=422, detail="Data de pagamento não pode ser no futuro.")
     await service.pay(detail.transaction, payload.payment_date)
     # Spec 059, regra 11 + spec 078, regra 5: baixa agenda o refresh imediato das
@@ -866,13 +878,14 @@ async def update_transaction_series(
     scope: Literal["future", "all"] = Query(default="future"),
     current_user: User = Depends(require_financial(FinancialAccess.FULL)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> TransactionListResponse:
     service = TransactionSeriesService(session=session, tenant_id=current_user.tenant_id)
     series = await service.get(series_id)
     if series is None:
         raise _series_not_found()
     try:
-        updated = await service.update_series(series, payload, scope)
+        updated = await service.update_series(series, payload, scope, today=clock.today())
     except (TransactionCategoryNotFoundError, TransactionCategoryTypeMismatchError) as exc:
         raise _handle_transaction_errors(exc) from exc
     detail_repo = TransactionService(session=session, tenant_id=current_user.tenant_id)

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.locations.models import State
 from app.domain.monitored_terms.exceptions import (
+    BackfillTooOldError,
     InvalidTermStateError,
     SyncAlreadyRunningError,
     TermAlreadyExistsError,
@@ -21,6 +22,7 @@ from app.domain.monitored_terms.models import (
 from app.domain.monitored_terms.repository import MonitoredTermRepository, TermSyncRunRepository
 from app.domain.monitored_terms.schemas import (
     BACKFILL_DEFAULT_DAYS,
+    BACKFILL_MAX_DAYS,
     MonitoredTermCreateRequest,
     MonitoredTermUpdateRequest,
 )
@@ -48,7 +50,13 @@ class MonitoredTermService:
         if user_id is not None and await self.session.get(User, user_id) is None:
             raise ResponsibleUserNotFoundError
 
-    async def create(self, payload: MonitoredTermCreateRequest) -> MonitoredTerm:
+    def _check_backfill(self, backfill_from: date | None, today: date) -> None:
+        """Regra 6: captura inicial limitada a 12 meses, contados no fuso do escritório."""
+        if backfill_from is not None and backfill_from < today - timedelta(days=BACKFILL_MAX_DAYS):
+            raise BackfillTooOldError
+
+    async def create(self, payload: MonitoredTermCreateRequest, today: date) -> MonitoredTerm:
+        self._check_backfill(payload.backfill_from, today)
         await self._validate_references(payload.oab_state, payload.user_id)
         if (
             await self.terms.find_duplicate(
@@ -67,16 +75,16 @@ class MonitoredTermService:
             label=payload.label,
             user_id=payload.user_id,
             status=TermStatus.PENDENTE,  # regra 5
-            backfill_from=payload.backfill_from
-            or (date.today() - timedelta(days=BACKFILL_DEFAULT_DAYS)),
+            backfill_from=payload.backfill_from or (today - timedelta(days=BACKFILL_DEFAULT_DAYS)),
             next_sync_at=now,  # nasce devendo a primeira sincronização
         )
         await self.terms.create(term)
         return term
 
     async def update(
-        self, term: MonitoredTerm, payload: MonitoredTermUpdateRequest
+        self, term: MonitoredTerm, payload: MonitoredTermUpdateRequest, today: date
     ) -> MonitoredTerm:
+        self._check_backfill(payload.backfill_from, today)
         await self._validate_references(None, payload.user_id)
         # kind/value/oab_state são imutáveis — trocar o termo é excluir e recriar.
         term.label = payload.label

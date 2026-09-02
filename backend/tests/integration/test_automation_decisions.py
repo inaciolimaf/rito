@@ -32,6 +32,7 @@ from app.domain.notifications.models import Notification
 from app.domain.posts.models import Post
 from app.domain.users.models import UserRole
 from app.integrations.openrouter.types import LLMError, LLMResponse, Usage
+from tests.clock import hoje
 from tests.integration.conftest import SeededUser, auth_header
 from tests.integration.test_ai_copilot import ScriptedProvider
 from tests.integration.test_automations import Cena, build_cena
@@ -364,8 +365,8 @@ async def test_orcamento_estourado_usa_o_padrao_sem_chamar_o_modelo(
         automation.current_month_spend_usd = Decimal("1.50")
         from datetime import date
 
-        hoje = date.today()
-        automation.spend_month = date(hoje.year, hoje.month, 1)
+        dia = hoje()
+        automation.spend_month = date(dia.year, dia.month, 1)
 
     provider = ScriptedProvider(script=[_decisao("urgente")])
     await _emitir(app_session_factory, cena, provider)

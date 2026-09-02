@@ -1,3 +1,4 @@
+import { cpus } from "node:os";
 import { defineConfig } from "@playwright/test";
 
 const API_BASE_URL = process.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -19,7 +20,15 @@ export default defineConfig({
   //
   // Três é o mesmo teto do pytest, pelo mesmo motivo. `PLAYWRIGHT_WORKERS` devolve o
   // comportamento antigo em máquina dedicada.
-  workers: Number(process.env.PLAYWRIGHT_WORKERS ?? (process.env.CI ? 4 : 3)),
+  // O teto continua 4 no CI e 3 aqui, mas agora ENCOLHE em máquina pequena: o runner do
+  // GitHub tem 2 núcleos, e 4 workers de e2e somados aos do pytest e do vitest davam 8
+  // processos de teste para 2 CPUs. Três jornadas estouravam o timeout de 30 s por
+  // inanição de CPU — o dialog do Radix não fechava a tempo, e o sintoma parecia defeito
+  // de produto. É a dívida 33 outra vez, num host que a spec 120 não tinha medido.
+  workers: Number(
+    process.env.PLAYWRIGHT_WORKERS ??
+      Math.max(1, Math.min(process.env.CI ? 4 : 3, cpus().length - 1)),
+  ),
   reporter: "list",
   globalSetup: "./global-setup.ts",
   use: {

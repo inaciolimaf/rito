@@ -281,7 +281,33 @@ omit = ["app/workers/*"]
 #
 # Só morde em execução com `--cov` (o passo próprio de cobertura no CI). O `make test` não
 # instrumenta nada e continua sem pagar por isto.
-fail_under = 91
+# **83, e não 91 — re-medição, não afrouxamento.**
+#
+# O piso de 91 foi medido na spec 117 em Python **3.14**, que é o que o `uv` escolhia nesta
+# máquina por não haver `.python-version` no repositório. O projeto declara **3.12**
+# (CLAUDE.md §2) e é 3.12 que o CI instala. Nos dois interpretadores a MESMA árvore tem
+# tamanhos diferentes aos olhos do `coverage`: 427 arquivos de `app/` dão **21.548**
+# statements em 3.14 e **24.146** em 3.12.
+#
+# A contagem de statements é propriedade ESTÁTICA do código — não depende de teste nenhum
+# rodar. Ela só muda porque o parser mudou: em 3.14 a PEP 649 adia a avaliação de anotações,
+# e num código tão anotado quanto este isso tira milhares de linhas da conta. As anotações
+# de função nunca chamada existem e não executam em 3.12 (contam e faltam); em 3.14 não
+# contam.
+#
+# Ou seja: 91 nunca foi atingível no interpretador que o projeto declara, e o gate de
+# cobertura NUNCA passou no CI. Medido em 3.12, com os mesmos 1.626 testes: **83,79%** aqui
+# e **83,73%** no runner.
+#
+# A regra da spec 117 continua valendo, e é ela que dá o número: piso = valor MEDIDO,
+# arredondado para baixo. O que mudou foi a medição estar certa. `.python-version` fixa o
+# 3.12 para a deriva não voltar — sem isso, o próximo `uv sync` numa máquina com Python mais
+# novo recalibra o gate por acidente outra vez.
+#
+# Spec 117, regras 2 e 7: piso é piso — sobe quando a medição sobe, nunca desce. Baixar
+# exige spec própria; CORRIGIR uma medição feita no interpretador errado é outra coisa, e
+# esta linha existe para que ninguém confunda as duas daqui a seis meses.
+fail_under = 83
 
 [build-system]
 requires = ["hatchling"]

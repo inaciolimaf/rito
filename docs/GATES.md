@@ -152,12 +152,20 @@ estoura.
 
 | Gate | Valor | Tipo |
 |---|---|---|
-| Cobertura do backend | piso **91%** de statements em `app/` sem `app/workers/` | **proxy** |
+| Cobertura do backend | piso **83%** de statements em `app/` sem `app/workers/`, medido em Python 3.12 | **proxy** |
 | Cobertura do frontend | piso **53%** de statements e linhas | **proxy** |
 | Duplicação (jscpd) | Python ≤ **0,75%**, TSX ≤ **1,3%** | **proxy** |
 | Tamanho do bundle | inicial abaixo de **300 KB** gzip, com chunks obrigatórios separados | programático |
 | Auditoria de dependências | `pip-audit` e `npm audit` | programático |
 | Imagem de produção | constrói e sobe | programático |
+
+> **O piso do backend caiu de 91 para 83 na spec 124 — e isso foi RE-MEDIÇÃO, não
+> afrouxamento.** O 91 tinha sido medido em Python 3.14 (o `uv` escolhia o mais novo da
+> máquina por não haver `.python-version`); o projeto declara 3.12 e é 3.12 que o CI usa.
+> Os mesmos 427 arquivos têm 21.548 statements em 3.14 e 24.146 em 3.12 — a PEP 649 adia a
+> avaliação de anotações e some com milhares de linhas da conta. O 91 nunca foi atingível no
+> interpretador do projeto, e este gate nunca passou no CI. `backend/.python-version` fixa o
+> 3.12 para a deriva não voltar.
 
 Os três **proxy** medem correlação, não a propriedade: cobertura alta com asserção frouxa
 passa, e duplicação baixa com nomes diferentes passa. A revisão humana deles é item de toda

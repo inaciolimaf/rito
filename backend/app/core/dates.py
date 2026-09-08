@@ -1,21 +1,24 @@
 """Módulo único de datas do Rito (spec 040, alvo 1) — puro: sem banco, sem relógio,
 sem framework. Cada função recebe tudo de que precisa por parâmetro.
 
-Aqui moram as três lógicas de calendário que nasceram separadas:
+Aqui moram as lógicas de calendário que nasceram separadas:
 
 - **dias úteis e feriados** (spec 038 — workflows);
 - **próxima ocorrência de recorrência** (spec 034 — séries de tarefas), com os enums
   `RecurrencePeriod`/`RecurrenceWeek` (os valores persistidos no PG enum mudam nunca —
   só a casa da classe Python mudou; `app/domain/posts/models.py` re-exporta);
 - **aritmética de mês** (fim de mês, início do mês seguinte/anterior, n-ésima e última
-  semana do mês) — antes duplicada em lawsuits/stats.py e taskscore/repository.py.
+  semana do mês) — antes duplicada em lawsuits/stats.py e taskscore/repository.py;
+- **prazo processual** (spec 126 — arts. 219, 220 e 224 do CPC): a cadeia
+  disponibilização → publicação → dia 1 → vencimento, em dias úteis ou corridos.
 
 Specs futuras DEVEM usar daqui em vez de recriar: 057 (parcelamento financeiro) usa
-`add_business_days`/aritmética de mês; 086 (prazo processual) usa `add_business_days`.
+`add_business_days`/aritmética de mês; 086 e 126 (prazo de intimação) usam
+`procedural_deadline`.
 """
 
 from calendar import monthrange
-from collections.abc import Collection, Iterator
+from collections.abc import Callable, Collection, Iterator
 from datetime import date, timedelta
 from enum import StrEnum
 
@@ -114,11 +117,12 @@ def is_business_day(day: date, holidays: Collection[date]) -> bool:
     return day.weekday() < 5 and day not in holidays
 
 
-def add_business_days(start: date, offset: int, holidays: Collection[date]) -> date:
-    """Avança `offset` dias úteis a partir de `start`.
+def _advance(start: date, offset: int, counts: Callable[[date], bool]) -> date:
+    """O laço compartilhado por `add_business_days` e `add_procedural_days`: anda um dia
+    de cada vez e só conta os dias em que `counts` responde `True`.
 
-    Regra 4: offset 0 é o próprio dia do disparo, mesmo que caia em fim de semana ou
-    feriado — "hoje" não desliza. Offset N ≥ 1 devolve o N-ésimo dia útil seguinte.
+    Existe como função porque as duas variantes diferem SÓ no predicado — e escrever o
+    mesmo `while` duas vezes é como um dos dois envelhece sem o outro.
     """
     if offset < 0:
         raise ValueError("days_offset não pode ser negativo.")
@@ -128,9 +132,113 @@ def add_business_days(start: date, offset: int, holidays: Collection[date]) -> d
     counted = 0
     while counted < offset:
         current += timedelta(days=1)
-        if is_business_day(current, holidays):
+        if counts(current):
             counted += 1
     return current
+
+
+def add_business_days(start: date, offset: int, holidays: Collection[date]) -> date:
+    """Avança `offset` dias úteis a partir de `start`.
+
+    Regra 4: offset 0 é o próprio dia do disparo, mesmo que caia em fim de semana ou
+    feriado — "hoje" não desliza. Offset N ≥ 1 devolve o N-ésimo dia útil seguinte.
+    """
+    return _advance(start, offset, lambda day: is_business_day(day, holidays))
+
+
+# ---------------------------------------------------------------------------
+# Prazo processual (spec 126 — CPC arts. 219, 220 e 224)
+#
+# Só a MECÂNICA mora aqui, e ela é lei, não estimativa: quando o prazo começa a correr,
+# quais dias contam e quando ele vence. QUANTOS dias cada intimação dá (15 para
+# contestar, 5 para embargar, 30 para a Fazenda…) não é assunto deste módulo nem deste
+# projeto — não existe tabela de prazos por classe/assunto do CNJ aqui, e inventar uma
+# seria pior do que não ter, porque prazo preenchido é prazo em que se confia. Quem
+# informa o número é quem responde por ele: o texto da intimação (spec 086) ou a
+# configuração do escritório (spec 126).
+# ---------------------------------------------------------------------------
+
+# Art. 220: "Suspende-se o curso do prazo processual nos dias compreendidos entre 20 de
+# dezembro e 20 de janeiro, inclusive." As duas pontas entram.
+COURT_RECESS_START = (12, 20)
+COURT_RECESS_END = (1, 20)
+
+
+def is_court_recess(day: date) -> bool:
+    """O dia cai no recesso forense do art. 220 do CPC (20/12 a 20/01, inclusive)."""
+    if day.month == COURT_RECESS_START[0]:
+        return day.day >= COURT_RECESS_START[1]
+    if day.month == COURT_RECESS_END[0]:
+        return day.day <= COURT_RECESS_END[1]
+    return False
+
+
+def is_procedural_day(day: date, holidays: Collection[date], *, court_recess: bool = True) -> bool:
+    """O dia em que o prazo processual CORRE: dia útil (art. 219) e fora do recesso.
+
+    A diferença entre "não é dia útil" e "está no recesso" é de natureza — o feriado não
+    conta porque não há expediente, o recesso não conta porque a lei suspende o curso —,
+    mas o efeito sobre a contagem é o mesmo, e é por isso que cabem no mesmo predicado.
+    """
+    return is_business_day(day, holidays) and not (court_recess and is_court_recess(day))
+
+
+def add_procedural_days(
+    start: date, offset: int, holidays: Collection[date], *, court_recess: bool = True
+) -> date:
+    """Avança `offset` dias de prazo processual a partir de `start` (exclusivo).
+
+    `start` é o dia do começo, que o art. 224 manda EXCLUIR — por isso a contagem parte
+    do dia seguinte, e offset 1 já é o primeiro dia do prazo.
+    """
+    return _advance(
+        start, offset, lambda day: is_procedural_day(day, holidays, court_recess=court_recess)
+    )
+
+
+def publication_date(availability_date: date, holidays: Collection[date]) -> date:
+    """A data da PUBLICAÇÃO a partir da data da DISPONIBILIZAÇÃO no diário eletrônico.
+
+    CPC art. 224 §2 (e Lei 11.419/2006 art. 4º §3º): "considera-se como data da
+    publicação o primeiro dia útil seguinte ao da disponibilização". São duas datas
+    diferentes, e é o erro mais fácil de cometer aqui — o DJEN entrega
+    `data_disponibilizacao`, e tratá-la como publicação encurta todo prazo em um dia
+    útil.
+    """
+    return add_business_days(availability_date, 1, holidays)
+
+
+def procedural_deadline(
+    availability_date: date,
+    days: int,
+    holidays: Collection[date],
+    *,
+    count_in_business_days: bool = True,
+    court_recess: bool = True,
+) -> date:
+    """O vencimento de um prazo de `days` dias contado da disponibilização.
+
+    A cadeia inteira do CPC, em três passos:
+
+    1. **art. 224 §2** — disponibilização → publicação é o primeiro dia útil seguinte;
+    2. **art. 224 caput/§3** — exclui-se o dia do começo (a publicação): o dia 1 é o
+       primeiro dia em que o prazo corre depois dela;
+    3. **art. 219** — em dias úteis, e **art. 220** — sem os dias do recesso.
+
+    `count_in_business_days=False` é o prazo em dias corridos (art. 219, parágrafo
+    único: a contagem em dias úteis vale só para prazo processual). Aí o recesso não
+    suspende nada e o único ajuste é o do **art. 224 §1**: vencimento em dia sem
+    expediente prorroga para o dia útil seguinte.
+    """
+    if days < 1:
+        raise ValueError("Prazo em dias precisa ser ao menos 1.")
+    published = publication_date(availability_date, holidays)
+    if count_in_business_days:
+        return add_procedural_days(published, days, holidays, court_recess=court_recess)
+    due = published + timedelta(days=days)
+    while not is_business_day(due, holidays):
+        due += timedelta(days=1)
+    return due
 
 
 # ---------------------------------------------------------------------------

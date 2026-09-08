@@ -8,11 +8,17 @@ atende o vínculo manual (regra 7: dispara o mesmo roteamento) e `reprocess`
 reexecuta o casamento sem duplicar a tarefa (regra 1). `handle_cancellation`
 é chamada pela sincronização (044) quando uma publicação já roteada é anulada
 pelo tribunal (regra 8).
+
+Desde a **spec 126** a tarefa nasce com `deadline_date` quando — e só quando — o
+escritório declarou quantos dias vale uma intimação (`_deadline_for`). Sem essa
+declaração o campo continua nulo, de propósito: a 045 nunca calculou prazo porque não
+havia de onde tirar o número, e a 126 não inventou a tabela que faltava — ela deu ao
+escritório onde dizê-lo.
 """
 
 import uuid
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,15 +34,29 @@ from app.domain.notifications.dispatch import NotificationDispatcher
 from app.domain.notifications.models import NotificationEvent
 from app.domain.posts.models import Post
 from app.domain.posts.repository import PostRepository
+from app.domain.publications.deadline import compute_deadline
 from app.domain.publications.exceptions import LawsuitNotFoundError, NoResponsibleAvailableError
 from app.domain.publications.models import Publication
-from app.domain.publications.repository import PublicationLawyerRepository, PublicationRepository
+from app.domain.publications.repository import (
+    PublicationDeadlineSettingsRepository,
+    PublicationLawyerRepository,
+    PublicationRepository,
+)
 from app.domain.task_types.models import TaskType
 from app.domain.task_types.repository import TaskTypeRepository
 from app.domain.users.repository import UserRepository
+from app.domain.workflows.repository import HolidayRepository
 from app.integrations.messaging.base import MessagingChannel
 
 _BODY_MAX_LENGTH = 5_000  # regra 5: comentário truncado, com link para o inteiro teor.
+# Spec 126, regra 4: o prazo calculado nasce com a sua procedência ao lado. A conta é
+# do CPC, mas o NÚMERO de dias é o padrão que o escritório declarou — não a leitura
+# desta intimação —, e quem abre a tarefa precisa saber disso para conferir.
+_DEADLINE_NOTE = (
+    "⏱️ Prazo preenchido com o padrão de intimações do escritório, contado na forma "
+    "dos arts. 219 e 224 do CPC a partir da disponibilização. Confira contra o texto "
+    "da intimação: o prazo real depende do ato."
+)
 _CANCELLATION_COMMENT = (
     "⚠️ Publicação anulada pelo tribunal (motivo: {reason}). A tarefa não foi excluída "
     "— confirme com o advogado se ela ainda procede."
@@ -62,6 +82,8 @@ class PublicationRoutingService:
         self.users = UserRepository(session)
         self.task_types = TaskTypeRepository(session)
         self.posts = PostRepository(session)
+        self.deadline_settings = PublicationDeadlineSettingsRepository(session)
+        self.holidays = HolidayRepository(session)
         self.dispatcher = NotificationDispatcher(session, tenant_id, channels)
 
     async def route(self, publication: Publication) -> Publication:
@@ -211,6 +233,33 @@ class PublicationRoutingService:
 
         raise NoResponsibleAvailableError
 
+    async def _deadline_for(self, publication: Publication) -> date | None:
+        """O prazo fatal da tarefa da intimação — ou `None`, explicitamente (spec 126).
+
+        São dois casos, e a diferença entre eles é a spec inteira:
+
+        - **o escritório declarou quantos dias** (`publication_deadline_settings`): há
+          informação para calcular, e a conta é a do CPC — disponibilização →
+          publicação → dia 1 → vencimento, pulando feriado e recesso;
+        - **o escritório não declarou** (linha ausente ou `default_deadline_days` nulo):
+          NÃO há informação para calcular, e o campo continua nulo. Não existe neste
+          projeto tabela de prazo por classe/assunto do CNJ, e derivar um número daqui
+          seria inventá-lo — `NULL` é honesto, um prazo errado é confiado.
+
+        A leitura dos feriados só acontece no primeiro caso: escritório sem configuração
+        não paga query nenhuma por uma conta que não vai fazer.
+        """
+        settings = await self.deadline_settings.get_current()
+        if settings is None or settings.default_deadline_days is None:
+            return None
+        holidays = await self.holidays.national_dates()
+        return compute_deadline(
+            availability_date=publication.availability_date,
+            days=settings.default_deadline_days,
+            kind="uteis" if settings.count_in_business_days else "corridos",
+            holidays=holidays,
+        )
+
     async def _create_task(
         self,
         lawsuit: Lawsuit,
@@ -223,12 +272,19 @@ class PublicationRoutingService:
         comments = publication.body[:_BODY_MAX_LENGTH]
         if publication.link:
             comments = f"{comments}\n\nInteiro teor: {publication.link}"
+        deadline = await self._deadline_for(publication)
+        if deadline is not None:
+            # A procedência do número fica ESCRITA na tarefa: quem abrir vê que o prazo
+            # veio do padrão do escritório, não da leitura da intimação, e sabe que
+            # precisa conferir contra o texto.
+            comments = f"{comments}\n\n{_DEADLINE_NOTE}"
         post = Post(
             tenant_id=self.tenant_id,
             lawsuit_id=lawsuit.id,
             task_type_id=task_type_id,
             created_by=user_id,
             scheduled_date=publication.availability_date,  # regra 3
+            deadline_date=deadline,  # spec 126, regra 1 — nulo quando não há o que contar
             reward_snapshot=reward,
             comments=comments,
         )

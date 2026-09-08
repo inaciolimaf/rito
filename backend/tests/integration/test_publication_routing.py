@@ -104,6 +104,16 @@ class RoutingSetup:
         )
         assert response.status_code == 200, response.text
 
+    async def set_deadline_days(self, days: int | None, *, business_days: bool = True) -> None:
+        """Spec 126: o escritório declara quantos dias vale uma intimação. `None`
+        desliga o cálculo e devolve o `deadline_date` ao estado nulo."""
+        response = await self.client.put(
+            "/api/v1/publications/deadline-settings",
+            json={"default_deadline_days": days, "count_in_business_days": business_days},
+            headers=self.headers,
+        )
+        assert response.status_code == 200, response.text
+
     async def create_term(self, *, oab_number: str, oab_state: str, user_id: uuid.UUID) -> None:
         response = await self.client.post(
             "/api/v1/monitored-terms",
@@ -142,6 +152,7 @@ async def make_publication(
     process_number: str | None = None,
     link: str | None = None,
     lawyers: list[tuple[str, str]] | None = None,
+    availability_date: date = date(2026, 8, 1),
 ) -> uuid.UUID:
     async with factory() as session, session.begin():
         await set_tenant_context(session, tenant_id)
@@ -149,7 +160,7 @@ async def make_publication(
             tenant_id=tenant_id,
             external_id=abs(hash(uuid.uuid4())) % 1_000_000,
             hash=f"routing-test-{uuid.uuid4().hex}",
-            availability_date=date(2026, 8, 1),
+            availability_date=availability_date,
             court_code="TJSP",
             body="Texto da publicação de teste.",
             process_number=process_number,
@@ -408,7 +419,11 @@ async def test_scheduled_date_igual_availability_date(setup: RoutingSetup) -> No
     assert post.scheduled_date == routed.availability_date
 
 
-async def test_deadline_date_fica_vazio(setup: RoutingSetup) -> None:
+async def test_deadline_date_fica_vazio_sem_configuracao(setup: RoutingSetup) -> None:
+    """Spec 045 regra 4 + spec 126 regra 1: escritório que não declarou prazo padrão
+    continua recebendo a tarefa SEM prazo. Não há de onde tirar o número — não existe
+    tabela de prazo por classe/assunto do CNJ neste projeto —, e um `NULL` honesto vale
+    mais do que uma data plausível e errada."""
     number = _cnj(12)
     await setup.create_lawsuit(user_id=setup.gestor.user_id, process_number=number)
     publication_id = await make_publication(
@@ -495,3 +510,190 @@ async def test_roteamento_dispara_intimacao_quando_configurado(setup: RoutingSet
     assert notifications.status_code == 200
     kinds = {item["kind"] for item in notifications.json()["items"]}
     assert "INTIMACAO" in kinds
+
+
+# ---------------------------------------------------------------------------
+# Prazo da tarefa da intimação (spec 126, dívida técnica 18)
+#
+# O que estes testes protegem não é a aritmética — essa é pura e mora em
+# `tests/unit/test_dates.py`. É a LIGAÇÃO: que a tarefa nasce com o prazo quando existe
+# informação para calculá-lo, e sem prazo quando não existe.
+# ---------------------------------------------------------------------------
+
+
+async def test_prazo_calculado_quando_o_escritorio_declara_os_dias(setup: RoutingSetup) -> None:
+    """Regra 2: disponibilizada num sábado (01/08/2026), publicada na segunda 03/08
+    (art. 224 §2), 15 dias úteis a partir do dia 4 → 24/08/2026."""
+    await setup.set_deadline_days(15)
+    number = _cnj(20)
+    await setup.create_lawsuit(user_id=setup.gestor.user_id, process_number=number)
+    publication_id = await make_publication(
+        setup.sessions, setup.gestor.tenant_id, process_number=number
+    )
+
+    routed = await route(setup.sessions, setup.gestor.tenant_id, publication_id)
+    assert routed.post_id is not None
+    post = await fetch_post(setup.sessions, setup.gestor.tenant_id, routed.post_id)
+
+    assert post.deadline_date == date(2026, 8, 24)
+    # Regra 3: `scheduled_date` continua sendo a disponibilização (spec 045, regra 3) —
+    # o prazo é outro campo e não desloca o compromisso.
+    assert post.scheduled_date == date(2026, 8, 1)
+
+
+async def test_prazo_calculado_traz_a_procedencia_no_comentario(setup: RoutingSetup) -> None:
+    """Regra 4: o número veio do PADRÃO do escritório, não da leitura desta intimação —
+    e quem abre a tarefa precisa ver isso escrito para conferir contra o texto."""
+    await setup.set_deadline_days(15)
+    number = _cnj(21)
+    await setup.create_lawsuit(user_id=setup.gestor.user_id, process_number=number)
+    publication_id = await make_publication(
+        setup.sessions, setup.gestor.tenant_id, process_number=number
+    )
+
+    routed = await route(setup.sessions, setup.gestor.tenant_id, publication_id)
+    assert routed.post_id is not None
+    post = await fetch_post(setup.sessions, setup.gestor.tenant_id, routed.post_id)
+
+    assert post.comments is not None
+    assert "padrão de intimações do escritório" in post.comments
+    assert "Texto da publicação de teste." in post.comments, "o inteiro teor não some"
+
+
+async def test_prazo_em_dias_corridos_quando_o_escritorio_escolhe(setup: RoutingSetup) -> None:
+    """Regra 2: publicação em 03/08 + 15 dias corridos = 18/08/2026 (terça)."""
+    await setup.set_deadline_days(15, business_days=False)
+    number = _cnj(22)
+    await setup.create_lawsuit(user_id=setup.gestor.user_id, process_number=number)
+    publication_id = await make_publication(
+        setup.sessions, setup.gestor.tenant_id, process_number=number
+    )
+
+    routed = await route(setup.sessions, setup.gestor.tenant_id, publication_id)
+    assert routed.post_id is not None
+    post = await fetch_post(setup.sessions, setup.gestor.tenant_id, routed.post_id)
+
+    assert post.deadline_date == date(2026, 8, 18)
+
+
+async def test_prazo_usa_os_feriados_e_o_recesso_do_banco(setup: RoutingSetup) -> None:
+    """Regra 3: a conta usa os feriados REAIS da tabela global (spec 038) e suspende no
+    recesso do art. 220. Disponibilizada em 18/12/2026, publicada em 21/12 — já dentro
+    do recesso —, os 5 dias só correm a partir de 21/01/2027 e vencem em 27/01."""
+    await setup.set_deadline_days(5)
+    number = _cnj(23)
+    await setup.create_lawsuit(user_id=setup.gestor.user_id, process_number=number)
+    publication_id = await make_publication(
+        setup.sessions,
+        setup.gestor.tenant_id,
+        process_number=number,
+        availability_date=date(2026, 12, 18),
+    )
+
+    routed = await route(setup.sessions, setup.gestor.tenant_id, publication_id)
+    assert routed.post_id is not None
+    post = await fetch_post(setup.sessions, setup.gestor.tenant_id, routed.post_id)
+
+    assert post.deadline_date == date(2027, 1, 27)
+
+
+async def test_apagar_a_configuracao_devolve_o_prazo_a_nulo(setup: RoutingSetup) -> None:
+    """Regra 5: o escritório volta atrás mandando `null`, e a intimação seguinte nasce
+    de novo sem prazo — o cálculo é opt-in em cada momento, não um caminho sem volta."""
+    await setup.set_deadline_days(15)
+    await setup.set_deadline_days(None)
+    number = _cnj(24)
+    await setup.create_lawsuit(user_id=setup.gestor.user_id, process_number=number)
+    publication_id = await make_publication(
+        setup.sessions, setup.gestor.tenant_id, process_number=number
+    )
+
+    routed = await route(setup.sessions, setup.gestor.tenant_id, publication_id)
+    assert routed.post_id is not None
+    post = await fetch_post(setup.sessions, setup.gestor.tenant_id, routed.post_id)
+
+    assert post.deadline_date is None
+    assert post.comments is not None and "padrão de intimações" not in post.comments
+
+
+async def test_configuracao_de_prazo_responde_vazia_antes_de_alguem_configurar(
+    setup: RoutingSetup,
+) -> None:
+    """Escritório novo responde 200 com os campos nulos, não 404: "não configurado" é um
+    estado do escritório, não um recurso inexistente."""
+    response = await setup.client.get(
+        "/api/v1/publications/deadline-settings", headers=setup.headers
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "default_deadline_days": None,
+        "count_in_business_days": True,
+        "updated_by": None,
+        "updated_at": None,
+    }
+
+
+async def test_configuracao_de_prazo_grava_quem_declarou(setup: RoutingSetup) -> None:
+    """Regra 6: prazo declarado por alguém é auditável; prazo adivinhado não é. O nome
+    de quem gravou fica na linha."""
+    await setup.set_deadline_days(10, business_days=False)
+
+    corpo = (
+        await setup.client.get("/api/v1/publications/deadline-settings", headers=setup.headers)
+    ).json()
+
+    assert corpo["default_deadline_days"] == 10
+    assert corpo["count_in_business_days"] is False
+    assert corpo["updated_by"] == str(setup.gestor.user_id)
+    assert corpo["updated_at"] is not None
+
+
+async def test_colaborador_le_mas_nao_declara_prazo(
+    setup: RoutingSetup, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Regra 6: o número passa a valer para toda intimação do escritório — quem declara
+    é GESTOR ou acima. Ler é de todo mundo: o advogado precisa saber de onde veio a data
+    na tarefa dele."""
+    colaborador = await make_user(tenant_id=setup.gestor.tenant_id, role=UserRole.COLABORADOR)
+    headers = _auth_header(colaborador)
+
+    leitura = await setup.client.get("/api/v1/publications/deadline-settings", headers=headers)
+    escrita = await setup.client.put(
+        "/api/v1/publications/deadline-settings",
+        json={"default_deadline_days": 15, "count_in_business_days": True},
+        headers=headers,
+    )
+
+    assert leitura.status_code == 200, leitura.text
+    assert escrita.status_code == 403, escrita.text
+
+
+async def test_prazo_fora_da_faixa_e_recusado(setup: RoutingSetup) -> None:
+    """Regra 7: 0 não é "sem prazo" (para isso existe `null`) e 400 dias não é prazo de
+    intimação — os dois são erro de digitação, e o lugar de barrá-los é a borda."""
+    for dias in (0, -5, 400):
+        response = await setup.client.put(
+            "/api/v1/publications/deadline-settings",
+            json={"default_deadline_days": dias, "count_in_business_days": True},
+            headers=setup.headers,
+        )
+        assert response.status_code == 422, f"{dias}: {response.text}"
+
+
+async def test_configuracao_de_prazo_nao_atravessa_tenant(
+    setup: RoutingSetup, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """CLAUDE.md §4: tabela nova, teste de isolamento obrigatório. O escritório B não vê
+    — nem herda — o prazo padrão que o escritório A declarou."""
+    await setup.set_deadline_days(15)
+    outro = await make_user(role=UserRole.GESTOR)
+
+    corpo = (
+        await setup.client.get(
+            "/api/v1/publications/deadline-settings", headers=_auth_header(outro)
+        )
+    ).json()
+
+    assert corpo["default_deadline_days"] is None
+    assert corpo["updated_by"] is None

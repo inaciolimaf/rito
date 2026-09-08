@@ -13,12 +13,14 @@ from app.domain.publications.exceptions import PublicationAlreadyExistsError
 from app.domain.publications.export import build_pdf, build_xlsx
 from app.domain.publications.models import (
     Publication,
+    PublicationDeadlineSettings,
     PublicationLawyer,
     PublicationRead,
     PublicationRecipient,
 )
 from app.domain.publications.repository import (
     PublicationCounts,
+    PublicationDeadlineSettingsRepository,
     PublicationFilterParams,
     PublicationLawyerRepository,
     PublicationReadRepository,
@@ -268,3 +270,39 @@ class PublicationService:
         )
         rows = await self._rows_for(list(items), current_user_id=current_user_id)
         return build_xlsx(rows) if format_ == "xlsx" else build_pdf(rows)
+
+
+class PublicationDeadlineSettingsService:
+    """Leitura e escrita do prazo padrão de intimação do escritório (spec 126, §5).
+
+    Duas operações e nenhuma regra escondida: o gestor declara quantos dias valem, e o
+    roteamento (`routing.py`) usa esse número. Quem grava fica registrado em
+    `updated_by` — é isso que separa um prazo auditável de um prazo adivinhado.
+    """
+
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
+        self.session = session
+        self.tenant_id = tenant_id
+        self.settings = PublicationDeadlineSettingsRepository(session)
+
+    async def get(self) -> PublicationDeadlineSettings | None:
+        return await self.settings.get_current()
+
+    async def update(
+        self, *, days: int | None, count_in_business_days: bool, user_id: uuid.UUID
+    ) -> PublicationDeadlineSettings:
+        """Grava a configuração, criando a linha do tenant na primeira vez."""
+        current = await self.settings.get_current()
+        if current is None:
+            current = PublicationDeadlineSettings(tenant_id=self.tenant_id)
+            self.session.add(current)
+        current.default_deadline_days = days
+        current.count_in_business_days = count_in_business_days
+        current.updated_by = user_id
+        await self.session.flush()
+        # `updated_at` tem `onupdate` no BANCO (`statement_timestamp()`): depois de um
+        # UPDATE o SQLAlchemy marca a coluna como expirada e só a recarrega quando
+        # alguém a lê — o que, no router, aconteceria fora do greenlet e estouraria
+        # `MissingGreenlet`. O refresh aqui é o await que falta.
+        await self.session.refresh(current)
+        return current

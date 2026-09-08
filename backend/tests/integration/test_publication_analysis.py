@@ -141,8 +141,10 @@ async def test_analise_gera_resumo_tipo_e_prazo_calculado(
     corpo = resposta.json()
     assert corpo["act_type"] == "intimacao_prazo"
     assert corpo["deadline_days"] == 15
-    # 5/8/2026 (quarta) + 15 dias úteis = 26/8/2026.
-    assert corpo["deadline_date"] == "2026-08-26"
+    # Disponibilizado em 5/8/2026 (quarta) → publicado em 6/8 (art. 224 §2) → 15 dias
+    # úteis a partir do dia 7 = 27/8/2026. A data andou um dia útil na spec 126, que
+    # acrescentou o passo disponibilização → publicação que faltava.
+    assert corpo["deadline_date"] == "2026-08-27"
     assert corpo["deadline_confidence"] == 0.93
     assert corpo["should_prefill_deadline"] is True
     assert "15 dias úteis" in corpo["reasoning"]
@@ -189,7 +191,7 @@ async def test_revisao_humana_aplica_o_prazo_na_tarefa(
         await set_tenant_context(session, user.tenant_id)
         tarefa = (await session.scalars(select(Post))).one()
         analise = (await session.scalars(select(PublicationAnalysis))).one()
-    assert tarefa.deadline_date == date(2026, 8, 26)
+    assert tarefa.deadline_date == date(2026, 8, 27)
     assert str(tarefa.lawsuit_id) == lawsuit_id
     assert analise.reviewed_by == user.user_id
     assert analise.reviewed_at is not None
@@ -211,7 +213,7 @@ async def test_confianca_baixa_nao_pre_preenche(
     )
 
     corpo = resposta.json()
-    assert corpo["deadline_date"] == "2026-08-26"  # a conta é feita
+    assert corpo["deadline_date"] == "2026-08-27"  # a conta é feita
     assert corpo["should_prefill_deadline"] is False  # mas o campo não nasce preenchido
 
 
@@ -320,7 +322,7 @@ async def test_correcao_humana_e_gravada(
 
     analise = await _analysis(app_session_factory, user)
     assert analise.human_correction == {
-        "deadline_date": {"suggested": "2026-08-26", "corrected": "2026-08-20"}
+        "deadline_date": {"suggested": "2026-08-27", "corrected": "2026-08-20"}
     }
     async with app_session_factory() as session, session.begin():
         await set_tenant_context(session, user.tenant_id)
@@ -449,8 +451,9 @@ async def test_prazo_atravessa_feriado_nacional_cadastrado(
         )
     ).json()
 
-    # 5 dias úteis a partir de 5/8 seriam 12/8; com o feriado, escorrega para 13/8.
-    assert corpo["deadline_date"] == "2026-08-13"
+    # Publicação em 6/8; 5 dias úteis seriam 13/8, e com o feriado de 12/8 no meio
+    # escorregam para 14/8.
+    assert corpo["deadline_date"] == "2026-08-14"
 
     async with admin_engine.begin() as conn:
         from sqlalchemy import text as sql_text

@@ -59,9 +59,10 @@ class TaskTypeResponse(BaseModel):
     show_in_schedule: bool
     is_system: bool
     is_active: bool
-    # Regra 9: derivada, nunca armazenada. Continua sempre None: o cálculo sobre
-    # `posts` nunca foi feito, mesmo com tarefas existindo desde a 032 — dívida nº 25,
-    # nomeada na spec 101 e fora do escopo dela (§3).
+    # Regra 9 da 031: derivada, nunca armazenada — `MAX(posts.created_at)` entre as
+    # tarefas deste tipo que têm responsável (spec 125). `None` quer dizer "nunca
+    # atribuído", e só isso: antes da 125 queria dizer "não calculado", que é o que tornava
+    # o campo pior que a ausência dele (dívida 25).
     last_assigned_at: datetime | None
     created_at: datetime
 

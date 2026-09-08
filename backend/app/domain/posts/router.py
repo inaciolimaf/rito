@@ -1,12 +1,15 @@
 import uuid
+from datetime import date
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.clock import Clock
 from app.core.http import get_or_404
 from app.core.permissions import UserRole, require_role
 from app.domain.auth.deps import get_clock, get_session_for_current_user
+from app.domain.posts.activities import ActivityService
 from app.domain.posts.completion import CompletePostUseCase
 from app.domain.posts.creation import CreatePostUseCase
 from app.domain.posts.detail import PostDetail
@@ -20,9 +23,14 @@ from app.domain.posts.exceptions import (
     SquadNotFoundError,
     TaskTypeNotFoundError,
 )
+from app.domain.posts.listing import ActivityListRow, status_of
 from app.domain.posts.models import Post, PostRecurrence
 from app.domain.posts.recurrence_service import RecurrenceService
 from app.domain.posts.schemas import (
+    ActivityExportRequest,
+    ActivityFiltersQuery,
+    ActivityListItemResponse,
+    ActivityListResponse,
     AssigneeResponse,
     PostCompleteRequest,
     PostCreateRequest,
@@ -45,6 +53,10 @@ _NOT_FOUND_DETAIL = "Tarefa não encontrada."
 _LAWSUIT_NOT_FOUND_DETAIL = "Processo não encontrado."
 _NOT_ASSIGNEE_DETAIL = "Só um responsável pela tarefa pode executar esta ação."
 _NO_RECURRENCE_DETAIL = "A tarefa não pertence a uma série de recorrência."
+_EXPORT_MEDIA_TYPES = {
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pdf": "application/pdf",
+}
 
 
 def _to_recurrence_response(recurrence: PostRecurrence) -> RecurrenceResponse:
@@ -183,6 +195,88 @@ async def create_post(
     ) as exc:
         _raise_reference_errors(exc)
     return _to_response(created)
+
+
+def _to_list_item(row: ActivityListRow, today: date) -> ActivityListItemResponse:
+    """A linha da tela de Atividades (spec 128). Tarefa privada de terceiro não chega
+    aqui: ela é filtrada no `WHERE` (regra 2), não redigida como no histórico do
+    processo — numa lista global, presença sem conteúdo é vazamento sem uso."""
+    post = row.post
+    return ActivityListItemResponse(
+        id=post.id,
+        lawsuit_id=post.lawsuit_id,
+        task_type_name=row.task_type_name,
+        process_number=row.process_number,
+        folder=row.folder,
+        scheduled_date=post.scheduled_date,
+        scheduled_time=post.scheduled_time,
+        deadline_date=post.deadline_date,
+        is_important=post.is_important,
+        is_urgent=post.is_urgent,
+        is_private=post.is_private,
+        status=status_of(row, today),
+        assignee_names=row.assignee_names,
+        assignees_total=row.assignees_total,
+        created_at=post.created_at,
+    )
+
+
+@router.get("/posts")
+async def list_activities(
+    # Os dez filtros chegam como um objeto só e o FastAPI os expande em query params com
+    # os mesmos nomes e defaults — o mesmo modelo viaja no corpo do export (spec 128).
+    filters: ActivityFiltersQuery = Depends(),
+    sort: Literal["scheduled_date", "deadline_date", "created_at"] = Query(
+        default="scheduled_date"
+    ),
+    order: Literal["asc", "desc"] = Query(default="asc"),
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=20, ge=1, le=100),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
+) -> ActivityListResponse:
+    service = ActivityService(session=session, tenant_id=current_user.tenant_id)
+    today = clock.today()
+    rows, next_cursor, total = await service.list_activities(
+        payload=filters,
+        viewer_id=current_user.id,
+        today=today,
+        sort=sort,
+        order=order,
+        cursor=cursor,
+        limit=limit,
+    )
+    items = [_to_list_item(row, today) for row in rows]
+    return ActivityListResponse(items=items, next_cursor=next_cursor, total=total)
+
+
+@router.post("/posts/export")
+async def export_activities(
+    payload: ActivityExportRequest,
+    sort: Literal["scheduled_date", "deadline_date", "created_at"] = Query(
+        default="scheduled_date"
+    ),
+    order: Literal["asc", "desc"] = Query(default="asc"),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
+) -> Response:
+    """Regra 7: respeita os filtros ativos, não a página visível."""
+    service = ActivityService(session=session, tenant_id=current_user.tenant_id)
+    content = await service.export(
+        payload=payload.filters,
+        viewer_id=current_user.id,
+        today=clock.today(),
+        sort=sort,
+        order=order,
+        format_=payload.format,
+    )
+    return Response(
+        content=content,
+        media_type=_EXPORT_MEDIA_TYPES[payload.format],
+        headers={"Content-Disposition": f'attachment; filename="atividades.{payload.format}"'},
+    )
 
 
 @router.get("/posts/{post_id}")

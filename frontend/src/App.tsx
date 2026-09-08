@@ -89,6 +89,9 @@ const PartnersPage = lazy(async () => ({
 const PostDetailPage = lazy(async () => ({
   default: (await import("@/features/posts/PostDetailPage")).PostDetailPage,
 }));
+const PostListPage = lazy(async () => ({
+  default: (await import("@/features/posts/PostListPage")).PostListPage,
+}));
 const PublicationListPage = lazy(async () => ({
   default: (await import("@/features/publications/PublicationListPage")).PublicationListPage,
 }));
@@ -189,13 +192,11 @@ export function App(): JSX.Element {
                       <Route path="/customers" element={<CustomerListPage />} />
                       <Route path="/lawsuits" element={<LawsuitsPage />} />
                       <Route path="/lawsuits/:id" element={<LawsuitDetailPage />} />
-                      {/* "Atividades" aponta para /posts desde a spec 008 e a rota nunca
-                          existiu — o item do menu caía no NotFoundPage, achado pelo
-                          meta-teste da spec 102. A LISTAGEM de atividades é tela que
-                          ninguém especificou (dívida nº 26); até ela existir, o item leva
-                          ao painel de tarefas em vez de a lugar nenhum. Mesmo padrão do
-                          atalho /goals logo acima. */}
-                      <Route path="/posts" element={<Navigate to="/home" replace />} />
+                      {/* Spec 128: a listagem de atividades passou a existir e a rota é
+                          real. O redirect para /home que a 102 pôs aqui era o contorno da
+                          dívida nº 26 — "Atividades" apontava para /posts desde a spec 008
+                          e a tela nunca tinha sido especificada. */}
+                      <Route path="/posts" element={<PostListPage />} />
                       <Route path="/posts/:id" element={<PostDetailPage />} />
                       <Route path="/schedules" element={<CalendarPage />} />
                       <Route path="/publications" element={<PublicationListPage />} />
@@ -211,6 +212,7 @@ export function App(): JSX.Element {
                           item.path !== "/subscription/account" &&
                           item.path !== "/customers" &&
                           item.path !== "/lawsuits" &&
+                          item.path !== "/posts" &&
                           item.path !== "/schedules" &&
                           item.path !== "/publications" &&
                           item.path !== "/crm" &&

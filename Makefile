@@ -1,4 +1,4 @@
-.PHONY: up down migrate seed dev test test-backend test-frontend test-e2e test-nightly seed-volume drop-volume lint
+.PHONY: up down migrate seed dev test test-backend test-frontend test-e2e test-nightly test-mutation seed-volume drop-volume lint
 
 up:
 	docker compose up -d --wait
@@ -54,6 +54,28 @@ test-nightly: seed-volume
 	@( cd backend && uv run pytest -m nightly -p no:randomly \
 		$(if $(PYTEST_ALLOW_HOSTS),--allow-hosts=$(PYTEST_ALLOW_HOSTS)) ); \
 		status=$$?; $(MAKE) drop-volume; exit $$status
+
+# Spec 132. Teste de mutação SOB DEMANDA — nunca no `make test` (CLAUDE.md §3): um módulo
+# custa minutos e o orçamento das três suítes é de 300 s. Fora do CI de PR e fora do
+# nightly, porque o vermelho dele precisa de classificação humana (§9.7 da spec 132).
+#
+#   make test-mutation MODULE=app/domain/ai/sql_guard.py TESTS=tests/unit/test_sql_guard.py
+#
+# TESTS é a suíte rápida (roda por mutante); CONFIRM_TESTS, opcional, é a suíte larga que
+# reconfere cada sobrevivente antes de ele virar linha do relatório.
+test-mutation:
+	@test -n "$(MODULE)" || { echo "uso: make test-mutation MODULE=app/... TESTS=tests/..."; exit 2; }
+	@test -n "$(TESTS)" || { echo "uso: make test-mutation MODULE=app/... TESTS=tests/..."; exit 2; }
+	@work=$$(mktemp -d); \
+		rsync -a --exclude '__pycache__' --exclude '.pytest_cache' \
+			backend/app backend/tests backend/alembic backend/scripts "$$work/"; \
+		cp backend/pyproject.toml backend/alembic.ini backend/.python-version "$$work/"; \
+		[ -f backend/.env ] && cp backend/.env "$$work/"; \
+		ln -s "$(CURDIR)/backend/.venv" "$$work/.venv"; \
+		( cd "$$work" && ./.venv/bin/python -m scripts.mutation --root "$$work" \
+			--module $(MODULE) --tests $(TESTS) \
+			$(if $(CONFIRM_TESTS),--confirm-tests $(CONFIRM_TESTS)) ); \
+		status=$$?; rm -rf "$$work"; exit $$status
 
 lint:
 	cd backend && uv run ruff check . && uv run black --check . && uv run mypy .

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -36,7 +37,15 @@ router = APIRouter(prefix="/task-types", tags=["task-types"])
 _NOT_FOUND_DETAIL = "Tipo de tarefa não encontrado."
 
 
-def _to_response(task_type: TaskType, step_name: str | None) -> TaskTypeResponse:
+def _to_response(
+    task_type: TaskType, step_name: str | None, last_assigned_at: datetime | None
+) -> TaskTypeResponse:
+    """Mapeador puro: a derivada da regra 9 CHEGA pronta, calculada no repositório.
+
+    Ela é parâmetro e não algo que este arquivo descubra porque router não faz query
+    (CLAUDE.md §5) — e porque foi exatamente aqui, num literal `None`, que o campo passou
+    93 specs mentindo (dívida 25).
+    """
     return TaskTypeResponse(
         id=task_type.id,
         name=task_type.name,
@@ -48,8 +57,7 @@ def _to_response(task_type: TaskType, step_name: str | None) -> TaskTypeResponse
         show_in_schedule=task_type.show_in_schedule,
         is_system=task_type.is_system,
         is_active=task_type.is_active,
-        # Regra 9: derivada — tarefas só existem na spec 032, até lá sempre None.
-        last_assigned_at=None,
+        last_assigned_at=last_assigned_at,
         created_at=task_type.created_at,
     )
 
@@ -67,7 +75,8 @@ async def _list_payload(
     cache pelo mesmo caminho.
 
     As 9 fases são catálogo GLOBAL — um dict em memória resolve o `step_name` de todos os
-    itens sem uma consulta por linha.
+    itens sem uma consulta por linha. A última atribuição de cada tipo (regra 9 da 031) já
+    vem da mesma consulta da listagem, pelo mesmo motivo.
     """
     items = await service.list_types(
         step_id=step_id, is_active=parse_active_status(status_), query=q
@@ -75,8 +84,12 @@ async def _list_payload(
     step_names = {step.id: step.name for step in await service.steps.list_all()}
     return TaskTypeListResponse(
         items=[
-            _to_response(item, step_names.get(item.step_id) if item.step_id is not None else None)
-            for item in items
+            _to_response(
+                item,
+                step_names.get(item.step_id) if item.step_id is not None else None,
+                last_assigned_at,
+            )
+            for item, last_assigned_at in items
         ],
         total=len(items),
     ).model_dump()
@@ -99,6 +112,11 @@ async def list_task_types(
     # Spec 098, regra 9: só a chamada SEM filtro é cacheada — é a que todo formulário de
     # tarefa faz, e é uma chave por escritório. Cachear a filtrada multiplicaria o espaço
     # de chaves pelo produto dos filtros possíveis, com taxa de acerto perto de zero.
+    #
+    # Spec 125: o payload cacheado passou a carregar `last_assigned_at`, que muda com a
+    # criação de TAREFA e não de tipo — invalidação por evento não alcança. O TTL de 5
+    # minutos é o teto do atraso, que é o contrato escrito em `core/cache.py`: a coluna é
+    # informativa e nenhuma decisão do sistema depende dela.
     if step_id is not None or status_ is not None or q:
         return TaskTypeListResponse.model_validate(await build_payload())
     return cast(
@@ -133,7 +151,12 @@ async def create_task_type(
         if task_type.step_id is not None
         else None
     )
-    return _to_response(task_type, step.name if step else None)
+    # Tipo recém-criado não tem tarefa nenhuma, e mesmo assim a resposta pergunta em vez
+    # de afirmar: uma constante escrita aqui é a dívida 25 nascendo de novo, e uma query
+    # num POST não disputa orçamento com listagem nenhuma.
+    return _to_response(
+        task_type, step.name if step else None, await service.last_assigned_at(task_type.id)
+    )
 
 
 @router.post("/suggest-reward")
@@ -188,7 +211,9 @@ async def update_task_type(
     step = (
         await service.steps.get_by_step_id(updated.step_id) if updated.step_id is not None else None
     )
-    return _to_response(updated, step.name if step else None)
+    return _to_response(
+        updated, step.name if step else None, await service.last_assigned_at(updated.id)
+    )
 
 
 @router.delete("/{task_type_id}", status_code=204)

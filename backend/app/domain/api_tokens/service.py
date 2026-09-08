@@ -13,7 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, text
+from sqlalchemy import Text, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.repository import BaseRepository
@@ -155,20 +155,32 @@ class ApiTokenService:
         return await self.requests.usage_by_route(since=datetime.now(UTC) - timedelta(days=days))
 
 
+# As colunas do `RETURNS TABLE` de `api_token_lookup` (migration 095), na ordem em que
+# ela as declara.
+COLUNAS_TOKEN_LOOKUP = (
+    "id",
+    "tenant_id",
+    "scopes",
+    "allowed_ips",
+    "expires_at",
+    "revoked_at",
+    "created_by",
+)
+
+
 async def lookup_token(session: AsyncSession, raw: str) -> dict[str, Any] | None:
     """Busca o token pelo hash SEM contexto de tenant.
 
     É a única consulta do sistema que não pode passar pelo RLS — o tenant é justamente o
     que ela descobre. Por isso ela vive numa função `SECURITY DEFINER` (mesmo padrão da
     079 para leitura entre escritórios), e não numa política afrouxada.
+
+    As colunas são as do `RETURNS TABLE` da migration 095 e vêm declaradas em
+    `COLUNAS_TOKEN_LOOKUP` — mesmo idioma do `PartnerGateway` (spec 127), conferido
+    contra o `pg_proc` pelo mesmo teste.
     """
-    linha = (
-        (
-            await session.execute(
-                text("SELECT * FROM api_token_lookup(:hash)"), {"hash": hash_token(raw)}
-            )
-        )
-        .mappings()
-        .first()
+    funcao = func.api_token_lookup(literal(hash_token(raw), Text())).table_valued(
+        *COLUNAS_TOKEN_LOOKUP
     )
+    linha = (await session.execute(select(funcao))).mappings().first()
     return dict(linha) if linha is not None else None

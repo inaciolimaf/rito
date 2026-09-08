@@ -26,14 +26,16 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from sqlalchemy import text
+from sqlalchemy import insert, literal, select
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from app.core.config import Settings, get_settings
 from app.core.db import create_engine_from_url
 from app.core.migrations import upgrade_with_lock
+from app.core.models import Tenant
 from app.core.provisioning import provision_tenant, seed_global_catalogs
 from app.core.security import hash_password
+from app.domain.users.models import FinancialAccess, User, UserRole
 
 
 def _admin_engine(settings: Settings) -> AsyncEngine:
@@ -91,23 +93,18 @@ async def _insert_tenant(
     entrar. Se qualquer passo falhar, nada fica — melhor não existir do que existir pela
     metade e alguém descobrir isso no primeiro login.
     """
-    await conn.execute(
-        text("INSERT INTO tenants (id, slug, name) VALUES (:id, :slug, :name)"),
-        {"id": tenant_id, "slug": args.slug, "name": args.name},
-    )
+    await conn.execute(insert(Tenant).values(id=tenant_id, slug=args.slug, name=args.name))
     criados = await provision_tenant(conn, tenant_id)
     await conn.execute(
-        text("""
-            INSERT INTO users (tenant_id, email, password_hash, name, role,
-                               financial_access, is_active)
-            VALUES (:tenant, :email, :hash, :nome, 'GESTOR', 'FULL', true)
-            """),
-        {
-            "tenant": tenant_id,
-            "email": args.admin_email,
-            "hash": hash_password(senha),
-            "nome": "Administrador",
-        },
+        insert(User).values(
+            tenant_id=tenant_id,
+            email=args.admin_email,
+            password_hash=hash_password(senha),
+            name="Administrador",
+            role=UserRole.GESTOR,
+            financial_access=FinancialAccess.FULL,
+            is_active=True,
+        )
     )
     return criados
 
@@ -137,9 +134,7 @@ async def _tenant_create(settings: Settings, args: argparse.Namespace) -> int:
     tenant_id = uuid.uuid4()
     try:
         async with engine.begin() as conn:
-            existente = await conn.scalar(
-                text("SELECT id FROM tenants WHERE slug = :slug"), {"slug": args.slug}
-            )
+            existente = await conn.scalar(select(Tenant.id).where(Tenant.slug == args.slug))
             if existente is not None:
                 print(f"escritório '{args.slug}' já existe ({existente})", file=sys.stderr)
                 return 1
@@ -155,9 +150,7 @@ async def _tenant_seed_defaults(settings: Settings, args: argparse.Namespace) ->
     engine = _admin_engine(settings)
     try:
         async with engine.begin() as conn:
-            tenant_id = await conn.scalar(
-                text("SELECT id FROM tenants WHERE slug = :slug"), {"slug": args.slug}
-            )
+            tenant_id = await conn.scalar(select(Tenant.id).where(Tenant.slug == args.slug))
             if tenant_id is None:
                 print(f"escritório '{args.slug}' não encontrado", file=sys.stderr)
                 return 1
@@ -182,7 +175,7 @@ async def _health(settings: Settings) -> int:
 
     async def postgres() -> object:
         async with engine.connect() as conn:
-            return await conn.execute(text("SELECT 1"))
+            return await conn.execute(select(literal(1)))
 
     resultados = await asyncio.gather(
         _probe("database", postgres),

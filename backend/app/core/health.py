@@ -18,7 +18,7 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
+from sqlalchemy import literal, select
 
 from app import __version__
 from app.core.config import get_settings
@@ -53,7 +53,7 @@ async def _probe(name: str, coro_factory: Callable[[], Awaitable[object]]) -> tu
 async def health_ready(request: Request) -> JSONResponse:
     async def postgres() -> object:
         async with request.app.state.session_factory() as session:
-            return await session.execute(text("SELECT 1"))
+            return await session.execute(select(literal(1)))
 
     async def redis() -> object:
         return await request.app.state.redis.ping()

@@ -8,10 +8,11 @@ workers/celery_app.py); a regra testada é a gravação, que mora no DbAuditSink
 
 import asyncio
 
-from sqlalchemy import delete, func, text
+from sqlalchemy import delete, func
 
 from app.core.bootstrap import migrations_url
 from app.core.db import create_engine_from_url
+from app.core.sql import days_interval
 from app.domain.external_requests.models import ExternalRequest
 from app.workers.celery_app import celery_app
 
@@ -31,8 +32,7 @@ async def _purge() -> int:
         async with engine.begin() as conn:
             result = await conn.execute(
                 delete(ExternalRequest).where(
-                    ExternalRequest.created_at
-                    < func.now() - text(f"interval '{RETENTION_DAYS} days'")
+                    ExternalRequest.created_at < func.now() - days_interval(RETENTION_DAYS)
                 )
             )
             return result.rowcount

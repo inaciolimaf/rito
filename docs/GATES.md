@@ -126,6 +126,7 @@ estoura.
 | Gate | O que reprova | Onde | Spec |
 |---|---|---|---|
 | Camadas | `select()` em router, router importando repositório, service importando integração concreta | `test_camadas.py` | 118 |
+| SQL em string | `text()` fora de `server_default=`, `exec_driver_sql`, `execute("<string>")` — query é montada pelo builder; 5 exceções nomeadas (DDL, comando de sessão e a SQL que o modelo escreve) | `test_sql_em_string.py` | 127 |
 | Registro do app | ordem dos middlewares, ordem de rotas ambíguas, router importado e não registrado, rota fora de `/api/v1` sem exceção | `test_app_registry.py` | 109 |
 | Corpo de worker fino | função de `app/workers/` acima do baseline por arquivo | `test_workers_finos.py` | 117 |
 | Imports pesados | biblioteca pesada no topo de módulo | `test_imports_pesados.py` | 104 |

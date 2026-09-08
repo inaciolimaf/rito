@@ -5,7 +5,7 @@ from datetime import date, time, timedelta
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import Text, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.invariants import not_none
@@ -59,6 +59,10 @@ class ScheduleEvent:
     assignee_names: list[str]
 
 
+# As colunas do `RETURNS TABLE` de `lookup_ical_feed` (migration 037).
+COLUNAS_ICAL_FEED = ("tenant_id", "user_id")
+
+
 async def resolve_feed_token(
     session: AsyncSession, token: str
 ) -> tuple[uuid.UUID, uuid.UUID] | None:
@@ -69,10 +73,8 @@ async def resolve_feed_token(
     (ver migration 037_ical). Depois do resolve, a sessão seta o tenant e o RLS
     vale normalmente para todo o resto.
     """
-    result = await session.execute(
-        text("SELECT tenant_id, user_id FROM lookup_ical_feed(:token)"), {"token": token}
-    )
-    row = result.first()
+    funcao = func.lookup_ical_feed(literal(token, Text())).table_valued(*COLUNAS_ICAL_FEED)
+    row = (await session.execute(select(funcao))).first()
     if row is None:
         return None
     return (row.tenant_id, row.user_id)

@@ -23,16 +23,22 @@ um, muda o outro.
 
 import asyncio
 import logging
+import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from time import monotonic
+from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import Row, delete, func, insert, select, table, text, update
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.config import get_settings
 from app.core.db import create_engine_from_url
 from app.core.materialized_view import MATERIALIZED_VIEWS
+from app.core.sql import days_interval
+from app.domain.aggregates.models import AggregateRefreshLog, AggregateRegistry
+from app.domain.integration_alerts.models import IntegrationAlert
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -67,42 +73,43 @@ class RefreshOutcome:
 
 
 async def _refresh_view(conn: AsyncConnection, name: str) -> None:
-    """Isolada para os testes simularem falha/lentidão sem tocar o banco."""
-    # Identificador de view não vai como bind param — o nome só vem do registry/
-    # MATERIALIZED_VIEWS, nunca de entrada externa (mesmo padrão do helper da 060).
+    """Isolada para os testes simularem falha/lentidão sem tocar o banco.
+
+    `REFRESH MATERIALIZED VIEW` é DDL: o query builder não a monta, e é por isso que esta
+    é uma das poucas linhas de SQL em string que a spec 127 deixou de pé (a lista inteira
+    está em `tests/meta/test_sql_em_string.py`). Identificador de view não vai como bind
+    param — o nome só vem do registry/MATERIALIZED_VIEWS, nunca de entrada externa (mesmo
+    padrão do helper da 060).
+    """
     await conn.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {name}"))
 
 
 async def _maybe_alert_slow_refresh(conn: AsyncConnection, name: str, duration_ms: int) -> None:
     """Regra 9: refresh > 60 s vira alerta de sistema (tenant_id NULL, como os
     alertas de config global da 046/049), deduplicado por view enquanto aberto."""
-    existing = await conn.execute(
-        text(
-            "SELECT 1 FROM integration_alerts "
-            "WHERE integration = :integration AND code = :code AND resolved_at IS NULL "
-            "AND message LIKE :pattern LIMIT 1"
-        ),
-        {
-            "integration": _SLOW_ALERT_INTEGRATION,
-            "code": _SLOW_ALERT_CODE,
-            "pattern": f"{name}:%",
-        },
+    aberto = (
+        select(IntegrationAlert.id)
+        .where(
+            IntegrationAlert.integration == _SLOW_ALERT_INTEGRATION,
+            IntegrationAlert.code == _SLOW_ALERT_CODE,
+            IntegrationAlert.resolved_at.is_(None),
+            IntegrationAlert.message.like(f"{name}:%"),
+        )
+        .limit(1)
     )
-    if existing.first() is not None:
+    if (await conn.execute(aberto)).first() is not None:
         return
     await conn.execute(
-        text(
-            "INSERT INTO integration_alerts (tenant_id, integration, severity, code, message) "
-            "VALUES (NULL, :integration, 'warning', :code, :message)"
-        ),
-        {
-            "integration": _SLOW_ALERT_INTEGRATION,
-            "code": _SLOW_ALERT_CODE,
-            "message": (
+        insert(IntegrationAlert).values(
+            tenant_id=None,
+            integration=_SLOW_ALERT_INTEGRATION,
+            severity="warning",
+            code=_SLOW_ALERT_CODE,
+            message=(
                 f"{name}: refresh levou {duration_ms // 1000} s "
                 f"(limite {SLOW_REFRESH_ALERT_SECONDS} s) — a view precisa de otimização."
             ),
-        },
+        )
     )
 
 
@@ -121,27 +128,28 @@ def _refresh_url(name: str, url: str | None) -> str:
     return resolved
 
 
-async def _record_failure(conn: AsyncConnection, name: str, log_id: int, exc: Exception) -> None:
+async def _record_failure(
+    conn: AsyncConnection, name: str, log_id: uuid.UUID, exc: Exception
+) -> None:
     """Regra 7: a falha é registrada nos DOIS lugares e o dado velho continua servindo.
 
     `last_refresh_at` não é tocado de propósito — a view ainda tem o conteúdo da última
     execução boa, e quem lê o painel precisa saber que ele está velho, não que sumiu.
     """
     await conn.execute(
-        text(
-            "UPDATE aggregate_refresh_log SET finished_at = now(), error = :error "
-            "WHERE id = :log_id"
-        ),
-        {"error": str(exc)[:500], "log_id": log_id},
+        update(AggregateRefreshLog)
+        .where(AggregateRefreshLog.id == log_id)
+        .values(finished_at=func.now(), error=str(exc)[:500])
     )
     await conn.execute(
-        text("UPDATE aggregate_registry SET last_error = :error WHERE name = :name"),
-        {"error": str(exc)[:500], "name": name},
+        update(AggregateRegistry)
+        .where(AggregateRegistry.name == name)
+        .values(last_error=str(exc)[:500])
     )
 
 
 async def _record_success(
-    conn: AsyncConnection, name: str, log_id: int, rows_affected: int, duration_ms: int
+    conn: AsyncConnection, name: str, log_id: uuid.UUID, rows_affected: int, duration_ms: int
 ) -> None:
     """Fecha o log e atualiza o registry — inclusive limpando o `last_error` anterior.
 
@@ -149,22 +157,18 @@ async def _record_success(
     o erro para sempre no painel, mesmo depois de voltar a atualizar.
     """
     await conn.execute(
-        text(
-            "UPDATE aggregate_refresh_log "
-            "SET finished_at = now(), rows_affected = :rows WHERE id = :log_id"
-        ),
-        {"rows": rows_affected, "log_id": log_id},
+        update(AggregateRefreshLog)
+        .where(AggregateRefreshLog.id == log_id)
+        .values(finished_at=func.now(), rows_affected=rows_affected)
     )
     await conn.execute(
-        text(
-            "UPDATE aggregate_registry SET last_refresh_at = now(), "
-            "last_refresh_duration_ms = :duration, last_error = NULL WHERE name = :name"
-        ),
-        {"duration": duration_ms, "name": name},
+        update(AggregateRegistry)
+        .where(AggregateRegistry.name == name)
+        .values(last_refresh_at=func.now(), last_refresh_duration_ms=duration_ms, last_error=None)
     )
 
 
-async def _refresh_and_log(conn: AsyncConnection, name: str, log_id: int) -> RefreshOutcome:
+async def _refresh_and_log(conn: AsyncConnection, name: str, log_id: uuid.UUID) -> RefreshOutcome:
     """Recarrega a view, mede quanto levou e registra o desfecho.
 
     A falha é gravada ANTES de subir (regra 7): `last_refresh_at` fica como estava e o dado
@@ -178,12 +182,11 @@ async def _refresh_and_log(conn: AsyncConnection, name: str, log_id: int) -> Ref
         await _record_failure(conn, name, log_id, exc)
         raise
     duration_ms = int((monotonic() - started) * 1000)
-    # `# noqa: S608`: `name` é validado contra `_KNOWN_VIEWS` na entrada de
-    # `refresh_aggregate` — só passa nome que está em `MATERIALIZED_VIEWS`. Identificador
-    # não vai como bind param; a allowlist é a defesa real.
-    rows_affected = (
-        await conn.execute(text(f"SELECT count(*) FROM {name}"))  # noqa: S608
-    ).scalar_one()
+    # `table(name)` em vez de f-string (spec 127): o nome da view é um IDENTIFICADOR, e o
+    # builder o cita como tal em vez de concatená-lo num texto. A defesa real continua
+    # sendo a allowlist — `name` é validado contra `_KNOWN_VIEWS` na entrada de
+    # `refresh_aggregate` —, mas agora o `S608` do Bandit não tem o que apontar.
+    rows_affected = (await conn.execute(select(func.count()).select_from(table(name)))).scalar_one()
     await _record_success(conn, name, log_id, rows_affected, duration_ms)
     if duration_ms > SLOW_REFRESH_ALERT_SECONDS * 1000:
         await _maybe_alert_slow_refresh(conn, name, duration_ms)
@@ -202,13 +205,37 @@ async def refresh_aggregate(name: str, url: str | None = None) -> RefreshOutcome
             await conn.execution_options(isolation_level="AUTOCOMMIT")
             log_id = (
                 await conn.execute(
-                    text("INSERT INTO aggregate_refresh_log (name) VALUES (:name) RETURNING id"),
-                    {"name": name},
+                    insert(AggregateRefreshLog).values(name=name).returning(AggregateRefreshLog.id)
                 )
             ).scalar_one()
             return await _refresh_and_log(conn, name, log_id)
         finally:
             await conn.close()
+    finally:
+        await engine.dispose()
+
+
+async def _enabled_registry(url: str) -> Sequence[Row[Any]]:
+    """As views ligadas no registry, com o intervalo e a hora do último refresh.
+
+    Numa conexão à parte, fechada antes do primeiro refresh: `refresh_aggregate` abre a
+    sua própria (precisa de AUTOCOMMIT), e segurar esta durante os N refreshes seria uma
+    conexão de superusuário parada pelo tempo inteiro do beat.
+    """
+    engine = create_engine_from_url(url)
+    try:
+        async with engine.connect() as conn:
+            return (
+                await conn.execute(
+                    select(
+                        AggregateRegistry.name,
+                        AggregateRegistry.refresh_interval_seconds,
+                        AggregateRegistry.last_refresh_at,
+                    )
+                    .where(AggregateRegistry.is_enabled)
+                    .order_by(AggregateRegistry.name)
+                )
+            ).all()
     finally:
         await engine.dispose()
 
@@ -220,19 +247,7 @@ async def refresh_due_aggregates(url: str | None = None) -> list[str]:
     resolved = url or get_settings().migrations_database_url
     if resolved is None:
         raise RuntimeError("MIGRATIONS_DATABASE_URL não configurada para o refresh.")
-    engine = create_engine_from_url(resolved)
-    try:
-        async with engine.connect() as conn:
-            rows = (
-                await conn.execute(
-                    text(
-                        "SELECT name, refresh_interval_seconds, last_refresh_at "
-                        "FROM aggregate_registry WHERE is_enabled ORDER BY name"
-                    )
-                )
-            ).all()
-    finally:
-        await engine.dispose()
+    rows = await _enabled_registry(resolved)
     now = datetime.now(UTC)
     refreshed: list[str] = []
     for name, interval_seconds, last_refresh_at in rows:
@@ -294,13 +309,13 @@ async def purge_refresh_log(url: str | None = None) -> int:
     try:
         async with engine.begin() as conn:
             # Spec 115: a retenção ia interpolada no SQL. `make_interval` aceita o número
-            # como parâmetro ligado, então nada mais é montado por string aqui.
+            # como parâmetro ligado, então nada mais é montado por string aqui — e desde a
+            # 127 nem o comando é, `days_interval` é o mesmo `make_interval` pelo builder.
             result = await conn.execute(
-                text(
-                    "DELETE FROM aggregate_refresh_log "
-                    "WHERE started_at < now() - make_interval(days => :dias)"
-                ),
-                {"dias": REFRESH_LOG_RETENTION_DAYS},
+                delete(AggregateRefreshLog).where(
+                    AggregateRefreshLog.started_at
+                    < func.now() - days_interval(REFRESH_LOG_RETENTION_DAYS)
+                )
             )
             return int(result.rowcount)
     finally:

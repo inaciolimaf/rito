@@ -20,15 +20,41 @@ isto é, incapaz de cadastrar um processo.
 
 import logging
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import (
+    Boolean,
+    ColumnElement,
+    Integer,
+    Text,
+    and_,
+    cast,
+    exists,
+    literal,
+    select,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, insert
+from sqlalchemy.dialects.postgresql import ENUM as PGENUM
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.ext.asyncio import AsyncConnection
+from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.sql.functions import func
 
 from app.core import tenant_catalog
+from app.domain.action_groups.models import ActionGroup, LawsuitType
+from app.domain.customer_origins.models import CustomerOrigin
+from app.domain.financial.models import CostCenter, EntryType, FinancialCategory
 from app.domain.legal_agents.catalog import AGENT_SEEDS
+from app.domain.legal_agents.models import LegalAgent
+from app.domain.stages.models import Stage, Step
+from app.domain.task_types.models import TaskType
 
 logger = logging.getLogger("rito.provisioning")
+
+# `entry_type` já existe no banco (migration 054) — este é só o tipo do CAST.
+_ENTRY_TYPE = PGENUM(EntryType, name="entry_type", create_type=False)
 
 
 @dataclass(frozen=True)
@@ -43,6 +69,22 @@ class SeedResult:
         return self.legal_agents
 
 
+def _tenant(tenant_id: uuid.UUID) -> ColumnElement[uuid.UUID]:
+    """O `tenant_id` como parâmetro ligado e TIPADO.
+
+    O tipo é obrigatório: sem ele o asyncpg recebe um UUID cru para uma coluna `uuid` e
+    não tem como inferir o tipo do parâmetro dentro de um `INSERT ... SELECT`, onde não
+    existe coluna de destino para guiá-lo.
+    """
+    return literal(tenant_id, PGUUID(as_uuid=True))
+
+
+def _sem_acento(nome: InstrumentedAttribute[str]) -> ColumnElement[str]:
+    """`immutable_unaccent(lower(name))` — a expressão dos índices únicos de taxonomia
+    (spec 102), e portanto o alvo de todo `ON CONFLICT` daqui."""
+    return func.immutable_unaccent(func.lower(nome))
+
+
 async def seed_global_catalogs(conn: AsyncConnection) -> SeedResult:
     """Regra 7: idempotente, roda no boot.
 
@@ -54,22 +96,21 @@ async def seed_global_catalogs(conn: AsyncConnection) -> SeedResult:
     """
     inseridos = 0
     for seed in AGENT_SEEDS:
+        prompt = seed.system_prompt()
+        ja_existe = exists(
+            select(literal(1)).where(LegalAgent.tenant_id.is_(None), LegalAgent.code == seed.code)
+        )
         resultado = await conn.execute(
-            text("""
-                INSERT INTO legal_agents
-                    (code, name, practice_area, system_prompt, original_system_prompt)
-                SELECT :code, :name, :area, :prompt, :prompt
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM legal_agents
-                     WHERE tenant_id IS NULL AND code = :code
-                )
-                """),
-            {
-                "code": seed.code,
-                "name": seed.name,
-                "area": seed.practice_area,
-                "prompt": seed.system_prompt(),
-            },
+            insert(LegalAgent).from_select(
+                ["code", "name", "practice_area", "system_prompt", "original_system_prompt"],
+                select(
+                    literal(seed.code),
+                    literal(seed.name),
+                    literal(seed.practice_area),
+                    literal(prompt),
+                    literal(prompt),
+                ).where(~ja_existe),
+            )
         )
         inseridos += resultado.rowcount or 0
     if inseridos:
@@ -91,37 +132,54 @@ async def seed_global_catalogs(conn: AsyncConnection) -> SeedResult:
 # Nenhum vem de fora — são constantes de migration —, mas a forma da interpolação é a da
 # injeção, e um apóstrofo num nome de taxonomia («Ação de Cobrança d'Água») quebraria a
 # query.
+#
+# Spec 127: o `unnest` continua, agora montado pelo query builder — `func.unnest(...)
+# .table_valued(...)` é a mesma coisa que `unnest(...) AS t(col, col)`, com a vantagem de
+# que os nomes das colunas passam a ser identificadores Python que o `mypy` confere.
+
+
+def _unnest(*colunas: tuple[str, Sequence[Any], Any]) -> Any:
+    """`unnest(:a, :b) AS t(nome_a, nome_b)` — cada coluna é (nome, valores, tipo).
+
+    `render_derived()` é o que faz o SQLAlchemy EMITIR a lista de colunas do alias. Sem
+    ele o `.c.<nome>` existe do lado Python e o Postgres não conhece a coluna.
+    """
+    arrays = [literal(valores, ARRAY(tipo)) for _nome, valores, tipo in colunas]
+    return func.unnest(*arrays).table_valued(*[nome for nome, _v, _t in colunas]).render_derived()
 
 
 async def _seed_action_groups(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
+    grupos = _unnest(("name", list(tenant_catalog.action_groups()), Text))
     resultado = await conn.execute(
-        text("""
-            INSERT INTO action_groups (tenant_id, name)
-            SELECT :tenant, g.name FROM unnest(CAST(:grupos AS text[])) AS g(name)
-            ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
-            """),
-        {"tenant": tenant_id, "grupos": list(tenant_catalog.action_groups())},
+        insert(ActionGroup)
+        .from_select(["tenant_id", "name"], select(_tenant(tenant_id), grupos.c.name))
+        .on_conflict_do_nothing(
+            index_elements=[ActionGroup.tenant_id, _sem_acento(ActionGroup.name)]
+        )
     )
     return resultado.rowcount or 0
 
 
 async def _seed_lawsuit_types(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     tipos = list(tenant_catalog.lawsuit_types())
+    t = _unnest(
+        ("type_name", [tipo for tipo, _grupo in tipos], Text),
+        ("group_name", [grupo for _tipo, grupo in tipos], Text),
+    )
+    origem = (
+        select(_tenant(tenant_id), ActionGroup.id, t.c.type_name)
+        .select_from(t)
+        .join(
+            ActionGroup,
+            and_(ActionGroup.tenant_id == _tenant(tenant_id), ActionGroup.name == t.c.group_name),
+        )
+    )
     resultado = await conn.execute(
-        text("""
-            INSERT INTO lawsuit_types (tenant_id, action_group_id, name)
-            SELECT :tenant, ag.id, t.type_name
-            FROM unnest(CAST(:nomes AS text[]), CAST(:grupos AS text[]))
-                 AS t(type_name, group_name)
-            JOIN action_groups ag
-              ON ag.tenant_id = :tenant AND ag.name = t.group_name
-            ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
-            """),
-        {
-            "tenant": tenant_id,
-            "nomes": [tipo for tipo, _grupo in tipos],
-            "grupos": [grupo for _tipo, grupo in tipos],
-        },
+        insert(LawsuitType)
+        .from_select(["tenant_id", "action_group_id", "name"], origem)
+        .on_conflict_do_nothing(
+            index_elements=[LawsuitType.tenant_id, _sem_acento(LawsuitType.name)]
+        )
     )
     return resultado.rowcount or 0
 
@@ -130,82 +188,70 @@ async def _seed_stages(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     """`position` vem da ordem da lista: as 59 etapas têm ordem definida pela 015, e
     embaralhá-las mudaria o funil que o escritório vê na primeira abertura do CRM."""
     etapas = list(enumerate(tenant_catalog.stages(), start=1))
+    e = _unnest(
+        ("nome", [etapa for _pos, (etapa, _fase) in etapas], Text),
+        ("fase", [fase for _pos, (_etapa, fase) in etapas], Text),
+        ("posicao", [pos for pos, _ in etapas], Integer),
+    )
+    origem = (
+        select(_tenant(tenant_id), Step.id, e.c.nome, e.c.posicao)
+        .select_from(e)
+        .join(Step, Step.name == e.c.fase)
+    )
     resultado = await conn.execute(
-        text("""
-            INSERT INTO stages (tenant_id, step_id, name, position)
-            SELECT :tenant, s.id, e.nome, e.posicao
-            FROM unnest(
-                     CAST(:nomes AS text[]),
-                     CAST(:fases AS text[]),
-                     CAST(:posicoes AS int[])
-                 ) AS e(nome, fase, posicao)
-            JOIN steps s ON s.name = e.fase
-            ON CONFLICT (tenant_id, step_id, immutable_unaccent(lower(name))) DO NOTHING
-            """),
-        {
-            "tenant": tenant_id,
-            "nomes": [etapa for _pos, (etapa, _fase) in etapas],
-            "fases": [fase for _pos, (_etapa, fase) in etapas],
-            "posicoes": [pos for pos, _ in etapas],
-        },
+        insert(Stage)
+        .from_select(["tenant_id", "step_id", "name", "position"], origem)
+        .on_conflict_do_nothing(
+            index_elements=[Stage.tenant_id, Stage.step_id, _sem_acento(Stage.name)]
+        )
     )
     return resultado.rowcount or 0
 
 
 async def _seed_customer_origins(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
+    origens = _unnest(("name", list(tenant_catalog.customer_origins()), Text))
     resultado = await conn.execute(
-        text("""
-            INSERT INTO customer_origins (tenant_id, name)
-            SELECT :tenant, o.name FROM unnest(CAST(:origens AS text[])) AS o(name)
-            ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
-            """),
-        {"tenant": tenant_id, "origens": list(tenant_catalog.customer_origins())},
+        insert(CustomerOrigin)
+        .from_select(["tenant_id", "name"], select(_tenant(tenant_id), origens.c.name))
+        .on_conflict_do_nothing(
+            index_elements=[CustomerOrigin.tenant_id, _sem_acento(CustomerOrigin.name)]
+        )
     )
     return resultado.rowcount or 0
 
 
 async def _seed_task_types(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     tarefas = list(tenant_catalog.task_types())
+    t = _unnest(
+        ("nome", [nome for nome, _p, _s in tarefas], Text),
+        ("pontos", [pontos for _n, pontos, _s in tarefas], Integer),
+        ("sistemica", [sistemica for _n, _p, sistemica in tarefas], Boolean),
+    )
+    origem = select(_tenant(tenant_id), t.c.nome, t.c.pontos, t.c.sistemica)
     resultado = await conn.execute(
-        text("""
-            INSERT INTO task_types (tenant_id, name, reward, is_system)
-            SELECT :tenant, t.nome, t.pontos, t.sistemica
-            FROM unnest(
-                     CAST(:nomes AS text[]),
-                     CAST(:pontos AS numeric[]),
-                     CAST(:sistemicas AS boolean[])
-                 ) AS t(nome, pontos, sistemica)
-            ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
-            """),
-        {
-            "tenant": tenant_id,
-            "nomes": [nome for nome, _p, _s in tarefas],
-            "pontos": [pontos for _n, pontos, _s in tarefas],
-            "sistemicas": [sistemica for _n, _p, sistemica in tarefas],
-        },
+        insert(TaskType)
+        .from_select(["tenant_id", "name", "reward", "is_system"], origem)
+        .on_conflict_do_nothing(index_elements=[TaskType.tenant_id, _sem_acento(TaskType.name)])
     )
     return resultado.rowcount or 0
 
 
 async def _seed_financial_categories(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     categorias = list(tenant_catalog.financial_categories())
+    c = _unnest(
+        ("nome", [nome for nome, _t, _g in categorias], Text),
+        ("tipo", [tipo for _n, tipo, _g in categorias], Text),
+        ("grupo", [grupo for _n, _t, grupo in categorias], Integer),
+    )
+    origem = select(
+        _tenant(tenant_id), c.c.grupo, c.c.nome, cast(c.c.tipo, _ENTRY_TYPE), literal(True)
+    )
     resultado = await conn.execute(
-        text("""
-            INSERT INTO financial_categories (tenant_id, dre_group_id, name, type, is_default)
-            SELECT :tenant, c.grupo, c.nome, c.tipo::entry_type, true
-            FROM unnest(
-                     CAST(:nomes AS text[]),
-                     CAST(:tipos AS text[]),
-                     CAST(:grupos AS int[])
-                 ) AS c(nome, tipo, grupo)
-            ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
-            """),
-        {
-            "tenant": tenant_id,
-            "nomes": [nome for nome, _t, _g in categorias],
-            "tipos": [tipo for _n, tipo, _g in categorias],
-            "grupos": [grupo for _n, _t, grupo in categorias],
-        },
+        insert(FinancialCategory)
+        .from_select(["tenant_id", "dre_group_id", "name", "type", "is_default"], origem)
+        .on_conflict_do_nothing(
+            index_elements=[FinancialCategory.tenant_id, _sem_acento(FinancialCategory.name)]
+        )
     )
     return resultado.rowcount or 0
 
@@ -213,12 +259,9 @@ async def _seed_financial_categories(conn: AsyncConnection, tenant_id: uuid.UUID
 async def _seed_default_cost_center(conn: AsyncConnection, tenant_id: uuid.UUID) -> int:
     """Um centro de custo padrão para o escritório poder lançar despesa no primeiro dia."""
     resultado = await conn.execute(
-        text("""
-            INSERT INTO cost_centers (tenant_id, name, is_default)
-            VALUES (:tenant, 'GERAL', true)
-            ON CONFLICT (tenant_id, immutable_unaccent(lower(name))) DO NOTHING
-            """),
-        {"tenant": tenant_id},
+        insert(CostCenter)
+        .values(tenant_id=tenant_id, name="GERAL", is_default=True)
+        .on_conflict_do_nothing(index_elements=[CostCenter.tenant_id, _sem_acento(CostCenter.name)])
     )
     return resultado.rowcount or 0
 

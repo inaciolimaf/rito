@@ -1414,6 +1414,37 @@ português. Sem esse teste a dívida volta na próxima spec que editar `core/`.
 
 ---
 
+## 41. `test_cartao_mostra_fatura_nao_saldo` é um teste com data fixa, e a data venceu
+
+Encontrado na spec 127, no HEAD limpo, ANTES de qualquer alteração — a medição de baseline
+da refatoração deu `1 failed, 1625 passed`, e a falha não tem nada a ver com SQL.
+
+O teste lança uma despesa de cartão com `due_date="2026-08-20"` e espera que ela apareça na
+fatura corrente do cartão (ciclo dia 5, vencimento dia 15). `card_cycle_range` calcula a
+janela a partir de **hoje**; a data do lançamento é uma constante. Enquanto "hoje" esteve
+dentro do ciclo de agosto/2026, o teste passou. Depois de 5 de setembro de 2026, a despesa
+saiu da janela e `balance` virou `0.0`.
+
+**Por que isto é pior que um teste quebrado:** ele não quebrou por regressão, quebrou pela
+passagem do tempo, e vai continuar quebrado para sempre. Quem encontrar a falha daqui a três
+specs vai investigar o cálculo de fatura — que está certo. É a mesma família da dívida 32
+(timestamp UTC comparado com data do escritório) e da 31 (`func.now()` constante na
+transação): **teste que depende de quando roda**.
+
+Não foi corrigido na 127 porque a 127 é refatoração e não muda comportamento — e mexer numa
+asserção de fatura para fazer o vermelho sumir seria exatamente o tipo de conserto que a
+regra de "testes existentes continuam passando sem edição" existe para impedir.
+
+**Correção:** a data do lançamento deve ser derivada do relógio do teste
+(`card_cycle_range(cycle_day, hoje)`), não escrita à mão — o `tests/clock.py` já existe para
+isso. Vale varrer o resto da suíte pela mesma assinatura: literal de data no corpo de um
+teste que compara com "hoje".
+
+**Spec-alvo:** spec própria de correção, junto de qualquer trabalho que toque o financeiro.
+Não entra numa de refatoração: mudar a asserção MUDA o que o teste afirma.
+
+---
+
 ### Nota de método: número de spec é recurso reservado
 
 Duas specs seguidas (122 e 123) tomaram um número que uma dívida já apontava — a 18 (prazo

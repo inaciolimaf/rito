@@ -11,13 +11,14 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import ColumnElement, Row, Select, and_, func, literal, or_, select, text
+from sqlalchemy import ColumnElement, Row, Select, and_, false, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.selectable import ScalarSelect, Subquery
 
 from app.core.listing import QuickViews, date_range, datetime_range, paginate_keyset
+from app.core.sql import days_interval
 from app.domain.action_groups.models import ActionGroup, LawsuitType
 from app.domain.customers.models import Customer
 from app.domain.lawsuits.models import (
@@ -35,7 +36,7 @@ def _idle(days: int) -> ColumnElement[bool]:
     # Regra 3: parado há N dias ou nunca movimentado.
     return or_(
         Lawsuit.last_movement_at.is_(None),
-        Lawsuit.last_movement_at < func.now() - text(f"interval '{days} days'"),
+        Lawsuit.last_movement_at < func.now() - days_interval(days),
     )
 
 
@@ -47,8 +48,8 @@ LAWSUIT_VIEWS = QuickViews(
         "all": lambda: None,
         # Regra 2: ativo = não arquivado (visibilidade) E sem data de arquivamento (fato).
         "active": lambda: and_(Lawsuit.is_archived.is_(False), Lawsuit.archived_date.is_(None)),
-        "moved_30d": lambda: Lawsuit.last_movement_at >= func.now() - text("interval '30 days'"),
-        "moved_7d": lambda: Lawsuit.last_movement_at >= func.now() - text("interval '7 days'"),
+        "moved_30d": lambda: Lawsuit.last_movement_at >= func.now() - days_interval(30),
+        "moved_7d": lambda: Lawsuit.last_movement_at >= func.now() - days_interval(7),
         "moved_today": lambda: Lawsuit.last_movement_at >= func.date_trunc("day", func.now()),
         "never_captured": lambda: Lawsuit.last_movement_at.is_(None),
         "idle_30d": lambda: _idle(30),
@@ -248,7 +249,7 @@ def _text_search(q: str) -> ColumnElement[bool]:
         _party_exists(func.unaccent(func.lower(Customer.name)).ilike(party_pattern)),
         Lawsuit.protocol_number.ilike(pattern),
         Lawsuit.folder.ilike(pattern),
-        Lawsuit.process_number.ilike(f"%{digits}%") if digits else text("false"),
+        Lawsuit.process_number.ilike(f"%{digits}%") if digits else false(),
     )
 
 

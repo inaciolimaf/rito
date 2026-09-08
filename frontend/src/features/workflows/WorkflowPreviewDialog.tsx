@@ -29,7 +29,11 @@ export interface WorkflowPreviewDialogProps {
     workflowId: string,
     lawsuitId: string,
     confirmDuplicate: boolean,
-  ) => Promise<ApplyResult>;
+  ) => Promise<ApplyResult & { application_id?: string }>;
+  /** Spec 138, regra 8: quando o endpoint devolve `application_id` (o fluxo do CRM), a
+   * aplicação pode ser desfeita por uma hora — regra 5 da spec 053. Sem isto, a rota de
+   * desfazer existia no backend e não existia em lugar nenhum da interface. */
+  undoFn?: (applicationId: string) => Promise<void>;
   /** Spec 053, regra 6: "não sugerir novamente" — só existe no fluxo de sugestão. */
   onSuppress?: () => void;
 }
@@ -58,6 +62,7 @@ export function WorkflowPreviewDialog({
   workflowName,
   lawsuit = null,
   applyFn = applyWorkflow,
+  undoFn,
   onSuppress,
 }: WorkflowPreviewDialogProps): JSX.Element {
   const queryClient = useQueryClient();
@@ -65,12 +70,15 @@ export function WorkflowPreviewDialog({
   const [appliedMessage, setAppliedMessage] = React.useState<string | null>(null);
   const [applying, setApplying] = React.useState(false);
   const [applyError, setApplyError] = React.useState<string | null>(null);
+  const [applicationId, setApplicationId] = React.useState<string | null>(null);
+  const [undoing, setUndoing] = React.useState(false);
 
   React.useEffect(() => {
     if (open) {
       setSelected(lawsuit);
       setAppliedMessage(null);
       setApplyError(null);
+      setApplicationId(null);
     } else {
       setSelected(null);
     }
@@ -88,6 +96,7 @@ export function WorkflowPreviewDialog({
     setApplyError(null);
     try {
       const result = await applyFn(workflowId, selected.id, confirmDuplicate);
+      setApplicationId(result.application_id ?? null);
       setAppliedMessage(
         `${result.created} tarefa(s) criada(s)${result.skipped.length > 0 ? `, ${result.skipped.length} etapa(s) pulada(s)` : ""}.`,
       );
@@ -105,6 +114,27 @@ export function WorkflowPreviewDialog({
     }
   }
 
+  async function handleUndo(): Promise<void> {
+    if (!undoFn || !applicationId) return;
+    setUndoing(true);
+    setApplyError(null);
+    try {
+      await undoFn(applicationId);
+      setApplicationId(null);
+      setAppliedMessage("Aplicação desfeita — as tarefas criadas foram removidas.");
+      await queryClient.invalidateQueries({ queryKey: ["lawsuit-posts"] });
+      await queryClient.invalidateQueries({ queryKey: ["posts"] });
+    } catch (error) {
+      // Regra 5 da spec 053: passada a hora, ou com alguma tarefa já concluída, o
+      // backend recusa e explica no `detail` — que é o que o usuário precisa ler.
+      setApplyError(
+        error instanceof ApiError ? error.message : "Não foi possível desfazer a aplicação.",
+      );
+    } finally {
+      setUndoing(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -114,9 +144,22 @@ export function WorkflowPreviewDialog({
         </DialogDescription>
 
         {appliedMessage ? (
-          <p data-testid="workflow-applied-message" className="text-sm text-success">
-            {appliedMessage}
-          </p>
+          <div className="space-y-2">
+            <p data-testid="workflow-applied-message" className="text-sm text-success">
+              {appliedMessage}
+            </p>
+            {applyError && <p className="text-sm text-danger">{applyError}</p>}
+            {undoFn && applicationId && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={undoing}
+                onClick={() => void handleUndo()}
+              >
+                Desfazer aplicação
+              </Button>
+            )}
+          </div>
         ) : (
           <>
             {!selected && (

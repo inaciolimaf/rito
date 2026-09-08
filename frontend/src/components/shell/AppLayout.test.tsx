@@ -60,4 +60,14 @@ describe("AppLayout", () => {
     expect(within(screen.getByRole("main")).getByText("Contatos")).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /contatos/i })).toHaveLength(1);
   });
+
+  it("rota que exige capability mostra 'sem permissão' com o menu ao lado (spec 138, regra 9)", () => {
+    // O usuário do mock não tem `financial.read`. Chegar por link direto ao financeiro
+    // mostrava, até aqui, erro genérico da API — nunca a explicação.
+    renderApp("/transactions");
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Você não tem acesso a esta área.");
+    // O shell continua: quem não pode ver esta tela precisa conseguir ir para outra.
+    expect(screen.getByRole("navigation", { name: "Navegação principal" })).toBeInTheDocument();
+  });
 });

@@ -3,7 +3,9 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
+import noDangerousHtml from "./eslint-rules/no-dangerous-html.js";
 import noLiteralTailwindColor from "./eslint-rules/no-literal-tailwind-color.js";
+import noLoadingWithoutError from "./eslint-rules/no-loading-without-error.js";
 
 export default tseslint.config(
   { ignores: ["dist", ".vite", "node_modules"] },
@@ -17,12 +19,20 @@ export default tseslint.config(
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
-      rito: { rules: { "no-literal-tailwind-color": noLiteralTailwindColor } },
+      rito: {
+        rules: {
+          "no-dangerous-html": noDangerousHtml,
+          "no-literal-tailwind-color": noLiteralTailwindColor,
+          "no-loading-without-error": noLoadingWithoutError,
+        },
+      },
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "rito/no-dangerous-html": "error",
       "rito/no-literal-tailwind-color": "error",
+      "rito/no-loading-without-error": "error",
     },
   },
 );

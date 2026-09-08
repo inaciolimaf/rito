@@ -59,6 +59,37 @@ def test_eq_com_booleano_de_um_lado_compara_como_booleano() -> None:
     assert evaluate({"field": "ativo", "op": "eq", "value": True}, {"ativo": 0}) is False
 
 
+def test_o_texto_false_nao_casa_com_o_booleano_verdadeiro() -> None:
+    """Dívida 44, fechada na spec 136.
+
+    `bool("false")` é `True` — toda string não vazia é —, então a comparação antiga
+    (`bool(atual) is bool(esperado)`) fazia `{op: "eq", value: "false"}` CASAR com um campo
+    cujo valor era `True`. A automação disparava exatamente ao contrário do que o gestor
+    configurou, em silêncio, dentro do produto que vende prazo.
+
+    Alcançável pela API: `condition` é `dict[str, Any]` e o payload de
+    `POST /automations/{id}/simulate` também — os dois lados são digitados por quem usa.
+    """
+    assert evaluate({"field": "urgente", "op": "eq", "value": "false"}, {"urgente": True}) is False
+    assert evaluate({"field": "urgente", "op": "eq", "value": "false"}, {"urgente": False}) is True
+    assert evaluate({"field": "urgente", "op": "eq", "value": "true"}, {"urgente": True}) is True
+    assert evaluate({"field": "urgente", "op": "eq", "value": "true"}, {"urgente": False}) is False
+    # A volta: booleano do lado do valor e texto do lado do sujeito.
+    assert evaluate({"field": "urgente", "op": "eq", "value": True}, {"urgente": "false"}) is False
+    assert evaluate({"field": "urgente", "op": "eq", "value": True}, {"urgente": "true"}) is True
+    # E `ne` acompanha, porque é a negação de `eq`.
+    assert evaluate({"field": "urgente", "op": "ne", "value": "false"}, {"urgente": True}) is True
+
+
+def test_texto_que_nao_nomeia_booleano_nunca_casa_com_booleano() -> None:
+    """«Não comparável» não casa — a mesma resposta que `evaluate` dá para o operador que
+    não reconhece (dívida 36). `"sim"`, `"banana"` e `2` não são `true` nem `false`."""
+    valores: tuple[object, ...] = ("sim", "banana", "", "2", 2, -1, [])
+    for valor in valores:
+        assert evaluate({"field": "x", "op": "eq", "value": valor}, {"x": True}) is False, valor
+        assert evaluate({"field": "x", "op": "eq", "value": True}, {"x": valor}) is False, valor
+
+
 def test_ne_e_a_negacao_de_eq() -> None:
     assert evaluate({"field": "x", "op": "ne", "value": "a"}, {"x": "b"}) is True
     assert evaluate({"field": "x", "op": "ne", "value": "a"}, {"x": "a"}) is False

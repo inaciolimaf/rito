@@ -46,8 +46,8 @@ describe("AiBudgetPanel", () => {
     withBudget();
     renderPanel();
 
-    expect(await screen.findByText("US$ 20.00")).toBeInTheDocument();
-    expect(screen.getByText("US$ 100.00")).toBeInTheDocument();
+    expect(await screen.findByText("US$ 20,00")).toBeInTheDocument();
+    expect(screen.getByText("US$ 100,00")).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "20");
   });
 

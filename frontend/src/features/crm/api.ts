@@ -101,15 +101,37 @@ export async function moveLawsuitStage(
   return { suggested_workflow: result.suggested_workflow };
 }
 
+/** Spec 138, regra 8: `POST /lawsuits/{id}/apply-workflow` devolve um campo a mais que
+ * o `/workflows/{id}/apply` genérico — o `application_id` de `ApplyWorkflowResponse`
+ * (`lawsuits/schemas.py`). Reusar o `ApplyResult` da 038 para os dois endpoints escondia
+ * esse campo do TypeScript, e sem ele o `DELETE /lawsuits/{id}/workflow-applications/
+ * {application_id}` — a janela de 1 h para desfazer, regra 5 da spec 053 — não tinha
+ * como ser chamado. A rota existia no backend e simplesmente não existia na UI. */
+export interface LawsuitApplyResult extends ApplyResult {
+  application_id: string;
+}
+
 export async function applyLawsuitWorkflow(
   workflowId: string,
   lawsuitId: string,
   confirmDuplicate: boolean,
   stageId: string | null = null,
-): Promise<ApplyResult> {
-  return apiRequest<ApplyResult>(`/api/v1/lawsuits/${lawsuitId}/apply-workflow`, {
+): Promise<LawsuitApplyResult> {
+  return apiRequest<LawsuitApplyResult>(`/api/v1/lawsuits/${lawsuitId}/apply-workflow`, {
     method: "POST",
     body: { workflow_id: workflowId, stage_id: stageId, confirm_duplicate: confirmDuplicate },
+  });
+}
+
+/** Desfaz uma aplicação de workflow (spec 053, regra 5): só até 1 h depois e só se
+ * nenhuma tarefa criada tiver sido concluída — quem decide é o backend, que responde
+ * 409 com o motivo quando a janela passou. */
+export async function undoLawsuitWorkflowApplication(
+  lawsuitId: string,
+  applicationId: string,
+): Promise<void> {
+  await apiRequest(`/api/v1/lawsuits/${lawsuitId}/workflow-applications/${applicationId}`, {
+    method: "DELETE",
   });
 }
 

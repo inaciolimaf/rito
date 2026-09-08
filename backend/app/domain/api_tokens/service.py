@@ -16,10 +16,12 @@ from typing import Any
 from sqlalchemy import Text, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import capabilities_for
 from app.core.repository import BaseRepository
 from app.domain.api_tokens.models import ApiRequest, ApiToken
 from app.domain.api_tokens.schemas import ApiUsageRow
-from app.domain.api_tokens.scopes import is_valid
+from app.domain.api_tokens.scopes import is_valid, required_capability
+from app.domain.users.models import User
 
 # `# noqa: S105`: prefixo público que aparece no token para identificá-lo à vista; a
 # regra confunde o nome da constante com o conteúdo.
@@ -35,6 +37,20 @@ class TooManyTokensError(Exception):
 
 
 class UnknownScopeError(Exception):
+    def __init__(self, scope: str) -> None:
+        super().__init__(scope)
+        self.scope = scope
+
+
+class ScopeBeyondIssuerError(Exception):
+    """Spec 134, regra 2: ninguém delega por token o que não tem pela tela.
+
+    Sem isto, o eixo financeiro (ortogonal ao perfil — `permissions.py`) desaparece: um
+    GESTOR com `financial_access=NONE` toma 403 em toda rota de `/api/v1/transactions` e
+    emitiria um `write:transactions` que lê e escreve o financeiro inteiro pela API
+    pública. Emitir token é delegar autoridade própria, não criar autoridade nova.
+    """
+
     def __init__(self, scope: str) -> None:
         super().__init__(scope)
         self.scope = scope
@@ -112,11 +128,12 @@ class ApiTokenService:
         scopes: list[str],
         allowed_ips: list[str] | None,
         expires_at: datetime | None,
-        created_by: uuid.UUID,
+        created_by: User,
     ) -> tuple[ApiToken, str]:
         for scope in scopes:
             if not is_valid(scope):
                 raise UnknownScopeError(scope)
+        self._check_issuer_can_delegate(scopes, created_by)
         if await self.tokens.count_active(now=datetime.now(UTC)) >= MAX_ACTIVE_TOKENS:
             raise TooManyTokensError(
                 f"O escritório já tem {MAX_ACTIVE_TOKENS} tokens ativos. "
@@ -131,11 +148,25 @@ class ApiTokenService:
             scopes=scopes,
             allowed_ips=allowed_ips,
             expires_at=expires_at,
-            created_by=created_by,
+            created_by=created_by.id,
         )
         self.session.add(token)
         await self.session.flush()
         return token, bruto
+
+    @staticmethod
+    def _check_issuer_can_delegate(scopes: list[str], issuer: User) -> None:
+        """Regra 2 da 134: o escopo pedido é conferido contra as capacidades de QUEM emite.
+
+        A conferência é por capacidade (`capabilities_for`), e não por uma segunda tabela
+        de perfis: a matriz de permissão do Rito já existe num lugar só, e é dela que a
+        resposta tem de sair — senão os dois lugares divergem na primeira mudança.
+        """
+        capacidades = set(capabilities_for(issuer.role, issuer.financial_access))
+        for scope in scopes:
+            exigida = required_capability(scope)
+            if exigida is not None and exigida not in capacidades:
+                raise ScopeBeyondIssuerError(scope)
 
     async def revoke(self, token: ApiToken) -> ApiToken:
         """Revogar não apaga: o log de requisição aponta para o token, e apagar a linha

@@ -260,9 +260,28 @@ class TransactionCreateRequest(_TransactionMixin):
     @model_validator(mode="after")
     def _validate_series(self) -> "TransactionCreateRequest":
         """Regra 057/objetivo: parcelamento e recorrência são coisas diferentes — nunca
-        os dois ao mesmo tempo no mesmo lançamento."""
+        os dois ao mesmo tempo no mesmo lançamento.
+
+        Spec 136: e parcelamento precisa caber no valor. Um centavo é a menor parcela
+        que existe — `NUMERIC(14,2)` não guarda menos que isso, e o CHECK
+        `ck_tx_amount_positive` recusa zero. R$ 0,50 em 100× não é um pedido difícil, é um
+        pedido impossível, e a resposta a um pedido impossível é 422 com o motivo — não o
+        500 que a violação do CHECK produzia, sem handler de `IntegrityError`, depois de
+        já ter criado a série e algumas parcelas.
+        """
         if self.installment is not None and self.recurrence is not None:
             raise ValueError("Escolha parcelamento ou recorrência, não os dois.")
+        if self.installment is not None:
+            minimo = self.installment.count * Decimal("0.01")
+            if self.amount < minimo:
+                # Vírgula decimal: a mensagem é lida por um advogado brasileiro dentro do
+                # formulário, e o `CLAUDE.md` §9 manda dinheiro com vírgula na UI.
+                minimo_br = f"{minimo:.2f}".replace(".", ",")
+                raise ValueError(
+                    f"Valor insuficiente para {self.installment.count} parcelas: "
+                    f"cada parcela precisa de ao menos R$ 0,01 "
+                    f"(mínimo R$ {minimo_br} para esse número de parcelas)."
+                )
         return self
 
 

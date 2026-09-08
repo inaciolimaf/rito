@@ -6,34 +6,12 @@ import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
+import { ServerErrorAlert } from "@/components/domain/ServerErrorAlert";
+import { describeApiErrors } from "@/components/domain/apiErrors";
 import { ApiError } from "@/lib/errors";
 
-export interface ServerFieldError {
-  field: string;
-  message: string;
-}
-
-/** Regra 4: erro de validação do servidor (422) mapeia para o campo correspondente. */
-export function mapApiErrorToFields(error: ApiError): ServerFieldError[] {
-  if (!Array.isArray(error.errors)) return [];
-  const mapped: ServerFieldError[] = [];
-  for (const item of error.errors) {
-    if (
-      typeof item === "object" &&
-      item !== null &&
-      "loc" in item &&
-      "msg" in item &&
-      Array.isArray((item as { loc: unknown }).loc)
-    ) {
-      const loc = (item as { loc: unknown[] }).loc;
-      const field = loc[loc.length - 1];
-      if (typeof field === "string") {
-        mapped.push({ field, message: String((item as { msg: unknown }).msg) });
-      }
-    }
-  }
-  return mapped;
-}
+export { describeApiErrors, mapApiErrorToFields } from "@/components/domain/apiErrors";
+export type { ServerFieldError, ApiErrorSummary } from "@/components/domain/apiErrors";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface FormModalProps<TSchema extends z.ZodType<any, any, any>> {
@@ -82,7 +60,7 @@ export function FormModal<TSchema extends z.ZodType<any, any, any>>({
 
   React.useEffect(() => {
     if (!serverError) return;
-    for (const { field, message } of mapApiErrorToFields(serverError)) {
+    for (const { field, message } of describeApiErrors(serverError).fields) {
       form.setError(field as never, { type: "server", message });
     }
   }, [serverError, form]);
@@ -122,11 +100,7 @@ export function FormModal<TSchema extends z.ZodType<any, any, any>>({
           >
             {children(form)}
 
-            {serverError && !serverError.errors?.length && (
-              <p role="alert" className="text-sm text-danger">
-                {serverError.message}
-              </p>
-            )}
+            <ServerErrorAlert error={serverError} />
 
             <div className="mt-6 flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={requestClose}>

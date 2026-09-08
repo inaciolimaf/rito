@@ -109,12 +109,35 @@ run_frontend() {
 	cd frontend && npm run test -- --maxWorkers="${VITEST_MAX_WORKERS:-1}"
 }
 
+# Extraído para que o teste do runner possa exercitar o `run_e2e` de verdade sem subir o
+# Playwright (tests/meta/test_runner.sh sobrescreve só isto).
+_e2e_runner() {
+	cd e2e && npm test
+}
+
 run_e2e() {
-	if find e2e/tests -type f -name '*.spec.ts' | grep -q .; then
-		cd e2e && npm test
-	else
-		echo "e2e: nenhuma jornada ainda — pulando"
+	# Spec 139: este `if` tinha um `else` que imprimia "e2e: nenhuma jornada ainda —
+	# pulando" e saía com **exit 0**. Fazia sentido na spec 009, quando não havia jornada
+	# nenhuma; hoje são nove, e o que sobrou foi uma porta aberta — apagar `e2e/tests`
+	# fazia a suíte inteira desaparecer sem uma linha vermelha, e ainda MELHORAVA o
+	# wall-clock do CLAUDE.md §11. Os dois gates de contagem (`journey-count.spec.ts` e
+	# `test_final_audit.py`) não pegavam porque só tinham teto, e `0 <= 25` passa.
+	#
+	# Diretório sem jornada agora é FALHA. Um projeto que voltar a não ter e2e derruba
+	# este gate de propósito: a decisão de não ter jornada é grande demais para ser
+	# tomada por um `find` que não achou arquivo.
+	# `-not -path '*/meta/*'`: `e2e/tests/meta/` guarda gates SOBRE as jornadas (a
+	# contagem), não jornadas. Sem esta exclusão, apagar as nove e deixar só o contador
+	# continuaria achando um `.spec.ts` — que é exatamente o cenário que a auditoria
+	# reproduziu. Os dois lados contam a mesma coisa: aqui, no `journey-count.spec.ts` e
+	# no `test_final_audit.py`.
+	if ! find e2e/tests -type f -name '*.spec.ts' -not -path '*/meta/*' 2>/dev/null |
+		grep -q .; then
+		echo "e2e: NENHUMA jornada encontrada em e2e/tests — o projeto tem 9 (piso do"
+		echo "     journey-count.spec.ts). Suíte de e2e ausente é falha, não 'pulando'."
+		return 1
 	fi
+	_e2e_runner
 }
 
 main() {

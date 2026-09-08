@@ -291,6 +291,103 @@ async def test_atrasados_excluem_interno(
     assert body["overdue"] == 150
 
 
+async def test_transferencia_vencida_nao_entra_no_card_atrasados(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 136: «atrasado» é RECEITA vencida em aberto — a definição única do produto
+    (`financial/dashboard.py::overdue_conditions`).
+
+    Uma transferência entre duas contas do próprio escritório, agendada e ainda não
+    efetivada, levava o card «Atrasados» de R$ 0,00 a R$ 5.000,00 sem mexer em receita nem
+    em despesa — o que impedia alguém de perceber somando as colunas ao lado. É valor alto
+    e ninguém "baixa" uma transferência, então o número inflava e ficava.
+    """
+    _gestor, headers = await _make_gestor_full(make_user)
+    _r, _d, _cc, conta_a, conta_b = await _fixtures(client, headers)
+    ontem = (hoje() - timedelta(days=1)).isoformat()
+    mes = hoje().strftime("%Y-%m")
+
+    antes = await _stats(client, headers, regime="due", month=mes)
+
+    transferencia = await client.post(
+        "/api/v1/transactions",
+        json={
+            "kind": "TRANSFERENCIA",
+            "debit_account_id": conta_a,
+            "credit_account_id": conta_b,
+            "amount": "5000.00",
+            "due_date": ontem,
+        },
+        headers=headers,
+    )
+    assert transferencia.status_code == 201, transferencia.text
+
+    depois = await _stats(client, headers, regime="due", month=mes)
+    assert depois["overdue"] == antes["overdue"]
+    assert depois["income_expected"] == antes["income_expected"]
+    assert depois["expense_expected"] == antes["expense_expected"]
+
+
+async def test_card_atrasados_e_o_painel_de_inadimplencia_dao_o_mesmo_numero(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 136: as duas telas mostram a mesma palavra ao mesmo usuário, então precisam
+    mostrar o mesmo número.
+
+    O card do dashboard (059) e o total da aba «Inadimplência» (060) respondiam «o que
+    está atrasado» com condições diferentes — e não havia como reconciliar os dois olhando
+    a tela. Aqui há uma receita vencida (entra nos dois), uma despesa vencida e uma
+    transferência vencida (não entram em nenhum).
+    """
+    _gestor, headers = await _make_gestor_full(make_user)
+    receita_id, despesa_id, cost_center_id, conta_a, conta_b = await _fixtures(client, headers)
+    ontem = (hoje() - timedelta(days=1)).isoformat()
+
+    receita = await client.post(
+        "/api/v1/transactions",
+        json=_receita_payload(
+            category_id=receita_id,
+            cost_center_id=cost_center_id,
+            account_id=conta_a,
+            amount="150.00",
+            due_date=ontem,
+        ),
+        headers=headers,
+    )
+    assert receita.status_code == 201, receita.text
+    despesa = await client.post(
+        "/api/v1/transactions",
+        json=_despesa_payload(
+            category_id=despesa_id,
+            cost_center_id=cost_center_id,
+            account_id=conta_a,
+            amount="70.00",
+            due_date=ontem,
+        ),
+        headers=headers,
+    )
+    assert despesa.status_code == 201, despesa.text
+    transferencia = await client.post(
+        "/api/v1/transactions",
+        json={
+            "kind": "TRANSFERENCIA",
+            "debit_account_id": conta_a,
+            "credit_account_id": conta_b,
+            "amount": "5000.00",
+            "due_date": ontem,
+        },
+        headers=headers,
+    )
+    assert transferencia.status_code == 201, transferencia.text
+
+    card = await _stats(client, headers, regime="due", month=hoje().strftime("%Y-%m"))
+    painel = await client.get("/api/v1/transactions/overdue/summary", headers=headers)
+    assert painel.status_code == 200, painel.text
+
+    assert card["overdue"] == 150.00
+    assert painel.json()["total"] == 150.00
+
+
 @pytest.mark.commits
 async def test_saldo_por_conta_bate_com_a_view(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]

@@ -57,13 +57,47 @@ def _lookup(subject: dict[str, Any], campo: str) -> Any:
     return atual
 
 
+# O vocabulário booleano que atravessa JSON e formulário. `"1"`/`"0"` entram porque
+# `<input type="checkbox">` e query string mandam o dígito, não a palavra.
+_TEXTOS_BOOLEANOS: dict[str, bool] = {"true": True, "false": False, "1": True, "0": False}
+
+
+def _as_bool(valor: Any) -> bool | None:
+    """O valor booleano de `valor`, ou `None` quando ele não NOMEIA um booleano.
+
+    `None` aqui significa «não comparável como booleano» — e não comparável não casa.
+    É a diferença entre perguntar "esse valor é falso?" e perguntar "esse valor é
+    verdadeiro para o `bool()` do Python?", que é o que a versão anterior perguntava.
+    """
+    if isinstance(valor, bool):
+        return valor
+    if isinstance(valor, str):
+        return _TEXTOS_BOOLEANOS.get(valor.strip().lower())
+    # `1`/`0` de JSON: quem escreveu `{"ativo": 1}` quis dizer verdadeiro. Qualquer outro
+    # inteiro (`2`, `-1`) não nomeia booleano nenhum e não casa.
+    if isinstance(valor, int):
+        return {1: True, 0: False}.get(valor)
+    return None
+
+
 def _same(atual: Any, esperado: Any) -> bool:
     # Comparação por texto: o payload vem de JSON, onde um UUID é string e um id do banco
     # é UUID. Comparar tipos crus faria a condição certa falhar silenciosamente.
     if atual is None or esperado is None:
         return atual is esperado
     if isinstance(atual, bool) or isinstance(esperado, bool):
-        return bool(atual) is bool(esperado)
+        # Dívida 44: aqui havia `bool(atual) is bool(esperado)`. Como `bool("false")` é
+        # `True` — toda string não vazia é —, a condição `{op: "eq", value: "false"}`
+        # CASAVA com um campo cujo valor era `True`, e a automação disparava ao contrário
+        # do que o gestor configurou. Mesma família da dívida 36: decidir errado em
+        # silêncio dentro de uma automação, onde ninguém revisa a decisão porque ela é
+        # justamente o que se automatizou.
+        #
+        # Agora o lado não booleano precisa NOMEAR um booleano; o que não nomeia (`"não"`,
+        # `"banana"`, `2`) não é comparável e não casa, que é como `evaluate` já trata
+        # condição que não dá para decidir.
+        esquerda, direita = _as_bool(atual), _as_bool(esperado)
+        return esquerda is not None and esquerda is direita
     return str(atual) == str(esperado)
 
 

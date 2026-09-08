@@ -93,6 +93,8 @@ Todo `# noqa` do projeto exige justificativa em prosa na linha acima — também
 | ESLint `react-hooks` | dependência faltando em hook, hook condicional | `frontend/eslint.config.js` |
 | ESLint `react-refresh` | export que quebra o fast refresh (aviso) | `frontend/eslint.config.js` |
 | ESLint `rito/no-literal-tailwind-color` | cor literal do Tailwind fora do token de tema | `frontend/eslint-rules/` |
+| ESLint `rito/no-dangerous-html` | `dangerouslySetInnerHTML` em qualquer lugar — HTML de terceiro vai para `<SandboxedHtml>` (iframe `sandbox=""`), nunca para a nossa origem (spec 138) | `frontend/eslint-rules/` |
+| ESLint `rito/no-loading-without-error` | tela que decide o que renderizar com `isLoading || !data` — com a API falhando isso fica em «Carregando…» para sempre; o estado de erro é obrigatório (§6, spec 138) | `frontend/eslint-rules/` |
 
 ---
 
@@ -101,7 +103,7 @@ Todo `# noqa` do projeto exige justificativa em prosa na linha acima — também
 | Gate | Valor | Onde |
 |---|---|---|
 | Wall-clock das três suítes | **300 s** | `scripts/run-tests.sh` (CLAUDE.md §3) |
-| Jornadas e2e no projeto | **25** | `e2e/tests/meta/journey-count.spec.ts` |
+| Jornadas e2e no projeto | piso **9**, teto **25** — só o teto existia, e zero satisfaz `<= 25`: apagar as jornadas deixava `make test` verde e mais rápido (spec 139) | `e2e/tests/meta/journey-count.spec.ts`, `tests/meta/test_final_audit.py`, `scripts/run-tests.sh` |
 | Testes marcados `slow` | teto próprio | `tests/meta/test_slow_marker_budget.py` |
 | Arquivos com `@pytest.mark.commits` | **19** arquivos / **69** testes | `tests/meta/test_isolamento_transacional.py` |
 
@@ -118,6 +120,7 @@ estoura.
 | Queries por endpoint | listagem 3, detalhe 5, timeline 3, busca global 4 | `tests/integration/test_query_budget.py` |
 | Invariantes de índice e plano | sem Seq Scan onde há índice esperado | `tests/meta/test_performance_invariants.py` |
 | Import de `app.main` | abaixo de 9 s | `tests/meta/test_imports_pesados.py` |
+| Piso do contador de queries | uma requisição real dentro de `count_queries` mede **> 0** — o gate de orçamento do §11 não pode passar por estar desligado; o «teste do teste» anterior conferia o `len()` de uma lista e não o instrumento (spec 139) | `tests/meta/test_performance_invariants.py` |
 
 ---
 
@@ -125,7 +128,7 @@ estoura.
 
 | Gate | O que reprova | Onde | Spec |
 |---|---|---|---|
-| Camadas | `select()` em router, router importando repositório, service importando integração concreta | `test_camadas.py` | 118 |
+| Camadas | `select()`/`session.execute()` em router, router importando repositório, camada de regra importando integração concreta. Universo por **papel**, não por nome de arquivo (spec 139): router = `*router*.py` **ou** módulo que instancia `APIRouter` (46 arquivos); camada de regra = todo módulo de `app/domain/` que não é router nem forma de dado (110). `Protocol` importado de `app.integrations` é contrato e não reprova; a implementação concreta do mesmo módulo reprova. **1 exceção nomeada** (`automations/engine.py`), que o próprio gate reprova quando deixar de violar | `test_camadas.py` | 118, ampliado pela 139 |
 | SQL em string | `text()` fora de `server_default=`, `exec_driver_sql`, `execute("<string>")` — query é montada pelo builder; 5 exceções nomeadas (DDL, comando de sessão e a SQL que o modelo escreve) | `test_sql_em_string.py` | 127 |
 | Registro do app | ordem dos middlewares, ordem de rotas ambíguas, router importado e não registrado, rota fora de `/api/v1` sem exceção | `test_app_registry.py` | 109 |
 | Corpo de worker fino | função de `app/workers/` acima do baseline por arquivo | `test_workers_finos.py` | 117 |

@@ -15,7 +15,15 @@ class FileStorage(Protocol):
 
     async def delete(self, *, key: str) -> None: ...
 
-    def public_url(self, key: str) -> str: ...
+    def public_url(self, key: str) -> str:
+        """URL de imagem exibida na tela: avatar, logo do escritório, foto de contato.
+
+        "Public" é o papel, não o prazo — ela é assinada como qualquer outra e vale 15
+        minutos desde a spec 135 (regra 7), o mesmo TTL do token de acesso. Antes valia
+        sete dias, o que fazia dela uma credencial de leitura com uma semana de vida
+        embutida no `src=` de um `<img>`.
+        """
+        ...
 
     async def ping(self) -> None:
         """Sonda de prontidão (spec 097, regra 8) — levanta se o bucket não responde.
@@ -26,6 +34,7 @@ class FileStorage(Protocol):
         ...
 
     def signed_url(self, key: str, *, expires_in_seconds: int) -> str:
-        """URL de download assinada com validade curta (spec 035, regra 6: 5 min
-        para anexos) — diferente de `public_url`, que é a URL longa do logo."""
+        """URL de download assinada, com o prazo escolhido por quem chama (spec 035,
+        regra 6: 5 min para anexos; 10 min para documentos) — diferente de `public_url`,
+        que tem prazo fixo porque quem a consome é a própria tela."""
         ...

@@ -45,6 +45,19 @@ export function LlmDecisionAction({
     onChange({ ...config, ...patch }, assignment);
   }
 
+  // Spec 138, regra 7: os mínimos são os de `automations/decision.py` — pergunta com
+  // pelo menos 10 caracteres, dois ramos e um padrão entre eles. Antes, a descoberta só
+  // acontecia no submit, com a automação inteira preenchida.
+  const pendencias = [
+    config.question.trim().length < 10
+      ? "A pergunta precisa ser uma frase (pelo menos 10 caracteres) — é ela que o modelo responde."
+      : null,
+    config.branches.length < 2 ? "Uma decisão precisa de pelo menos dois ramos." : null,
+    config.branches.length >= 2 && !config.branches.includes(config.default_branch)
+      ? "Escolha o ramo padrão — é para onde a automação vai quando a IA não puder decidir."
+      : null,
+  ].filter((item): item is string => item !== null);
+
   return (
     <div className="space-y-3" aria-label="Decisão por IA">
       <label className="flex flex-col text-xs text-muted">
@@ -166,6 +179,13 @@ export function LlmDecisionAction({
         candidates={candidates}
         onChange={(proximo) => onChange(config, proximo)}
       />
+      {pendencias.length > 0 && (
+        <ul role="status" className="list-disc pl-5 text-xs text-warning">
+          {pendencias.map((pendencia) => (
+            <li key={pendencia}>{pendencia}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

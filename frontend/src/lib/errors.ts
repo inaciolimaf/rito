@@ -60,3 +60,48 @@ export async function toApiError(response: Response, path: string): Promise<ApiE
     instance: path,
   });
 }
+
+export type FailureKind = "forbidden" | "not-found" | "offline" | "server";
+
+export interface FailureDescription {
+  kind: FailureKind;
+  title: string;
+  description: string;
+}
+
+/** Spec 138, regras 4 e 9: uma falha de leitura vira texto para o usuário aqui, num
+ * lugar só. O 403 é o caso que motivou a função: como os filtros vivem na URL e o link
+ * é compartilhável (CLAUDE.md §6), receber um link de uma área a que não se tem acesso é
+ * rotina — e "Não foi possível carregar os dados." manda a pessoa recarregar para sempre
+ * em vez de dizer que o problema é permissão. */
+export function describeFailure(error: unknown): FailureDescription {
+  if (error instanceof ApiError && error.status === 403) {
+    return {
+      kind: "forbidden",
+      title: "Você não tem acesso a esta área.",
+      description: "Seu perfil não permite ver estes dados. Peça a um gestor para liberar.",
+    };
+  }
+  if (error instanceof ApiError && error.status === 404) {
+    return {
+      kind: "not-found",
+      title: "Não encontramos este registro.",
+      description: "Ele pode ter sido excluído, ou o endereço está incorreto.",
+    };
+  }
+  if (error instanceof ApiError) {
+    return { kind: "server", title: "Não foi possível carregar.", description: error.message };
+  }
+  return {
+    kind: "offline",
+    title: "Não foi possível carregar.",
+    description: "Verifique sua conexão e tente de novo.",
+  };
+}
+
+/** A mesma falha em uma linha só, para onde não cabe um bloco (a faixa de erro do
+ * `DataTable`, por exemplo). */
+export function failureMessage(error: unknown): string {
+  const { kind, title, description } = describeFailure(error);
+  return kind === "server" ? description : `${title} ${description}`;
+}

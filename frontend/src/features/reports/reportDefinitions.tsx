@@ -10,18 +10,8 @@ import type {
   ProductivityTableRow,
   ReportKey,
 } from "@/features/reports/api";
+import { formatBrDate, formatBrDateTime } from "@/lib/format";
 import { formatBrl } from "@/lib/money";
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const [year, month, day] = value.slice(0, 10).split("-");
-  return `${day}/${month}/${year}`;
-}
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("pt-BR");
-}
 
 const COMMON_FILTER_FIELDS: FilterFieldDef[] = [
   { key: "from", label: "De", type: "date" },
@@ -70,12 +60,12 @@ export const REPORT_DEFINITIONS: Record<ReportKey, ReportDefinition> = {
       {
         id: "scheduled_date",
         header: "Data compromisso",
-        cell: (row: ProductivityTableRow) => formatDate(row.scheduled_date),
+        cell: (row: ProductivityTableRow) => formatBrDate(row.scheduled_date),
       },
       {
         id: "completed_at",
         header: "Conclusão",
-        cell: (row: ProductivityTableRow) => formatDateTime(row.completed_at),
+        cell: (row: ProductivityTableRow) => formatBrDateTime(row.completed_at),
       },
     ],
     extraFilterFields: [],
@@ -106,7 +96,7 @@ export const REPORT_DEFINITIONS: Record<ReportKey, ReportDefinition> = {
       {
         id: "scheduled_date",
         header: "Data compromisso",
-        cell: (row: DelayedTaskTableRow) => formatDate(row.scheduled_date),
+        cell: (row: DelayedTaskTableRow) => formatBrDate(row.scheduled_date),
       },
       {
         id: "delay_days",
@@ -124,17 +114,17 @@ export const REPORT_DEFINITIONS: Record<ReportKey, ReportDefinition> = {
     label: "Registros de acesso",
     columns: [
       { id: "user_name", header: "Colaborador", cell: (row: AccessLogTableRow) => row.user_name },
-      { id: "day", header: "Data", cell: (row: AccessLogTableRow) => formatDate(row.day) },
+      { id: "day", header: "Data", cell: (row: AccessLogTableRow) => formatBrDate(row.day) },
       { id: "ip_address", header: "IP", cell: (row: AccessLogTableRow) => row.ip_address ?? "—" },
       {
         id: "first_login",
         header: "Primeiro login",
-        cell: (row: AccessLogTableRow) => formatDateTime(row.first_login),
+        cell: (row: AccessLogTableRow) => formatBrDateTime(row.first_login),
       },
       {
         id: "last_login",
         header: "Último login",
-        cell: (row: AccessLogTableRow) => formatDateTime(row.last_login),
+        cell: (row: AccessLogTableRow) => formatBrDateTime(row.last_login),
       },
     ],
     extraFilterFields: [],
@@ -161,7 +151,7 @@ export const REPORT_DEFINITIONS: Record<ReportKey, ReportDefinition> = {
       {
         id: "created_at",
         header: "Data",
-        cell: (row: NewCustomerTableRow) => formatDateTime(row.created_at),
+        cell: (row: NewCustomerTableRow) => formatBrDateTime(row.created_at),
       },
     ],
     extraFilterFields: [],
@@ -192,7 +182,7 @@ export const REPORT_DEFINITIONS: Record<ReportKey, ReportDefinition> = {
       {
         id: "created_at",
         header: "Data",
-        cell: (row: NewLawsuitTableRow) => formatDateTime(row.created_at),
+        cell: (row: NewLawsuitTableRow) => formatBrDateTime(row.created_at),
       },
     ],
     extraFilterFields: [],
@@ -224,7 +214,7 @@ export const REPORT_DEFINITIONS: Record<ReportKey, ReportDefinition> = {
       {
         id: "closure_date",
         header: "Fechamento",
-        cell: (row: LawsuitOutcomeTableRow) => formatDate(row.closure_date),
+        cell: (row: LawsuitOutcomeTableRow) => formatBrDate(row.closure_date),
       },
       {
         id: "total_days",
@@ -261,7 +251,7 @@ export const REPORT_DEFINITIONS: Record<ReportKey, ReportDefinition> = {
       {
         id: "closure_date",
         header: "Fechamento",
-        cell: (row: LawsuitOutcomeTableRow) => formatDate(row.closure_date),
+        cell: (row: LawsuitOutcomeTableRow) => formatBrDate(row.closure_date),
       },
       {
         id: "total_days",
@@ -281,7 +271,7 @@ export const REPORT_DEFINITIONS: Record<ReportKey, ReportDefinition> = {
       {
         id: "scheduled_date",
         header: "Data",
-        cell: (row: HearingTableRow) => formatDate(row.scheduled_date),
+        cell: (row: HearingTableRow) => formatBrDate(row.scheduled_date),
       },
       {
         id: "scheduled_time",

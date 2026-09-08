@@ -3,6 +3,8 @@
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from app.domain.financial.service import _installment_due_dates, _split_amount
 
 
@@ -28,9 +30,52 @@ def test_soma_fecha_com_o_total_para_todo_n_de_2_a_100() -> None:
     """Auditoria numérica (refatoração 060, Alvo 1) — o invariante "soma das parcelas
     == total" vale no intervalo INTEIRO aceito (2 a 100, regra `InstallmentRequest`),
     não só nos poucos N já cobertos acima. Alguns totais propositalmente "feios" pra
-    testar arredondamento em várias direções (primo, com dízima, redondo)."""
-    for total in (Decimal("999.97"), Decimal("100.00"), Decimal("0.01"), Decimal("123456.78")):
+    testar arredondamento em várias direções (primo, com dízima, redondo).
+
+    Spec 136: `Decimal("0.01")` saiu da lista de totais e ganhou teste próprio
+    (`test_valor_que_nao_da_um_centavo_por_parcela_e_recusado`). Um centavo em duas
+    parcelas não é um parcelamento com resto difícil, é um parcelamento **impossível** —
+    e a antiga passagem dele por aqui é o que escondia que a função devolvia `0,00` na
+    primeira parcela: o teste só olhava a soma, e a soma fechava.
+    """
+    for total in (Decimal("999.97"), Decimal("100.00"), Decimal("123456.78")):
         for count in range(2, 101):
             shares = _split_amount(total, count)
             assert len(shares) == count
             assert sum(shares) == total, (total, count)
+
+
+def test_nenhuma_parcela_e_zero_ou_negativa_e_a_diferenca_e_de_um_centavo() -> None:
+    """Spec 136: o defeito que a auditoria mediu em 45.375 pares (valor, parcelas).
+
+    `ROUND_HALF_UP` + resto inteiro na última parcela produzia parcela **negativa**
+    sempre que o quociente arredondava para cima — R$ 0,50 em 100× dava `-0,49`, que
+    viola o CHECK `ck_tx_amount_positive` e virava HTTP 500. A propriedade que faltava não
+    é a da soma (essa sempre valeu): é a do SINAL, e a de que as parcelas não se afastam
+    mais que um centavo umas das outras.
+    """
+    for total in (
+        Decimal("0.02"),
+        Decimal("1.00"),
+        Decimal("1.50"),
+        Decimal("50.00"),
+        Decimal("999.97"),
+        Decimal("123456.78"),
+    ):
+        for count in range(2, 101):
+            if total < count * Decimal("0.01"):
+                continue
+            shares = _split_amount(total, count)
+            assert sum(shares) == total, (total, count)
+            assert min(shares) > 0, (total, count)
+            assert max(shares) - min(shares) <= Decimal("0.01"), (total, count)
+
+
+def test_valor_que_nao_da_um_centavo_por_parcela_e_recusado() -> None:
+    """A guarda de invariante. O usuário nunca chega aqui — `TransactionCreateRequest`
+    recusa com 422 antes —, mas quem criar uma série por outro caminho recebe um erro
+    nomeado em vez de uma parcela de `0,00` gravada no banco."""
+    with pytest.raises(ValueError, match="0,01"):
+        _split_amount(Decimal("0.01"), 2)
+    with pytest.raises(ValueError, match="0,01"):
+        _split_amount(Decimal("0.50"), 100)

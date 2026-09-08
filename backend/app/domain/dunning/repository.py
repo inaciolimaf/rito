@@ -17,6 +17,7 @@ from app.domain.dunning.schemas import (
     OverdueRow,
     OverdueSummary,
 )
+from app.domain.financial.dashboard import overdue_conditions
 from app.domain.financial.models import Transaction, TransactionKind
 from app.domain.lawsuits.models import Lawsuit
 
@@ -83,13 +84,16 @@ class DunningAttemptRepository(BaseRepository[DunningAttempt]):
 
 
 def _overdue_condition(today: date) -> list[ColumnElement[bool]]:
-    """Regra 1: atrasado = vencido, em aberto, não interno, RECEITA."""
-    return [
-        Transaction.due_date < today,
-        Transaction.payment_date.is_(None),
-        Transaction.is_internal.is_(False),
-        Transaction.kind == TransactionKind.RECEITA,
-    ]
+    """Regra 1: atrasado = vencido, em aberto, não interno, RECEITA.
+
+    A definição saiu daqui na spec 136 e passou a morar em
+    `app/domain/financial/dashboard.py::overdue_conditions` — o dashboard financeiro
+    respondia a mesma pergunta sem o filtro por `kind`, e duas definições da mesma
+    palavra em dois módulos é como uma delas envelhece sem a outra. A chamada fica no
+    financeiro porque é ele o dono de `transactions`; a cobrança agrega por cima
+    (ver o docstring de `OverdueRepository`).
+    """
+    return overdue_conditions(today)
 
 
 def _aging_sum(min_days: int, max_days: int | None, today: date) -> ColumnElement[Decimal]:

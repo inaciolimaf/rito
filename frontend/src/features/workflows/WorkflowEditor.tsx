@@ -79,6 +79,13 @@ export function WorkflowEditor({
       setError("Informe o nome do workflow.");
       return;
     }
+    // Spec 138, regra 7: `workflows/router.py` recusa nome acima de 200 caracteres. Sem
+    // esta checagem o 422 caía no `catch` genérico lá embaixo, que culpa a unicidade do
+    // nome — apontando para a causa errada.
+    if (name.trim().length > 200) {
+      setError("O nome do workflow não pode passar de 200 caracteres.");
+      return;
+    }
     if (steps.some((step) => !step.task_type_id)) {
       setError("Toda etapa precisa de um tipo de tarefa (regra 1).");
       return;

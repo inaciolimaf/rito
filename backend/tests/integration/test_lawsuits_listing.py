@@ -4,12 +4,15 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.clock import Clock
 from app.core.rls import set_tenant_context
+from app.domain.lawsuits.listing import _office_today
 from app.domain.users.models import FinancialAccess, UserRole
 from tests.integration.conftest import SeededUser
+from tests.integration.test_clock_tenant import FUSO_LESTE, FUSO_OESTE, _criar_conta
 from tests.integration.test_lawsuit_timeline import _seed_tribunal
 from tests.integration.test_lawsuits import (
     _auth_header,
@@ -170,6 +173,66 @@ async def test_doze_visoes(client: AsyncClient, factory: LawsuitFactory, view: s
     found = _ids(response.json())
     expected = {scenario[key] for key in _EXPECTED_VIEWS[view]}
     assert found == expected, f"view={view}"
+
+
+async def test_as_visoes_deste_mes_nao_alcancam_o_futuro(
+    client: AsyncClient, factory: LawsuitFactory
+) -> None:
+    """Spec 136: as três visões «deste mês» tinham piso e não tinham teto.
+
+    `closure_date >= date_trunc('month', hoje)` inclui tudo que vem depois — e um processo
+    com data no ano que vem (o erro de digitação mais comum que existe num campo de data, e
+    a API o aceita com 201) contava como «encerrado este mês» em todos os meses até lá.
+    Não é um alerta na tela: é um número de produtividade 1 maior do que deveria, num card
+    que ninguém audita porque «é só a contagem do mês».
+    """
+    ano_que_vem = _THIS_MONTH.replace(year=_THIS_MONTH.year + 1, month=6, day=15)
+    futuro = await factory.create(
+        "Encerra Ano Que Vem",
+        closure_date=str(ano_que_vem),
+        process_date=str(ano_que_vem),
+        archived_date=str(ano_que_vem),
+    )
+    deste_mes = await factory.create(
+        "Encerrou Este Mês",
+        closure_date=str(_THIS_MONTH),
+        process_date=str(_THIS_MONTH),
+        archived_date=str(_THIS_MONTH),
+    )
+
+    for view in ("closed_this_month", "filed_this_month", "archived_this_month"):
+        response = await client.get(
+            "/api/v1/lawsuits", params={"view": view, "limit": 50}, headers=factory.headers
+        )
+        assert response.status_code == 200, response.text
+        encontrados = _ids(response.json())
+        assert futuro not in encontrados, view
+        assert deste_mes in encontrados, view
+
+
+async def test_o_dia_do_sql_das_visoes_e_o_dia_do_escritorio_de_cada_tenant(
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Spec 136: `_office_today()` é o `Clock.today()` do outro lado da fronteira.
+
+    A listagem de processos não recebe `Clock` — quem a chama é `service.py`/
+    `board_service.py`, e o dia teria de atravessar quatro assinaturas para chegar numa
+    lambda de visão rápida —, então o fuso vem de `accounts.timezone` por subconsulta. Duas
+    coisas precisam valer, e as duas valem 24 horas por dia: o dia do SQL é o mesmo do
+    `Clock` daquele escritório, e a subconsulta respeita o RLS (`CLAUDE.md` §4) — o
+    escritório do Acre não lê o fuso do escritório dos Açores.
+    """
+    oeste = await make_user(role=UserRole.GESTOR)
+    leste = await make_user(role=UserRole.GESTOR)
+    await _criar_conta(app_session_factory, oeste.tenant_id, FUSO_OESTE)
+    await _criar_conta(app_session_factory, leste.tenant_id, FUSO_LESTE)
+
+    for seeded, fuso in ((oeste, FUSO_OESTE), (leste, FUSO_LESTE)):
+        async with app_session_factory() as session:
+            await set_tenant_context(session, seeded.tenant_id)
+            dia_do_sql = await session.scalar(select(_office_today()))
+        assert dia_do_sql == Clock(fuso).today(), fuso
 
 
 async def test_visao_e_filtro_combinam(client: AsyncClient, factory: LawsuitFactory) -> None:
@@ -362,6 +425,44 @@ async def test_keyset_estavel(client: AsyncClient, factory: LawsuitFactory) -> N
 
     assert len(seen) == 5
     assert len(set(seen)) == 5
+
+
+async def test_planilha_de_processos_traz_o_dia_do_escritorio(
+    client: AsyncClient, factory: LawsuitFactory
+) -> None:
+    """Spec 136, gêmeo do export de contatos: `created_at.strftime()` formatava o dia de
+    UTC, e a coluna «Data de cadastro» da planilha discordava da mesma coluna na tela."""
+    from io import BytesIO
+    from zoneinfo import ZoneInfo
+
+    from openpyxl import load_workbook
+
+    from app.domain.account.models import DEFAULT_TIMEZONE
+
+    lawsuit_id = await factory.create("Cadastrado As 23H47", folder="PastaDaPlanilha")
+    # 31/08/2026 23h47 em São Paulo é 01/09/2026 02h47 em UTC.
+    instante = datetime(2026, 9, 1, 2, 47, tzinfo=UTC)
+    async with factory.sessions() as session, session.begin():
+        await set_tenant_context(session, factory.gestor.tenant_id)
+        await session.execute(
+            text("UPDATE lawsuits SET created_at = :instante WHERE id = :id"),
+            {"instante": instante, "id": lawsuit_id},
+        )
+
+    resposta = await client.post(
+        "/api/v1/lawsuits/export",
+        json={"format": "xlsx", "filters": {"view": "all", "folder": "PastaDaPlanilha"}},
+        headers=factory.headers,
+    )
+    assert resposta.status_code == 200, resposta.text
+
+    planilha = load_workbook(BytesIO(resposta.content)).active
+    assert planilha is not None
+    linhas = list(planilha.iter_rows(min_row=2, values_only=True))
+    assert len(linhas) == 1
+    na_tela = instante.astimezone(ZoneInfo(DEFAULT_TIMEZONE)).strftime("%d/%m/%Y")
+    assert na_tela == "31/08/2026"
+    assert linhas[0][3] == na_tela
 
 
 async def test_export_respeita_filtros(client: AsyncClient, factory: LawsuitFactory) -> None:

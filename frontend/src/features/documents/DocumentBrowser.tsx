@@ -19,6 +19,8 @@ import {
   type DocumentSortOrder,
 } from "@/features/documents/api";
 import { ApiError } from "@/lib/errors";
+import { formatNumberPtBr } from "@/lib/format";
+import { openExternal } from "@/lib/urls";
 
 export interface DocumentBrowserProps {
   scopeType: DocumentScopeType;
@@ -34,7 +36,7 @@ function formatBytes(bytes: number): string {
     value /= 1024;
     unitIndex += 1;
   }
-  return `${value.toFixed(1)} ${units[unitIndex]}`;
+  return `${formatNumberPtBr(value, 1)} ${units[unitIndex]}`;
 }
 
 function formatDate(value: string): string {
@@ -139,7 +141,9 @@ export function DocumentBrowser({ scopeType, scopeId }: DocumentBrowserProps): J
 
   async function handleDownload(document: DocumentData): Promise<void> {
     const url = await getDocumentDownloadUrl(document.id);
-    window.open(url, "_blank", "noopener,noreferrer");
+    // Spec 138, regra 2: a URL assinada vem do storage e é destino de navegação —
+    // passa pelo mesmo guarda de esquema dos demais links externos.
+    openExternal(url);
   }
 
   function handleFilesSelected(event: React.ChangeEvent<HTMLInputElement>): void {

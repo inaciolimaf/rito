@@ -1,5 +1,9 @@
 import type { EntityOption } from "@/components/domain/types";
-import { applyLawsuitWorkflow, suppressLawsuitWorkflow } from "@/features/crm/api";
+import {
+  applyLawsuitWorkflow,
+  suppressLawsuitWorkflow,
+  undoLawsuitWorkflowApplication,
+} from "@/features/crm/api";
 import { WorkflowPreviewDialog } from "@/features/workflows/WorkflowPreviewDialog";
 
 export interface SuggestWorkflowDialogProps {
@@ -34,6 +38,7 @@ export function SuggestWorkflowDialog({
       applyFn={(workflow, targetLawsuit, confirmDuplicate) =>
         applyLawsuitWorkflow(workflow, targetLawsuit, confirmDuplicate, stageId)
       }
+      undoFn={(applicationId) => undoLawsuitWorkflowApplication(lawsuit.id, applicationId)}
       onSuppress={() => {
         void suppressLawsuitWorkflow(lawsuit.id, stageId).then(() => onSuppressed?.());
       }}

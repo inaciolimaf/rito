@@ -7,9 +7,11 @@ caro deles é uma consulta ao catálogo do Postgres.
 
 import ast
 import re
+import uuid
 from pathlib import Path
 
 import pytest
+from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -131,10 +133,21 @@ def test_nenhum_select_estrela_em_codigo_de_producao() -> None:
 
 
 @pytest.mark.parametrize("consultas", [0, 1, 5])
-def test_contador_do_orcamento_conta_o_que_promete(consultas: int) -> None:
-    """O gate depende de o instrumento estar certo. Um contador que devolvesse sempre
-    zero deixaria todo orçamento passar e ninguém notaria — o teste do teste existe
-    porque a falha dele é silenciosa."""
+def test_query_log_conta_o_que_lhe_dao(consultas: int) -> None:
+    """A aritmética do `QueryLog`, e só ela.
+
+    Spec 139: este teste se chamava `test_contador_do_orcamento_conta_o_que_promete` e
+    a docstring dele dizia por que existia — «um contador que devolvesse sempre zero
+    deixaria todo orçamento passar e ninguém notaria». Só que ele enchia uma lista à mão
+    e conferia o `len()` dela: o `count_queries`, que é onde o zero silencioso nasce
+    (`event.listen` no `app.state.engine.sync_engine`), nunca era exercitado. Medido: com
+    o listener atado a um `create_engine('sqlite://')`, `test_performance_invariants.py`
+    e `test_query_budget.py` davam **21 passed** com as 14 rotas medindo ZERO query.
+
+    Ele continua aqui porque a aritmética também precisa estar certa e custa
+    microssegundos — mas quem prova o instrumento é o teste abaixo, que faz uma
+    requisição de verdade.
+    """
     from tests.perf import QueryLog
 
     log = QueryLog()
@@ -142,6 +155,45 @@ def test_contador_do_orcamento_conta_o_que_promete(consultas: int) -> None:
         log.statements.append(f"SELECT {i}")
 
     assert log.count == consultas
+
+
+async def test_o_contador_conta_uma_requisicao_de_verdade(client: AsyncClient) -> None:
+    """O teste do teste, agora pelo caminho real (spec 139).
+
+    O gate do CLAUDE.md §11 mede as 14 rotas do `test_query_budget.py` com um TETO. Um
+    teto sozinho não distingue «o endpoint está enxuto» de «o instrumento parou de
+    contar»: as duas leituras são o mesmo número. Este é o PISO — uma requisição HTTP
+    que sabidamente lê o banco, medida pelo mesmo `count_queries` que o gate usa.
+
+    Nada precisa de má-fé para quebrar o instrumento: basta uma refatoração que mova o
+    engine de `app.state`, troque o `lifespan` ou faça o app abrir a sessão por outro
+    caminho. O listener continuaria atado a um engine que não atende requisição nenhuma,
+    e o gate degradaria para «zero queries sempre» — indistinguível de «tudo dentro do
+    orçamento». Aqui isso vira vermelho na hora.
+
+    O login com credencial inexistente é a rota escolhida de propósito: não precisa de
+    cenário montado (o que faria o teste medir a fixture), não escreve nada, e mesmo
+    respondendo 401 ela procura o usuário no banco — que é a query que este piso conta.
+    """
+    from app.main import app
+    from tests.perf import count_queries, e_plumbing
+
+    async with count_queries(app) as log:
+        resposta = await client.post(
+            "/api/v1/auth/login",
+            json={"email": f"{uuid.uuid4()}@example.com", "password": "SenhaErrada#1"},
+            headers={"X-Tenant-Id": str(uuid.uuid4())},
+        )
+
+    assert resposta.status_code == 401, resposta.text
+    assert log.count > 0, (
+        "o contador de queries não viu NENHUMA query numa requisição que lê o banco — o "
+        "instrumento do gate do §11 está desligado, e com ele todo orçamento de "
+        f"`test_query_budget.py` passa medindo zero.\n{log.resumo()}"
+    )
+    # E conta a coisa certa: o preâmbulo de RLS e os savepoints da 105 ficam de fora
+    # (`tests/perf.py`), então nenhum statement contado pode ser plumbing.
+    assert [s for s in log.statements if e_plumbing(s)] == []
 
 
 def test_contador_ignora_o_preambulo_de_rls() -> None:

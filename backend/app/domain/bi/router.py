@@ -185,8 +185,13 @@ async def get_bi_costs(
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     _financial: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> CostsResponse:
-    service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
+    # Spec 136: o rateio por processo depende de em que MÊS caiu cada ponto — e o mês é
+    # o do escritório. O `Clock` não custa query (spec 114: vem de carona no usuário).
+    service = BiCostsService(
+        session=session, tenant_id=current_user.tenant_id, timezone=clock.timezone_name
+    )
     return await service.costs(outcome=outcome, from_year=from_year, to_year=to_year)
 
 
@@ -199,7 +204,9 @@ async def get_bi_costs_cac(
     clock: Clock = Depends(get_clock),
 ) -> CacResponse:
     period_start = parse_month_query(period, clock.today())
-    service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
+    service = BiCostsService(
+        session=session, tenant_id=current_user.tenant_id, timezone=clock.timezone_name
+    )
     return await service.cac(period=period_start)
 
 
@@ -212,7 +219,9 @@ async def get_bi_costs_per_point(
     clock: Clock = Depends(get_clock),
 ) -> CostPerPointResponse:
     period_start = parse_month_query(period, clock.today())
-    service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
+    service = BiCostsService(
+        session=session, tenant_id=current_user.tenant_id, timezone=clock.timezone_name
+    )
     return await service.per_point(period=period_start)
 
 
@@ -221,6 +230,9 @@ async def get_bi_costs_by_stage(
     current_user: User = Depends(require_role(UserRole.ADMINISTRADOR)),
     _financial: User = Depends(require_financial(FinancialAccess.READ_ONLY)),
     session: AsyncSession = Depends(get_session_for_current_user),
+    clock: Clock = Depends(get_clock),
 ) -> CostsByStageResponse:
-    service = BiCostsService(session=session, tenant_id=current_user.tenant_id)
+    service = BiCostsService(
+        session=session, tenant_id=current_user.tenant_id, timezone=clock.timezone_name
+    )
     return await service.by_stage()

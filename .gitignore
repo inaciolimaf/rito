@@ -42,3 +42,6 @@ minio-data/
 # Claude Code local
 .claude/settings.local.json
 .claude/*.tmp.*
+
+# Auditoria de segurança: ambiente do gerador de PDF (spec 133-139)
+docs/security-audit/.venv/

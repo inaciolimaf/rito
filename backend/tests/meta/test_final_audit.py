@@ -139,15 +139,86 @@ def test_nenhum_teste_e_pulado_sem_justificativa() -> None:
     assert ofensores == [], "teste pulado sem justificativa:\n  " + "\n  ".join(ofensores)
 
 
-def test_e2e_dentro_do_teto_de_25_jornadas() -> None:
-    """CLAUDE.md §3. O e2e é a suíte mais cara por caso; sem teto ela cresce até ser o
-    único poste que importa, e aí ninguém mais roda a suíte inteira localmente."""
-    jornadas = sum(
+# O teto é o do CLAUDE.md §3. O PISO é a spec 139.
+#
+# Até ela, os dois gates de jornada do projeto — este e
+# `e2e/tests/meta/journey-count.spec.ts` — afirmavam só `<= 25`, e **zero satisfaz os
+# dois**. Apagar as nove jornadas deixava `make test` verde e mais RÁPIDO, porque o
+# wall-clock do §11 melhorava junto; apagar o diretório inteiro nem subia o Playwright,
+# porque o `run_e2e` do `scripts/run-tests.sh` pulava a suíte com exit 0. O teto nunca
+# foi o risco: o piso é que não existia.
+#
+# O piso é o valor MEDIDO hoje, no molde do piso de cobertura da spec 117 — sobe quando a
+# medição sobe, e descer exige spec própria, como todo número do `docs/GATES.md`.
+TETO_DE_JORNADAS = 25
+PISO_DE_JORNADAS = 9
+
+
+def _jornadas_em(raiz: Path) -> int:
+    """Jornadas de e2e sob `raiz`, ignorando `meta/`.
+
+    `meta/` guarda gates SOBRE as jornadas (a contagem, por exemplo), não jornadas — e
+    contá-los é o que faria um e2e esvaziado, com só o contador sobrando, parecer que
+    ainda tem uma jornada. É a mesma exclusão que o `journey-count.spec.ts` faz do outro
+    lado, e agora os dois gates contam o mesmo número.
+    """
+    return sum(
         len(re.findall(r"^\s*test\(", caminho.read_text(), flags=re.M))
-        for caminho in arquivos(E2E, ".spec.ts")
+        for caminho in arquivos(raiz, ".spec.ts")
+        if "meta" not in caminho.relative_to(raiz).parts
     )
 
-    assert jornadas <= 25, f"{jornadas} jornadas e2e — o teto é 25"
+
+def _conferir_jornadas(jornadas: int) -> None:
+    assert jornadas <= TETO_DE_JORNADAS, (
+        f"{jornadas} jornadas e2e — o teto é {TETO_DE_JORNADAS}. Não coube? Vira teste "
+        "de integração (CLAUDE.md §3)."
+    )
+    assert jornadas >= PISO_DE_JORNADAS, (
+        f"{jornadas} jornadas e2e — o piso é {PISO_DE_JORNADAS}. Jornada não se apaga "
+        "para o wall-clock caber: ou o piso desce numa spec própria, com o motivo "
+        "escrito, ou a jornada volta."
+    )
+
+
+def test_e2e_entre_o_piso_e_o_teto_de_jornadas() -> None:
+    """CLAUDE.md §3, nos dois sentidos.
+
+    O e2e é a suíte mais cara por caso; sem teto ela cresce até ser o único poste que
+    importa, e aí ninguém mais roda a suíte inteira localmente. Sem PISO ela encolhe até
+    zero, e o gate de wall-clock aplaude.
+    """
+    _conferir_jornadas(_jornadas_em(E2E))
+
+
+def test_o_piso_reprova_um_e2e_esvaziado(tmp_path: Path) -> None:
+    """O gate provado mordendo, nos dois lados (spec 139).
+
+    O caso plantado é exatamente o cenário medido pela auditoria: apagar as nove jornadas
+    e deixar só `meta/journey-count.spec.ts`. Antes da 139 isso dava verde nos dois gates.
+    """
+    (tmp_path / "meta").mkdir()
+    (tmp_path / "meta" / "journey-count.spec.ts").write_text(
+        'test("máximo de 25 jornadas", () => {});\n', encoding="utf-8"
+    )
+
+    assert _jornadas_em(tmp_path) == 0, "o contador de jornadas passou a contar o gate meta"
+    with pytest.raises(AssertionError, match="o piso é"):
+        _conferir_jornadas(_jornadas_em(tmp_path))
+
+    # Controle: com as jornadas de volta, o mesmo contador e a mesma checagem passam.
+    (tmp_path / "jornadas.spec.ts").write_text(
+        "".join(f'test("jornada {i}", async ({{ page }}) => {{}});\n' for i in range(9)),
+        encoding="utf-8",
+    )
+    assert _jornadas_em(tmp_path) == PISO_DE_JORNADAS
+    _conferir_jornadas(_jornadas_em(tmp_path))
+
+
+def test_o_teto_reprova_um_e2e_inchado() -> None:
+    """O outro lado do mesmo gate — teto e piso saem da mesma checagem."""
+    with pytest.raises(AssertionError, match="o teto é"):
+        _conferir_jornadas(TETO_DE_JORNADAS + 1)
 
 
 def test_toda_rota_declara_permissao() -> None:

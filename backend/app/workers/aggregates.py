@@ -22,9 +22,10 @@ um, muda o outro.
 """
 
 import asyncio
+import contextlib
 import logging
 import uuid
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from time import monotonic
@@ -47,6 +48,10 @@ logger = logging.getLogger(__name__)
 SLOW_REFRESH_ALERT_SECONDS = 60
 # Retenção do log de refresh (refatoração 080) — mesmo horizonte de `sync_runs`.
 REFRESH_LOG_RETENTION_DAYS = 90
+# Chave do advisory lock da varredura (spec 137). Diferente da 20260828 do
+# `core/migrations.py` — advisory lock é um espaço de nomes só, e duas travas com o
+# mesmo número seriam a mesma trava.
+SWEEP_LOCK_KEY = 20260908
 _SLOW_ALERT_INTEGRATION = "aggregates"
 _SLOW_ALERT_CODE = "slow_refresh"
 
@@ -240,14 +245,60 @@ async def _enabled_registry(url: str) -> Sequence[Row[Any]]:
         await engine.dispose()
 
 
+@contextlib.asynccontextmanager
+async def _sweep_lock(url: str) -> AsyncIterator[bool]:
+    """Trava de sobreposição da varredura (spec 137), por advisory lock do Postgres.
+
+    O beat roda de minuto em minuto e `last_refresh_at` só é escrito no FIM de cada
+    refresh. Uma rodada que passe de um minuto — e existe alerta próprio para refresh
+    acima de 60 s, então ela passa — deixa o tick seguinte considerar as MESMAS views
+    vencidas e disparar `REFRESH MATERIALIZED VIEW CONCURRENTLY` duplicado: os dois
+    serializam no lock da view, e o segundo é trabalho integralmente jogado fora, com
+    uma conexão de superusuário parada esperando enquanto isso.
+
+    `pg_try_advisory_lock` não espera: se a rodada anterior ainda está de pé, esta
+    desiste e o próximo minuto tenta de novo. O lock é de SESSÃO e cai sozinho quando a
+    conexão morre, então um worker que for morto no meio não deixa a varredura travada
+    para sempre — que é a razão de ser advisory lock e não uma linha numa tabela.
+
+    O custo é uma conexão parada durante a varredura. É o preço de não ter duas.
+    """
+    engine = create_engine_from_url(url)
+    try:
+        async with engine.connect() as conn:
+            adquirido = bool(
+                (await conn.execute(select(func.pg_try_advisory_lock(SWEEP_LOCK_KEY)))).scalar()
+            )
+            try:
+                yield adquirido
+            finally:
+                if adquirido:
+                    await conn.execute(select(func.pg_advisory_unlock(SWEEP_LOCK_KEY)))
+    finally:
+        await engine.dispose()
+
+
 async def refresh_due_aggregates(url: str | None = None) -> list[str]:
     """Refresh sequencial (regra 10) das views vencidas ou nunca refrescadas.
     Falha em uma não impede as outras (regra 11) — o erro fica no registry/log.
-    Devolve os nomes das views efetivamente refrescadas (para os testes)."""
+    Devolve os nomes das views efetivamente refrescadas (para os testes).
+
+    Spec 137: a varredura inteira roda sob advisory lock — ver `_sweep_lock`. Quando a
+    trava está na mão de outra rodada, esta devolve lista vazia (nada foi refrescado
+    por ela), que é exatamente o que o chamador precisa saber.
+    """
     resolved = url or get_settings().migrations_database_url
     if resolved is None:
         raise RuntimeError("MIGRATIONS_DATABASE_URL não configurada para o refresh.")
-    rows = await _enabled_registry(resolved)
+    async with _sweep_lock(resolved) as adquirido:
+        if not adquirido:
+            logger.info("Varredura de agregados já em andamento — este tick não faz nada.")
+            return []
+        return await _refresh_due(resolved)
+
+
+async def _refresh_due(url: str) -> list[str]:
+    rows = await _enabled_registry(url)
     now = datetime.now(UTC)
     refreshed: list[str] = []
     for name, interval_seconds, last_refresh_at in rows:
@@ -255,7 +306,7 @@ async def refresh_due_aggregates(url: str | None = None) -> list[str]:
         if not due:
             continue
         try:
-            await refresh_aggregate(name, resolved)
+            await refresh_aggregate(name, url)
             refreshed.append(name)
         except Exception:
             logger.warning("Refresh do agregado %s falhou — as demais views seguem.", name)

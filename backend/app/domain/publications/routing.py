@@ -187,7 +187,10 @@ class PublicationRoutingService:
 
         term_user_id = await self._find_term_responsible(publication)
         if term_user_id is not None:
-            candidates = await self.lawsuits.list_by_responsible(term_user_id)
+            # Spec 137: `limit=2` — "exatamente um" se decide com dois candidatos, e sem
+            # o teto esta linha materializava a carteira inteira do advogado como objetos
+            # ORM (20.000 em 967 ms, 75 MB de pico) só para comparar o tamanho com 1.
+            candidates = await self.lawsuits.list_by_responsible(term_user_id, limit=2)
             if len(candidates) == 1:
                 return candidates[0], "lawyer_id"
 

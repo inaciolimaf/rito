@@ -14,6 +14,7 @@ import {
 import { MonthNavigator } from "@/features/financial/MonthNavigator";
 import { RegimeSelect } from "@/features/financial/RegimeSelect";
 import { formatBrl } from "@/lib/money";
+import { formatNumberPtBr } from "@/lib/format";
 
 type Trend = NonNullable<StatCardProps["variation"]>["trend"];
 
@@ -33,7 +34,7 @@ function balanceVariation(current: number, previous: number): { label: string; t
   const pct = ((current - previous) / Math.abs(previous)) * 100;
   const trend: Trend = pct > 0 ? "up" : pct < 0 ? "down" : "flat";
   const sign = pct > 0 ? "+" : "";
-  return { label: `${sign}${pct.toFixed(1)}% vs. mês anterior`, trend };
+  return { label: `${sign}${formatNumberPtBr(pct, 1)}% vs. mês anterior`, trend };
 }
 
 function formatDay(isoDate: string): string {

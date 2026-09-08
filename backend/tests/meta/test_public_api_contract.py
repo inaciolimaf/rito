@@ -134,3 +134,37 @@ def _refs(node: object) -> set[str]:
         for item in node:
             encontrados |= _refs(item)
     return encontrados
+
+
+# Escrita direta no modelo, dentro do router público. A regra 10 da 095 diz que a escrita
+# pública passa pelos services; até a spec 134 ela não passava, e o sintoma era exatamente
+# este — `setattr` num objeto ORM seguido de `flush`.
+_ESCRITA_DIRETA = ("setattr(", "session.add(", "session.flush(", "session.delete(")
+
+
+def test_o_router_publico_nao_escreve_no_modelo_direto() -> None:
+    """Regra 10 da 095 virada gate (spec 134).
+
+    Era uma frase na spec e nada a conferia: a MESMA `payment_date` no MESMO lançamento
+    dava 422 pela tela e 200 pela API, porque o PUT público escrevia atributo no modelo e
+    o service — onde mora a regra — nunca era chamado. Um `setattr` de volta neste arquivo
+    é a forma que o defeito tem de voltar, e agora ele reprova aqui.
+    """
+    fonte = (APP_DIR / "public" / "router.py").read_text(encoding="utf-8")
+
+    encontrados = [trecho for trecho in _ESCRITA_DIRETA if trecho in fonte]
+
+    assert encontrados == [], f"escrita fora do service no router público: {encontrados}"
+
+
+def test_a_listagem_de_tarefas_aplica_a_visibilidade_da_tela() -> None:
+    """Spec 134, regra 1: `GET /posts` devolvia tarefa privada de qualquer um.
+
+    O predicado é o MESMO da API interna (`posts.listing.visible_to`) e não uma cópia — se
+    a regra 8 da 033 mudar, ela muda nos dois lugares de uma vez. O gate confere que a
+    rota pública continua importando o predicado de lá em vez de reinventá-lo.
+    """
+    fonte = (APP_DIR / "public" / "router.py").read_text(encoding="utf-8")
+
+    assert "from app.domain.posts.listing import visible_to" in fonte
+    assert "visible_to(caller.acting_user_id)" in fonte

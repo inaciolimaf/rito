@@ -8,6 +8,7 @@ import {
   type InboxRow,
   type InboxSectionKey,
 } from "@/features/inbox/api";
+import { formatBrDate } from "@/lib/format";
 
 export interface InboxSectionProps {
   section: InboxSectionKey;
@@ -16,14 +17,6 @@ export interface InboxSectionProps {
   onToggleCollapsed: () => void;
   selectedIds: Set<string>;
   onToggleRow: (postId: string) => void;
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) {
-    return "—";
-  }
-  const [year, month, day] = iso.split("-");
-  return `${day}/${month}/${year}`;
 }
 
 function InboxRowLine({
@@ -56,8 +49,8 @@ function InboxRowLine({
         </Link>
       </td>
       <td className="px-2 py-1.5">{row.parties.slice(0, 2).join(", ")}</td>
-      <td className="px-2 py-1.5">{formatDate(row.scheduled_date)}</td>
-      <td className="px-2 py-1.5">{formatDate(row.deadline_date)}</td>
+      <td className="px-2 py-1.5">{formatBrDate(row.scheduled_date)}</td>
+      <td className="px-2 py-1.5">{formatBrDate(row.deadline_date)}</td>
       <td className="px-2 py-1.5">{row.assignee_names.join(", ")}</td>
     </tr>
   );

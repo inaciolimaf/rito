@@ -39,4 +39,26 @@ describe("TermHealthCard", () => {
     expect(await screen.findByText("2")).toBeInTheDocument();
     expect(screen.getByTestId("term-status-badge")).toHaveTextContent("Falha");
   });
+
+  it("API falhando mostra o erro — não o carregando eterno (spec 138, regra 4)", async () => {
+    server.use(
+      http.get(`${BASE_URL}/api/v1/monitored-terms/term-1/health`, () =>
+        HttpResponse.json(
+          {
+            type: "about:blank",
+            title: "Erro",
+            status: 500,
+            detail: "Erro interno.",
+            instance: "/api/v1/monitored-terms/term-1/health",
+          },
+          { status: 500, headers: { "Content-Type": "application/problem+json" } },
+        ),
+      ),
+    );
+
+    renderCard();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível carregar.");
+    expect(screen.queryByText("Carregando saúde do termo…")).not.toBeInTheDocument();
+  });
 });

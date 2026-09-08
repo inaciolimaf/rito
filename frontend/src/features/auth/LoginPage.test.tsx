@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -10,12 +11,15 @@ import { AuthProvider } from "@/providers/AuthProvider";
 function renderLoginPage(): void {
   render(
     <MemoryRouter initialEntries={["/login"]}>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<div>Home autenticada</div>} />
-        </Routes>
-      </AuthProvider>
+      {/* Spec 138, regra 3: o AuthProvider limpa o cache do React Query no logout. */}
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<div>Home autenticada</div>} />
+          </Routes>
+        </AuthProvider>
+      </QueryClientProvider>
     </MemoryRouter>,
   );
 }

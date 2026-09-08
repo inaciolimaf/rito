@@ -14,6 +14,22 @@ export const taskTypeFormSchema = z.object({
   show_in_schedule: z.boolean(),
 });
 
+/** Spec 138, regra 7: no **update** o backend exige `reward: int` (`task_types/
+ * schemas.py`: `TaskTypeUpdateRequest.reward: int = Field(ge=0)`), enquanto na criação
+ * `None` é válido e significa "aceitar a sugestão da matriz" (regra 2 da spec 031). O
+ * formulário usava o mesmo schema nos dois casos: limpar "Pontuação" ao editar passava
+ * pelo Zod e voltava 422 "Input should be a valid integer" — em inglês. Aqui a
+ * assimetria do backend é espelhada, não inventada. */
+export const taskTypeEditSchema = taskTypeFormSchema.extend({
+  reward: z
+    .string()
+    .min(1, "Pontuação é obrigatória ao editar — a sugestão da matriz só vale na criação.")
+    .refine(
+      (value) => Number.isInteger(Number(value)) && Number(value) >= 0,
+      "Pontuação inteira, zero ou mais.",
+    ),
+});
+
 export type TaskTypeFormValues = z.infer<typeof taskTypeFormSchema>;
 
 export const DEFAULT_TASK_TYPE_FORM_VALUES: TaskTypeFormValues = {

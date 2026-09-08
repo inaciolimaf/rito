@@ -292,7 +292,19 @@ class TransactionRepository(BaseRepository[Transaction]):
     def _filter_conditions(f: TransactionQuery) -> list[ColumnElement[bool]]:
         """Refatoração 060 (duplicação): condições compartilhadas por `list_filtered` e
         `totals_filtered` — o rodapé da listagem soma no banco com o MESMO filtro da
-        página, nunca reduzindo `amount` no cliente (regra do audit numérico)."""
+        página, nunca reduzindo `amount` no cliente (regra do audit numérico).
+
+        Sobre o `ILIKE` de `description`, spec 137: ele passou a ter índice
+        (`ix_transactions_description_trgm`, gin_trgm_ops). Medido em 200 mil lançamentos,
+        66 ms de `Parallel Seq Scan` contra 7,0 ms de `Bitmap Index Scan`. Duas coisas
+        precisam estar de pé, e as duas moram na migration 137: o índice, e o `texticlike`
+        marcado LEAKPROOF — sob RLS um predicado não-leakproof jamais vira condição de
+        índice, e sem essa marca o índice existiria sem nunca ser usado.
+
+        O que NÃO foi corrigido: a requisição paga a varredura DUAS vezes, porque a
+        página e os cartões de topo repetem o filtro em statements separados. Unir os
+        dois é mudança de `financial/service.py`, fora do escopo da 137 — está no
+        registro de dívida."""
         # Spec 106: os filtros de igualdade viram tabela; os que têm semântica própria
         # (status, intervalo, texto, interno) continuam explícitos logo abaixo.
         igualdades: tuple[tuple[Any, InstrumentedAttribute[Any]], ...] = (

@@ -11,7 +11,13 @@ from app.core.config import Settings, get_settings
 from app.core.deps import get_messaging_channels, get_redis
 from app.core.http import get_or_404, parse_month_query
 from app.core.locks import RedisSyncLock
-from app.core.permissions import FinancialAccess, UserRole, require_financial, require_role
+from app.core.permissions import (
+    FinancialAccess,
+    UserRole,
+    has_financial_access,
+    require_financial,
+    require_role,
+)
 from app.domain.auth.deps import get_clock, get_session_for_current_user
 from app.domain.datajud.exceptions import LawsuitSyncInProgressError
 from app.domain.datajud.movement_sync_service import MovementSyncService, sync_lock_key
@@ -231,13 +237,26 @@ def _to_movement_response(movement: LawsuitMovement) -> MovementResponse:
     )
 
 
-def _money_fields(lawsuit: Lawsuit) -> dict[str, Any]:
+def _can_see_value(user: User) -> bool:
+    """Regra 2 (spec 135): sem o eixo financeiro, o dinheiro do processo vem `null`."""
+    return has_financial_access(user, FinancialAccess.READ_ONLY)
+
+
+def _money_fields(lawsuit: Lawsuit, *, can_see_value: bool) -> dict[str, Any]:
     """Valor da causa, honorários e prognóstico — o bloco financeiro do processo.
 
     Andam juntos porque são lidos juntos: o card de valores da tela mostra os quatro, e a
     `contingency` (provável/possível/remota) é o que dá sentido ao número — R$ 100 mil com
     prognóstico remoto não é a mesma informação que R$ 100 mil com prognóstico provável.
+
+    E somem juntos (spec 135, regra 2). Sem acesso financeiro os quatro vêm `null` e o resto
+    do processo continua visível — o mesmo desenho do card do CRM e de
+    `partner_shared_lawsuits` (migration 079). Era o furo mais largo do eixo financeiro: o
+    valor que o card do CRM escondia estava aberto, para qualquer Colaborador, na tela de
+    detalhe do mesmo processo.
     """
+    if not can_see_value:
+        return dict.fromkeys(("case_value", "fees_value", "fees_percentage", "contingency"))
     return {
         "case_value": lawsuit.case_value,
         "fees_value": lawsuit.fees_value,
@@ -263,7 +282,7 @@ def _closure_fields(lawsuit: Lawsuit) -> dict[str, Any]:
     }
 
 
-def _to_response(detail: LawsuitDetail) -> LawsuitResponse:
+def _to_response(detail: LawsuitDetail, *, can_see_value: bool) -> LawsuitResponse:
     lawsuit = detail.lawsuit
     return LawsuitResponse(
         id=lawsuit.id,
@@ -288,7 +307,7 @@ def _to_response(detail: LawsuitDetail) -> LawsuitResponse:
         notes=lawsuit.notes,
         created_at=lawsuit.created_at,
         updated_at=lawsuit.updated_at,
-        **_money_fields(lawsuit),
+        **_money_fields(lawsuit, can_see_value=can_see_value),
         **_closure_fields(lawsuit),
     )
 
@@ -497,7 +516,7 @@ async def create_lawsuit(
         body=created.lawsuit.process_number or "Sem número de processo informado",
         link=f"/lawsuits/{created.lawsuit.id}",
     )
-    return _to_response(created)
+    return _to_response(created, can_see_value=_can_see_value(current_user))
 
 
 @router.post("/validate-number")
@@ -566,12 +585,12 @@ async def bulk_move_lawsuit_stage(
 @router.get("/{lawsuit_id}")
 async def get_lawsuit(
     lawsuit_id: uuid.UUID,
-    _current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
     session: AsyncSession = Depends(get_session_for_current_user),
 ) -> LawsuitResponse:
-    service = LawsuitService(session=session, tenant_id=_current_user.tenant_id)
+    service = LawsuitService(session=session, tenant_id=current_user.tenant_id)
     detail = await get_or_404(lambda: service.get(lawsuit_id), _NOT_FOUND_DETAIL)
-    return _to_response(detail)
+    return _to_response(detail, can_see_value=_can_see_value(current_user))
 
 
 @router.put("/{lawsuit_id}")
@@ -604,7 +623,7 @@ async def update_lawsuit(
     _schedule_cycle_events(
         previous_cycle_dates, (updated.lawsuit.closure_date, updated.lawsuit.archived_date)
     )
-    return _to_response(updated)
+    return _to_response(updated, can_see_value=_can_see_value(current_user))
 
 
 @router.post("/{lawsuit_id}/move-stage")
@@ -637,7 +656,10 @@ async def move_lawsuit_stage(
         if workflow is not None
         else None
     )
-    return MoveStageResponse(lawsuit=_to_response(updated), suggested_workflow=suggested)
+    return MoveStageResponse(
+        lawsuit=_to_response(updated, can_see_value=_can_see_value(current_user)),
+        suggested_workflow=suggested,
+    )
 
 
 def _workflow_error(exc: WorkflowAlreadyAppliedError | InactiveAssigneeError) -> HTTPException:

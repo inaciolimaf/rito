@@ -1,4 +1,5 @@
 import * as React from "react";
+import { formatUsd } from "@/lib/format";
 
 export interface AiBudgetFieldProps {
   budgetUsd: number | null;
@@ -35,8 +36,8 @@ export function AiBudgetField({ budgetUsd, spentUsd, onSave }: AiBudgetFieldProp
         Salvar teto
       </button>
       <span className="text-xs text-muted">
-        Gasto no mês: US$ {spentUsd.toFixed(4)}
-        {budgetUsd !== null && ` de US$ ${budgetUsd.toFixed(2)}`}
+        Gasto no mês: {formatUsd(spentUsd, 4)}
+        {budgetUsd !== null && ` de ${formatUsd(budgetUsd)}`}
       </span>
     </div>
   );

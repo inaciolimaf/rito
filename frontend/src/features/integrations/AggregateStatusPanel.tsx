@@ -6,6 +6,7 @@ import { getAggregateStatus } from "@/features/integrations/api";
 import type { AggregateStatusItem } from "@/features/integrations/api";
 import { RefreshButton } from "@/features/integrations/RefreshButton";
 import { StalenessIndicator } from "@/features/integrations/StalenessIndicator";
+import { formatNumberPtBr } from "@/lib/format";
 
 export interface AggregateStatusPanelProps {
   canRefresh: boolean;
@@ -18,7 +19,7 @@ function formatInterval(seconds: number): string {
 
 function formatDuration(ms: number | null): string {
   if (ms === null) return "—";
-  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+  return ms < 1000 ? `${ms} ms` : `${formatNumberPtBr(ms / 1000, 1)} s`;
 }
 
 /** Painel de status dos agregados (spec 078, §6): todas as views materializadas do

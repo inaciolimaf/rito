@@ -53,12 +53,25 @@ def unaccented_contains(column: Column, query: str) -> Predicate:
     procurava "etica" na lista de etapas não achava "Ética", e quem procurava "Ética" na
     de contatos achava. Duas buscas com a mesma cara e resultados diferentes.
 
-    `unaccent` (não `immutable_unaccent`): o wrapper IMMUTABLE existe para expressão de
-    ÍNDICE (migrations 014/102). Num predicado de WHERE a função normal serve, e é a que
-    o resto do código já usa em filtro.
+    ## `immutable_unaccent`, e sem `lower()` — a spec 137 inverteu o que estava escrito aqui
+
+    Este docstring afirmava, até a 137, que "num predicado de WHERE a função normal
+    serve". Serve para o RESULTADO, não para o PLANO, e era exatamente ao contrário do
+    que a frase ensinava: o planner só casa índice de expressão com a **mesma** função.
+    O índice é `immutable_unaccent(...)`; o WHERE dizia `unaccent(...)`; o
+    `ix_customers_name_trgm` nunca foi usado. Medido em 100 mil contatos, sob RLS:
+    139 ms de `Parallel Seq Scan` contra 4,5 ms de `Bitmap Index Scan`.
+
+    O `lower()` saiu junto, e não por estilo: sob RLS, um predicado só vira condição de
+    índice se **todo** o seu conteúdo for `LEAKPROOF` (senão ele seria avaliado antes da
+    política de tenant, o que vazaria dado de outro escritório). `lower(text)` não é
+    leakproof e não dá para marcá-la sem mexer no catálogo do Postgres. Como o `ILIKE`
+    já ignora caixa por conta própria, tirar o `lower()` deixa a expressão com só duas
+    funções — `immutable_unaccent` (nossa, marcada LEAKPROOF na migration 137) e o
+    operador `~~*` — e é isso que permite ao índice ser usado. Ver `specs/137`.
     """
-    padrao = func.concat("%", func.unaccent(func.lower(literal(query))), "%")
-    return func.unaccent(func.lower(column)).ilike(padrao)
+    padrao = func.concat("%", func.immutable_unaccent(literal(query)), "%")
+    return func.immutable_unaccent(column).ilike(padrao)
 
 
 @dataclass(frozen=True, slots=True)

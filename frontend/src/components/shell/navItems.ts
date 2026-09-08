@@ -55,3 +55,19 @@ export const NAV_ITEMS: NavItem[] = [
 export const ROUTABLE_NAV_ITEMS = NAV_ITEMS.filter(
   (item): item is NavItem & { path: string } => item.path !== undefined,
 );
+
+/** A capability exigida por uma rota, ou `null` quando qualquer autenticado entra.
+ *
+ * Spec 138, regra 9: as `capabilities` do `/auth/me` só escondiam itens de menu. Como os
+ * filtros vivem na URL e o link é compartilhável por desenho (CLAUDE.md §6), receber o
+ * link do financeiro sem ter acesso a ele é rotina — e o que aparecia era erro genérico
+ * (ou o carregando eterno da regra 4), nunca "você não tem acesso a esta área". O casamento
+ * é por prefixo de caminho: `/settings/users` herda a exigência de `/settings`. */
+export function requiredCapabilityFor(pathname: string): string | null {
+  const match = NAV_ITEMS.filter((item) => item.capability && item.path)
+    .filter((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
+    // O caminho mais específico manda: se algum dia `/settings/x` exigir outra coisa
+    // além do que `/settings` exige, é a dele que vale.
+    .sort((a, b) => (b.path?.length ?? 0) - (a.path?.length ?? 0))[0];
+  return match?.capability ?? null;
+}

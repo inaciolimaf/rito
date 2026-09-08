@@ -1,6 +1,7 @@
 import { ChevronDown, Menu } from "lucide-react";
 import * as React from "react";
 
+import { useClickOutside } from "@/components/domain/useClickOutside";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { GlobalSearch } from "@/components/shell/GlobalSearch";
 import { NotificationBell } from "@/components/shell/NotificationBell";
@@ -16,17 +17,10 @@ export interface HeaderProps {
 function UserMenu(): JSX.Element {
   const { user, logout } = useAuth();
   const [isOpen, setIsOpen] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent): void {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  // Spec 138, regra 10: clicar fora **e** Esc, num hook só. Os três menus do shell
+  // anunciam `role="menu"` e nenhum fechava com Esc — quem navega por teclado abria o
+  // menu e só saía dele tabulando para fora.
+  const containerRef = useClickOutside<HTMLDivElement>(isOpen, () => setIsOpen(false));
 
   return (
     <div ref={containerRef} className="relative">

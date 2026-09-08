@@ -22,6 +22,7 @@ import {
 } from "@/features/task-types/api";
 import {
   DEFAULT_TASK_TYPE_FORM_VALUES,
+  taskTypeEditSchema,
   taskTypeFormSchema,
   type TaskTypeFormValues,
 } from "@/features/task-types/schema";
@@ -216,7 +217,7 @@ export function TaskTypesListPage(): JSX.Element {
         open={modalOpen}
         onOpenChange={setModalOpen}
         title={editingTaskType ? "Editar tarefa" : "Nova tarefa"}
-        schema={taskTypeFormSchema}
+        schema={editingTaskType ? taskTypeEditSchema : taskTypeFormSchema}
         defaultValues={
           editingTaskType ? toFormValues(editingTaskType) : DEFAULT_TASK_TYPE_FORM_VALUES
         }

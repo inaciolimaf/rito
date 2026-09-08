@@ -2,7 +2,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 
 import type { ListResponse } from "@/components/domain/types";
-import { ApiError } from "@/lib/errors";
+import { getStoredTenantId } from "@/lib/api";
+import { ApiError, failureMessage } from "@/lib/errors";
 
 export interface UseListPageOptions<TFilters, TPage extends ListResponse<unknown>> {
   /** Chave estável da query (ex.: "lawsuits-list") — o export e o refresh a reutilizam. */
@@ -50,9 +51,13 @@ export function useListPage<TFilters, TPage extends ListResponse<unknown>>({
   const queryClient = useQueryClient();
   const [cursorStack, setCursorStack] = React.useState<string[]>([]);
   const currentCursor = cursorStack[cursorStack.length - 1];
+  // Spec 138, regra 3, segunda metade: o escritório entra na chave. Limpar o cache no
+  // logout resolve o caminho normal; a chave escopada é o cinto de segurança para
+  // qualquer caminho que troque de sessão sem passar por `logout()`.
+  const tenantScope = getStoredTenantId() ?? "anon";
 
   const { data, isLoading, error } = useQuery({
-    queryKey: [queryKey, filters, currentCursor],
+    queryKey: [queryKey, tenantScope, filters, currentCursor],
     queryFn: () => fetchPage({ ...filters, cursor: currentCursor, limit }),
   });
 
@@ -66,7 +71,11 @@ export function useListPage<TFilters, TPage extends ListResponse<unknown>>({
     items: data?.items ?? [],
     page: data,
     isLoading,
-    error: error instanceof ApiError ? error.message : null,
+    // Spec 138, regra 9: 403 é um estado com nome. "Não foi possível carregar os dados."
+    // manda o usuário recarregar para sempre quando o que falta é permissão — e, como os
+    // filtros vivem na URL e o link é compartilhável (CLAUDE.md §6), receber o link de uma
+    // área a que não se tem acesso é rotina, não exceção.
+    error: error instanceof ApiError ? failureMessage(error) : null,
     nextCursor: data?.next_cursor ?? null,
     pagination: {
       hasPreviousPage: cursorStack.length > 0,

@@ -17,8 +17,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.ai.tools.base import ToolContext, ToolError
+from app.ai.tools.base import ToolContext, ToolError, permission_refusal
 from app.core.permissions import FinancialAccess, UserRole
+from app.domain.users.models import User
 
 # ------------------------------------------------------------------ contrato
 
@@ -73,6 +74,20 @@ class WriteToolDef:
         schema = self.params_model.model_json_schema()
         schema.pop("title", None)
         return schema
+
+    def permission_error(self, user: User) -> str | None:
+        """O motivo pelo qual este usuário não pode usar a ferramenta, ou `None`.
+
+        Spec 133: a mesma pergunta era respondida em dois lugares — `tool_specs`, que
+        filtra o catálogo oferecido ao modelo, e `AiActionService._permission_error`, que
+        recusa a proposta. Só o segundo consultava os campos das ferramentas de ESCRITA, e
+        o resultado era um agente que anunciava ao usuário um lançamento financeiro que ia
+        ser recusado meio segundo depois. Uma resposta, um lugar.
+        """
+        recusa = permission_refusal(
+            self.name, user, role=self.requires_role, financial=self.requires_financial
+        )
+        return None if recusa is None else recusa[1]
 
 
 _WRITE_REGISTRY: dict[str, WriteToolDef] = {}

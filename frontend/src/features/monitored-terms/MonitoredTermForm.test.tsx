@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
@@ -107,5 +107,32 @@ describe("MonitoredTermForm", () => {
       expect.objectContaining({ kind: "OAB", value: "114962", oab_state: "MG", user_id: "u1" }),
       expect.anything(),
     );
+  });
+
+  it("CPF com dígito verificador errado não passa no formulário (spec 138, regra 7)", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<Harness onSubmit={onSubmit} />);
+
+    await user.selectOptions(screen.getByLabelText("Tipo"), "CPF");
+    // Onze dígitos — o que o formulário exigia até aqui —, mas o backend
+    // (`core/br_documents.py`) recusa: dígito verificador inválido.
+    await user.type(screen.getByLabelText("CPF"), "52998224726");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(await screen.findByText("CPF inválido — confira os números.")).toBeInTheDocument();
+  });
+
+  it("CPF válido passa", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<Harness onSubmit={onSubmit} />);
+
+    await user.selectOptions(screen.getByLabelText("Tipo"), "CPF");
+    await user.type(screen.getByLabelText("CPF"), "52998224725");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
   });
 });

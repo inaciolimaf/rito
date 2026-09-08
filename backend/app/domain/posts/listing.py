@@ -15,7 +15,7 @@ Duas decisões estruturais que valem para o arquivo inteiro:
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Literal
@@ -29,7 +29,6 @@ from sqlalchemy.sql.selectable import Subquery
 from app.core.listing import (
     Column,
     Page,
-    QuickViews,
     date_range,
     datetime_range,
     paginate_keyset,
@@ -68,15 +67,35 @@ def _limit_date() -> ColumnElement[date]:
 # Regra 5: as quatro visões rápidas. `pending` é o default — abrir Atividades é olhar o que
 # falta fazer, não o histórico. `overdue` é o terceiro status colorido da agenda no
 # levantamento (§4.2), e por isso é visão e não filtro separado.
-ACTIVITY_VIEWS = QuickViews(
-    default="pending",
-    views={
-        "all": lambda: None,
-        "pending": _pending_line,
-        "completed": lambda: ~_pending_line(),
-        "overdue": lambda: and_(_pending_line(), _limit_date() < func.current_date()),
-    },
-)
+#
+# Spec 136: as fábricas recebem o DIA DO ESCRITÓRIO. Até aqui `overdue` era
+# `_limit_date() < func.current_date()` — o dia do **servidor**, que roda em UTC —,
+# enquanto `status_of`, dez linhas abaixo, rotulava a MESMA linha com o dia do
+# escritório. Entre 21h e a meia-noite em Brasília a resposta afirmava as duas coisas:
+# a tarefa que vence hoje voltava dentro de "Atrasadas" e vinha marcada "PENDENTE".
+# Por isso não é `QuickViews` da infra de listagem: as fábricas de lá não recebem
+# parâmetro, e o dia precisa entrar por um.
+_ACTIVITY_VIEWS: dict[str, Callable[[date], Predicate | None]] = {
+    "all": lambda _today: None,
+    "pending": lambda _today: _pending_line(),
+    "completed": lambda _today: ~_pending_line(),
+    "overdue": lambda today: and_(_pending_line(), _limit_date() < today),
+}
+
+ACTIVITY_VIEW_DEFAULT = "pending"
+ACTIVITY_VIEW_NAMES = tuple(_ACTIVITY_VIEWS)
+
+
+def resolve_activity_view(view: str) -> str:
+    """Visão desconhecida cai no default — visão é atalho, nunca erro (mesma regra do
+    `QuickViews.resolve` que este módulo usava antes da 136)."""
+    return view if view in _ACTIVITY_VIEWS else ACTIVITY_VIEW_DEFAULT
+
+
+def activity_view_predicate(view: str, today: date) -> Predicate | None:
+    """O predicado da visão, com o dia do escritório. `None` = visão sem predicado."""
+    return _ACTIVITY_VIEWS[resolve_activity_view(view)](today)
+
 
 _AXIS_COLUMNS: dict[str, InstrumentedAttribute[Any]] = {
     "scheduled": Post.scheduled_date,
@@ -104,7 +123,7 @@ class ActivityFilters:
     Fica junto porque sem ele o par é ambíguo — mesma decisão do `by_deadline` do
     `TaskQuery` da busca de tarefas (083)."""
 
-    view: str = ACTIVITY_VIEWS.default
+    view: str = ACTIVITY_VIEW_DEFAULT
     column: DateAxis = "scheduled"
     date_from: date | None = None
     date_to: date | None = None
@@ -138,7 +157,7 @@ def filters_from_query(payload: ActivityFiltersQuery) -> ActivityFilters:
     CSV (`important,urgent`) e vira tupla; visão desconhecida cai no default."""
     priority = tuple(value for value in (payload.priority or "").split(",") if value)
     return ActivityFilters(
-        view=ACTIVITY_VIEWS.resolve(payload.view),
+        view=resolve_activity_view(payload.view),
         column=payload.column,
         date_from=payload.date_from,
         date_to=payload.date_to,
@@ -230,7 +249,7 @@ def build_conditions(
     """Todas as condições da tela, na ordem em que se lê a regra: quem pode ver, qual
     visão, futuras, período, filtros diretos, pessoas."""
     condicoes: list[Predicate] = [visible_to(viewer_id)]
-    visao = ACTIVITY_VIEWS.predicate(filters.view)
+    visao = activity_view_predicate(filters.view, today)
     if visao is not None:
         condicoes.append(visao)
     if not filters.include_future:

@@ -17,8 +17,19 @@ from app.domain.schedule.repository import ScheduleRepository
 
 # Regra 8: a consulta da agenda é limitada a 90 dias por requisição.
 MAX_RANGE_DAYS = 90
-# Regra 5: o feed iCal cobre no máximo 12 meses para trás e 12 para frente.
+# Regra 5: o feed iCal cobre 12 meses para frente.
 FEED_WINDOW_DAYS = 365
+# Spec 137: e 90 dias para trás, não 365. A janela era simétrica, e o passado distante
+# não serve a um calendário — ninguém abre o Google Agenda para ver o compromisso de
+# outubro do ano passado. Metade dos 115.196 eventos medidos no feed estava atrás de
+# hoje. Reduzir a janela é o corte que não perde nada de útil.
+FEED_PAST_DAYS = 90
+# Tetos de linhas (spec 137). Não são paginação: as duas rotas devolvem o intervalo
+# inteiro de uma vez por contrato, e o teto é o que impede uma resposta de 20 MB.
+# 5.000 compromissos em 90 dias são 55 por dia; 10.000 no feed de 15 meses são 22 por
+# dia útil. Acima disso a tela deixa de ser uma agenda e vira um relatório.
+MAX_SCHEDULE_EVENTS = 5_000
+FEED_MAX_EVENTS = 10_000
 
 
 class ScheduleStatus(StrEnum):
@@ -38,6 +49,18 @@ class DateField(StrEnum):
 
 class RangeTooLongError(Exception):
     """Intervalo acima de 90 dias — 422 (regra 8)."""
+
+
+@dataclass
+class SchedulePage:
+    """A agenda de um intervalo, e se o teto de linhas cortou alguma coisa.
+
+    `truncated` existe para a tela poder dizer ao usuário que ele não está vendo tudo:
+    um teto silencioso é pior que nenhum teto, porque some com o compromisso sem avisar
+    (spec 137)."""
+
+    events: list["ScheduleEvent"]
+    truncated: bool
 
 
 @dataclass
@@ -148,12 +171,21 @@ class ScheduleService:
         user_id: uuid.UUID | None,
         show_completed: bool,
         today: date,
-    ) -> list[ScheduleEvent]:
+        limit: int = MAX_SCHEDULE_EVENTS,
+    ) -> SchedulePage:
         if (end - start).days > MAX_RANGE_DAYS:
             raise RangeTooLongError("Intervalo máximo de consulta é de 90 dias.")
+        # `limit + 1` é o mesmo idioma do keyset das listagens: a linha extra não vai
+        # para a resposta, só responde "havia mais".
         rows = await self.repository.list_posts(
-            start=start, end=end, date_field=date_field.value, user_id=user_id
+            start=start,
+            end=end,
+            date_field=date_field.value,
+            user_id=user_id,
+            limit=limit + 1,
         )
+        truncated = len(rows) > limit
+        rows = rows[:limit]
         lines = await self.repository.assignee_lines([post.id for post, _ in rows])
         events: list[ScheduleEvent] = []
         for post, task_type_name in rows:
@@ -167,17 +199,24 @@ class ScheduleService:
             axis = not_none(axis, "o repositório já filtra eixo NULL")
             status = _event_status(completed=completed, axis=axis, today=today)
             events.append(_event(post, task_type_name, axis, status, assignees))
-        return events
+        return SchedulePage(events=events, truncated=truncated)
 
     async def feed_events(self, *, user_id: uuid.UUID, today: date) -> list[ICalEvent]:
-        """Regra 5: só tarefas do usuário com `show_in_schedule`, janela de ±12 meses.
-        Eixo do feed é a data de compromisso (é o que faz sentido num calendário);
-        o summary marca prazo fatal quando existir."""
+        """Regra 5: só tarefas do usuário com `show_in_schedule`, 90 dias para trás e 12
+        meses para frente, com teto de linhas. Eixo do feed é a data de compromisso (é o
+        que faz sentido num calendário); o summary marca prazo fatal quando existir.
+
+        A janela e o teto entraram na spec 137. A rota é pública por token, fora de
+        `/api/v1`, sem sessão e sem rate limit, e clientes de calendário (Google, Outlook,
+        Apple) fazem polling a cada 15 minutos POR USUÁRIO: cada feed ligado é carga fixa
+        e recorrente. Medido antes: 115.196 eventos, 1,9 s de consulta, 0,6 s de montagem,
+        19,8 MB de `.ics` por requisição."""
         rows = await self.repository.list_posts(
-            start=today - timedelta(days=FEED_WINDOW_DAYS),
+            start=today - timedelta(days=FEED_PAST_DAYS),
             end=today + timedelta(days=FEED_WINDOW_DAYS),
             date_field=DateField.SCHEDULED.value,
             user_id=user_id,
+            limit=FEED_MAX_EVENTS,
         )
         return [
             ICalEvent(

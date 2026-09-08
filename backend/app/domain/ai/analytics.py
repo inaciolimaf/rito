@@ -57,6 +57,11 @@ _SQL_SYSTEM = load_prompt("analytics_sql")
 
 CLARIFICATION_PREFIX = "PRECISO_DE_ESCLARECIMENTO:"
 
+# Spec 133: o papel de banco em que a consulta do MODELO roda. Criado na migration
+# 133_papel_de_leitura_da_ia — sem `EXECUTE` em `set_config`, com `SELECT` só nas 9
+# relações da `ALLOWED_RELATIONS`. Ver `_run_readonly`.
+AI_QUERY_ROLE = "rito_ai"
+
 
 # Uma consulta só, com subqueries correlacionadas, e não seis: o orçamento de queries do
 # CLAUDE.md §11 conta statements, e o painel de sinais é lido dentro do detalhe do processo,
@@ -410,9 +415,26 @@ class AnalyticsService:
         `SET LOCAL` vale até o fim da subtransação, e é isso que torna o modo reversível:
         o Postgres NÃO deixa voltar de read-only para read-write dentro da mesma
         transação, mas desfaz o `SET LOCAL` ao abortar o savepoint.
+
+        **Spec 133 — o `SET LOCAL ROLE`.** `transaction_read_only` fecha a escrita e não
+        fecha a LEITURA do escritório vizinho: `set_config('app.tenant_id', <outro tenant>,
+        true)` não é escrita, e dentro de uma subconsulta em `OFFSET` ela vira um InitPlan
+        que o Postgres avalia ANTES de varrer a relação — as views barreira leem o GUC
+        depois, e devolvem as linhas do outro. Medido no HEAD, ponta a ponta.
+
+        `rito_ai` (migration 133) é um papel sem `EXECUTE` em `set_config` e com `SELECT`
+        só nas 9 relações do catálogo. Enquanto ele é o papel corrente, o `app.tenant_id`
+        da sessão é IMUTÁVEL — não por convenção, por privilégio: a tentativa morre com
+        *permission denied for function set_config* antes de ler uma linha. E o
+        `ROLLBACK TO SAVEPOINT` devolve `rito_app` junto com o resto, o que mantém a
+        gravação do log de auditoria logo depois no papel de sempre.
+
+        Isto **não** é a fuga do RLS que o gate de `SET ROLE` proíbe: é o contrário dela —
+        o papel assumido pode estritamente menos que `rito_app`, e some com o savepoint.
         """
         await self.session.execute(text(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}"))
         await self.session.execute(text("SET LOCAL transaction_read_only = on"))
+        await self.session.execute(text(f"SET LOCAL ROLE {AI_QUERY_ROLE}"))
         resultado = await self.session.execute(text(sql))
         colunas = list(resultado.keys())
         return colunas, [dict(zip(colunas, row, strict=True)) for row in resultado.fetchall()]

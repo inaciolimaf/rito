@@ -484,6 +484,53 @@ async def test_atividades_visoes_pendente_concluida_atrasada(
     assert len(_ids(await _list_activities(client, headers, view="all"))) == 2
 
 
+async def test_visao_atrasadas_e_o_rotulo_da_linha_nunca_discordam(
+    client: AsyncClient, factory: LawsuitFactory
+) -> None:
+    """Spec 136: a visão e o rótulo respondiam a mesma pergunta com dois relógios.
+
+    `status_of` recebia o dia do escritório (`Clock`, spec 114) e a visão `overdue`
+    perguntava o dia ao Postgres (`func.current_date()`, UTC). Entre 21h e a meia-noite em
+    Brasília — até cinco horas em Rio Branco — a MESMA requisição afirmava as duas coisas:
+    a tarefa que vence hoje voltava dentro de «Atrasadas» e vinha marcada PENDENTE.
+
+    O Rito vende prazo. Mostrar como vencido um prazo fatal que é de hoje ensina o usuário
+    a desconfiar do alarme — e alarme em que não se confia é pior que a ausência dele.
+    """
+    headers = factory.headers
+    lawsuit_id = await factory.create()
+    vence_hoje = await _create_post(
+        client,
+        headers,
+        lawsuit_id=lawsuit_id,
+        task_type_id=await _create_task_type(client, headers),
+        user_ids=[str(factory.gestor.user_id)],
+        deadline_date=HOJE.isoformat(),
+        scheduled_date=HOJE.isoformat(),
+    )
+    venceu_ontem = await _create_post(
+        client,
+        headers,
+        lawsuit_id=lawsuit_id,
+        task_type_id=await _create_task_type(client, headers),
+        user_ids=[str(factory.gestor.user_id)],
+        deadline_date=(HOJE - timedelta(days=1)).isoformat(),
+        scheduled_date=(HOJE - timedelta(days=1)).isoformat(),
+    )
+
+    vencidas = await _list_activities(client, headers, view="overdue", limit=50)
+    assert _ids(vencidas) == [venceu_ontem["id"]]
+    assert vencidas["total"] == 1
+    # A invariante que a spec 128 tinha partido em duas: toda linha que a visão devolve
+    # vem rotulada ATRASADA, e a que não vem não está na visão.
+    assert all(item["status"] == "ATRASADA" for item in vencidas["items"])
+
+    todas = await _list_activities(client, headers, view="all", limit=50)
+    por_id = {item["id"]: item["status"] for item in todas["items"]}
+    assert por_id[vence_hoje["id"]] == "PENDENTE"
+    assert por_id[venceu_ontem["id"]] == "ATRASADA"
+
+
 async def test_atividades_periodo_incide_sobre_o_eixo_escolhido(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:

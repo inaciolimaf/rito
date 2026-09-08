@@ -1585,7 +1585,7 @@ consegue numerar com dez anos de antecedência.
 
 ---
 
-## 43. O teto de linhas do text-to-SQL não vale para `LIMIT` com aritmética
+## 43. ~~O teto de linhas do text-to-SQL não vale para `LIMIT` com aritmética~~ — RESOLVIDA na spec 133
 
 Encontrado pela medição de mutação da spec 132, em `app/domain/ai/sql_guard.py:194`.
 
@@ -1618,11 +1618,29 @@ mutante que a expôs.
 `app/` — é o que o §10 dela afirma, e consertar aqui tornaria a afirmação falsa. Corrigir
 guardrail é mudança de comportamento e pede spec própria, com o caso de borda no nome.
 
-**Spec-alvo:** spec própria de correção, prioridade alta entre as abertas — é a única que
-afrouxa uma proteção declarada.
+### ✅ RESOLVIDA na spec 133
+
+Corrigida por `_literal_int`, que pergunta pelo **tipo do nó** em vez de pelo texto: só
+`exp.Literal` inteiro é aceito, e `Add`, `Neg`, `Mul`, subconsulta, parâmetro e `ALL` caem
+todos no ramo que injeta `MAX_ROWS`. Perguntar pelo tipo é o que fecha a família inteira;
+reconhecer a soma teria fechado uma forma.
+
+**Ao lado dela, o achado que ela quase escondeu.** A auditoria de segurança encontrou, na
+MESMA função guardada pelo MESMO parser, uma quebra de isolamento entre escritórios:
+`set_config('app.tenant_id', <outro tenant>, true)` numa subconsulta em `OFFSET` é um
+InitPlan avaliado antes da varredura, e as views barreira leem o GUC depois. Reproduzido
+ponta a ponta — a sessão do tenant A recebia o dado do tenant B. A 43 era exaustão de
+recurso; a vizinha era confidencialidade cross-tenant, e as duas moravam em `_with_limit` e
+em `check_sql`. Também resolvida na 133, com duas camadas de naturezas diferentes: allowlist
+de 33 funções puras no guarda, e o papel `rito_ai` sem `EXECUTE` em `set_config` durante a
+consulta do modelo (migration 133).
+
+**Fica o registro de método:** um guardrail que só sabe ler texto não fecha uma classe que
+depende da ordem de avaliação do banco — e a 089 tinha escrito quatro camadas das quais três
+eram a mesma pergunta ao mesmo parser.
 
 
-## 44. `conditions._same` coage string a booleano e casa o que não devia
+## 44. ~~`conditions._same` coage string a booleano e casa o que não devia~~ — RESOLVIDO na spec 136
 
 Encontrado pela mesma medição, em `app/domain/automations/conditions.py:65`.
 
@@ -1638,8 +1656,193 @@ decisão porque ela é justamente o que se automatizou.
 como texto em vez de booleano de JSON. Quem conhece aquela tela precisa dizer se é possível
 — e essa investigação é parte do trabalho, não um pré-requisito para registrá-la.
 
-**Spec-alvo:** spec própria de correção, junto da 43 — as duas nasceram da mesma medição e
-as duas são "decide errado sem avisar".
+### ✅ RESOLVIDO na spec 136
+
+**Alcançabilidade, que a dívida pedia para investigar: alcançável pela API, latente pela UI.**
+O `AutomationBuilder` da spec 092 não tem editor de condição — manda `condition: null` — e o
+diálogo de teste não tem campo de payload, então pela tela ninguém produz o caso. Pela API,
+sim: `condition` é `dict[str, Any]` no schema e o `payload` de `POST /automations/{id}/simulate`
+também. **Não é um defeito latente esperando uma tela nova; é um defeito ativo em quem
+configura automação pela API.**
+
+`bool(atual) is bool(esperado)` virou: com um dos lados booleano, o outro precisa **nomear**
+um booleano — `true`/`false` em qualquer caixa, `"1"`/`"0"` e os inteiros `1`/`0`. O que não
+nomeia (`"sim"`, `"banana"`, `2`) não é comparável e **não casa**, que é como `evaluate` já
+trata a condição indecidível — a mesma resposta que a dívida 36 fixou para o operador
+desconhecido.
+
+---
+
+## 45. DNS rebinding nos webhooks: valida-se um IP e conecta-se a outro
+
+`app/domain/webhooks/ssrf.py::_reject_internal_addresses` resolve o host e reprova IP privado,
+metadados de nuvem e link-local. Quem conecta é o `httpx`, em `sender.py`, e ele **resolve o
+nome de novo**. Entre uma coisa e outra o dono do domínio pode trocar o registro: com TTL de um
+segundo, alternando entre um IP público e `169.254.169.254`, a peneira passa e a conexão sai
+para o destino interno. TOCTOU clássico; a resposta volta no corpo de
+`POST /webhook-endpoints/{id}/test` — SSRF de leitura.
+
+**Por que a spec 135 NÃO corrigiu.** A correção é conhecida (conectar ao IP já validado
+preservando `Host` e `sni_hostname`) e obriga a reintroduzir à mão o nome usado na
+**verificação do certificado**, em cada um dos quatro saltos de redirect. Errar isso desliga a
+verificação por nome em TODO webhook do produto — buraco maior que o fechado. E o §3 proíbe
+rede em teste: a suíte só afirmaria que o encanamento chama o transporte com os argumentos
+certos, não que a propriedade vale. **Meia-correção com aparência de correção é pior que dívida
+escrita.**
+
+**Alcance:** exige GESTOR mal-intencionado que já controle um domínio de TTL baixo. Intra-tenant.
+Os casos estáticos seguem barrados por `test_webhook_ssrf.py`.
+
+**Spec-alvo:** spec própria de correção, com o `sni_hostname` provado contra um transporte falso
+antes de qualquer outra coisa — a asserção que fecha a dívida é «o certificado continua sendo
+verificado contra o NOME», não «o webhook chegou».
+
+
+## 46. O eixo financeiro ainda vaza em templates, relatórios e insights de IA
+
+A spec 135 fechou o ponto mais largo (o detalhe do processo). Sobraram três, todos alcançáveis
+por COLABORADOR com `financial_access=NONE`:
+
+- **`POST /templates/{id}/resolve` e `/generate-pdf`** resolvem `{{valor_causa}}` e
+  `{{valor_honorarios}}`, inclusive por extenso, e imprimem em PDF;
+- **Relatórios `won_lawsuits`/`lost_lawsuits`** publicam `fees_value` na tela **e no export
+  XLSX/PDF** — `grep require_financial app/domain/reports/` não devolve nada;
+- **`GET /ai/insights`** diz «Inadimplência relevante — R$ X em N lançamento(s)», contornando o
+  guarda financeiro que o `/ask` tem.
+
+Some-se a incoerência que a 135 deixou de propósito: quem tem NONE ainda pode **escrever**
+`case_value`/`fees_value` e recebe `null` de volta. Fechar a escrita mexe no fluxo de cadastro,
+que é produto.
+
+**O remédio já existe e é barato:** `has_financial_access(user, READ_ONLY)` (spec 135) e o padrão
+de mascarar o campo em vez de recusar a rota — `_money_fields(..., can_see_value=)` é o modelo, e
+`partner_shared_lawsuits` (migration 079) é o mesmo desenho no banco.
+
+**Spec-alvo:** própria, depois que as specs em curso de `templates`, `reports` e `ai` fecharem.
+
+
+## 47. O `AutomationEngine` monta o provider de LLM dentro do domínio
+
+`app/domain/automations/engine.py:130` importa `app.integrations.openrouter.factory` dentro da
+propriedade `ai_runner` — a frase literal do `CLAUDE.md` §5. Ficou invisível por 21 specs porque
+o gate de camadas só abria arquivos chamados `service.py`; a spec 139 ampliou o universo, o gate
+passou a ver, e a violação virou **exceção nomeada** — a primeira da história daquele gate.
+
+Não é desleixo: o motor é chamado de dentro de use cases do domínio, que não têm acesso ao
+`app.state` onde o `lifespan` guarda o provider. O conserto é injetar o `AiRunner` nos oito
+pontos que constroem o motor mais as duas raízes de composição — nove arquivos, quatro bounded
+contexts. Feito pela metade regride a spec 094: sem o fallback,
+`DecisionRunner._blocker_to_ask` responde «Nenhuma IA configurada» e **toda decisão por IA
+disparada por evento de domínio cai no ramo padrão, em silêncio**.
+
+A exceção não apodrece: `test_toda_excecao_ainda_viola_o_gate` reprova no dia em que ela deixar
+de ser necessária, obrigando a apagar a linha.
+
+**Spec-alvo:** spec própria de refatoração, junto de qualquer trabalho que toque automações.
+
+
+## 48. Os 403/404 de autorização e isolamento afirmam o status, não o motivo
+
+Varredura por AST em `tests/`: **246 testes** têm como única asserção um `status_code` ou um
+`is None`. Muitos são legítimos — num 422 de validação o status **é** o comportamento. A
+subfamília que importa é a de **403 e 404**, onde o mesmo status sai de guardas diferentes: um
+403 emitido pela guarda ERRADA (papel em vez de posse, posse em vez de escopo) passa em todos
+eles, e é exatamente o defeito que o nome do teste promete excluir.
+
+**Reforço quantitativo:** `app/` tem **342 blocos `except`** com tipo nomeado, e em **221 deles
+(65%) o nome da exceção não aparece uma única vez em `tests/`**. Não é ramo morto — o teste
+exercita o caminho e olha o status HTTP. É a medida de que o mapeamento «exceção → status +
+motivo» é verificado só pelo lado do status, que é justamente o lado que colide.
+
+A spec 132 já pagou esse preço em `app/core/permissions.py` e fechou os quatro 403 daquele
+módulo conferindo a mensagem inteira. O padrão continua em dezenas de testes fora dele.
+
+**Correção incremental, não campanha:** toda spec que tocar num endpoint acrescenta ao teste de
+403/404 daquele endpoint (a) a mensagem inteira do `problem+json` e (b) o controle positivo —
+quem TEM a permissão vê o dado. O modelo já existe: `test_financial_permission_sweep.py:80`.
+
+**Spec-alvo:** nenhuma isolada; regra de revisão, como a regra 7 da spec 132.
+
+
+## 49. PUT total do backend + `toPayload` incompleto apagam dado sem aviso
+
+Todo `*UpdateRequest` é PUT total: campo ausente cai no default do Pydantic e o service grava por
+cima. Três confirmados — `lawsuits.is_archived` (editar **desarquiva** um processo arquivado),
+`stages.suggested_workflow_id` (editar apaga a sugestão da 053), `financial.transaction.user_id`
+(editar rouba o responsável); um quarto montado e ainda inalcançável
+(`BankAccountUpdateRequest.is_active`).
+
+A spec 138 não pegou: a correção estrutural é do contrato do **backend**, e os mesmos
+`*UpdateRequest` estavam sendo editados por outra frente na mesma janela. A correção mecânica é
+um gate que cruze cada `*UpdateRequest` com o `toPayload` correspondente.
+
+**Spec-alvo:** própria.
+
+
+## 50. Sanitização de HTML de LLM só existe no cliente
+
+A spec 138 isolou a minuta gerada num `<iframe sandbox="">` — garantia do navegador, sem
+dependência nova —, mas `legal_agents/service.py` continua **persistindo** o HTML cru do modelo
+(`strip_unsupported_citations` troca números de súmula, não sanitiza). Duas consequências:
+qualquer consumidor futuro daquele campo (export, e-mail, API pública) herda o problema, e o
+preview vive com altura fixa porque origem opaca não deixa o pai medir o conteúdo.
+
+**Spec-alvo:** própria — sanitizar na escrita (`nh3`/`bleach`), e aí a altura elástica passa a
+valer a dependência de `dompurify` no cliente.
+
+
+## 51. `pg_restore` desfaz o LEAKPROOF e os índices trigram voltam a ser ignorados
+
+`pg_dump` não emite `ALTER FUNCTION` de objeto de catálogo. Depois de um `rito backup restore`, as
+marcas que a migration 137 pôs em `pg_catalog.texticlike` e `public.immutable_unaccent` somem, e
+todo `ILIKE` indexado volta a `Seq Scan` — plano pior, resultado igual, **nenhum erro**. Medido:
+2,9 ms contra 110 ms na busca de contatos.
+
+Hoje o alarme é `test_tetos_e_expurgos.py::test_funcao_da_busca_continua_leakproof`, que só dispara
+em CI; falta o `rito health` conferir isso no ambiente restaurado — que é justamente onde a marca
+some.
+
+**Spec-alvo:** a próxima spec que tocar `cli.py`/`health.py`.
+
+
+## 52. A listagem de Atividades ordena com Sort em disco, e o índice não é a saída
+
+`GET /api/v1/posts` ordena por `coalesce(scheduled_date, …)` e traz o total por `count(*) OVER ()`.
+Com 200 mil tarefas: `Sort Method: external merge Disk: 2496kB`, 126 ms por página de 20.
+
+O índice de expressão foi construído e **medido** na spec 137: ele é usado, e a página fica **mais
+lenta** (176 ms) — a janela obriga a ler todas as linhas de qualquer jeito, e o índice troca a
+varredura sequencial por 200 mil acessos aleatórios ao heap. A saída medida é separar o total:
+0,06 ms de página + 13,3 ms de `count` = 13,4 ms, sem disco. Custa 4 queries, e o §11 dá 3 para
+listagem.
+
+**Não é patch, é decisão:** ou a listagem de atividades ganha orçamento próprio (como timeline e
+busca já têm), ou o total passa a ser aproximado acima de N.
+
+**Spec-alvo:** própria, junto de `app/domain/posts/listing.py`.
+
+
+## 53. Resíduos medidos da rodada 133–139
+
+Quatro itens pequenos, cada um com o motivo de não ter entrado:
+
+- **`financial/repository.py`** varre o predicado de `q` **duas vezes** por requisição (página e
+  cartões de topo). A 137 baixou cada varredura de 66 ms para 7,0 ms; unir as duas é mudança de
+  `financial/service.py`, fora do escopo de uma spec que só podia tocar o repositório.
+- **`lawsuits/listing.py`** ainda usa `unaccent(lower(...))` no `EXISTS` de partes, desligando o
+  índice trigram que a 137 acabou de ressuscitar. Correção de uma linha, no arquivo de outra spec
+  em voo.
+- **`QuickViews.__contains__`** (`core/listing.py`) é código morto — o mutante `in` → `not in`
+  sobrevive à suíte inteira porque nada chama. Mesma família do `goals.manage` que a 132 achou.
+- **Os dois exports não recebem o `Clock` real** e caem em `America/Sao_Paulo` (fallback do
+  `Clock`, nunca o do servidor). O defeito medido está corrigido; um escritório em Manaus ainda vê
+  o dia de São Paulo na planilha. Ligar o parâmetro exige `customers/service.py` e
+  `lawsuits/router.py`.
+- **`linhas_liquidas` conta comentário no meio da função**, apesar de a mensagem do gate dizer que
+  ignora — `crm_stats` estourou o teto por dois comentários na spec 136. O gate mede diferente do
+  que anuncia.
+
+**Spec-alvo:** a próxima spec de refatoração da faixa (140).
 
 ---
 

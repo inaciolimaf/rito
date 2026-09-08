@@ -470,3 +470,67 @@ def _reset_overrides() -> Any:
 
     yield
     app.dependency_overrides.pop(get_llm_provider, None)
+
+
+async def test_prazo_escrito_em_dias_corridos_conta_dias_corridos(
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Spec 133: `"dias corridos"` não era o literal `"corridos"`, e virava dias ÚTEIS.
+
+    O prompt pede `'uteis'`/`'corridos'` e nada obriga o modelo a obedecer — "dias
+    corridos" é o que um modelo respondendo em português escreve. Disponibilizado em
+    05/08/2026, 15 dias corridos: a resposta certa é 21/08. Contado como útil dava 27/08,
+    e o advogado revisava uma data plausível seis dias adiante do vencimento legal.
+    """
+    user, publication_id, _lawsuit = await _setup(client, make_user, app_session_factory)
+    _use(
+        ScriptedProvider(
+            script=[_model_answer({**_DEFAULT_PAYLOAD, "deadline_kind": "dias corridos"})]
+        )
+    )
+
+    corpo = (
+        await client.post(
+            f"/api/v1/publications/{publication_id}/analyze", headers=auth_header(user)
+        )
+    ).json()
+
+    assert corpo["deadline_kind"] == "corridos"
+    assert corpo["deadline_date"] == "2026-08-21"
+
+
+async def test_sem_especie_de_prazo_mostra_o_numero_e_nao_a_data(
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Spec 133: espécie desconhecida com dias presentes não vira data.
+
+    `compute_deadline` traduz `kind=None` em dias úteis, e para a spec 126 essa é a
+    escolha certa — o prazo que o GESTOR declarou é processual por definição. Aqui não é:
+    quando o modelo não disse se o prazo é útil ou corrido, escolher a contagem mais longa
+    e mostrar a data comete o erro que a regra 5 da 086 proíbe no campo vizinho — «devolver
+    "hoje + 15" seria pior do que não responder, porque parece uma resposta».
+
+    O número dos dias continua na tela: ele é informação que o modelo leu de verdade. A
+    data é que não se inventa.
+    """
+    user, publication_id, _lawsuit = await _setup(client, make_user, app_session_factory)
+    _use(
+        ScriptedProvider(
+            script=[_model_answer({**_DEFAULT_PAYLOAD, "deadline_kind": "não sei dizer"})]
+        )
+    )
+
+    corpo = (
+        await client.post(
+            f"/api/v1/publications/{publication_id}/analyze", headers=auth_header(user)
+        )
+    ).json()
+
+    assert corpo["deadline_days"] == 15, "o número lido continua sendo mostrado"
+    assert corpo["deadline_kind"] is None
+    assert corpo["deadline_date"] is None
+    assert corpo["should_prefill_deadline"] is False

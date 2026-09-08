@@ -5,7 +5,8 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { mapApiErrorToFields } from "@/components/domain/FormModal";
+import { describeApiErrors } from "@/components/domain/apiErrors";
+import { ServerErrorAlert } from "@/components/domain/ServerErrorAlert";
 import {
   ALLOWED_TIMEZONES,
   accountSchema,
@@ -62,7 +63,7 @@ export function AccountForm({
 
   React.useEffect(() => {
     if (!serverError) return;
-    for (const { field, message } of mapApiErrorToFields(serverError)) {
+    for (const { field, message } of describeApiErrors(serverError).fields) {
       setError(field as keyof AccountFormValues, { type: "server", message });
     }
   }, [serverError, setError]);
@@ -125,11 +126,9 @@ export function AccountForm({
         {errors.timezone && <p className="text-sm text-danger">{errors.timezone.message}</p>}
       </div>
 
-      {serverError && !serverError.errors?.length && (
-        <p role="alert" className="text-sm text-danger sm:col-span-2">
-          {serverError.message}
-        </p>
-      )}
+      <div className="sm:col-span-2">
+        <ServerErrorAlert error={serverError} />
+      </div>
 
       {!disabled && (
         <div className="sm:col-span-2">

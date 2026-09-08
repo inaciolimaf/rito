@@ -385,3 +385,40 @@ async def test_decima_primeira_chamada_no_mesmo_passo_e_barrada(
         runner.begin_step()
         depois = await runner.call("list_taxonomies", {"kind": "steps"})
     assert "error" not in depois
+
+
+async def test_o_catalogo_de_escrita_tambem_e_recortado_pela_permissao(
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Spec 133: `tool_specs` filtrava por RBAC só as ferramentas de LEITURA.
+
+    O bloco de escrita estendia o catálogo com todas as `WriteToolDef`, sem checar nada — e
+    elas TÊM `requires_role`/`requires_financial` declarados, lidos só depois, no `propose`.
+    Não é vazamento (a ação nasce rejeitada), e é por isso que o achado era baixo. É pior
+    que token gasto, porém: o agente anuncia ao usuário que vai lançar a receita e só então
+    descobre que não pode — a promessa quebrada é o defeito.
+
+    A frase que este teste faz valer está na docstring da própria função desde a 083:
+    «oferecer uma ferramenta que ele não pode usar só produz tentativa frustrada e token
+    gasto». Ela valia para metade do catálogo.
+    """
+
+    async def _catalogo(seeded: SeededUser) -> set[str]:
+        async with app_session_factory() as session, session.begin():
+            await set_tenant_context(session, seeded.tenant_id)
+            user = await session.get(User, seeded.user_id)
+            assert user is not None
+            return {spec.name for spec in tool_specs(user)}
+
+    colaborador = await _catalogo(
+        await make_user(role=UserRole.COLABORADOR, financial_access=FinancialAccess.NONE)
+    )
+    gestor = await _catalogo(
+        await make_user(role=UserRole.GESTOR, financial_access=FinancialAccess.FULL)
+    )
+
+    assert "create_transaction" not in colaborador, "exige acesso financeiro FULL"
+    assert "apply_workflow" not in colaborador, "exige perfil ADMINISTRADOR"
+    assert "create_customer" in colaborador, "esta ele pode, e continua sendo oferecida"
+    assert {"create_transaction", "apply_workflow"} <= gestor

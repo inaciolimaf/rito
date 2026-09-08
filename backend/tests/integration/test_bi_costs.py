@@ -15,6 +15,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from typing import TypedDict
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import AsyncClient
@@ -23,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
 from app.core.rls import set_tenant_context
+from app.domain.account.models import DEFAULT_TIMEZONE
 from app.domain.users.models import FinancialAccess, UserRole
 from app.workers.bi_costs import refresh_bi_costs
 from tests.integration.conftest import SeededUser, auth_header
@@ -241,7 +243,21 @@ async def test_custo_por_ponto_e_custo_fixo_dividido_por_pontos(
     client: AsyncClient, factory: LawsuitFactory
 ) -> None:
     """Regra 2: custo por ponto = custo fixo do mês ÷ pontos do Taskscore concluídos
-    no mês."""
+    no mês.
+
+    **Spec 136: o mês é um só nos dois lados da divisão.** A matview agregava custo fixo
+    por `t.competence` (coluna `DATE`, mês de escritório) e pontos por
+    `date_trunc('month', pu.completed_at)` — mês de UTC. Uma tarefa concluída às 22h30 de
+    31/01 em São Paulo tinha seus pontos jogados para fevereiro enquanto o custo fixo de
+    janeiro ficava onde estava: `cost_per_point` de janeiro subia, o de fevereiro descia, e
+    como `allocated_cost` de CADA processo é `pontos × cost_per_point do mês`, o erro se
+    espalhava pela coluna de custo de todos os processos.
+
+    Por isso as duas conclusões acontecem às 22h30 do último dia de um mês FIXO no passado,
+    e não em `_this_month_moment()` — cujo docstring diz, com todas as letras, que ele
+    existe para «nunca cruzar a virada de mês». O teste contornava exatamente o caso
+    quebrado; agora a virada é o teste.
+    """
     folha_id = await _create_category(client, factory.headers, type_="DESPESA", dre_group_id=2)
     cost_center_id = await _create_cost_center(client, factory.headers)
     account_id = await _create_account(client, factory.headers)
@@ -250,16 +266,23 @@ async def test_custo_por_ponto_e_custo_fixo_dividido_por_pontos(
         factory.headers,
         _Contas(folha_id, cost_center_id, account_id),
         amount="1000.00",
+        due_date=date(2026, 1, 15),
     )
     lawsuit_id = await factory.create()
-    await _complete_task(client, factory, lawsuit_id, reward=8, at=_this_month_moment())
-    await _complete_task(client, factory, lawsuit_id, reward=8, at=_this_month_moment())
+    # 31/01/2026 22h30 no escritório é 01/02/2026 01h30 em UTC.
+    virada = datetime(2026, 1, 31, 22, 30, tzinfo=ZoneInfo(DEFAULT_TIMEZONE))
+    await _complete_task(client, factory, lawsuit_id, reward=8, at=virada)
+    await _complete_task(client, factory, lawsuit_id, reward=8, at=virada)
     await _refresh()
 
-    result = await _per_point(client, factory.headers, _THIS_MONTH_PARAM)
+    result = await _per_point(client, factory.headers, "2026-01")
     assert result["fixed_cost"] == pytest.approx(1000.00)
     assert result["points"] == 16
     assert result["cost_per_point"] == pytest.approx(62.50)
+
+    # E fevereiro não herda ponto nenhum: o mês seguinte só existe se o escritório virou.
+    fevereiro = await _per_point(client, factory.headers, "2026-02")
+    assert fevereiro["points"] == 0
 
 
 @pytest.mark.commits
@@ -560,3 +583,37 @@ async def test_cliente_criado_no_ultimo_dia_do_mes_conta_no_denominador(
     result = await _cac(client, factory.headers, f"{hoje:%Y-%m}")
 
     assert result["new_customers"] == 1
+
+
+async def test_contato_das_23h47_do_ultimo_dia_conta_no_mes_do_escritorio(
+    client: AsyncClient,
+    factory: LawsuitFactory,
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Spec 136 (dívida 32 no BI): o denominador do CAC cortava o mês em UTC.
+
+    A spec 124 fechou a dívida 32 em `reports/tabular_repository.py` e a varredura parou
+    ali. `new_customers` comparava `created_at` — `timestamptz` — com o 1º do mês pensado
+    no fuso do escritório: o contato cadastrado às 23h47 de 31/08 em São Paulo caía em
+    setembro. E o CAC é `marketing ÷ novos clientes`, então um contato que troca de mês
+    muda o CAC dos DOIS meses — o de agosto sobe (divide por menos) e o de setembro cai.
+
+    O teste anterior (`..._ultimo_dia_do_mes_conta_no_denominador`) usa 23h **UTC**, que em
+    São Paulo ainda é o mesmo dia: ele fixa a borda do dia e não a da hora.
+    """
+    customer_id = await _create_customer(
+        client, factory.headers, f"Cliente Das 23h47 {uuid.uuid4().hex[:8]}"
+    )
+    # 31/08/2026 23h47 em São Paulo é 01/09/2026 02h47 em UTC.
+    async with app_session_factory() as session, session.begin():
+        await set_tenant_context(session, factory.gestor.tenant_id)
+        await session.execute(
+            text("UPDATE customers SET created_at = :quando WHERE id = :id"),
+            {"quando": datetime(2026, 9, 1, 2, 47, tzinfo=UTC), "id": customer_id},
+        )
+
+    agosto = await _cac(client, factory.headers, "2026-08")
+    setembro = await _cac(client, factory.headers, "2026-09")
+
+    assert agosto["new_customers"] == 1
+    assert setembro["new_customers"] == 0

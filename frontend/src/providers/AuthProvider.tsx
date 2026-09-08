@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 
 import {
@@ -65,6 +66,13 @@ function toAuthUser(body: MeResponseBody): AuthUser {
 export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const [user, setUser] = React.useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  // Spec 138, regra 3: o cache do React Query é memória de processo e sobrevive ao
+  // logout, que aqui é client-side (não há reload que limpe nada). Sem esta linha, dois
+  // escritórios no mesmo navegador — escritório com dois cadastros, suporte, sócio em
+  // duas bancas — veem um o dado do outro: o primeiro paint depois do login é sempre a
+  // listagem do tenant anterior, e o `staleTime` de 30 s segura o refetch. É a versão
+  // frontend do vazamento que o RLS impede no banco.
+  const queryClient = useQueryClient();
 
   const loadCurrentUser = React.useCallback(async (): Promise<void> => {
     try {
@@ -86,10 +94,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   }, [loadCurrentUser]);
 
   React.useEffect(() => {
-    const handleSessionExpired = (): void => setUser(null);
+    const handleSessionExpired = (): void => {
+      setUser(null);
+      queryClient.clear();
+    };
     window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
-  }, []);
+  }, [queryClient]);
 
   const login = React.useCallback(
     async ({ tenantId, email, password }: LoginParams): Promise<void> => {
@@ -120,7 +131,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
     }
     setSession(null);
     setUser(null);
-  }, []);
+    // `clear()` e não `invalidateQueries()`: invalidar mantém o dado antigo em memória e
+    // continua servindo-o enquanto o refetch não volta — exatamente o que não pode
+    // acontecer entre dois escritórios.
+    queryClient.clear();
+  }, [queryClient]);
 
   const value = React.useMemo<AuthContextValue>(
     () => ({ user, isLoading, isAuthenticated: user !== null, login, logout }),

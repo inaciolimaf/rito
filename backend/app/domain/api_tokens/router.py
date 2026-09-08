@@ -22,6 +22,7 @@ from app.domain.api_tokens.schemas import (
 from app.domain.api_tokens.scopes import ALL_SCOPES, describe
 from app.domain.api_tokens.service import (
     ApiTokenService,
+    ScopeBeyondIssuerError,
     TooManyTokensError,
     UnknownScopeError,
 )
@@ -83,10 +84,20 @@ async def create_token(
             scopes=payload.scopes,
             allowed_ips=payload.allowed_ips or None,
             expires_at=payload.expires_at,
-            created_by=current_user.id,
+            created_by=current_user,
         )
     except UnknownScopeError as exc:
         raise HTTPException(status_code=422, detail=f"Escopo desconhecido: {exc.scope}.") from exc
+    except ScopeBeyondIssuerError as exc:
+        # 403, e não 422: o pedido está bem formado — é quem pede que não tem o acesso.
+        # Mesmo código que a tela dá para o mesmo usuário no mesmo assunto.
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"Seu acesso não permite emitir um token com o escopo '{exc.scope}'. "
+                "Peça acesso financeiro antes."
+            ),
+        ) from exc
     except TooManyTokensError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return _to_response(token, secret=bruto)

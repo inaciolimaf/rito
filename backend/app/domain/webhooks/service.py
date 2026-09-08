@@ -48,6 +48,10 @@ MAX_RESPONSE_BYTES = 10 * 1024
 MAX_FAILURE_STREAK = 20
 # Regra 12.
 RETENTION_DAYS = 30
+# Teto de linhas por execução do expurgo (spec 137). Não é limite de retenção — é limite
+# de transação: 20 mil linhas por minuto drenam 28,8 milhões por dia, muito além de
+# qualquer taxa de eventos plausível, e nenhuma execução segura a tabela por muito tempo.
+PURGE_MAX_ROWS = 20_000
 
 _ALERT_INTEGRATION = "webhooks"
 _ALERT_CODE = "endpoint_disabled"
@@ -338,18 +342,34 @@ class WebhookService:
             await self.attempt(delivery)
         return len(pendentes)
 
-    async def purge_old(self) -> int:
-        """Regra 12: 30 dias. Log de entrega velho não ajuda ninguém e pesa na tabela."""
+    async def purge_old(self, *, max_rows: int = PURGE_MAX_ROWS) -> int:
+        """Regra 12: 30 dias. Log de entrega velho não ajuda ninguém e pesa na tabela.
+
+        ## Por que a lista de ids não existe mais (spec 137)
+
+        A versão anterior carregava **todos** os ids vencidos para o Python e montava
+        `DELETE ... WHERE id IN (<n binds>)`. O asyncpg aceita no máximo 32.767
+        parâmetros por comando: medido com 70 mil entregas de 60 dias, isto levantava
+        `InterfaceError: the number of query arguments cannot exceed 32767` em 477 ms.
+        E como quem chama é o beat de um em um minuto (`workers/webhooks.py`), a partir
+        do dia em que o escritório acumulava 32.767 entregas na janela **toda** execução
+        falhava — a retenção de 30 dias deixava de existir exatamente quando começava a
+        importar (1.100 eventos/dia atravessam o limite em 30 dias).
+
+        O corte vai no próprio comando, como em `purge_refresh_log` e
+        `purge_access_logs`. O `LIMIT` do subselect não é sobre o resultado, é sobre o
+        TRABALHO: o beat roda de minuto em minuto, e um lote com teto mantém curta a
+        transação de um tenant com anos de atraso acumulado, sem nunca depender do
+        número de linhas para caber num comando. O que sobrar sai no minuto seguinte.
+        """
         corte = self.now() - timedelta(days=RETENTION_DAYS)
-        antigas = list(
-            (
-                await self.session.scalars(
-                    select(WebhookDelivery.id).where(WebhookDelivery.created_at < corte)
-                )
-            ).all()
+        lote = (
+            select(WebhookDelivery.id)
+            .where(WebhookDelivery.created_at < corte)
+            .limit(max_rows)
+            .scalar_subquery()
         )
-        if antigas:
-            await self.session.execute(
-                delete(WebhookDelivery).where(WebhookDelivery.id.in_(antigas))
-            )
-        return len(antigas)
+        resultado = await self.session.execute(
+            delete(WebhookDelivery).where(WebhookDelivery.id.in_(lote))
+        )
+        return int(resultado.rowcount)  # type: ignore[attr-defined]  # SQLAlchemy tipa `rowcount` só em `CursorResult`; um DELETE sempre devolve um.

@@ -2,15 +2,19 @@ import * as React from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/domain/EmptyState";
 import { IntegrationAlertBanner } from "@/components/domain/IntegrationAlertBanner";
 import { Breadcrumbs } from "@/components/shell/Breadcrumbs";
 import { Header } from "@/components/shell/Header";
 import { Sidebar } from "@/components/shell/Sidebar";
+import { requiredCapabilityFor } from "@/components/shell/navItems";
 import { NewTaskModal } from "@/features/posts/NewTaskModal";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/providers/AuthProvider";
 
 export function AppLayout(): JSX.Element {
   const location = useLocation();
+  const { user } = useAuth();
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = React.useState(false);
   const [placeholderModalLabel, setPlaceholderModalLabel] = React.useState<string | null>(null);
   const [taskModalOpen, setTaskModalOpen] = React.useState(false);
@@ -18,6 +22,9 @@ export function AppLayout(): JSX.Element {
   React.useEffect(() => {
     setIsMobileDrawerOpen(false);
   }, [location.pathname]);
+
+  const required = requiredCapabilityFor(location.pathname);
+  const deniedCapability = required !== null && !(user?.capabilities ?? []).includes(required);
 
   return (
     <div className="flex h-screen flex-col md:flex-row">
@@ -54,7 +61,19 @@ export function AppLayout(): JSX.Element {
           <Breadcrumbs />
         </div>
         <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
+          {/* Spec 138, regra 9: o estado "sem permissão" que a spec 006 exige de toda
+              tela. Fica aqui, dentro do shell, e não no `ProtectedRoute`: quem cai numa
+              área a que não tem acesso precisa continuar com o menu ao lado para ir a
+              outro lugar — expulsar da casca deixaria a pessoa sem saída. */}
+          {deniedCapability ? (
+            <EmptyState
+              role="alert"
+              title="Você não tem acesso a esta área."
+              description="Seu perfil não permite abrir esta tela. Peça a um gestor do escritório para liberar."
+            />
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
 

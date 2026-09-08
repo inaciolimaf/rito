@@ -128,6 +128,9 @@ class LawsuitResponse(BaseModel):
     court_division: str | None
     process_date: date | None
     notes: str | None
+    # Os quatro campos financeiros vêm `null` para quem tem `financial_access=NONE`
+    # (spec 135, regra 2) — `null` aqui significa "não é visível para você" tanto quanto
+    # "não foi preenchido", e é o mesmo contrato do card do CRM desde a spec 060.
     case_value: JsonDecimal | None
     fees_value: JsonDecimal | None
     fees_percentage: JsonDecimal | None

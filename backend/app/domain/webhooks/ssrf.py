@@ -8,6 +8,23 @@ nuvem em texto puro.
 A validação é na resolução do DNS, não na string: `interno.exemplo.com` pode apontar para
 `10.0.0.5`, e um bloqueio por texto não veria nada de errado. Cada redirecionamento passa
 pela mesma peneira, porque o destino público pode devolver um `Location` privado.
+
+## O que esta peneira NÃO pega: DNS rebinding (dívida nomeada, spec 135, regra 6)
+
+Quem valida aqui resolve o nome; quem conecta é o `httpx`, no `sender.py`, e ele resolve de
+novo. Entre as duas resoluções o dono do domínio pode trocar o registro — com TTL de um
+segundo, alternando entre um IP público e `169.254.169.254`, a checagem passa e a conexão
+sai para o destino interno. É um TOCTOU, e a defesa correta é conectar ao IP JÁ validado,
+preservando `Host` e SNI.
+
+A spec 135 mediu essa correção e **não** a fez, de propósito — está registrada como dívida
+em `docs/DIVIDA-TECNICA.md`. O motivo está escrito lá; o resumo é que a correção exige
+substituir o host da URL pelo IP e reintroduzir à mão o `Host` e o `sni_hostname` que o
+httpx montava sozinho, em todos os saltos de redirecionamento. Errar o `sni_hostname`
+desliga a verificação de certificado por NOME em TODO webhook do produto — um buraco maior
+que o que se fecharia — e o §3 do CLAUDE.md proíbe rede em teste, então o que a suíte
+conseguiria afirmar é que o encanamento chama o transporte com os argumentos certos, não
+que a propriedade vale. Meia-correção aqui é pior que dívida escrita.
 """
 
 import ipaddress

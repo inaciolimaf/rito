@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ServerErrorAlert } from "@/components/domain/ServerErrorAlert";
 import { acceptInvite } from "@/features/invites/api";
 import { ApiError } from "@/lib/errors";
 
@@ -20,7 +21,11 @@ export function AcceptInvitePage(): JSX.Element {
 
   const [name, setName] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
+  // Spec 138, regra 11: o backend manda a política de senha como **lista de critérios**
+  // (`users/router.py`: `{"detail": …, "errors": ["Mínimo de 8 caracteres.", …]}`).
+  // Guardar só `submitError.message` jogava fora exatamente a parte que diz o que
+  // corrigir. Guardamos o erro inteiro e deixamos o `ServerErrorAlert` mostrar os dois.
+  const [error, setError] = React.useState<ApiError | string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
   const linkIncompleto = !token || !tenantId;
@@ -36,9 +41,7 @@ export function AcceptInvitePage(): JSX.Element {
       navigate("/login", { replace: true });
     } catch (submitError) {
       setError(
-        submitError instanceof ApiError
-          ? submitError.message
-          : "Não foi possível aceitar o convite.",
+        submitError instanceof ApiError ? submitError : "Não foi possível aceitar o convite.",
       );
     } finally {
       setSubmitting(false);
@@ -85,10 +88,12 @@ export function AcceptInvitePage(): JSX.Element {
             />
           </div>
 
-          {error && (
+          {typeof error === "string" ? (
             <p role="alert" className="text-sm text-danger">
               {error}
             </p>
+          ) : (
+            <ServerErrorAlert error={error} />
           )}
 
           <Button type="submit" disabled={submitting} className="w-full">

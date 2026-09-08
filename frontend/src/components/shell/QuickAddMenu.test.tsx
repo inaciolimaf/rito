@@ -23,4 +23,21 @@ describe("QuickAddMenu", () => {
     expect(screen.getByRole("menuitem", { name: "Novo processo" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Nova receita/despesa" })).toBeInTheDocument();
   });
+
+  it("Esc fecha o menu (spec 138, regra 10)", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <QuickAddMenu onNewTask={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /adicionar/i }));
+    expect(screen.getByRole("menu", { name: "Adicionar" })).toBeInTheDocument();
+
+    // O menu anuncia `role="menu"`; fechar com Esc faz parte do padrão que ele anuncia.
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("menu", { name: "Adicionar" })).not.toBeInTheDocument();
+  });
 });

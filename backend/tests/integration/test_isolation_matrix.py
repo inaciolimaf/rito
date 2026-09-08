@@ -169,6 +169,17 @@ def test_nenhum_modulo_da_app_troca_de_role_ou_usa_conexao_de_migration() -> Non
     - `app/cli.py` — a CLI de operação, executada por quem está no terminal de produção;
     - `app/core/bootstrap.py` — só *nomeia* a variável, para exigi-la no boot.
 
+    A 133 acrescentou a quinta, e é de natureza OPOSTA às outras quatro: o text-to-SQL
+    assume, com `SET LOCAL ROLE`, um papel que pode ESTRITAMENTE MENOS que `rito_app` —
+    `rito_ai` é `NOBYPASSRLS`, lê 9 views e não tem `EXECUTE` em `set_config`, que é o que
+    torna o `app.tenant_id` imutável enquanto a consulta do modelo roda. O papel vive
+    dentro de um savepoint e o `ROLLBACK TO` o desfaz. Trocar de papel para BAIXO é o
+    contrário de desligar o RLS por dentro — mas continua sendo troca de papel, e por isso
+    está aqui e não escondida.
+
+    A varredura passou a reconhecer `SET LOCAL ROLE` junto com `SET ROLE`: até a 133 ela
+    lia só a segunda forma, e a primeira teria entrado sem ninguém ver.
+
     O que a regra proíbe continua proibido: nenhuma rota, service ou repositório usa a
     conexão de superusuário para atender alguém.
     """
@@ -176,7 +187,11 @@ def test_nenhum_modulo_da_app_troca_de_role_ou_usa_conexao_de_migration() -> Non
     for path in APP_DIR.rglob("*.py"):
         conteudo = path.read_text(encoding="utf-8")
         relativo = str(path.relative_to(APP_DIR.parent))
-        if re.search(r"\bSET\s+ROLE\b", conteudo, re.IGNORECASE):
+        if (
+            re.search(r"\bSET\s+(?:LOCAL\s+)?ROLE\b", conteudo, re.IGNORECASE)
+            # Spec 133 — ver docstring. Papel MENOS privilegiado, dentro de savepoint.
+            and relativo != "app/domain/ai/analytics.py"
+        ):
             ofensores.append(f"{relativo}: SET ROLE")
         if "migrations_database_url" in conteudo and not (
             relativo.startswith("app/workers/")

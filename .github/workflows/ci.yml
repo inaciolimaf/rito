@@ -219,7 +219,10 @@ jobs:
           # Os relatórios vão para /tmp, fora do checkout: nenhum artefato de cobertura
           # precisa de linha no .gitignore para não sujar `git status` de quem rodar o
           # mesmo comando na máquina.
-          uv run pytest -n 3 --cov=app --cov-report=term --cov-report=json:/tmp/cov-backend.json
+          # `sysmon` é o rastreador de `sys.monitoring` (Python ≥ 3.12): medido em
+          # docs/test-speed.md, cobertura do backend caiu de ~100 s para ~68 s, com o CPU
+          # total de ~430 s para ~250 s. O piso não muda — é a mesma medição.
+          COVERAGE_CORE=sysmon uv run pytest -n 3 --cov=app --cov-report=term --cov-report=json:/tmp/cov-backend.json
           cd ../frontend
           # json-summary só para o passo de publicação abaixo; o piso quem aplica é o
           # `thresholds` do vite.config.ts.

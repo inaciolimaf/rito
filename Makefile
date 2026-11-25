@@ -92,7 +92,7 @@ docs: ## Documentação de docs/system/ cobre o código e não cita o que sumiu
 	cd backend && uv run python -m tools.docs_coverage
 
 coverage: ## Backend com cobertura: falha abaixo do piso de backend/pyproject.toml
-	cd backend && uv run pytest -n auto -q --cov
+	cd backend && COVERAGE_CORE=sysmon uv run pytest -n auto -q --cov
 
 types: ## Checagem de tipos estrita (mypy) do backend
 	cd backend && uv run mypy .

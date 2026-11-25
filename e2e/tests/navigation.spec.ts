@@ -40,10 +40,9 @@ function routableNavItems(): { path: string; label: string }[] {
 
 const ROUTABLE_MODULES = routableNavItems();
 
-/** Rotas do menu que redirecionam para outro lugar — a jornada espera o DESTINO. */
-const REDIRECTS: Record<string, string> = {
-  "/posts": "/home",
-};
+/** Rotas do menu que redirecionam para outro lugar — a jornada espera o DESTINO.
+ * Vazio desde a spec 128: `/posts` ganhou a tela de Atividades e deixou de ir para o painel. */
+const REDIRECTS: Record<string, string> = {};
 
 test("jornada 2/25: navegar por todos os módulos da sidebar", async ({
   page,
@@ -65,9 +64,8 @@ test("jornada 2/25: navegar por todos os módulos da sidebar", async ({
       .getByRole("navigation", { name: "Navegação principal" })
       .getByRole("link", { name: item.label })
       .click();
-    // Alguns itens apontam para uma rota que redireciona (spec 102: /posts vai para o
-    // painel enquanto a listagem de atividades não existe — dívida nº 26). Esperar a URL
-    // de ORIGEM aqui seria uma corrida contra o redirect do React Router.
+    // Item que aponta para rota com redirect espera o DESTINO (ver REDIRECTS): esperar a
+    // URL de origem seria uma corrida contra o redirect do React Router.
     const destino = REDIRECTS[item.path] ?? item.path;
     await expect(page).toHaveURL(new RegExp(destino.replace(/\//g, "\\/")));
     // O que a jornada realmente garante: nenhum item do menu cai no NotFoundPage.

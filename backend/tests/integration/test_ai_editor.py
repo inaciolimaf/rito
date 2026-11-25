@@ -344,7 +344,8 @@ async def test_sem_chave_a_assistencia_avisa_em_vez_de_quebrar(
             from app.integrations.openrouter.types import LLMNotConfiguredError
 
             raise LLMNotConfiguredError("sem chave")
-            yield LLMChunk(kind="done")  # pragma: no cover
+            # O yield é inalcançável de propósito: torna `stream` um gerador assíncrono.
+            yield LLMChunk(kind="done")  # type: ignore[unreachable]  # pragma: no cover
 
     _use(SemChave())
 

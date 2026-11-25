@@ -86,8 +86,11 @@ Todo `# noqa` do projeto exige justificativa em prosa na linha acima — também
 
 | Gate | O que reprova | Onde |
 |---|---|---|
-| `mypy --strict` | tipo frouxo em `app/`, `tests/` e `scripts/` | `backend/pyproject.toml` |
+| `mypy --strict` (com `warn_unreachable`) | tipo frouxo em `app/`, `tests/`, `tools/` e `scripts/`; código inalcançável | `backend/pyproject.toml` |
 | `black --check` | formatação divergente no Python | `backend/pyproject.toml` |
+| `import-linter` (contratos `layers`/`forbidden`) | `app.core` importando domínio, IA, API pública, workers ou integrações; `app.integrations` importando domínio. Os pares já existentes estão em `ignore_imports`, como dívida | `backend/pyproject.toml` `[tool.importlinter]` |
+| `tools/function_size.py` (`make lint`) | função com mais de 30 linhas úteis (exceções em `test_tamanho_de_funcao.py`); arquivo com mais de 300 linhas úteis, fora de `ignore-file-temporarily` | `backend/pyproject.toml` `[tool.function-size]` |
+| `tools/docs_coverage.py` (`make docs`) | pasta de domínio que nenhum `.md` de `docs/system/` cita; caminho citado que não existe | `backend/pyproject.toml` `[tool.docs-coverage]` |
 | `tsc --noEmit` | erro de tipo no TypeScript (`strict`) | `frontend/tsconfig.json` |
 | `prettier --check` | formatação divergente no front | `frontend/` |
 | ESLint `react-hooks` | dependência faltando em hook, hook condicional | `frontend/eslint.config.js` |

@@ -53,6 +53,7 @@ dev = [
     "types-openpyxl>=3.1.5.20260724",
     "pyyaml>=6.0",
     "types-pyyaml>=6.0.12.20260815",
+    "import-linter>=2.1",
 ]
 
 [tool.ruff]
@@ -189,6 +190,8 @@ target-version = ["py312"]
 
 [tool.mypy]
 strict = true
+# Spec 098 / standard: código morto após estreitamento de tipo é erro.
+warn_unreachable = true
 plugins = ["pydantic.mypy"]
 exclude = ["alembic/"]
 
@@ -235,6 +238,8 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Standard (project-standard, testing.md): DeprecationWarning do próprio código vira erro.
+filterwarnings = ["error::DeprecationWarning:app.*"]
 # Regra 4 da spec 009: nenhum teste toca rede real. Postgres/Redis locais continuam liberados
 # (não é "rede externa"); LLM/DJEN/DataJud (specs 041+) terão fixture gravada, nunca --allow-hosts.
 # --allow-hosts pode ser sobrescrito na linha de comando (scripts/run-tests.sh via
@@ -315,3 +320,102 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+# Gate de fronteiras entre camadas (import-linter, `make lint`). Ver docs/system/overview.md.
+# Os pares listados em `ignore_imports` são a dívida medida em 2026-11-25: cada um tem de sair
+# da lista quando o import for removido. Não adicionar par novo sem registrar o motivo em
+# docs/project-standard-audit.md. Um import novo de core para domínio ou integração quebra o gate.
+[tool.importlinter]
+root_packages = ["app"]
+
+[[tool.importlinter.contracts]]
+name = "core não importa camadas de cima"
+type = "forbidden"
+source_modules = ["app.core"]
+forbidden_modules = ["app.domain", "app.ai", "app.public", "app.workers", "app.integrations"]
+ignore_imports = [
+    "app.core.clock -> app.domain.account.models",
+    "app.core.deps -> app.integrations.messaging.base",
+    "app.core.deps -> app.integrations.messaging.document_email",
+    "app.core.deps -> app.integrations.ocr.base",
+    "app.core.deps -> app.integrations.storage.base",
+    "app.core.errors -> app.domain.ai.budget",
+    "app.core.permissions -> app.domain.auth.deps",
+    "app.core.permissions -> app.domain.users.models",
+    "app.core.provisioning -> app.domain.action_groups.models",
+    "app.core.provisioning -> app.domain.customer_origins.models",
+    "app.core.provisioning -> app.domain.financial.models",
+    "app.core.provisioning -> app.domain.legal_agents.catalog",
+    "app.core.provisioning -> app.domain.legal_agents.models",
+    "app.core.provisioning -> app.domain.stages.models",
+    "app.core.provisioning -> app.domain.task_types.models",
+    "app.core.tenant_catalog -> app.domain.task_types.catalog",
+    "app.core.transactional_email -> app.integrations.messaging.base",
+]
+
+[[tool.importlinter.contracts]]
+name = "integrações não importam domínio"
+type = "forbidden"
+source_modules = ["app.integrations"]
+forbidden_modules = ["app.domain", "app.public", "app.workers", "app.ai"]
+ignore_imports = [
+    "app.integrations.datajud.health -> app.domain.integrations.service",
+    "app.integrations.djen.health -> app.domain.integrations.service",
+    "app.integrations.djen.source -> app.domain.monitored_terms.models",
+    "app.integrations.djen.source -> app.domain.monitored_terms.sync",
+    "app.integrations.http.audit -> app.domain.external_requests.models",
+]
+
+# Gate de tamanho (standard: 30 linhas úteis por função, 300 por arquivo). A função é
+# coberta pelo meta-teste tests/meta/test_tamanho_de_funcao.py, que tem exceções versionadas;
+# o arquivo de `ignore` é um dos que o meta-teste já excetua. `ignore-file-temporarily` é a
+# dívida de arquivo grande: cada arquivo sai da lista quando for dividido por responsabilidade.
+[tool.function-size]
+max-lines = 30
+max-file-lines = 300
+paths = ["app", "tools"]
+ignore = ["app/domain/customers/router.py", "app/domain/posts/router.py"]
+ignore-file-temporarily = [
+    "app/domain/lawsuits/router.py",
+    "app/domain/financial/router.py",
+    "app/domain/financial/service.py",
+    "app/domain/bi/repository.py",
+    "app/public/router.py",
+    "app/ai/tools/write.py",
+    "app/domain/lawsuits/listing.py",
+    "app/domain/ai/analytics.py",
+    "app/domain/bi/service.py",
+    "app/domain/automations/decision.py",
+    "app/integrations/http/client.py",
+    "app/domain/ai/service.py",
+    "app/ai/runtime.py",
+    "app/domain/reports/tabular_service.py",
+    "app/domain/automations/engine.py",
+    "app/domain/reports/tabular_repository.py",
+    "app/domain/documents/extraction.py",
+    "app/domain/publications/analysis.py",
+    "app/domain/automations/router.py",
+    "app/domain/financial/dashboard.py",
+    "app/domain/lawsuits/schemas.py",
+    "app/domain/ai/copilot.py",
+    "app/domain/financial/repository.py",
+    "app/domain/financial/schemas.py",
+    "app/domain/publications/router.py",
+    "app/domain/templates/router.py",
+    "app/domain/ai/editor.py",
+]
+
+# Gate de documentação (standard: `make docs`). Raiz do repositório: os caminhos citados em
+# docs/system/ são relativos a ela. DOC001: cada pasta exigida é citada em algum .md.
+# DOC002: todo caminho citado existe.
+[tool.docs-coverage]
+docs = "docs/system"
+roots = ["backend", "frontend", "docs", "specs", "scripts", "e2e"]
+require = [
+    "backend/app/domain/*/",
+    "backend/app/integrations/*/",
+    "backend/app/core/",
+    "backend/app/ai/",
+    "backend/app/public/",
+    "backend/app/workers/",
+]

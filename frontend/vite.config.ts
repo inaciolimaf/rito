@@ -14,6 +14,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     css: true,
+    // Medido em 2 pares intercalados (maxWorkers=1, 126 arquivos): threads 153 s e 171 s de
+    // parede contra 208 s e 183 s do forks; CPU 204 s e 224 s contra 235 s e 237 s.
+    // Só os testes sem isolamento de processo precisariam de forks (nenhum existe hoje).
+    pool: "threads",
     setupFiles: ["./src/test/setup.ts"],
     coverage: {
       provider: "v8",

@@ -21,8 +21,10 @@ import { Label } from "@/components/ui/label";
 // jest-axe não traz tipos do Vitest: o matcher é declarado aqui, no mesmo estilo do README.
 expect.extend(toHaveNoViolations);
 declare module "vitest" {
-  interface Assertion<T = unknown> {
-    toHaveNoViolations(): T;
+  // Must repeat Vitest's own declaration exactly (`T = any`) or TS2428 rejects the merge.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+  interface Assertion<T = any> {
+    toHaveNoViolations(): void;
   }
 }
 
@@ -87,7 +89,6 @@ describe("axe nos componentes de domínio", () => {
           onPreviousPage: vi.fn(),
           onNextPage: vi.fn(),
         }}
-        selectable
       />,
     );
     expect(await axe(container, AXE_OPTIONS)).toHaveNoViolations();

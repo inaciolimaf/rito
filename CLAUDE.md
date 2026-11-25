@@ -227,7 +227,19 @@ make docs          # docs/system/ cobre as pastas de domínio e não cita caminh
 make types         # mypy estrito sozinho
 make openapi       # gera backend/openapi.json (contrato da API)
 make help          # lista todos os comandos (é o padrão de `make` sem alvo)
+make test-backend  # só o backend (make test-frontend / make test-e2e: idem)
+make test-e2e E2E_ARGS="--shard=1/2"   # e2e por fatia, como o CI
+make build         # build de produção do frontend + gate de tamanho do bundle
+make dup           # gate de duplicação (jscpd)
+make audit         # pip-audit (backend) + npm audit (frontend)
+make coverage      # backend com cobertura, falha abaixo do piso do pyproject.toml
+make coverage-frontend  # cobertura do frontend, falha abaixo do piso do vite.config.ts
 ```
+
+O CI (`.github/workflows/ci.yml`) só chama alvos do `make`: `check` (lint, docs, build, dup,
+audit), `back` e `web` (cobertura), `e2e` (duas fatias), `image` (imagem Docker) e `gate`
+(tempo do run ≤ 300 s, `make ci-gate`). Os alvos `install-*`, `ci-*`, `coverage-backend`,
+`coverage-summary-*`, `docker-image` e `image-smoke` existem para ele.
 
 `make lint` inclui o teto de tamanho (30 linhas por função, 300 por arquivo, com lista
 temporária de arquivos grandes em `backend/pyproject.toml`) e as fronteiras de camada

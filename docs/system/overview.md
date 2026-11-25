@@ -82,7 +82,11 @@ RBAC. Escrita sempre passa por preview e confirmação humana. Nenhum teste cham
 | Tamanho | `backend/tools/function_size.py` (`make lint`) e `backend/tests/meta/test_tamanho_de_funcao.py` | função > 30 linhas úteis (com exceções versionadas) ou arquivo > 300 (com lista temporária) |
 | Documentação | `backend/tools/docs_coverage.py` (`make docs`) | pasta de domínio sem citação em `docs/system/` ou caminho citado que sumiu |
 | Testes | `make test`, orçamento de 300 s | suíte vermelha ou wall-clock acima do teto |
-| Cobertura | `backend/pyproject.toml` `fail_under` | medição abaixo do piso |
+| CI | `.github/workflows/ci.yml`: jobs `check`, `back`, `web`, `e2e` (duas fatias) e `image` em paralelo, todos chamando `make`; job `gate` (`make ci-gate`) | qualquer job vermelho ou cancelado, ou o run inteiro acima de 300 s desde o início (fila incluída) |
+| Build e bundle | `make build` (job `check`) | build quebrado ou bundle acima do orçamento |
+| Duplicação e auditoria | `make dup` (jscpd) e `make audit` (pip-audit, npm audit) no job `check` | duplicação acima do teto de `.jscpd.json`, ou dependência com vulnerabilidade alta |
+| Imagem de produção | `make docker-image` e `make image-smoke` (job `image`) | imagem roda como root, tem gcc, ou `rito health` reprova em modo produção |
+| Cobertura | `backend/pyproject.toml` `fail_under` (`make coverage-backend`) e `frontend/vite.config.ts` (`make coverage-frontend`), jobs `back` e `web` | medição abaixo do piso |
 | Registro | `docs/GATES.md`, `backend/tests/meta/test_registro_de_gates.py` | gate existe e não está listado |
 
 Os gates e seus tetos estão no registro `docs/GATES.md`. Teto só desce.

@@ -80,8 +80,8 @@ item do checklist, marcado como "fora do escopo" ou "frontend-standard".
 | `.env.example` comentado por seção; `.env*` no `.gitignore` e no `.dockerignore` | ok | `.gitignore` corrigido nesta rodada: antes só ignorava `.env` e `.env.local`; agora `.env.*` com `!.env.example` e `!.env.production.example`. |
 | `.dockerignore` | missing → ok | aplicado: `backend/.dockerignore` e `frontend/.dockerignore` (os contextos são `backend/` e `frontend/`; o padrão previa um na raiz). |
 | `make` com `help` como alvo padrão | missing → ok | aplicado: `help` com descrição em todos os alvos e `.DEFAULT_GOAL := help`. **Mudança de comportamento:** `make` sozinho antes rodava `up`; agora lista os comandos. Para subir os serviços, usar `make up`. |
-| CI com jobs `check`, `back`, `web`, `e2e` e `gate` com 180 s | partial | CI tem um job `test` (30 min de teto) com `make lint`, `make docs` (aplicado), `make test` (300 s, o teto do `CLAUDE.md`), build, cobertura, auditoria e build da imagem. Dívida: dividir em jobs (test-speed) e decidir o teto (ver seção 6). |
-| Todo passo do CI tem alvo no Makefile | partial | `lint`, `docs`, `test` e `coverage` têm alvo. Build do frontend, `dup:check`, `bundle:check`, auditoria de dependências e build da imagem não têm. Dívida: criar alvos com os mesmos comandos. |
+| CI com jobs `check`, `back`, `web`, `e2e` e `gate` com 180 s | ok | aplicado: `check` (lint, docs, build, dup, audit), `back` e `web` (cobertura), `e2e` em duas fatias, `image` (imagem Docker) e `gate` que falha acima de **300 s** (teto do `CLAUDE.md` §3, no lugar dos 180 s do padrão), todos em paralelo sem `needs` entre eles. Caches: setup-uv com `prune-cache: false`, npm por lockfile, browsers do Playwright. Ver `docs/GATES.md` §3 e `docs/system/overview.md`. |
+| Todo passo do CI tem alvo no Makefile | ok | aplicado: `build`, `dup`, `audit`, `install-*`, `coverage-backend`/`-frontend`, `coverage-summary-*`, `docker-image`, `image-smoke`, `ci-db`, `ci-minio`, `ci-gate` e `test-e2e` com `E2E_ARGS` (fatias). O CI chama só alvos do `make`. |
 | `make docs` no CI, depois do lint | ok | aplicado: passo `make docs` em `.github/workflows/ci.yml`. |
 | Mutação nos métodos alterados | partial | Fora do escopo (`mutation-testing`). Existe `make test-mutation` (spec 132). |
 
@@ -127,7 +127,7 @@ Ordem sugerida, do que mais protege para o que é só estético:
    tabela de specs no README.
 5. **Tempos e esperas**: timeouts de conexão (`lock_timeout` etc.) e `SET LOCAL statement_timeout` com `text()`.
 6. **Testes**: marcador `integration`, alvo só-unitário, fixture autouse de ambiente, `golden/`.
-7. **CI**: dividir em jobs e alvos para cada passo (test-speed); definir o teto.
+7. ~~**CI**: dividir em jobs e alvos para cada passo (test-speed); definir o teto.~~ Feito: jobs em paralelo, alvos para cada passo, gate de 300 s (ver seção 3 da tabela).
 8. **Compose de produção**: checklist de `coolify.md`.
 9. **Autenticação**: versão de sessão e encerramento de sessões na troca de senha.
 10. **Frontend**: tudo da seção 3 (frontend-standard).

@@ -106,6 +106,7 @@ Todo `# noqa` do projeto exige justificativa em prosa na linha acima — também
 | Gate | Valor | Onde |
 |---|---|---|
 | Wall-clock das três suítes | **300 s** | `scripts/run-tests.sh` (CLAUDE.md §3) |
+| Wall-clock do run de CI (do início do run até o job `gate`) | **300 s** | `scripts/ci_gate.sh` via `make ci-gate`, job `gate` em `.github/workflows/ci.yml` |
 | Jornadas e2e no projeto | piso **9**, teto **25** — só o teto existia, e zero satisfaz `<= 25`: apagar as jornadas deixava `make test` verde e mais rápido (spec 139) | `e2e/tests/meta/journey-count.spec.ts`, `tests/meta/test_final_audit.py`, `scripts/run-tests.sh` |
 | Testes marcados `slow` | teto próprio | `tests/meta/test_slow_marker_budget.py` |
 | Arquivos com `@pytest.mark.commits` | **19** arquivos / **69** testes | `tests/meta/test_isolamento_transacional.py` |

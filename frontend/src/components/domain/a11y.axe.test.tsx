@@ -21,10 +21,10 @@ import { Label } from "@/components/ui/label";
 // jest-axe não traz tipos do Vitest: o matcher é declarado aqui, no mesmo estilo do README.
 expect.extend(toHaveNoViolations);
 declare module "vitest" {
-  // Must repeat Vitest's own declaration exactly (`T = any`) or TS2428 rejects the merge.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  interface Assertion<T = any> {
-    toHaveNoViolations(): void;
+  // Vitest's extension point for custom matchers; type parameters must match its own.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface Matchers<R extends void | Promise<void> = void | Promise<void>, T = unknown> {
+    toHaveNoViolations(): R;
   }
 }
 

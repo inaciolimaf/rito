@@ -40,7 +40,7 @@ export const accountSchema = z.object({
   email_admin: z.string().email("E-mail financeiro inválido."),
   site: z.string(),
   timezone: z.enum(ALLOWED_TIMEZONES.map((tz) => tz.value) as [string, ...string[]], {
-    errorMap: () => ({ message: "Selecione um timezone válido." }),
+    error: "Selecione um timezone válido.",
   }),
 });
 

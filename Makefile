@@ -191,7 +191,7 @@ ci-db: ## (CI) Cria a role de aplicação e o banco rito_test no Postgres do ser
 ci-minio: ## (CI) Sobe o MinIO e espera o health endpoint responder
 	docker run -d --name minio -p 9000:9000 \
 		-e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-		minio/minio server /data
+		--tmpfs /data cgr.dev/chainguard/minio:latest server /data
 	@for _ in $$(seq 1 30); do \
 		if curl -sf http://localhost:9000/minio/health/live >/dev/null; then echo "MinIO pronto"; exit 0; fi; \
 		sleep 1; \

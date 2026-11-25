@@ -14,7 +14,7 @@ import { useAuth } from "@/providers/AuthProvider";
 // (UUID) — o backend exige X-Tenant-Id como UUID desde a spec 004. Até a 011 (Escritório)
 // trazer essa resolução, o próprio usuário informa o ID aqui.
 const loginSchema = z.object({
-  tenantId: z.string().uuid("Informe o ID do escritório (UUID)."),
+  tenantId: z.guid("Informe o ID do escritório (UUID)."),
   email: z.string().email("E-mail inválido."),
   password: z.string().min(1, "Informe a senha."),
 });

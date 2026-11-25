@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as React from "react";
-import { useForm, type UseFormReturn } from "react-hook-form";
+import { useForm, type Resolver, type UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -40,8 +40,11 @@ export function FormModal<TSchema extends z.ZodType<any, any, any>>({
   children,
   submitLabel = "Salvar",
 }: FormModalProps<TSchema>): JSX.Element {
-  const form = useForm<z.infer<TSchema>>({
-    resolver: zodResolver(schema),
+  type Values = z.infer<TSchema>;
+  const form = useForm<Values, unknown, Values>({
+    // zod 4 types the resolver as input -> output; for a generic schema TS cannot prove they
+    // match. Every schema passed here has input = output (no transforms), so this is sound.
+    resolver: zodResolver(schema) as unknown as Resolver<Values, unknown, Values>,
     defaultValues,
   });
   // react-hook-form só mantém `formState` reativo para os campos lidos durante o render do

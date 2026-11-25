@@ -54,10 +54,13 @@ dev = [
     "pyyaml>=6.0",
     "types-pyyaml>=6.0.12.20260815",
     "import-linter>=2.1",
+    "mutmut==3.8.1",
 ]
 
 [tool.ruff]
 line-length = 100
+# mutants/: copy made by `make mutation` (tools/mutation.py); not code to lint.
+extend-exclude = ["mutants"]
 target-version = "py312"
 
 [tool.ruff.lint]
@@ -186,6 +189,7 @@ max-complexity = 6
 
 [tool.black]
 line-length = 100
+extend-exclude = "/mutants/"
 target-version = ["py312"]
 
 [tool.mypy]
@@ -193,7 +197,7 @@ strict = true
 # Spec 098 / standard: código morto após estreitamento de tipo é erro.
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
-exclude = ["alembic/"]
+exclude = ["alembic/", "mutants/"]
 
 # Celery não tem stubs nem py.typed — os workers rodam fora do caminho testado (a
 # regra mora nos services), então o módulo fica como Any.
@@ -313,6 +317,50 @@ omit = ["app/workers/*"]
 # exige spec própria; CORRIGIR uma medição feita no interpretador errado é outra coisa, e
 # esta linha existe para que ninguém confunda as duas daqui a seis meses.
 fail_under = 83
+
+# --- mutation testing (tools/mutation.py, docs/mutation-testing.md) ----------------------
+# Pure rules only: the modules below have no session, no HTTP, no clock. Mutation runs the
+# unit tests of those modules alone (the tests that cover them), in one process, under 5 s.
+
+[tool.mutmut]
+# tools/mutation.py narrows what is mutated (the functions a change touched) and adds the test
+# selection of [tool.mutation]; run it through `make mutation`, not through `mutmut` directly.
+source_paths = ["app/"]
+# The unit tests of the pure rules (not the whole tests/unit: that is 12 s in one process).
+pytest_add_cli_args_test_selection = [
+    "tests/unit/test_business_days.py",
+    "tests/unit/test_publication_deadline.py",
+    "tests/unit/test_recurrence_dates.py",
+    "tests/unit/test_dates.py",
+    "tests/unit/test_card_cycle.py",
+    "tests/unit/test_cnj.py",
+    "tests/unit/test_ai_analysis_parser.py",
+]
+pytest_add_cli_args = ["-p", "no:cacheprovider", "-p", "no:randomly", "-o", "addopts="]
+# tests/conftest.py migrates a template database from alembic.ini, which mutants/ lacks.
+also_copy = ["alembic.ini", "alembic/"]
+# Log lines and error messages are text for people: mutating them makes tests compare sentences.
+# The whole statement is skipped; the conditions around it are still mutated.
+do_not_mutate_patterns = ['logger\.', 'raise \w*Error\(']
+
+[tool.mutation]
+# Pure rules only (see the comment above). The first tier whose paths match a file wins.
+paths = [
+    "app/core/dates.py",
+    "app/domain/publications/deadline.py",
+    "app/domain/lawsuits/cnj.py",
+]
+# The selection above is already the unit tests of those rules; no marker expression.
+test-selection = ""
+max-test-seconds = 5
+# Cap on mutmut's worker processes (the machine is shared; a developer may set more).
+max-workers = 4
+tiers = [
+    # Heuristic: CNJ court inference guesses the court from the digits (a guess, not a rule).
+    { name = "heuristics", min-score = 65, paths = ["app/domain/lawsuits/cnj.py"] },
+    # Domain rules: business days and the publication deadline are the money-and-deadline rules.
+    { name = "domain rules", min-score = 80, paths = ["app/*"] },
+]
 
 [build-system]
 requires = ["hatchling"]

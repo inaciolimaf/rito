@@ -53,3 +53,6 @@ minio-data/
 
 # Auditoria de segurança: ambiente do gerador de PDF (spec 133-139)
 docs/security-audit/.venv/
+# Mutation testing (backend/tools/mutation.py)
+backend/mutants/
+backend/mutants-survivors.md

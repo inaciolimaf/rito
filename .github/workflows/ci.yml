@@ -1,3 +1,5 @@
+# CI: check, back, web, e2e (2 shards) and image run side by side; the gate fails if any of
+# them failed or the run lasted more than 300 s. Every step calls a `make` target.
 name: CI
 
 on:
@@ -5,18 +7,14 @@ on:
     branches: [main]
   pull_request:
 
-# Um push novo no mesmo ramo cancela o anterior. Sem isto, uma sequência de commits
-# empilha execuções que já nasceram obsoletas — e a suíte deste projeto leva ~15 min de
-# runner (banco, MinIO, browsers do Playwright, três suítes e seis gates).
-# `main` fica de FORA do cancelamento: lá cada commit é um estado publicado, e é
-# justamente o histórico de verde/vermelho de `main` que diz quando algo quebrou.
+# A new push to the same ref cancels the previous run. `main` is excluded: every commit on
+# main is a published state, and the green/red history of main is what says when something broke.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-# Menor privilégio: este workflow só LÊ o repositório. Ele não abre PR, não publica
-# release, não escreve comentário — o resumo de cobertura e de wall-clock vai para o
-# `$GITHUB_STEP_SUMMARY`, que é arquivo local do runner e não precisa de token.
+# Least privilege: the workflow only reads the repository. The gate job adds `actions: read`
+# to read the run's start time.
 permissions:
   contents: read
 
@@ -43,17 +41,150 @@ env:
   TEST_S3_REGION: us-east-1
 
 jobs:
-  test:
+  # Everything that is not a test: lint, build and bundle budget, duplication, dependency audit.
+  check:
     runs-on: ubuntu-latest
-    # CLAUDE.md §3: as 3 suítes rodam concorrentes; `make test` falha se o wall-clock
-    # total passar de **300 s** (`TEST_WALL_CLOCK_BUDGET_SECONDS` em `scripts/run-tests.sh`).
-    # Este job existe para reproduzir esse gate no CI.
-    #
-    # O teto do JOB é outra coisa e vale para o resto: instalação, browsers, build de
-    # produção, cobertura e imagem Docker. Sem ele, um passo travado (um `apt` esperando
-    # rede, um serviço que nunca fica saudável) roda até o limite padrão de 6 HORAS,
-    # segurando runner e escondendo a falha atrás de um job que parece só lento.
-    timeout-minutes: 30
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+          # Pruning the cache after the job took up to 108 s.
+          prune-cache: false
+
+      - name: Install Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: make install-backend
+
+      - name: Install frontend dependencies
+        run: make install-frontend
+
+      - name: make lint
+        run: make lint
+
+      # Documentation: every domain folder is cited in docs/system/ and no cited path went
+      # missing (tools/docs_coverage.py). Its own step, right after lint.
+      - name: make docs
+        run: make docs
+
+      # Spec 098, rule 7: the bundle budget is checked after the production build.
+      - name: make build (production build and bundle gate)
+        run: make build
+
+      # Spec 119: duplication ceiling per language, thresholds in .jscpd.json.
+      - name: make dup
+        run: make dup
+
+      # Spec 100, §3: known-vulnerable dependencies fail the PR.
+      - name: make audit
+        run: make audit
+
+  # Backend suite with coverage (the floor lives in backend/pyproject.toml).
+  back:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Data on tmpfs: the CI database is thrown away anyway, and no fsync is needed.
+        image: postgres:16
+        env:
+          POSTGRES_USER: rito
+          POSTGRES_PASSWORD: rito
+          POSTGRES_DB: rito
+        ports: ["5432:5432"]
+        options: >-
+          --tmpfs /var/lib/postgresql/data
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+          prune-cache: false
+
+      - name: Install Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: make install-backend
+
+      - name: Start MinIO
+        run: make ci-minio
+
+      - name: Create application role and rito_test database
+        run: make ci-db
+
+      # Spec 117: coverage runs in its own step, never inside `make test`.
+      - name: make coverage-backend (spec 117 floor)
+        run: make coverage-backend
+
+      - name: Publish measured backend coverage
+        if: always()
+        run: make coverage-summary-backend
+
+  # Frontend suite with coverage (the floor lives in frontend/vite.config.ts).
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: make install-frontend
+
+      - name: make coverage-frontend (spec 117 floor)
+        run: make coverage-frontend
+
+      - name: Publish measured frontend coverage
+        if: always()
+        run: make coverage-summary-frontend
+
+  # E2E suite, split in two shards that run on separate runners.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     services:
       postgres:
         image: postgres:16
@@ -63,67 +194,34 @@ jobs:
           POSTGRES_DB: rito
         ports: ["5432:5432"]
         options: >-
+          --tmpfs /var/lib/postgresql/data
           --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
       redis:
         image: redis:7
         ports: ["6379:6379"]
         options: >-
           --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cria as roles e bancos de aplicação (rito_app, rito_test)
-        run: |
-          PGPASSWORD=rito psql -h localhost -U rito -d rito -c \
-            "CREATE ROLE rito_app LOGIN PASSWORD 'rito_app';"
-          PGPASSWORD=rito psql -h localhost -U rito -d rito -c \
-            "CREATE DATABASE rito_test OWNER rito;"
-
-      # MinIO precisa do comando `server /data` (igual docker-compose.yml) — o bloco
-      # `services:` do Actions não tem como passar um CMD, só `options` (flags de
-      # `docker create`). `docker run` manual, como um processo em background, é o
-      # workaround padrão para isso (spec 011).
-      - name: Sobe o MinIO
-        run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            minio/minio server /data
-
-      - name: Aguarda o MinIO ficar pronto
-        run: |
-          for _ in $(seq 1 30); do
-            if curl -sf http://localhost:9000/minio/health/live >/dev/null; then
-              echo "MinIO pronto"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "MinIO não respondeu a tempo" >&2
-          exit 1
-
-      - name: Instala uv
-        uses: astral-sh/setup-uv@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
-          # O npm já era cacheado (`setup-node` abaixo); o Python não era, e é o ambiente
-          # maior dos dois. A chave sai do lockfile: muda a dependência, muda o cache.
           enable-cache: true
           cache-dependency-glob: backend/uv.lock
+          prune-cache: false
 
-      - name: Instala Python 3.12
+      - name: Install Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Instala dependências do backend
-        working-directory: backend
-        run: uv sync --frozen
 
       - uses: actions/setup-node@v4
         with:
@@ -133,169 +231,114 @@ jobs:
             frontend/package-lock.json
             e2e/package-lock.json
 
-      - name: Instala dependências do frontend
-        working-directory: frontend
-        run: npm ci
+      - name: Install backend dependencies
+        run: make install-backend
 
-      - name: Instala dependências do e2e
-        working-directory: e2e
-        run: npm ci
+      # The Playwright webServer runs the Vite dev server, so the frontend dependencies are needed here too.
+      - name: Install frontend dependencies
+        run: make install-frontend
 
-      # O download do Chromium é ~130 MB a cada execução. A chave inclui a VERSÃO do
-      # Playwright (via lockfile): browser é acoplado à versão da biblioteca, e um cache
-      # que sobrevivesse a um upgrade daria um par incompatível — falha obscura no e2e.
-      - name: Cache dos browsers do Playwright
+      - name: Install E2E dependencies
+        run: make install-e2e
+
+      # Chromium is ~130 MB per run. The key includes the Playwright version (from the lockfile):
+      # a browser must match its library, and a cache that survived an upgrade would give a mismatched pair.
+      - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
 
-      # `--with-deps` continua: as bibliotecas de sistema são `apt`, não cacheáveis aqui.
-      # Com o browser em cache o passo só instala essas, em segundos.
-      - name: Instala browsers do Playwright
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium
+      # With the browser cached this only installs the system libraries (apt), in seconds.
+      - name: Install Playwright browsers
+        run: make e2e-browsers
 
-      - name: Aplica migrations no banco de dev (usado pelo webServer do e2e)
+      - name: Start MinIO
+        run: make ci-minio
+
+      - name: Create application role and rito_test database
+        run: make ci-db
+
+      - name: Apply migrations to the dev database (used by the E2E webServer)
         run: make migrate
 
-      - name: make lint
-        run: make lint
+      - name: make test-e2e (shard ${{ matrix.shard }}/2)
+        run: make test-e2e E2E_ARGS="--shard=${{ matrix.shard }}/2"
 
-      # Documentação: cada pasta de domínio é citada em docs/system/ e nenhum caminho citado
-      # sumiu (tools/docs_coverage.py). Passo próprio, depois do lint, como no padrão.
-      - name: make docs
-        run: make docs
-
-      - name: make test
-        run: make test
-
-      # Spec 098, regra 7: o teto do bundle é verificado depois do build de produção —
-      # medir bytes exige compilar, e compilar não cabe no orçamento de 300 s do
-      # `make test`. A propriedade estrutural que sustenta o número (editor e gráficos
-      # atrás de fronteira lazy) tem teste na suíte, em `src/App.bundle.test.ts`.
-      - name: Build do frontend e gate de tamanho do bundle
-        run: |
-          cd frontend
-          npm run build
-          npm run bundle:check
-
-      # Spec 119: teto de duplicação por linguagem. Passo próprio, fora do `make test` —
-      # não é teste e não deve consumir os 300 s do orçamento. A configuração (caminhos,
-      # min-lines/min-tokens, exclusões e os tetos) vive em `.jscpd.json` na raiz.
-      - name: Gate de duplicação
-        run: |
-          cd frontend
-          npm run dup:check
-
-      # Spec 100, §3: dependência com vulnerabilidade conhecida é a superfície de ataque
-      # que não exige erro nosso — basta o tempo passar. Roda em todo PR porque é barato
-      # e porque o custo de descobrir tarde é o de um incidente.
-      - name: Auditoria de dependências
-        run: |
-          cd backend
-          uv export --no-dev --no-emit-project --format requirements-txt > /tmp/reqs.txt
-          uv run --with pip-audit pip-audit --strict -r /tmp/reqs.txt
-          cd ../frontend && npm audit --audit-level=high
-
-      # Spec 117: cobertura em passo PRÓPRIO, nunca dentro do `make test`. Instrumentar
-      # o interpretador e o v8 custa tempo, e o wall-clock está em 288 s de 300 s — pôr
-      # cobertura dentro do orçamento seria gastar a margem que a 105 comprou. O piso
-      # mora na config de cada suíte (backend/pyproject.toml [tool.coverage.report]
-      # fail_under, frontend/vite.config.ts test.coverage.thresholds), fonte única do
-      # número; aqui só rodamos. `app/workers/*` fica fora da medição do backend, com
-      # justificativa no pyproject.toml e o meta-teste de corpo fino que a torna honesta
-      # (tests/meta/test_workers_finos.py).
-      - name: Cobertura — piso da spec 117
-        shell: bash
-        run: |
-          cd backend
-          # O template de teste é migrado ANTES do pytest, como o scripts/run-tests.sh
-          # faz: `pytest_configure` roda em todo worker do xdist, e o advisory lock que
-          # deveria serializar o preparo é solto junto com a conexão que o pediu. Com o
-          # template já em head, `_template_esta_pronto` devolve True em todos eles e
-          # ninguém corre para criar o mesmo banco.
-          MIGRATIONS_DATABASE_URL="$TEST_MIGRATIONS_DATABASE_URL" uv run alembic upgrade head
-          # Os relatórios vão para /tmp, fora do checkout: nenhum artefato de cobertura
-          # precisa de linha no .gitignore para não sujar `git status` de quem rodar o
-          # mesmo comando na máquina.
-          uv run pytest -n 3 --cov=app --cov-report=term --cov-report=json:/tmp/cov-backend.json
-          cd ../frontend
-          # json-summary só para o passo de publicação abaixo; o piso quem aplica é o
-          # `thresholds` do vite.config.ts.
-          npm run test:coverage -- \
-            --coverage.reporter=text-summary --coverage.reporter=json-summary \
-            --coverage.reportsDirectory=/tmp/cov-frontend
-
-      # Separado e `always()` porque o número interessa MAIS quando o gate reprova: os
-      # dois relatórios são escritos antes da checagem de piso, então existem mesmo
-      # quando o passo acima falha.
-      - name: Publica a cobertura medida
+      - name: Upload E2E report
         if: always()
-        shell: bash
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report-shard-${{ matrix.shard }}
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Spec 099: the production image is built and started in CI. `docker build` takes longer than
+  # the whole suite, so it runs in its own job and does not count against the test jobs.
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rito
+          POSTGRES_PASSWORD: rito
+          POSTGRES_DB: rito
+        ports: ["5432:5432"]
+        options: >-
+          --tmpfs /var/lib/postgresql/data
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start MinIO
+        run: make ci-minio
+
+      - name: Create application role and rito_test database
+        run: make ci-db
+
+      - name: make docker-image
+        run: make docker-image
+
+      - name: make image-smoke (non-root, no gcc, rito health in production mode)
+        run: make image-smoke
+
+  # Runs after the others, whatever their result. Fails if one of them failed or was cancelled,
+  # and if the whole run lasted more than 300 s since it started (CLAUDE.md §3).
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [check, back, web, e2e, image]
+    if: always()
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: All jobs green
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: |
-          {
-            echo "### Cobertura (spec 117)"
-            python3 - <<'PY'
-          import json, pathlib
+          echo "::error::a job failed or was cancelled"
+          exit 1
 
-          def pct(path, leitura):
-              arquivo = pathlib.Path(path)
-              if not arquivo.exists():
-                  return None
-              return leitura(json.loads(arquivo.read_text()))
-
-          backend = pct("/tmp/cov-backend.json", lambda d: d["totals"]["percent_covered"])
-          frontend = pct(
-              "/tmp/cov-frontend/coverage-summary.json",
-              lambda d: d["total"]["statements"]["pct"],
-          )
-          def fmt(valor):
-              return "não medido" if valor is None else f"{valor:.2f}%"
-
-          pisos = json.loads(pathlib.Path("coverage.json").read_text())
-          linhas = [
-              "| Suíte | Recorte | Medido | Piso |",
-              "|---|---|---|---|",
-              f"| backend | `app/` sem `workers/` | {fmt(backend)} "
-              f"| {pisos['backend']['floor_percent']}% |",
-              f"| frontend | statements de `src/` | {fmt(frontend)} "
-              f"| {pisos['frontend']['floor_percent']}% |",
-              "",
-              "Piso é piso: sobe com a medição, nunca desce sem spec própria (117, regra 7).",
-              "Quando a medição subir, atualize `coverage.json` **e** os dois pisos na config.",
-          ]
-          print("\n".join(linhas))
-          PY
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # Spec 099: a imagem de produção é CONSTRUÍDA e posta de pé no CI. `docker build`
-      # leva mais que a suíte inteira e não caberia no orçamento de 300 s do `make test`;
-      # as propriedades estáticas (não-root, sem toolchain, healthcheck em liveness) têm
-      # teste na suíte, em `tests/meta/test_deploy_image.py`.
-      - name: Constrói a imagem de produção e verifica que ela sobe
-        run: |
-          docker build -t rito-backend:ci backend
-          docker run --rm rito-backend:ci id -u | grep -qv '^0$' \
-            || (echo "a imagem roda como root" && exit 1)
-          docker run --rm rito-backend:ci sh -c 'command -v gcc || true' | grep -q . \
-            && (echo "gcc sobreviveu na imagem final" && exit 1) || true
-          docker run --rm --network host \
-            -e APP_ENV=production \
-            -e SECRET_KEY="$(openssl rand -hex 32)" \
-            -e DATABASE_URL="$TEST_DATABASE_URL" \
-            -e MIGRATIONS_DATABASE_URL="$TEST_MIGRATIONS_DATABASE_URL" \
-            -e REDIS_URL="$REDIS_URL" \
-            -e S3_ENDPOINT_URL="$S3_ENDPOINT_URL" -e S3_ACCESS_KEY="$S3_ACCESS_KEY" \
-            -e S3_SECRET_KEY="$S3_SECRET_KEY" -e S3_BUCKET="$S3_BUCKET" \
-            -e S3_REGION="$S3_REGION" \
-            -e CORS_ALLOWED_ORIGINS="https://app.exemplo.com.br" \
-            rito-backend:ci rito health
-
-      - name: Publica o wall-clock medido
-        if: always()
-        run: |
-          echo "### Tempo de teste" >> "$GITHUB_STEP_SUMMARY"
-          echo '```json' >> "$GITHUB_STEP_SUMMARY"
-          cat test-timing.json >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Wall clock of the whole run within 300 s
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_WALL_CLOCK_BUDGET: "300"
+        run: make ci-gate

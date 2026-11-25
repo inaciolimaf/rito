@@ -109,7 +109,7 @@ export function FinancialDashboard(): JSX.Element {
             negative={(stats?.balance ?? 0) < 0}
             variation={stats ? balanceVariation(stats.balance, stats.balance_previous) : null}
           />
-          {stats && <p className="text-[11px] text-muted">{stats.balance_staleness_hint}</p>}
+          {stats && <p className="text-caption text-muted">{stats.balance_staleness_hint}</p>}
         </div>
         <StatCard
           label="Receita"

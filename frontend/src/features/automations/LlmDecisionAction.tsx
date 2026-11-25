@@ -142,7 +142,7 @@ export function LlmDecisionAction({
           />
         </label>
       </div>
-      <p className="text-[11px] text-muted">
+      <p className="text-caption text-muted">
         Se a IA falhar, responder algo fora da lista ou ficar abaixo da confiança mínima, a
         automação segue pelo ramo padrão — ela nunca para por causa da IA.
       </p>
@@ -168,7 +168,7 @@ export function LlmDecisionAction({
             </label>
           ))}
         </div>
-        <p className="text-[11px] text-muted">
+        <p className="text-caption text-muted">
           Só leitura: o nó de decisão nunca altera nada no sistema.
         </p>
       </div>

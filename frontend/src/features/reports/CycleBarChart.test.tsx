@@ -45,10 +45,10 @@ describe("CycleBarChart (spec 076)", () => {
     expect(bars).toHaveLength(8);
     // As 4 cores fixas da spec §6: verde, azul claro, azul escuro, vermelho.
     expect(CYCLE_SERIES.map((series) => series.color)).toEqual([
-      "#16a34a",
-      "#38bdf8",
-      "#1e3a8a",
-      "#dc2626",
+      "hsl(var(--chart-prospecting))",
+      "hsl(var(--chart-production))",
+      "hsl(var(--chart-execution))",
+      "hsl(var(--chart-full-cycle))",
     ]);
     for (const series of CYCLE_SERIES) {
       const colored = chart.querySelectorAll(`rect[fill="${series.color}"]`);
@@ -77,7 +77,7 @@ describe("CycleBarChart (spec 076)", () => {
     const chart = screen.getByTestId("cycle-bar-chart");
     // Só a prospecção tem barra; os 3 ciclos sem data são lacuna.
     expect(chart.querySelectorAll("rect")).toHaveLength(1);
-    expect(chart.querySelectorAll('rect[fill="#16a34a"]')).toHaveLength(1);
+    expect(chart.querySelectorAll('rect[fill="hsl(var(--chart-prospecting))"]')).toHaveLength(1);
   });
 
   it("sem grupos mostra mensagem vazia", () => {

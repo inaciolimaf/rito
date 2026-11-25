@@ -38,7 +38,7 @@ export function AppLayout(): JSX.Element {
   }, [isMobileDrawerOpen]);
 
   return (
-    <div className="flex h-screen flex-col md:flex-row">
+    <div className="flex h-dvh flex-col md:flex-row">
       <a
         href="#conteudo"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-accent"
@@ -58,7 +58,7 @@ export function AppLayout(): JSX.Element {
           }}
         >
           <div
-            className="fixed inset-0 bg-primary/50"
+            className="fixed inset-0 bg-overlay/50"
             onClick={() => setIsMobileDrawerOpen(false)}
             aria-hidden="true"
           />

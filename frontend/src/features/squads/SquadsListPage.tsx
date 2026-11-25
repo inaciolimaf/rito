@@ -62,7 +62,7 @@ export function SquadsListPage(): JSX.Element {
               ) : (
                 <span
                   key={member.id}
-                  className="flex h-6 w-6 items-center justify-center rounded-full border border-surface bg-surface-muted text-[10px] text-muted"
+                  className="flex h-6 w-6 items-center justify-center rounded-full border border-surface bg-surface-muted text-micro text-muted"
                 >
                   {member.name.charAt(0).toUpperCase()}
                 </span>

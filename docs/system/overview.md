@@ -13,6 +13,7 @@ React, e o estado vive no PostgreSQL. A forma completa, com diagramas, está em
 | Worker | `backend/app/workers/` (Celery) | Tudo que chama o mundo externo (DJEN, DataJud, LLM, SMTP, webhooks) sai daqui |
 | Beat | `backend/app/workers/` (Celery beat) | Agendamentos: sincronizações e varreduras |
 | Frontend | `frontend/src/` (Vite, React) | SPA; chamadas relativas a `/api/v1` |
+| Identidade visual | `frontend/src/index.css`, `tailwind.config.ts` | tokens e movimento reduzido; ver `docs/frontend-identity.md` |
 | CLI | `backend/app/cli.py` (`rito`) | Operação: migrações, seed, tenants, backup, health |
 
 ## Camadas do backend

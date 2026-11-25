@@ -9,17 +9,17 @@ export interface DonutChartProps {
 }
 
 const COLORS = [
-  "hsl(var(--accent))",
-  "hsl(220 70% 55%)",
-  "hsl(160 60% 45%)",
-  "hsl(30 90% 55%)",
-  "hsl(280 60% 55%)",
-  "hsl(0 70% 55%)",
-  "hsl(190 70% 45%)",
-  "hsl(50 80% 50%)",
-  "hsl(320 60% 55%)",
-  "hsl(100 50% 45%)",
-  "hsl(var(--text-muted))",
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-6))",
+  "hsl(var(--chart-7))",
+  "hsl(var(--chart-8))",
+  "hsl(var(--chart-9))",
+  "hsl(var(--chart-10))",
+  "hsl(var(--chart-muted))",
 ];
 
 const SIZE = 160;

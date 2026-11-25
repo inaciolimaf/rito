@@ -13,7 +13,7 @@ const STAGE_ORDER = ["prospecting", "production", "execution", "full_cycle"] as 
 
 function stageColor(stage: string): string {
   const index = STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number]);
-  return (index >= 0 ? CYCLE_SERIES[index]?.color : undefined) ?? "#6b7280";
+  return (index >= 0 ? CYCLE_SERIES[index]?.color : undefined) ?? "hsl(var(--chart-neutral))";
 }
 
 /** Gráfico de tempo médio por etapa do ciclo (spec 077 §2 e regra 10), com o custo
@@ -68,7 +68,7 @@ export function CostPerStageChart({ stages }: CostPerStageChartProps): JSX.Eleme
                 x={(2 * index + 1) * barWidth + barWidth / 2}
                 y={height - 24}
                 textAnchor="middle"
-                className="fill-muted text-[10px]"
+                className="fill-muted text-micro"
               >
                 {stage.label}
               </text>
@@ -79,7 +79,7 @@ export function CostPerStageChart({ stages }: CostPerStageChartProps): JSX.Eleme
                 x={(2 * index + 1) * barWidth + barWidth / 2}
                 y={height - 10}
                 textAnchor="middle"
-                className="fill-muted text-[10px]"
+                className="fill-muted text-micro"
               >
                 {stage.avg_days === null ? "—" : `${stage.avg_days}d`}
               </text>

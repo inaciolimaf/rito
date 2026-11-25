@@ -38,20 +38,8 @@ const PAIRS: TextPair[] = [
   { foreground: "warning-foreground", background: "warning" },
 ];
 
-/** Exceções conhecidas: tokens a corrigir no tema de identidade (dívida em docs/frontend-standard-audit-a11y.md). */
-const KNOWN_EXCEPTIONS: Record<string, string> = {
-  "light text-muted on surface-muted":
-    "cabeçalho da tabela (text-muted sobre surface-muted) 4,31:1",
-  "light danger on surface": "mensagens de erro em texto 3,78:1",
-  "light danger on surface-muted": "erro em texto sobre superfície cinza 3,46:1",
-  "light success on surface": "texto de sucesso 2,30:1",
-  "light warning on surface": "texto de aviso 2,14:1",
-  "light danger-foreground on danger": "botão destrutivo com texto claro 3,61:1",
-  "light success-foreground on success": "botão de sucesso com texto claro 2,19:1",
-  "dark danger on surface": "mensagens de erro em texto 3,61:1",
-  "dark danger on surface-muted": "erro em texto sobre superfície cinza 2,99:1",
-  "dark accent on surface-muted": "link/ação sobre superfície cinza 4,09:1",
-};
+/** Exceções conhecidas: vazia. Os tokens de tema já passam em 4,5:1; uma nova exceção exige motivo aqui. */
+const KNOWN_EXCEPTIONS: Record<string, string> = {};
 
 function readBlock(css: string, selector: string): string {
   const escaped = selector.replace(/[.[\]]/g, "\\$&");

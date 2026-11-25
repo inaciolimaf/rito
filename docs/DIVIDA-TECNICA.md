@@ -115,15 +115,49 @@ que `alembic upgrade head` roda, inclusive nesta spec.
 **Spec-alvo:** nenhuma — aceito como limite estrutural de cobertura via `coverage.py`
 contra subprocessos externos, não uma lacuna de teste real.
 
-## 7. Sem teste de mutação formal
+## 7. ~~Sem teste de mutação formal~~ — FECHADA na spec 132, com o número medido
 
 O checklist "sem teste que passe por acidente" foi verificado por inspeção manual (as
 asserções checam valores/mensagens exatas, não só status code genérico), não por uma
 ferramenta de mutation testing (`mutmut`, `cosmic-ray`). Com 572 statements e 99% de
 cobertura de linha, o retorno de instalar uma ferramenta dedicada ainda é baixo.
 
-**Spec-alvo:** reavaliar na 020 ou quando a base de código crescer o suficiente para
-inspeção manual deixar de ser confiável.
+**Medida na 132, e a premissa estava errada nos dois termos.** A base saiu de 572 para
+**24.663** statements (43×), e o retorno não era baixo: 182 mutações por AST em três
+módulos de alto valor — 159 statements, **todos com cobertura de linha integral** —
+deixaram **84 sobreviventes**, escore de mutação de **53,8%**. Classificados: **62 buracos
+de teste reais**, 19 equivalentes, 3 código morto. A frase "verificado por inspeção manual"
+não sobreviveu ao contato com a medição em nenhum dos três módulos.
+
+| Módulo | Mutantes | Vivos antes | Vivos depois |
+|---|---:|---:|---:|
+| `app/core/permissions.py` | 49 | 21 | 13 |
+| `app/domain/automations/conditions.py` | 68 | 33 | 1 |
+| `app/domain/ai/sql_guard.py` | 65 | 30 | 10 |
+| **Total** | **182** | **84** | **24** |
+
+Os 24 que ficam são 19 equivalentes, 3 de código morto e 2 buracos fora do módulo medido.
+
+**Ferramenta permanente recusada, com a conta:** 1,15 mutante por statement dá ~28.400
+mutantes para `app/`, 11 h no melhor caso e duas semanas com a suíte de backend inteira —
+contra os 300 s do CLAUDE.md §3. E 26% dos sobreviventes exigiram leitura humana para
+separar equivalente de buraco; gate cujo vermelho precisa de triagem treina o time a
+ignorá-lo. Fica `backend/scripts/mutation.py` (zero dependência nova) e o alvo
+`make test-mutation`, sob demanda, fora do CI — no molde do `make test-nightly` da 098.
+
+**Reavaliar** quando `app/` dobrar de novo (≈ 50.000 statements), ou antes disso se alguma
+spec de guardrail entregar sem rodar o mutador no módulo que tocou.
+
+**Spec-alvo:** nenhuma — fechada na 132.
+
+**Re-atribuída na 131.** O alvo era *"reavaliar na 020 ou quando a base de código crescer
+o suficiente para inspeção manual deixar de ser confiável"*, e as duas condições venceram:
+a 020 passou há mais de cem specs, e a base saiu dos 572 statements desta linha para as
+dezenas de milhares de hoje. O item deveria ter sido cobrado na 020 e não foi — o gate
+`test_toda_divida_aberta_tem_numero_e_alvo_no_futuro` lia o alvo com
+`**Spec-alvo:**\s*(\d{3})`, que exige o número **colado** no marcador, e "reavaliar na
+020" não casava. Ficou aberto, com alvo vencido, e verde. Mesma cegueira que escondeu as
+dívidas 25 e 26; ver a nota de método no fim do arquivo e a spec 131.
 
 ## 8. `S3FileStorage._ensure_bucket` não cobre o branch de corrida (`BucketAlreadyOwnedByYou`)
 
@@ -332,7 +366,7 @@ paralelos por domínio (xdist com `--dist=loadgroup` ou execução por diretóri
 mais tentar reduzir custo de boot por teste — essa via já foi auditada duas vezes
 (033, 050) sem alvo real encontrado.
 
-## 18. Cálculo de prazo fatal das intimações roteadas ainda não existe
+## 18. Cálculo de prazo fatal das intimações roteadas ainda não existe — **PARCIALMENTE RESOLVIDA na spec 126**
 
 A spec 045 (roteamento de intimação → tarefa) cria a tarefa sistêmica "Intimações
 Judiciais" com `scheduled_date = availability_date` (regra 3), mas nunca calcula
@@ -344,7 +378,7 @@ escopo da 045. O campo fica `NULL`, indistinguível na UI de "usuário não defi
 campo quando `task_type_name === "Intimações Judiciais"` e `deadline_date` é nulo —
 resolve a ambiguidade visual sem inventar um cálculo que não existe.
 
-**Spec-alvo:** 126 (prazo processual — spec própria, ainda a escrever). **Re-atribuída na
+**Spec-alvo:** spec própria de produto — a 126 (que era o alvo numerado, depois de 086, 122 e 123) entregou a mecânica e o seed; o que resta, prazo por classe/assunto do CNJ, não é código à espera de autor: é uma tabela à espera de decisão, e numerá-la agora seria fingir que a decisão já foi tomada. Ver «Estado depois da 126», abaixo. **Re-atribuída na
 122** e renumerada na 123, quando ficou claro que 124 e 125 já tinham dono. **Na 122:** o número 122 foi ocupado pelo segundo degrau do teto de linhas por função, e este
 item passou a apontar para uma spec que entregou outra coisa — o mesmo acidente do handoff
 038→086 descrito abaixo, de novo. Vale a lição: **alvo de dívida é um número reservado, e
@@ -358,7 +392,40 @@ um problema em si, não um stub esquecido: a 101 renomeia o destinatário (Bloco
 deliberadamente **não** implementa (§3, Fora de escopo). Entra junto o seed de feriados de
 2031 em diante (spec 038).
 
-## 19. Fixtures HTTP do DJEN/DataJud têm dado real de pessoa identificável
+### Estado depois da 126
+
+**PARCIALMENTE RESOLVIDA na 126.** Entregue: a mecânica da contagem em `app/core/dates.py`
+(`procedural_deadline`, `add_procedural_days`, `publication_date`, `is_court_recess`) — a
+cadeia do CPC disponibilização → publicação (art. 224 §2) → dia 1 (art. 224 caput/§3) →
+vencimento em dias úteis (art. 219), com o recesso forense do art. 220, que não era
+modelado em lugar nenhum do projeto. Entregue também o seed de feriados nacionais de
+**2031 a 2040** que este item cobrava junto (migration `126_prazo_das_intimacoes`), e a
+correção de um erro que a 086 carregava desde que nasceu: ela tratava a data de
+disponibilização como data de publicação e devolvia todo prazo **um dia útil mais curto**
+que o legal.
+
+**O que NÃO foi entregue, e por quê:** o "tipo de prazo por classe/assunto do CNJ". A 126
+procurou nas quatro fontes possíveis e registrou a evidência (§9): o levantamento do
+ADVBOX não tem a tabela — seu único "prazo em dias" é o `fake_days` que o escritório digita
+numa etapa de workflow —, e `task_types`, `action_groups`, `lawsuit_types` e `stages` não
+têm campo de dias. No lugar dela, `publication_deadline_settings`: o escritório declara
+quantos dias valem, com nome e hora de quem declarou. Sem declaração, `deadline_date`
+continua `NULL` — e o contorno visual da 050 continua correto e necessário.
+
+**Resíduo nomeado:** o prazo declarado é **uniforme** (um número para toda intimação do
+escritório), não por tipo de ato. Quem quiser prazo por ato tem os dois caminhos que já
+existem: a leitura do texto pela IA (086, com revisão humana) e a edição manual do campo.
+Refiná-lo por grupo de ação exigiria coluna em `action_groups`. **Isto é trabalho de
+produto — alguém precisa decidir a tabela antes de alguém escrevê-la —, não dívida de
+código.** Falta também a tela: `GET`/`PUT /api/v1/publications/deadline-settings` existem e
+são testados, mas nenhum gestor os encontra na interface.
+
+**Spec-alvo do resíduo:** spec própria de produto, depois de alguém decidir a tabela de
+prazos por ato. A tela de configuração é anterior e mais barata: sem ela, o endpoint existe
+e ninguém o alcança.
+
+
+## 19. ~~Fixtures HTTP do DJEN/DataJud têm dado real de pessoa identificável~~ — RESOLVIDO na spec 100
 
 Achado na auditoria de segurança da spec 050 (checklist "fixtures sem dado real,
 anonimize"): `tests/fixtures/http/comunicaapi.pje.jus.br/oab_mg.json` tem um CPF real
@@ -596,7 +663,7 @@ justamente Financeiro, Configurações e Conta e assinatura.
 tela `/accept-invite` (item 9) e o meta-teste que deriva as rotas de `NAV_ITEMS` em vez de
 copiá-las.
 
-## 25. `TaskTypeResponse.last_assigned_at` é sempre `None`
+## 25. ~~`TaskTypeResponse.last_assigned_at` é sempre `None`~~ — RESOLVIDO na spec 125
 
 `app/domain/task_types/router.py:52` devolve `last_assigned_at=None` fixo. A regra 9 da
 spec 031 descreve o campo como "derivado, nunca armazenado" — derivado de `posts`, que
@@ -615,8 +682,32 @@ atribuído" de "não calculado".
 ocupado pelo terceiro degrau do teto de linhas por função. Duas vezes seguidas é padrão, não
 azar — ver a nota de método no fim deste arquivo.
 
+### ✅ RESOLVIDO na spec 125
 
-## 26. "Atividades" não tem tela de listagem
+Calculado, não removido: a spec 031 §6 desenha a coluna "Última atribuição" na tela, o
+`TaskTypesListPage` já a renderizava, e o dado existia em `posts` o tempo todo. Não havia
+decisão de produto pendente — havia uma conta que ninguém tinha feito.
+
+`MAX(posts.created_at)` entre as tarefas do tipo com responsável, como subquery
+**correlacionada** dentro da consulta que a listagem já emitia: nenhum statement novo, a
+listagem segue nos 3 do CLAUDE.md §11 (conferido mordendo em 2). Listagem, POST e PUT
+passaram a responder pelo mesmo método do repositório — foi a existência de dois caminhos,
+um calculado e outro constante, que deixou a dívida nascer.
+
+Três coisas que só apareceram fazendo:
+
+- **O gate teria medido o Redis.** A listagem sem filtro é cacheada (098, regra 9); um
+  orçamento medido por ali daria 1 query e o N+1 de amanhã passaria batido. O teste usa o
+  caminho filtrado, de propósito e com o motivo escrito ao lado — mesma classe da dívida 29.
+- **A derivada envelhece no cache** até 5 minutos: ela muda com a criação de *tarefa* e a
+  invalidação por evento só dispara em escrita de *catálogo*. Invalidar a partir de `posts`
+  acoplaria na direção errada; o TTL é o teto do erro, que é o contrato de `core/cache.py`.
+- **`posts.created_at` só responde porque toda tarefa nasce atribuída** (`resolve_assignees`) —
+  verificado nos quatro caminhos de criação, não suposto. `post_users` não guarda instante
+  nenhum, então reatribuir uma tarefa antiga não move a data: declarado na §9 da spec 125.
+
+
+## 26. ~~"Atividades" não tem tela de listagem~~ — RESOLVIDO na spec 128
 
 `navItems.ts` aponta "Atividades" para `/posts` desde a spec 008, e a rota nunca existiu —
 o item caía no `NotFoundPage`, exatamente como o `/settings` (item 24). Achado pelo
@@ -633,8 +724,12 @@ próximo do que pediu. O que **não** foi feito, de propósito, é silenciar o m
 uma lista de exceções: um gate que aceita exceção por arquivo deixa de morder (é o alerta
 que a própria spec 110 registra).
 
-**Spec-alvo:** ~~124~~ → **125** — (renumerada na 124, que virou a spec de correção de dívidas) a listagem de atividades como tela própria, reaproveitando
-`DataTable`/`FilterBar`/`useListPage`. Enquanto ela não existir, o redirect fica.
+**Spec-alvo:** ~~124~~ → ~~125~~ → **128** — a 125 foi gasta por outra spec
+(`last_assigned_at` calculado) antes de esta abrir, que é a terceira vez que o número
+escapa; a re-atribuição para a 128 é a que valeu. Entregue: `GET /api/v1/posts` +
+`POST /api/v1/posts/export` e a `PostListPage` reusando `DataTable`/`FilterBar`/
+`EmptyState` e os hooks `useListPage`/`useFilters`. O redirect `/posts → /home` do
+`App.tsx` saiu; a rota é real.
 
 
 ## 27. ~~Passo já registrado some quando o timeout mata a sessão da requisição~~ — RESOLVIDO na spec 124
@@ -1414,6 +1509,343 @@ português. Sem esse teste a dívida volta na próxima spec que editar `core/`.
 
 ---
 
+## 41. ~~`test_cartao_mostra_fatura_nao_saldo` é um teste com data fixa, e a data venceu~~ — RESOLVIDO na spec 129
+
+Encontrado na spec 127, no HEAD limpo, ANTES de qualquer alteração — a medição de baseline
+da refatoração deu `1 failed, 1625 passed`, e a falha não tem nada a ver com SQL.
+
+O teste lança uma despesa de cartão com `due_date="2026-08-20"` e espera que ela apareça na
+fatura corrente do cartão (ciclo dia 5, vencimento dia 15). `card_cycle_range` calcula a
+janela a partir de **hoje**; a data do lançamento é uma constante. Enquanto "hoje" esteve
+dentro do ciclo de agosto/2026, o teste passou. Depois de 5 de setembro de 2026, a despesa
+saiu da janela e `balance` virou `0.0`.
+
+**Por que isto é pior que um teste quebrado:** ele não quebrou por regressão, quebrou pela
+passagem do tempo, e vai continuar quebrado para sempre. Quem encontrar a falha daqui a três
+specs vai investigar o cálculo de fatura — que está certo. É a mesma família da dívida 32
+(timestamp UTC comparado com data do escritório) e da 31 (`func.now()` constante na
+transação): **teste que depende de quando roda**.
+
+Não foi corrigido na 127 porque a 127 é refatoração e não muda comportamento — e mexer numa
+asserção de fatura para fazer o vermelho sumir seria exatamente o tipo de conserto que a
+regra de "testes existentes continuam passando sem edição" existe para impedir.
+
+**Correção:** a data do lançamento deve ser derivada do relógio do teste
+(`card_cycle_range(cycle_day, hoje)`), não escrita à mão — o `tests/clock.py` já existe para
+isso. Vale varrer o resto da suíte pela mesma assinatura: literal de data no corpo de um
+teste que compara com "hoje".
+
+**Spec-alvo:** spec própria de correção, junto de qualquer trabalho que toque o financeiro.
+Não entra numa de refatoração: mudar a asserção MUDA o que o teste afirma.
+
+### ✅ RESOLVIDO na spec 129
+
+A data sai de `card_cycle_range` com `tests.clock.hoje()`, no meio da janela, e um segundo
+lançamento posicionado na PRÓXIMA fatura passou a ser o contra-exemplo — sem ele, uma
+fatura que somasse tudo do cartão passaria igual. Nada em `app/` mudou: o cálculo estava
+certo. A varredura que a dívida pedia foi feita (37 arquivos, §9 da 129) e não achou
+segunda bomba; o que ela achou foi o **critério** — o risco não é o literal, é o literal
+comparado com uma **janela móvel** (fatura do ciclo, "últimos 30 dias") em vez de uma
+**condição monotônica** (atrasado, encerrado), que só liga e nunca desliga.
+
+---
+
+## 42. O seed de feriados expira em 01/01/2041, e nada avisa antes
+
+Derivado da spec 126, que semeou os feriados nacionais de 2031 a 2040 — e registrou, no
+cabeçalho da própria migration, que "isto também expira".
+
+É a **segunda vez** que este item nasce. A spec 038 semeou 2026–2030 e anotou em comentário
+que "em 2030+ a tabela precisa de novo seed". Ninguém agendou nada, e o que fez a lacuna
+aparecer não foi o comentário: foi a dívida 18 esbarrar nela dez anos antes de vencer, por
+sorte. Um comentário não avisa ninguém — daqui a dez anos, quem lê o código não é quem o
+escreveu.
+
+**Por que importa mais do que parece:** quando a tabela acaba, nada quebra. `is_business_day`
+passa a responder `True` para um feriado, e todo prazo processual contado a partir dali vence
+**antes da hora**, continuando a parecer uma data plausível. É a mesma assinatura da dívida
+41 — falha silenciosa por passagem do tempo — mas com consequência jurídica em vez de teste
+vermelho.
+
+**Contorno já aplicado (integração da 126):**
+`tests/integration/test_holidays_seed.py` reprova quando faltam menos de **3 anos** de
+cobertura, com a mensagem dizendo que não é teste quebrado e qual migration imitar. O
+vermelho chega em **01/01/2038**, três anos antes de a tabela esvaziar. Isso não resolve a
+dívida — resolve o *aviso*, que era a parte que faltava duas vezes seguidas.
+
+Note o contraste deliberado com a dívida 41: lá a dependência do relógio era **acidental** e
+o teste ficava vermelho sem nada ter regredido; aqui ela é **intencional**, e o vermelho
+significa que o mundo realmente mudou. A diferença não é o relógio, é a intenção — e está
+escrita no docstring do teste para quem chegar em 2038.
+
+**Spec-alvo:** nenhuma antes de 2037. O trabalho é uma migration de seed, no formato da
+`126_prazo_das_intimacoes` (9 fixos + 4 móveis derivados da Páscoa), e o teste acima é quem
+convoca. Registrar alvo numerado agora seria fingir precisão sobre uma spec que ninguém
+consegue numerar com dez anos de antecedência.
+
+---
+
+## 43. ~~O teto de linhas do text-to-SQL não vale para `LIMIT` com aritmética~~ — RESOLVIDA na spec 133
+
+Encontrado pela medição de mutação da spec 132, em `app/domain/ai/sql_guard.py:194`.
+
+`_with_limit` lê o valor com `int(limite.expression.name)`. Sobre um nó `Add`, `.name`
+devolve o literal da **esquerda** — então `LIMIT 0+5000000` vira `int("0")`, passa no
+`valor > MAX_ROWS` e a consulta sai **sem teto**. Reproduzido no HEAD:
+
+```
+MAX_ROWS = 1000
+'SELECT month FROM ai_allowed_metrics LIMIT 0+5000000' -> LIMIT 0 + 5000000   ← passa
+'SELECT month FROM ai_allowed_metrics LIMIT 5000000'   -> LIMIT 1000          ← corta
+'SELECT month FROM ai_allowed_metrics'                 -> LIMIT 1000          ← injeta
+```
+
+A regra 5 da spec 089 diz "teto de linhas **sempre** presente", e a docstring da própria
+função explica o motivo: «um `LIMIT 100000` gerado sem malícia derruba a tela do mesmo
+jeito». É exatamente esse caso que escapa.
+
+**Gravidade: moderada, e vale dizer por quê.** Quem escreve a consulta é o modelo, não o
+usuário — não há caminho direto de entrada controlada até aqui, e as outras três camadas do
+§5 da 089 seguem de pé (allowlist de relações, transação somente-leitura, RLS). O que se
+perde é a proteção contra exaustão de recurso, que é justamente a que a função existe para
+dar. Não é vazamento de dado; é a tela caindo.
+
+**Correção:** aceitar só literal inteiro; qualquer outra forma (`Add`, subquery, `ALL`,
+negativo) cai no ramo que injeta `MAX_ROWS`. São cinco linhas, e o teste que a prova é o
+mutante que a expôs.
+
+**Por que não foi corrigida na 132:** aquela spec mediu a suíte e não editou uma linha de
+`app/` — é o que o §10 dela afirma, e consertar aqui tornaria a afirmação falsa. Corrigir
+guardrail é mudança de comportamento e pede spec própria, com o caso de borda no nome.
+
+### ✅ RESOLVIDA na spec 133
+
+Corrigida por `_literal_int`, que pergunta pelo **tipo do nó** em vez de pelo texto: só
+`exp.Literal` inteiro é aceito, e `Add`, `Neg`, `Mul`, subconsulta, parâmetro e `ALL` caem
+todos no ramo que injeta `MAX_ROWS`. Perguntar pelo tipo é o que fecha a família inteira;
+reconhecer a soma teria fechado uma forma.
+
+**Ao lado dela, o achado que ela quase escondeu.** A auditoria de segurança encontrou, na
+MESMA função guardada pelo MESMO parser, uma quebra de isolamento entre escritórios:
+`set_config('app.tenant_id', <outro tenant>, true)` numa subconsulta em `OFFSET` é um
+InitPlan avaliado antes da varredura, e as views barreira leem o GUC depois. Reproduzido
+ponta a ponta — a sessão do tenant A recebia o dado do tenant B. A 43 era exaustão de
+recurso; a vizinha era confidencialidade cross-tenant, e as duas moravam em `_with_limit` e
+em `check_sql`. Também resolvida na 133, com duas camadas de naturezas diferentes: allowlist
+de 33 funções puras no guarda, e o papel `rito_ai` sem `EXECUTE` em `set_config` durante a
+consulta do modelo (migration 133).
+
+**Fica o registro de método:** um guardrail que só sabe ler texto não fecha uma classe que
+depende da ordem de avaliação do banco — e a 089 tinha escrito quatro camadas das quais três
+eram a mesma pergunta ao mesmo parser.
+
+
+## 44. ~~`conditions._same` coage string a booleano e casa o que não devia~~ — RESOLVIDO na spec 136
+
+Encontrado pela mesma medição, em `app/domain/automations/conditions.py:65`.
+
+Com um dos lados booleano, a comparação vira `bool(atual) is bool(esperado)`. Como
+`bool("false")` é `True`, a condição `{op: "eq", value: "false"}` **casa** com um campo cujo
+valor é `True` — a automação dispara ao contrário do que o gestor configurou.
+
+É a mesma família da dívida 36 (`_compare` decidindo como `lte` quando não reconhecia o
+operador): **decidir errado em silêncio** dentro de uma automação, onde ninguém revisa a
+decisão porque ela é justamente o que se automatizou.
+
+**Alcançabilidade não confirmada.** Só acontece se o formulário da spec 092 gravar o valor
+como texto em vez de booleano de JSON. Quem conhece aquela tela precisa dizer se é possível
+— e essa investigação é parte do trabalho, não um pré-requisito para registrá-la.
+
+### ✅ RESOLVIDO na spec 136
+
+**Alcançabilidade, que a dívida pedia para investigar: alcançável pela API, latente pela UI.**
+O `AutomationBuilder` da spec 092 não tem editor de condição — manda `condition: null` — e o
+diálogo de teste não tem campo de payload, então pela tela ninguém produz o caso. Pela API,
+sim: `condition` é `dict[str, Any]` no schema e o `payload` de `POST /automations/{id}/simulate`
+também. **Não é um defeito latente esperando uma tela nova; é um defeito ativo em quem
+configura automação pela API.**
+
+`bool(atual) is bool(esperado)` virou: com um dos lados booleano, o outro precisa **nomear**
+um booleano — `true`/`false` em qualquer caixa, `"1"`/`"0"` e os inteiros `1`/`0`. O que não
+nomeia (`"sim"`, `"banana"`, `2`) não é comparável e **não casa**, que é como `evaluate` já
+trata a condição indecidível — a mesma resposta que a dívida 36 fixou para o operador
+desconhecido.
+
+---
+
+## 45. DNS rebinding nos webhooks: valida-se um IP e conecta-se a outro
+
+`app/domain/webhooks/ssrf.py::_reject_internal_addresses` resolve o host e reprova IP privado,
+metadados de nuvem e link-local. Quem conecta é o `httpx`, em `sender.py`, e ele **resolve o
+nome de novo**. Entre uma coisa e outra o dono do domínio pode trocar o registro: com TTL de um
+segundo, alternando entre um IP público e `169.254.169.254`, a peneira passa e a conexão sai
+para o destino interno. TOCTOU clássico; a resposta volta no corpo de
+`POST /webhook-endpoints/{id}/test` — SSRF de leitura.
+
+**Por que a spec 135 NÃO corrigiu.** A correção é conhecida (conectar ao IP já validado
+preservando `Host` e `sni_hostname`) e obriga a reintroduzir à mão o nome usado na
+**verificação do certificado**, em cada um dos quatro saltos de redirect. Errar isso desliga a
+verificação por nome em TODO webhook do produto — buraco maior que o fechado. E o §3 proíbe
+rede em teste: a suíte só afirmaria que o encanamento chama o transporte com os argumentos
+certos, não que a propriedade vale. **Meia-correção com aparência de correção é pior que dívida
+escrita.**
+
+**Alcance:** exige GESTOR mal-intencionado que já controle um domínio de TTL baixo. Intra-tenant.
+Os casos estáticos seguem barrados por `test_webhook_ssrf.py`.
+
+**Spec-alvo:** spec própria de correção, com o `sni_hostname` provado contra um transporte falso
+antes de qualquer outra coisa — a asserção que fecha a dívida é «o certificado continua sendo
+verificado contra o NOME», não «o webhook chegou».
+
+
+## 46. O eixo financeiro ainda vaza em templates, relatórios e insights de IA
+
+A spec 135 fechou o ponto mais largo (o detalhe do processo). Sobraram três, todos alcançáveis
+por COLABORADOR com `financial_access=NONE`:
+
+- **`POST /templates/{id}/resolve` e `/generate-pdf`** resolvem `{{valor_causa}}` e
+  `{{valor_honorarios}}`, inclusive por extenso, e imprimem em PDF;
+- **Relatórios `won_lawsuits`/`lost_lawsuits`** publicam `fees_value` na tela **e no export
+  XLSX/PDF** — `grep require_financial app/domain/reports/` não devolve nada;
+- **`GET /ai/insights`** diz «Inadimplência relevante — R$ X em N lançamento(s)», contornando o
+  guarda financeiro que o `/ask` tem.
+
+Some-se a incoerência que a 135 deixou de propósito: quem tem NONE ainda pode **escrever**
+`case_value`/`fees_value` e recebe `null` de volta. Fechar a escrita mexe no fluxo de cadastro,
+que é produto.
+
+**O remédio já existe e é barato:** `has_financial_access(user, READ_ONLY)` (spec 135) e o padrão
+de mascarar o campo em vez de recusar a rota — `_money_fields(..., can_see_value=)` é o modelo, e
+`partner_shared_lawsuits` (migration 079) é o mesmo desenho no banco.
+
+**Spec-alvo:** própria, depois que as specs em curso de `templates`, `reports` e `ai` fecharem.
+
+
+## 47. O `AutomationEngine` monta o provider de LLM dentro do domínio
+
+`app/domain/automations/engine.py:130` importa `app.integrations.openrouter.factory` dentro da
+propriedade `ai_runner` — a frase literal do `CLAUDE.md` §5. Ficou invisível por 21 specs porque
+o gate de camadas só abria arquivos chamados `service.py`; a spec 139 ampliou o universo, o gate
+passou a ver, e a violação virou **exceção nomeada** — a primeira da história daquele gate.
+
+Não é desleixo: o motor é chamado de dentro de use cases do domínio, que não têm acesso ao
+`app.state` onde o `lifespan` guarda o provider. O conserto é injetar o `AiRunner` nos oito
+pontos que constroem o motor mais as duas raízes de composição — nove arquivos, quatro bounded
+contexts. Feito pela metade regride a spec 094: sem o fallback,
+`DecisionRunner._blocker_to_ask` responde «Nenhuma IA configurada» e **toda decisão por IA
+disparada por evento de domínio cai no ramo padrão, em silêncio**.
+
+A exceção não apodrece: `test_toda_excecao_ainda_viola_o_gate` reprova no dia em que ela deixar
+de ser necessária, obrigando a apagar a linha.
+
+**Spec-alvo:** spec própria de refatoração, junto de qualquer trabalho que toque automações.
+
+
+## 48. Os 403/404 de autorização e isolamento afirmam o status, não o motivo
+
+Varredura por AST em `tests/`: **246 testes** têm como única asserção um `status_code` ou um
+`is None`. Muitos são legítimos — num 422 de validação o status **é** o comportamento. A
+subfamília que importa é a de **403 e 404**, onde o mesmo status sai de guardas diferentes: um
+403 emitido pela guarda ERRADA (papel em vez de posse, posse em vez de escopo) passa em todos
+eles, e é exatamente o defeito que o nome do teste promete excluir.
+
+**Reforço quantitativo:** `app/` tem **342 blocos `except`** com tipo nomeado, e em **221 deles
+(65%) o nome da exceção não aparece uma única vez em `tests/`**. Não é ramo morto — o teste
+exercita o caminho e olha o status HTTP. É a medida de que o mapeamento «exceção → status +
+motivo» é verificado só pelo lado do status, que é justamente o lado que colide.
+
+A spec 132 já pagou esse preço em `app/core/permissions.py` e fechou os quatro 403 daquele
+módulo conferindo a mensagem inteira. O padrão continua em dezenas de testes fora dele.
+
+**Correção incremental, não campanha:** toda spec que tocar num endpoint acrescenta ao teste de
+403/404 daquele endpoint (a) a mensagem inteira do `problem+json` e (b) o controle positivo —
+quem TEM a permissão vê o dado. O modelo já existe: `test_financial_permission_sweep.py:80`.
+
+**Spec-alvo:** nenhuma isolada; regra de revisão, como a regra 7 da spec 132.
+
+
+## 49. PUT total do backend + `toPayload` incompleto apagam dado sem aviso
+
+Todo `*UpdateRequest` é PUT total: campo ausente cai no default do Pydantic e o service grava por
+cima. Três confirmados — `lawsuits.is_archived` (editar **desarquiva** um processo arquivado),
+`stages.suggested_workflow_id` (editar apaga a sugestão da 053), `financial.transaction.user_id`
+(editar rouba o responsável); um quarto montado e ainda inalcançável
+(`BankAccountUpdateRequest.is_active`).
+
+A spec 138 não pegou: a correção estrutural é do contrato do **backend**, e os mesmos
+`*UpdateRequest` estavam sendo editados por outra frente na mesma janela. A correção mecânica é
+um gate que cruze cada `*UpdateRequest` com o `toPayload` correspondente.
+
+**Spec-alvo:** própria.
+
+
+## 50. Sanitização de HTML de LLM só existe no cliente
+
+A spec 138 isolou a minuta gerada num `<iframe sandbox="">` — garantia do navegador, sem
+dependência nova —, mas `legal_agents/service.py` continua **persistindo** o HTML cru do modelo
+(`strip_unsupported_citations` troca números de súmula, não sanitiza). Duas consequências:
+qualquer consumidor futuro daquele campo (export, e-mail, API pública) herda o problema, e o
+preview vive com altura fixa porque origem opaca não deixa o pai medir o conteúdo.
+
+**Spec-alvo:** própria — sanitizar na escrita (`nh3`/`bleach`), e aí a altura elástica passa a
+valer a dependência de `dompurify` no cliente.
+
+
+## 51. `pg_restore` desfaz o LEAKPROOF e os índices trigram voltam a ser ignorados
+
+`pg_dump` não emite `ALTER FUNCTION` de objeto de catálogo. Depois de um `rito backup restore`, as
+marcas que a migration 137 pôs em `pg_catalog.texticlike` e `public.immutable_unaccent` somem, e
+todo `ILIKE` indexado volta a `Seq Scan` — plano pior, resultado igual, **nenhum erro**. Medido:
+2,9 ms contra 110 ms na busca de contatos.
+
+Hoje o alarme é `test_tetos_e_expurgos.py::test_funcao_da_busca_continua_leakproof`, que só dispara
+em CI; falta o `rito health` conferir isso no ambiente restaurado — que é justamente onde a marca
+some.
+
+**Spec-alvo:** a próxima spec que tocar `cli.py`/`health.py`.
+
+
+## 52. A listagem de Atividades ordena com Sort em disco, e o índice não é a saída
+
+`GET /api/v1/posts` ordena por `coalesce(scheduled_date, …)` e traz o total por `count(*) OVER ()`.
+Com 200 mil tarefas: `Sort Method: external merge Disk: 2496kB`, 126 ms por página de 20.
+
+O índice de expressão foi construído e **medido** na spec 137: ele é usado, e a página fica **mais
+lenta** (176 ms) — a janela obriga a ler todas as linhas de qualquer jeito, e o índice troca a
+varredura sequencial por 200 mil acessos aleatórios ao heap. A saída medida é separar o total:
+0,06 ms de página + 13,3 ms de `count` = 13,4 ms, sem disco. Custa 4 queries, e o §11 dá 3 para
+listagem.
+
+**Não é patch, é decisão:** ou a listagem de atividades ganha orçamento próprio (como timeline e
+busca já têm), ou o total passa a ser aproximado acima de N.
+
+**Spec-alvo:** própria, junto de `app/domain/posts/listing.py`.
+
+
+## 53. Resíduos medidos da rodada 133–139
+
+Quatro itens pequenos, cada um com o motivo de não ter entrado:
+
+- **`financial/repository.py`** varre o predicado de `q` **duas vezes** por requisição (página e
+  cartões de topo). A 137 baixou cada varredura de 66 ms para 7,0 ms; unir as duas é mudança de
+  `financial/service.py`, fora do escopo de uma spec que só podia tocar o repositório.
+- **`lawsuits/listing.py`** ainda usa `unaccent(lower(...))` no `EXISTS` de partes, desligando o
+  índice trigram que a 137 acabou de ressuscitar. Correção de uma linha, no arquivo de outra spec
+  em voo.
+- **`QuickViews.__contains__`** (`core/listing.py`) é código morto — o mutante `in` → `not in`
+  sobrevive à suíte inteira porque nada chama. Mesma família do `goals.manage` que a 132 achou.
+- **Os dois exports não recebem o `Clock` real** e caem em `America/Sao_Paulo` (fallback do
+  `Clock`, nunca o do servidor). O defeito medido está corrigido; um escritório em Manaus ainda vê
+  o dia de São Paulo na planilha. Ligar o parâmetro exige `customers/service.py` e
+  `lawsuits/router.py`.
+- **`linhas_liquidas` conta comentário no meio da função**, apesar de a mensagem do gate dizer que
+  ignora — `crm_stats` estourou o teto por dois comentários na spec 136. O gate mede diferente do
+  que anuncia.
+
+**Spec-alvo:** a próxima spec de refatoração da faixa (140).
+
+---
+
 ### Nota de método: número de spec é recurso reservado
 
 Duas specs seguidas (122 e 123) tomaram um número que uma dívida já apontava — a 18 (prazo
@@ -1429,5 +1861,41 @@ graça. Uma linha:
 grep -n "Spec-alvo:.*\bNNN\b" docs/DIVIDA-TECNICA.md   # antes de criar specs/NNN-*.md
 ```
 
-Alvos reservados hoje: **124** (dívidas 39 e 40 — higiene de tooling), **125** (dívida 25 —
-contrato de `last_assigned_at`), **126** (dívida 18 — cálculo de prazo processual).
+**Atualização da spec 131: o grep virou gate.** O `grep` acima é uma recomendação, e
+recomendação depende de alguém lembrar — não lembrou três vezes seguidas (122, 123 e a spec
+que nasceu 125 e virou 127 no meio do caminho). O
+`test_nenhuma_spec_ocupa_numero_que_uma_divida_aberta_reserva` faz o cruzamento sozinho: se
+existe `specs/NNN-*.md` e uma dívida ABERTA reserva o NNN, a spec precisa **citar a dívida
+que está consumindo** ("dívida 18") ou renumerar. A saída não é lista de exceção, é a
+citação — quem toma o número de propósito escreve uma linha, quem o tomou por ser o próximo
+livre descobre no primeiro `make test` do ciclo, quando renumerar ainda é de graça.
+
+A 131 também consertou o gate que faz a outra metade: até ela,
+`test_toda_divida_aberta_tem_numero_e_alvo_no_futuro` lia o alvo com
+`**Spec-alvo:**\s*(\d{3})` e enxergava **1 das 4** dívidas abertas — as re-atribuídas
+(`~~123~~ → **125**`) e a do item 7 ("reavaliar na 020") ficavam de fora justamente por
+terem sido re-atribuídas ou adiadas, que é quando o alvo mais precisa de vigilância. Hoje o
+gate lê todas as formas do arquivo e **reprova a forma que não souber ler**: alvo ilegível e
+alvo ausente eram indistinguíveis, e essa indistinção era o buraco.
+
+Alvos reservados hoje:
+
+| Número | Dívida | Estado |
+|---|---|---|
+| ~~125~~ | 25 (`last_assigned_at`) | **entregue** na 125 — a dívida 25 usou o número que reservava |
+| **126** | 18 (cálculo de prazo processual) | reservado |
+| **132** | 7 (teste de mutação) | reservado — spec em escrita |
+| ~~124~~ | 39 e 40 (higiene de tooling) | **entregue** na 124 |
+| ~~127~~ | nenhuma — nasceu 125, renumerada ao abrir | **entregue** (SQL em string → query builder) |
+
+Números ocupados por trabalho em curso neste ciclo: **125** (`last_assigned_at` — consome a
+dívida 25), **128** (tela de Atividades — consome a **26**, que reservava o 125), **129**
+(teste com data fixa — consome a 41), **131** (esta correção dos gates) e **132** (teste de
+mutação — consome a 7).
+
+> **O 125 foi reservado por DUAS dívidas e só uma o usou.** As dívidas 25 e 26 apontavam
+> ambas para o 125 — não por desenho, mas porque as renumerações de 123 e 124 empurraram as
+> duas para o mesmo número. A 25 ficou com ele; a 26 foi para a **128**. Isso é legítimo (a
+> reserva impede que *outro* trabalho tome o número, não promete uso), e é justamente o
+> estado que o `test_toda_divida_aberta_tem_numero_e_alvo_no_futuro` passou a enxergar
+> depois da 131: enquanto a 26 apontasse para o 125 já entregue, ele reprovava.

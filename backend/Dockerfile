@@ -12,7 +12,10 @@ FROM python:3.12-slim AS build
 # — imagem construída com resolvedor diferente do local é imagem que diverge do testado.
 COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /usr/local/bin/uv
 
-WORKDIR /build
+# Mesmo caminho da imagem final: o uv grava o caminho absoluto do venv no shebang dos
+# scripts (`.venv/bin/rito`). Montado em /build e copiado para /app, o `rito` apontava para
+# um /build/.venv/bin/python que não existe no runtime.
+WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Dependências antes do código: enquanto o lock não muda, esta camada é cache, e um
@@ -41,7 +44,7 @@ RUN apt-get update \
 RUN useradd --create-home --uid 10001 rito
 
 WORKDIR /app
-COPY --from=build --chown=rito:rito /build /app
+COPY --from=build --chown=rito:rito /app /app
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \

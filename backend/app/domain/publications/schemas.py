@@ -168,3 +168,24 @@ class PublicationDetailResponse(BaseModel):
     recipients: list[PublicationRecipientResponse]
     lawyers: list[PublicationLawyerResponse]
     is_read: bool
+
+
+class PublicationDeadlineSettingsResponse(BaseModel):
+    """O prazo padrão que o escritório declarou para as intimações (spec 126).
+
+    `default_deadline_days` nulo é resposta legítima e o estado inicial de todo
+    escritório: significa "ninguém declarou", e a tarefa da intimação nasce sem prazo.
+    """
+
+    default_deadline_days: int | None
+    count_in_business_days: bool
+    updated_by: uuid.UUID | None
+    updated_at: datetime | None
+
+
+class UpdatePublicationDeadlineSettingsRequest(BaseModel):
+    """`null` em `default_deadline_days` desliga o cálculo — é como o escritório volta
+    atrás sem apagar o histórico de quem configurou."""
+
+    default_deadline_days: int | None = Field(default=None, ge=1, le=365)
+    count_in_business_days: bool = Field(default=True)

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useSearchParams } from "react-router-dom";
 import { describe, expect, it } from "vitest";
@@ -14,14 +15,18 @@ describe("ProtectedRoute", () => {
   it("redireciona para /login preservando o destino em next", async () => {
     render(
       <MemoryRouter initialEntries={["/relatorios"]}>
-        <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<LoginProbe />} />
-            <Route element={<ProtectedRoute />}>
-              <Route path="/relatorios" element={<div>Relatórios</div>} />
-            </Route>
-          </Routes>
-        </AuthProvider>
+        {/* Spec 138, regra 3: o AuthProvider limpa o cache do React Query no logout,
+            então ele vive dentro do QueryClientProvider — como no App.tsx. */}
+        <QueryClientProvider client={new QueryClient()}>
+          <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<LoginProbe />} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/relatorios" element={<div>Relatórios</div>} />
+              </Route>
+            </Routes>
+          </AuthProvider>
+        </QueryClientProvider>
       </MemoryRouter>,
     );
 

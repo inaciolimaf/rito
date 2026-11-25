@@ -35,7 +35,12 @@ TETO_DE_ARQUIVOS_COM_COMMITS = 19
 # requisicao` (dívida 27), e ele PRECISA de commit por definição: afirma que um passo gravado
 # numa sessão própria sobrevive ao rollback da transação da requisição. Um teste transacional
 # não conseguiria distinguir isso de qualquer outra escrita.
-TETO_DE_TESTES_COM_COMMITS = 70
+#
+# Spec 133: 70 → 71. O teste novo é `test_duas_aprovacoes_simultaneas_executam_uma_vez_so`, e
+# ele precisa de commit pelo mesmo motivo estrutural: dentro da transação de teste da 105 as
+# duas "requisições" seriam a MESMA conexão, e um `SELECT … FOR UPDATE` não teria contra quem
+# competir — o teste passaria verde com o defeito de volta (conferido, mordendo).
+TETO_DE_TESTES_COM_COMMITS = 71
 
 
 def _arquivos_de_teste() -> list[Path]:

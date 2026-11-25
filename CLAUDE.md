@@ -223,7 +223,29 @@ make dev           # backend + frontend
 make test          # 3 suítes em paralelo, falha se > 300 s
 make lint          # ruff + black + mypy + eslint + tsc + prettier
 make test-nightly  # perfilamento com 1,95 milhão de linhas — semeia, mede e limpa
+make docs          # docs/system/ cobre as pastas de domínio e não cita caminho que sumiu
+make types         # mypy estrito sozinho
+make openapi       # gera backend/openapi.json (contrato da API)
+make mutation      # mutação nas funções alteradas desde origin/main (falha abaixo da faixa)
+make mutation-all  # mutação de todos os módulos puros de [tool.mutation].paths (até 40 min)
+make help          # lista todos os comandos (é o padrão de `make` sem alvo)
+make test-backend  # só o backend (make test-frontend / make test-e2e: idem)
+make test-e2e E2E_ARGS="--shard=1/2"   # e2e por fatia, como o CI
+make build         # build de produção do frontend + gate de tamanho do bundle
+make dup           # gate de duplicação (jscpd)
+make audit         # pip-audit (backend) + npm audit (frontend)
+make coverage      # backend com cobertura, falha abaixo do piso do pyproject.toml
+make coverage-frontend  # cobertura do frontend, falha abaixo do piso do vite.config.ts
 ```
+
+O CI (`.github/workflows/ci.yml`) só chama alvos do `make`: `check` (lint, docs, build, dup,
+audit), `back` e `web` (cobertura), `e2e` (duas fatias), `image` (imagem Docker) e `gate`
+(tempo do run ≤ 300 s, `make ci-gate`). Os alvos `install-*`, `ci-*`, `coverage-backend`,
+`coverage-summary-*`, `docker-image` e `image-smoke` existem para ele.
+
+`make lint` inclui o teto de tamanho (30 linhas por função, 300 por arquivo, com lista
+temporária de arquivos grandes em `backend/pyproject.toml`) e as fronteiras de camada
+(`lint-imports`, com os pares ainda violados listados como dívida).
 
 Operação (spec 099, dentro do container):
 
@@ -252,3 +274,37 @@ não cabem nos 300 s, e tempo medido em CI compartilhado oscila 30% entre execu�
 O `ROADMAP.md` deixou de ser fila e virou histórico. Trabalho novo entra como spec 101 em
 diante, no mesmo ciclo — e a cada 10, uma refatoração. Os dois gates continuam valendo;
 são eles que impedem a spec 137 de desfazer o que a 098 comprou.
+
+## 13. Documentação — leia primeiro, atualize junto
+
+- **`docs/system/`** explica o sistema como ele é hoje. Índice em `docs/system/README.md`.
+  Antes de mexer num domínio, leia a parte dele ali.
+- **Toda mudança no sistema atualiza a documentação no mesmo commit**: rota, tabela, fluxo,
+  regra, variável de ambiente, arquivo novo, removido ou renomeado. Domínio novo = pasta nova
+  + linha no índice de `docs/system/README.md`.
+- **Os `.md` ficam limpos**: ao passar por um documento (inclusive este `CLAUDE.md`, o `README.md`
+  e as specs), corrija o que está desatualizado, duplicado ou confuso, mesmo fora da tarefa.
+- **Este `CLAUDE.md` também atualiza**: comando novo, convenção nova, armadilha descoberta,
+  mudança de estrutura.
+- `specs/` é o que foi pedido e por quê; divergência entre spec e código é registrada em
+  `docs/system/`.
+- Garantia: `make docs` (no CI, depois de `make lint`).
+- Padrão de projeto: `docs/project-standard-audit.md` lista o que o padrão `project-standard`
+  pede, o que já existe e o que ficou como dívida.
+
+## 14. Idioma
+
+- **O código é todo em inglês**: identificadores, nomes de arquivo e de pasta, tabelas e colunas,
+  rotas e campos da API, tipos de erro, comentários, documentação e mensagens de commit. Pasta de
+  domínio, tabela e rota seguem a convenção de `docs/glossary.md`.
+- **Só o que a pessoa lê no produto fica em português**: textos da interface, `detail` dos erros,
+  PDFs, e-mails, caminhos de tela que o usuário vê, prompts do LLM sobre documentos em português
+  e formatos externos (layout do DJEN, chaves do DataJud).
+- **Todo nome de domínio vem de `docs/glossary.md`** (termo do produto → nome no código). Termo
+  novo entra no glossário no mesmo commit que o introduz.
+- **Nunca renomear**: variáveis de ambiente configuradas no servidor (o campo do `Settings` pode ter
+  outro nome e ler a variável por alias), comandos `rito ...` e alvos do `Makefile`, commits já
+  feitos. Mudança desses só com acordo.
+- Pendência conhecida: comentários e docstrings de boa parte do backend ainda estão em português.
+  Estão listados como dívida em `docs/project-standard-audit.md`; código novo e código tocado
+  saem em inglês.

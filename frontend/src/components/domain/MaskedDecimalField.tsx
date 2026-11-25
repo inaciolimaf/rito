@@ -12,6 +12,7 @@ export interface MaskedDecimalFieldProps<TValues extends FieldValues> {
   /** Texto digitado → valor cru com ponto ("1234.56") guardado no formulário. É a única
    * coisa que separa dinheiro de percentual: teto de dígitos e teto de valor. */
   parseInput: (typed: string) => string;
+  disabled?: boolean;
 }
 
 /** Campo decimal com exibição pt-BR (vírgula) e valor cru com ponto (spec 024, regra 1).
@@ -27,6 +28,7 @@ export function MaskedDecimalField<TValues extends FieldValues>({
   label,
   id,
   parseInput,
+  disabled = false,
 }: MaskedDecimalFieldProps<TValues>): JSX.Element {
   const inputId = id ?? String(name);
   return (
@@ -35,16 +37,25 @@ export function MaskedDecimalField<TValues extends FieldValues>({
       <Controller
         control={control}
         name={name}
-        render={({ field }) => (
-          <Input
-            id={inputId}
-            inputMode="numeric"
-            value={formatDecimalPtBr(String(field.value ?? ""))}
-            onChange={(event) => {
-              field.onChange(parseInput(event.target.value));
-            }}
-            onBlur={field.onBlur}
-          />
+        render={({ field, fieldState }) => (
+          <>
+            <Input
+              id={inputId}
+              inputMode="numeric"
+              disabled={disabled}
+              value={formatDecimalPtBr(String(field.value ?? ""))}
+              onChange={(event) => {
+                field.onChange(parseInput(event.target.value));
+              }}
+              onBlur={field.onBlur}
+            />
+            {/* Spec 138, regra 5: o campo mascarado não mostrava erro nenhum — nem o do
+                Zod, nem o do servidor mapeado por `FormModal`. Um campo que recusa em
+                silêncio é o mesmo "nada acontece" da spec 007, regra 7. */}
+            {fieldState.error?.message && (
+              <p className="text-sm text-danger">{fieldState.error.message}</p>
+            )}
+          </>
         )}
       />
     </div>

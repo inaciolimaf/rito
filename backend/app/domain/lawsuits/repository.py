@@ -12,6 +12,7 @@ from sqlalchemy.sql.selectable import Subquery
 from app.core.repository import BaseRepository
 from app.domain.action_groups.models import ActionGroup, LawsuitType
 from app.domain.customers.models import Customer
+from app.domain.lawsuits.cnj import CNJNumber, format_cnj
 from app.domain.lawsuits.models import (
     Lawsuit,
     LawsuitMovement,
@@ -29,6 +30,31 @@ from app.domain.users.models import User
 # Regra 5 (spec 047): a partir daqui um processo sai sozinho da fila — sem coluna de
 # status dedicada, é o mesmo predicado do índice parcial ix_lawsuits_datajud_due.
 DATAJUD_NOT_FOUND_PAUSE_THRESHOLD = 5
+
+# Casamento de publicação (spec 045, §5): quem chama só distingue "nenhum", "exatamente
+# um" e "mais de um". Dois candidatos bastam para responder as três, e é o que se busca.
+_MATCH_CANDIDATE_LIMIT = 2
+
+
+def _number_spellings(digits: str) -> list[str]:
+    """As grafias em que os 20 dígitos de um CNJ podem estar salvos na coluna.
+
+    Os dígitos crus e a máscara canônica `NNNNNNN-DD.AAAA.J.TR.OOOO`. A máscara é
+    montada por `format_cnj` — a mesma função que a validação usa — para não existirem
+    duas ideias do que é a máscara oficial. Número que não tem 20 dígitos não tem
+    máscara: só a forma crua entra, e o `regexp_replace` de reserva cobre o resto.
+    """
+    if len(digits) != 20:
+        return [digits]
+    numero = CNJNumber(
+        sequential=digits[:7],
+        check_digit=digits[7:9],
+        year=int(digits[9:13]),
+        segment=int(digits[13]),
+        court=digits[14:16],
+        origin=digits[16:20],
+    )
+    return [digits, format_cnj(numero)]
 
 
 _MOVEMENT_KIND_BY_ORIGIN = {
@@ -151,18 +177,52 @@ class LawsuitRepository(BaseRepository[Lawsuit]):
             action_group_id=row[0], action_group_name=row[1], step_id=row[2], step_name=row[3]
         )
 
-    async def find_by_process_number_digits(self, digits: str) -> Sequence[Lawsuit]:
+    async def find_by_process_number_digits(
+        self, digits: str, *, limit: int = _MATCH_CANDIDATE_LIMIT
+    ) -> Sequence[Lawsuit]:
         """Casamento por número (spec 045, regra 9): compara só dígitos — o processo
-        pode estar salvo com ou sem máscara CNJ."""
-        stmt = select(Lawsuit).where(
+        pode estar salvo com ou sem máscara CNJ.
+
+        ## Duas consultas, e a primeira quase sempre resolve (spec 137)
+
+        A versão anterior era `regexp_replace(process_number, '\\D', '', 'g') = :digits`.
+        Função sobre a coluna desliga o `ix_lawsuits_number`, e o resultado medido em 20
+        mil processos foi `Seq Scan`, 42,6 ms — por publicação, dentro do worker do DJEN,
+        onde um lote diário são centenas de intimações. Trocar por um índice funcional
+        não resolveria: sob RLS, um predicado só vira condição de índice se for
+        LEAKPROOF, e `regexp_replace` não é (ver `core/listing.py` e a migration 137).
+
+        A saída é não aplicar função nenhuma sobre a coluna. Os 20 dígitos do CNJ só têm
+        duas grafias plausíveis no banco — crus e na máscara canônica — e as duas são
+        literais que o índice `(tenant_id, process_number)` serve direto. O
+        `regexp_replace` continua aqui como SEGUNDA tentativa, e só quando a primeira não
+        acha nada: é ele que preserva o comportamento para um número salvo com pontuação
+        fora do padrão. Nada deixou de casar; o caminho comum deixou de varrer a tabela.
+        """
+        stmt = select(Lawsuit).where(Lawsuit.process_number.in_(_number_spellings(digits)))
+        encontrados = (await self.session.scalars(stmt.limit(limit))).all()
+        if encontrados:
+            return encontrados
+        fallback = select(Lawsuit).where(
             func.regexp_replace(Lawsuit.process_number, r"\D", "", "g") == digits
         )
-        return (await self.session.scalars(stmt)).all()
+        return (await self.session.scalars(fallback.limit(limit))).all()
 
-    async def list_by_responsible(self, user_id: uuid.UUID) -> Sequence[Lawsuit]:
+    async def list_by_responsible(
+        self, user_id: uuid.UUID, *, limit: int | None = None
+    ) -> Sequence[Lawsuit]:
         """Candidatos da estratégia 2 de casamento (spec 045, §5) — processos do
-        advogado identificado pelo termo monitorado que capturou a publicação."""
+        advogado identificado pelo termo monitorado que capturou a publicação.
+
+        `limit` porque o único chamador só precisa saber se o advogado tem UM processo
+        (spec 045, §5: com mais de um, a estratégia não resolve e o roteamento passa
+        adiante). Sem ele, medido: 20.000 objetos ORM materializados em 967 ms, com pico
+        de 75 MB de memória Python, para comparar `len(...)` com 1 — por intimação, no
+        worker do DJEN, fora do alcance do gate de queries (spec 137).
+        """
         stmt = select(Lawsuit).where(Lawsuit.user_id == user_id)
+        if limit is not None:
+            stmt = stmt.limit(limit)
         return (await self.session.scalars(stmt)).all()
 
     async def list_by_ids(self, ids: Sequence[uuid.UUID]) -> Sequence[Lawsuit]:

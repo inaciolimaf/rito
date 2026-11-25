@@ -8,6 +8,7 @@ export interface MoneyFieldProps<TValues extends FieldValues> {
   name: Path<TValues>;
   label: string;
   id?: string;
+  disabled?: boolean;
 }
 
 /** Campo monetário com máscara `999.999,99` (spec 024 §6). O valor guardado no formulário
@@ -18,6 +19,7 @@ export function MoneyField<TValues extends FieldValues>({
   name,
   label,
   id,
+  disabled = false,
 }: MoneyFieldProps<TValues>): JSX.Element {
   return (
     <MaskedDecimalField
@@ -26,6 +28,7 @@ export function MoneyField<TValues extends FieldValues>({
       label={label}
       id={id}
       parseInput={parseMoneyInput}
+      disabled={disabled}
     />
   );
 }

@@ -91,7 +91,7 @@ export function ExtractionReview({
               }
             />
             {!dados.prefill && (
-              <p className="text-[11px] text-warning">
+              <p className="text-caption text-warning">
                 Leitura incerta — o documento parece dizer &ldquo;{dados.value}&rdquo;.
               </p>
             )}

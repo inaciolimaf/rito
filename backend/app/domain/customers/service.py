@@ -1,6 +1,6 @@
 import uuid
 from datetime import UTC, date, datetime, timedelta
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +17,6 @@ from app.domain.customers.repository import (
     MaritalStatusRepository,
 )
 from app.domain.customers.schemas import (
-    CountedItem,
     CustomerCreateRequest,
     CustomerFilters,
     CustomerStatsResponse,
@@ -48,6 +47,13 @@ _PF_ONLY_FIELDS = (
 
 def stats_cache_key(tenant_id: uuid.UUID) -> str:
     return tenant_key("customers:stats", tenant_id)
+
+
+def _item(par: tuple[str, int]) -> dict[str, object]:
+    """Um par (rótulo, contagem) na forma que `CountedItem` valida — e que sobrevive à
+    ida e volta pelo JSON do cache, que é por onde este dicionário passa."""
+    nome, contagem = par
+    return {"name": nome, "count": contagem}
 
 
 class MaritalStatusService:
@@ -184,23 +190,35 @@ class CustomerService:
     async def get_stats(self, today: date) -> CustomerStatsResponse:
         """Dashboard de contatos com cache de 5 minutos (spec 098, regra 9).
 
-        São seis agregações sobre a base inteira de contatos; num escritório com 100 mil
+        São cinco agregações sobre a base inteira de contatos; num escritório com 100 mil
         deles, calcular tudo a cada abertura da tela é trabalho jogado fora — os números
         mudam quando alguém cadastra alguém, não a cada segundo.
+
+        A sexta saiu do cache na spec 137: `with_active_lawsuit` muda quando alguém
+        escreve um PROCESSO, e escrita de processo nunca passou por aqui para derrubar a
+        chave. Ficava em zero por até cinco minutos depois de o contato ganhar processo.
         """
-        # O `cast` é o ponto onde o JSON arbitrário do cache vira tipo: `decode` já
-        # validou com o próprio schema, mas `cached_json` não tem como prometer isso na
-        # assinatura sem um genérico que engessaria todo chamador.
-        return cast(
-            CustomerStatsResponse,
-            await cached_json(
-                self.cache,
-                stats_cache_key(self.tenant_id),
-                # `cached_json` chama a função sem argumento; o dia do escritório entra
-                # pelo fecho, não pela assinatura (spec 114).
-                lambda: self._compute_stats(today),
-                decode=CustomerStatsResponse.model_validate,
-            ),
+        cacheado: dict[str, Any] = await cached_json(
+            self.cache,
+            stats_cache_key(self.tenant_id),
+            # `cached_json` chama a função sem argumento; o dia do escritório entra
+            # pelo fecho, não pela assinatura (spec 114).
+            lambda: self._compute_stats(today),
+            decode=dict,
+        )
+        # Spec 137: o único número do painel que muda por escrita de PROCESSO fica fora
+        # do cache. Ver `CustomerRepository.active_lawsuit_customers`.
+        with_active_lawsuit = await self.customers.active_lawsuit_customers()
+        total = int(cacheado["total"])
+        return CustomerStatsResponse(
+            **cacheado,
+            with_active_lawsuit=with_active_lawsuit,
+            # Derivado, nunca contado de novo: regra 6 exige que os dois somem `total`.
+            # O `max` existe porque as duas metades têm frescor diferente: `total` pode
+            # vir do cache de 5 minutos e `with_active_lawsuit` é sempre de agora, então
+            # um contato cadastrado e já vinculado a processo deixaria a subtração
+            # negativa por alguns minutos. Zero é a resposta honesta nesse intervalo.
+            without_active_lawsuit=max(total - with_active_lawsuit, 0),
         )
 
     async def _compute_stats(self, today: date) -> dict[str, Any]:
@@ -212,28 +230,20 @@ class CustomerService:
             total,
             this_month_count,
             last_month_count,
-            with_active_lawsuit,
         ) = await self.customers.dashboard_counts(
             this_month=(this_month_start, today),
             last_month=(last_month_start, last_month_end),
         )
         variation = _variation(this_month_count, last_month_count)
-        top_origins = await self.customers.top_origins()
-        top_occupations = await self.customers.top_occupations()
-        age_ranges = await self.customers.age_ranges()
+        dimensoes = await self.customers.dimension_counts()
 
-        return CustomerStatsResponse(
-            total=total,
-            variation_vs_last_month=round(variation, 2),
-            with_active_lawsuit=with_active_lawsuit,
-            # Derivado, nunca contado de novo: regra 6 exige que os dois somem `total`.
-            without_active_lawsuit=total - with_active_lawsuit,
-            top_origins=[CountedItem(name=name, count=count) for name, count in top_origins],
-            age_ranges=[CountedItem(name=name, count=count) for name, count in age_ranges],
-            top_occupations=[
-                CountedItem(name=name, count=count) for name, count in top_occupations
-            ],
-        ).model_dump()
+        return {
+            "total": total,
+            "variation_vs_last_month": round(variation, 2),
+            "top_origins": [_item(par) for par in dimensoes.origins],
+            "age_ranges": [_item(par) for par in dimensoes.age_ranges],
+            "top_occupations": [_item(par) for par in dimensoes.occupations],
+        }
 
     async def export(
         self, *, format_: Literal["xlsx", "pdf"], filters: CustomerFilters, today: date

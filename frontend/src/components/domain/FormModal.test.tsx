@@ -78,4 +78,57 @@ describe("FormModal", () => {
 
     await waitFor(() => expect(screen.getByText("Descartar alterações?")).toBeInTheDocument());
   });
+
+  it("mostra a lista de critérios quando `errors` vem como lista de strings (spec 138, regra 5)", () => {
+    // Corpo real de `users/router.py` e `auth/router.py` para a política de senha.
+    const problem = new ApiError({
+      type: "https://rito.app/errors/validation",
+      title: "Dados inválidos",
+      status: 422,
+      detail: "Senha não atende à política.",
+      instance: "/api/v1/invitations/accept",
+      errors: ["Mínimo de 8 caracteres.", "Precisa de ao menos um número."],
+    });
+
+    render(<Harness onSubmit={vi.fn()} serverError={problem} />);
+
+    expect(screen.getByText("Senha não atende à política.")).toBeInTheDocument();
+    expect(screen.getByText("Mínimo de 8 caracteres.")).toBeInTheDocument();
+    expect(screen.getByText("Precisa de ao menos um número.")).toBeInTheDocument();
+  });
+
+  it("erro de model_validator (loc: ['body']) aparece em vez de sumir", () => {
+    // O FastAPI prefixa `loc` com "body"; para uma regra que vale para o objeto inteiro,
+    // "body" é tudo o que sobra — e nenhum campo do formulário escuta esse nome.
+    const problem = new ApiError({
+      type: "https://rito.app/errors/validation",
+      title: "Dados inválidos",
+      status: 422,
+      detail: "Dados inválidos.",
+      instance: "/api/v1/users/1",
+      errors: [
+        { loc: ["body"], msg: "work_end deve ser depois de work_start.", type: "value_error" },
+      ],
+    });
+
+    render(<Harness onSubmit={vi.fn()} serverError={problem} />);
+
+    expect(screen.getByText("work_end deve ser depois de work_start.")).toBeInTheDocument();
+  });
+
+  it("erro com campo continua indo para o campo, sem alerta geral redundante", () => {
+    const problem = new ApiError({
+      type: "https://rito.app/errors/validation",
+      title: "Dados inválidos",
+      status: 422,
+      detail: "Dados inválidos.",
+      instance: "/api/v1/customers",
+      errors: [{ loc: ["body", "name"], msg: "Nome já usado.", type: "value_error" }],
+    });
+
+    render(<Harness onSubmit={vi.fn()} serverError={problem} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Nome já usado.");
+    expect(screen.queryByText("Dados inválidos.")).not.toBeInTheDocument();
+  });
 });

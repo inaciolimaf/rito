@@ -13,10 +13,10 @@ interface CycleSeriesDef {
 /** As 4 séries do gráfico de ciclos (spec 076 §6), nas cores fixas da spec: verde
  * prospecção, azul claro produção, azul escuro execução, vermelho rotação completa. */
 export const CYCLE_SERIES: readonly CycleSeriesDef[] = [
-  { key: "prospecting_days", label: "Prospecção", color: "#16a34a" },
-  { key: "production_days", label: "Produção", color: "#38bdf8" },
-  { key: "execution_days", label: "Execução", color: "#1e3a8a" },
-  { key: "full_cycle_days", label: "Rotação completa", color: "#dc2626" },
+  { key: "prospecting_days", label: "Prospecção", color: "hsl(var(--chart-prospecting))" },
+  { key: "production_days", label: "Produção", color: "hsl(var(--chart-production))" },
+  { key: "execution_days", label: "Execução", color: "hsl(var(--chart-execution))" },
+  { key: "full_cycle_days", label: "Rotação completa", color: "hsl(var(--chart-full-cycle))" },
 ];
 
 /** Gráfico dos 4 ciclos lado a lado por grupo de ação (spec 076, regra 10). Barras
@@ -75,7 +75,7 @@ export function CycleBarChart({ groups }: CycleBarChartProps): JSX.Element {
                 x={groupIndex * groupWidth + groupWidth / 2}
                 y={height - 6}
                 textAnchor="middle"
-                className="fill-muted text-[10px]"
+                className="fill-muted text-micro"
               >
                 {group.action_group_name}
               </text>

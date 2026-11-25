@@ -1,5 +1,6 @@
 import uuid
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,8 +40,20 @@ class TaskTypeService:
 
     async def list_types(
         self, *, step_id: int | None, is_active: bool | None, query: str | None
-    ) -> Sequence[TaskType]:
-        return await self.types.list_filtered(step_id=step_id, is_active=is_active, query=query)
+    ) -> Sequence[tuple[TaskType, datetime | None]]:
+        """O catálogo com a última atribuição (regra 9 da 031) de cada tipo.
+
+        Vem em pares e não em duas chamadas porque a derivada é uma coluna da MESMA
+        consulta: pedir a lista aqui e a data depois seria uma query por linha.
+        """
+        return await self.types.list_with_last_assigned(
+            step_id=step_id, is_active=is_active, query=query
+        )
+
+    async def last_assigned_at(self, task_type_id: uuid.UUID) -> datetime | None:
+        """A última atribuição de um tipo só — é o que POST e PUT devolvem, pelo mesmo
+        caminho da listagem (regra 3 da spec 125)."""
+        return await self.types.last_assigned_at(task_type_id)
 
     async def get(self, task_type_id: uuid.UUID) -> TaskType | None:
         return await self.types.get_by_id(task_type_id)

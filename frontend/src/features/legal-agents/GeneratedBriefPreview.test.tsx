@@ -48,6 +48,28 @@ describe("GeneratedBriefPreview", () => {
     expect(screen.getByTestId("citation-warnings")).toHaveTextContent("Súmula 331 do TST");
   });
 
+  it("o HTML do modelo não é injetado na origem da aplicação (spec 138, regra 1)", () => {
+    // O backend grava `response.content` cru: `strip_unsupported_citations` troca números
+    // de súmula, não sanitiza. Fora do sandbox, isto rodaria onde mora o refresh token.
+    const { container } = render(
+      <GeneratedBriefPreview
+        generation={makeGeneration({
+          content: {
+            format: "html",
+            html: '<p>Dos fatos.</p><img src="x" onerror="window.vazou = true">',
+          },
+        })}
+        onOpenInEditor={vi.fn()}
+      />,
+    );
+
+    const quadro = screen.getByTestId("brief-content");
+    expect(quadro.tagName).toBe("IFRAME");
+    expect(quadro).toHaveAttribute("sandbox", "");
+    expect(quadro.getAttribute("srcdoc")).toContain("Dos fatos.");
+    expect(container.querySelector("img")).toBeNull();
+  });
+
   it("sem citação removida, não inventa alerta", () => {
     render(<GeneratedBriefPreview generation={makeGeneration()} onOpenInEditor={vi.fn()} />);
 

@@ -34,10 +34,49 @@ import socket
 from datetime import UTC, datetime, timedelta
 from typing import NoReturn
 
-from sqlalchemy import text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    MetaData,
+    SmallInteger,
+    Table,
+    Text,
+    func,
+    select,
+    update,
+)
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 logger = logging.getLogger("rito.migrations")
+
+# As duas tabelas que este módulo toca e que não têm modelo ORM, declaradas em Core para
+# o query builder poder montar os statements (spec 127).
+#
+# Elas não têm modelo por motivos opostos, e nenhum dos dois muda: `alembic_version` é do
+# Alembic — o `Base.metadata` do Rito não a conhece, e mapeá-la faria o autogenerate
+# querer versioná-la; `migration_locks` é infraestrutura de boot, lida antes de qualquer
+# sessão de aplicação existir, e um modelo ORM aqui arrastaria `app.core.models` para o
+# caminho de arranque à toa (spec 104).
+#
+# `MetaData` própria, separada da `Base.metadata`, para deixar isso explícito.
+_METADATA = MetaData()
+
+MIGRATION_LOCKS = Table(
+    "migration_locks",
+    _METADATA,
+    Column("id", SmallInteger, primary_key=True),
+    Column("locked_by", Text),
+    Column("locked_at", DateTime(timezone=True)),
+)
+
+ALEMBIC_VERSION = Table(
+    "alembic_version",
+    _METADATA,
+    Column("version_num", Text, primary_key=True),
+)
+
+# A trava é de linha única — o CHECK `id = 1` da migration 099 garante que não há outra.
+_LINHA_DA_TRAVA = MIGRATION_LOCKS.c.id == 1
 
 # Regra 3. Tempo que uma instância espera a outra terminar antes de desistir.
 LOCK_TIMEOUT = timedelta(minutes=5)
@@ -62,17 +101,12 @@ async def _record_lock_owner(conn: AsyncConnection, dono: str | None) -> None:
     a anotação nesse instante não custa nada; o advisory lock já garante a exclusão.
     """
     try:
-        if dono is None:
-            await conn.execute(
-                text("UPDATE migration_locks SET locked_by = NULL, locked_at = NULL WHERE id = 1")
-            )
-        else:
-            await conn.execute(
-                text(
-                    "UPDATE migration_locks SET locked_by = :dono, locked_at = now() WHERE id = 1"
-                ),
-                {"dono": dono},
-            )
+        anotacao = (
+            {"locked_by": None, "locked_at": None}
+            if dono is None
+            else {"locked_by": dono, "locked_at": func.now()}
+        )
+        await conn.execute(update(MIGRATION_LOCKS).where(_LINHA_DA_TRAVA).values(**anotacao))
         await conn.commit()
     except Exception:
         await conn.rollback()
@@ -87,9 +121,7 @@ async def _try_lock(engine: AsyncEngine, dono: str) -> AsyncConnection | None:
     migration abre e fecha — e ser liberado sozinho se o processo morrer.
     """
     conn = await engine.connect()
-    tomou = await conn.scalar(
-        text("SELECT pg_try_advisory_lock(:chave)"), {"chave": ADVISORY_LOCK_KEY}
-    )
+    tomou = await conn.scalar(select(func.pg_try_advisory_lock(ADVISORY_LOCK_KEY)))
     if not tomou:
         await conn.close()
         return None
@@ -103,7 +135,7 @@ async def _unlock(conn: AsyncConnection | None) -> None:
         return
     try:
         await _record_lock_owner(conn, None)
-        await conn.execute(text("SELECT pg_advisory_unlock(:chave)"), {"chave": ADVISORY_LOCK_KEY})
+        await conn.execute(select(func.pg_advisory_unlock(ADVISORY_LOCK_KEY)))
     finally:
         await conn.close()
 
@@ -111,7 +143,7 @@ async def _unlock(conn: AsyncConnection | None) -> None:
 async def _current_version(engine: AsyncEngine) -> str | None:
     async with engine.connect() as conn:
         try:
-            return (await conn.scalar(text("SELECT version_num FROM alembic_version"))) or None
+            return (await conn.scalar(select(ALEMBIC_VERSION.c.version_num))) or None
         except Exception:
             return None
 

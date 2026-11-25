@@ -16,9 +16,10 @@ nova nunca é estagnação, não vale gastar uma query nisso).
 
 import uuid
 
-from sqlalchemy import Date, and_, case, cast, func, text, update
+from sqlalchemy import Date, and_, case, cast, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.sql import days_interval
 from app.domain.lawsuits.models import Lawsuit
 from app.domain.stages.models import Stage
 from app.domain.stages.repository import StageRepository
@@ -39,11 +40,11 @@ class StagnationService:
                 .values(is_stagnant=False, stagnant_since=None)
             )
         else:
-            # `text()` em vez de bind param: `stagnant_days` já validado como int > 0
-            # pelo schema da etapa (não é entrada livre de usuário nesta query) — mesmo
-            # padrão de `_idle()` em listing.py, que evita a coerção de tipo ambígua do
-            # SQLAlchemy ao somar/subtrair Interval de uma coluna Date/DateTime.
-            interval = text(f"interval '{stage.stagnant_days} days'")
+            # `make_interval` com o número LIGADO (spec 127): evita a coerção de tipo
+            # ambígua do SQLAlchemy ao somar/subtrair um `timedelta` de uma coluna
+            # Date/DateTime — que era o motivo do `text()` — sem montar SQL por string.
+            # Mesmo helper de `_idle()` em listing.py.
+            interval = days_interval(stage.stagnant_days)
             is_stagnant_expr = and_(
                 Lawsuit.is_archived.is_(False),  # regra 6
                 func.now() - Lawsuit.stage_entered_at > interval,  # regra 1/3

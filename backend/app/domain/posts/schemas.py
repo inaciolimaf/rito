@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime, time
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -174,3 +175,57 @@ class PostResponse(BaseModel):
     assignees: list[AssigneeResponse]
     created_at: datetime
     updated_at: datetime
+
+
+class ActivityFiltersQuery(BaseModel):
+    """Filtros da tela de Atividades (spec 128) na query string.
+
+    O FastAPI expande os campos deste modelo em query params com os mesmos nomes e
+    defaults (`Depends()`), e o mesmo modelo viaja no corpo do export — é o que garante
+    que exportar respeite exatamente o filtro da tela (regra 7)."""
+
+    view: Literal["all", "pending", "completed", "overdue"] = "pending"
+    column: Literal["scheduled", "deadline", "created", "completed"] = "scheduled"
+    date_from: date | None = None
+    date_to: date | None = None
+    task_type_id: uuid.UUID | None = None
+    lawsuit_id: uuid.UUID | None = None
+    assignee_id: uuid.UUID | None = None
+    sender: Literal["received", "sent"] | None = None
+    # Multivalorado em CSV (`important,urgent`), como os `*_id` da listagem de processos.
+    priority: str | None = None
+    include_future: bool = False
+
+
+class ActivityExportRequest(BaseModel):
+    format: Literal["xlsx", "pdf"]
+    filters: ActivityFiltersQuery = Field(default_factory=ActivityFiltersQuery)
+
+
+class ActivityListItemResponse(BaseModel):
+    """A linha da tela. Não é `PostResponse`: aquela é o detalhe de uma tarefa (24 campos,
+    inclusive recorrência e pontuação); esta é o que cabe numa coluna de tabela."""
+
+    id: uuid.UUID
+    lawsuit_id: uuid.UUID
+    task_type_name: str
+    process_number: str | None
+    folder: str | None
+    scheduled_date: date | None
+    scheduled_time: time | None
+    deadline_date: date | None
+    is_important: bool
+    is_urgent: bool
+    is_private: bool
+    status: Literal["PENDENTE", "CONCLUIDA", "ATRASADA"]
+    assignee_names: list[str]
+    assignees_total: int
+    created_at: datetime
+
+
+class ActivityListResponse(BaseModel):
+    """Contrato de listagem do CLAUDE.md §6."""
+
+    items: list[ActivityListItemResponse]
+    next_cursor: str | None = None
+    total: int

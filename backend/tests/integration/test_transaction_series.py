@@ -132,6 +132,73 @@ async def test_101_parcelas_retorna_422(
     assert response.status_code == 422
 
 
+async def test_parcelamento_impossivel_retorna_422_com_o_motivo(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 136: R$ 0,50 em 100× não é um pedido difícil, é um pedido impossível.
+
+    A distribuição antiga (`ROUND_HALF_UP` + resto inteiro na última parcela) gerava a
+    última parcela em `-0,49`, que viola o CHECK `ck_tx_amount_positive`. Sem handler de
+    `IntegrityError` em `app/main.py`, a resposta era **500** — depois de já ter gravado a
+    série e algumas parcelas. A faixa media `total < parcelas² / 200`: até R$ 0,66 em 12×,
+    R$ 11,28 em 48×, R$ 49,50 em 100×.
+
+    Agora o schema recusa antes de qualquer escrita, com o motivo e o valor mínimo — que é
+    o que o usuário precisa para corrigir o formulário.
+    """
+    _gestor, headers = await _make_gestor_full(make_user)
+    receita_id, _d, cost_center_id, account_a, _b = await _fixtures(client, headers)
+
+    for amount, count in (("0.50", 100), ("0.01", 2), ("0.66", 100)):
+        response = await client.post(
+            "/api/v1/transactions",
+            json=_receita_payload(
+                category_id=receita_id,
+                cost_center_id=cost_center_id,
+                account_id=account_a,
+                amount=amount,
+                due_date="2026-01-15",
+                installment={"count": count},
+            ),
+            headers=headers,
+        )
+        assert response.status_code == 422, (amount, count, response.text)
+        assert response.headers["content-type"].startswith("application/problem+json")
+        assert "parcela" in response.text
+
+
+async def test_parcelamento_no_limite_gera_parcelas_de_um_centavo(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """A outra margem da mesma regra: R$ 1,00 em 100× é o menor parcelamento possível em
+    100 vezes, e ele funciona — cem parcelas de R$ 0,01."""
+    _gestor, headers = await _make_gestor_full(make_user)
+    receita_id, _d, cost_center_id, account_a, _b = await _fixtures(client, headers)
+
+    created = await client.post(
+        "/api/v1/transactions",
+        json=_receita_payload(
+            category_id=receita_id,
+            cost_center_id=cost_center_id,
+            account_id=account_a,
+            amount="1.00",
+            due_date="2026-01-15",
+            installment={"count": 100},
+        ),
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+
+    preview = await client.get(
+        f"/api/v1/transactions/{created.json()['id']}/series-preview", headers=headers
+    )
+    assert preview.status_code == 200, preview.text
+    valores = [item["amount"] for item in preview.json()["items"]]
+    assert len(valores) == 100
+    assert min(valores) == 0.01
+    assert sum(valores) == 1.00
+
+
 async def test_installment_e_recurrence_juntos_retorna_422(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:

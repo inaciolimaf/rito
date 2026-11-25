@@ -7,6 +7,10 @@ CLAUDE.md §3, e a única forma de testar retry sem esperar minutos de backoff.
 Redirecionamento é seguido AQUI, no máximo três vezes, com cada `Location` passando pela
 mesma peneira de SSRF (regra 7): um destino público pode devolver um `Location` privado, e
 seguir redirect cegamente desfaz toda a validação feita na URL original.
+
+O que a peneira não cobre é o intervalo entre validar e conectar: o `client.post` abaixo
+resolve o nome DE NOVO, e o DNS pode ter mudado nesse meio-tempo. É dívida escrita, não
+esquecimento — o porquê está no cabeçalho de `ssrf.py` e em `docs/DIVIDA-TECNICA.md`.
 """
 
 import time

@@ -40,7 +40,22 @@ REQUIRED_IN_PRODUCTION: dict[str, str] = {
     "s3_bucket": "bucket dos anexos",
     "s3_region": "região do armazenamento",
     "cors_allowed_origins": "origens do frontend autorizadas pelo navegador",
+    # Spec 135, regra 4. Era opcional, e "opcional" aqui significava: sem ela, `/metrics`
+    # responde a QUALQUER UM. O `.env.production.example` trazia a variável vazia, então o
+    # padrão de produção era a rota aberta — inventário da operação (quanto cada escritório
+    # gastou de LLM, quantas requisições cada rota recebeu) exposto por omissão. Recusar
+    # subir é o mesmo remédio da regra 6 para o `SECRET_KEY` de exemplo, e pela mesma razão:
+    # a alternativa — negar a rota em silêncio — troca um buraco de segurança por um
+    # painel de observabilidade que para de funcionar sem dizer por quê, e o operador
+    # descobre no dia em que precisa dele.
+    "metrics_token": "bearer do /metrics — sem ele a rota de inventário fica aberta",
 }
+
+# Origem coringa. Com `allow_credentials=True` (app/main.py) o navegador deveria recusar a
+# combinação, mas «deveria» não é uma garantia que se leva para produção: basta um cliente
+# não-navegador, ou uma versão que a implemente por metade, para que qualquer site consiga
+# fazer requisição autenticada em nome de quem está logado.
+CORS_WILDCARD = "*"
 
 
 class ConfigurationError(RuntimeError):
@@ -108,15 +123,27 @@ def _secret_problems(settings: Settings) -> list[Problema]:
 
 
 def _cors_problems(settings: Settings) -> list[Problema]:
-    if "localhost" not in settings.cors_allowed_origins:
-        return []
-    return [
-        Problema(
-            "cors_allowed_origins",
-            "aponta para localhost em produção — o navegador de ninguém "
-            "vai chegar lá, e a origem real ficaria de fora.",
+    origens = [origem.strip() for origem in settings.cors_allowed_origins.split(",")]
+    problemas: list[Problema] = []
+    # Spec 135, regra 5: `*` com credenciais ligadas é a combinação que ninguém quer
+    # descobrir em produção — e o checador antigo só olhava para "localhost".
+    if CORS_WILDCARD in origens:
+        problemas.append(
+            Problema(
+                "cors_allowed_origins",
+                f"tem a origem coringa '{CORS_WILDCARD}', e a aplicação envia credenciais "
+                "(allow_credentials=True). Liste os domínios do frontend, um a um.",
+            )
         )
-    ]
+    if "localhost" in settings.cors_allowed_origins:
+        problemas.append(
+            Problema(
+                "cors_allowed_origins",
+                "aponta para localhost em produção — o navegador de ninguém "
+                "vai chegar lá, e a origem real ficaria de fora.",
+            )
+        )
+    return problemas
 
 
 def validate(settings: Settings) -> list[Problema]:

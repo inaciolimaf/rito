@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import * as React from "react";
 
+import { ServerErrorAlert } from "@/components/domain/ServerErrorAlert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,10 @@ import {
 import { AgentPickerDialog } from "@/features/legal-agents/AgentPickerDialog";
 import { GeneratedBriefPreview } from "@/features/legal-agents/GeneratedBriefPreview";
 import { GenerationProgress } from "@/features/legal-agents/GenerationProgress";
+import { ApiError } from "@/lib/errors";
+
+/** `legal_agents/router.py`: `instructions` tem `max_length=4000`. Spec 138, regra 7. */
+const MAX_INSTRUCTIONS = 4000;
 
 export interface GenerateBriefDialogProps {
   open: boolean;
@@ -84,12 +89,22 @@ export function GenerateBriefDialog({
               <textarea
                 id="brief-instructions"
                 rows={3}
+                maxLength={MAX_INSTRUCTIONS}
                 className="w-full rounded border border-default bg-surface p-2 text-sm"
                 value={instructions}
                 onChange={(event) => setInstructions(event.target.value)}
                 placeholder="Ex.: foque no adicional de insalubridade e seja breve."
               />
+              <p className="text-right text-xs text-muted">
+                {instructions.length}/{MAX_INSTRUCTIONS}
+              </p>
             </div>
+
+            {/* Spec 138, regra 5: as duas mutações não tinham `onError`. Uma minuta que
+                o servidor recusa — teto de orçamento de IA estourado, instruções longas
+                demais — apagava o "Gerando…" e não dizia mais nada. */}
+            <ServerErrorAlert error={generate.error instanceof ApiError ? generate.error : null} />
+            <ServerErrorAlert error={save.error instanceof ApiError ? save.error : null} />
 
             <GenerationProgress
               toolLabels={generation?.tool_labels ?? []}

@@ -14,11 +14,12 @@ from app.domain.publications.exceptions import (
     PublicationAlreadyExistsError,
 )
 from app.domain.publications.metrics import PublicationMetricsService
-from app.domain.publications.models import Publication
+from app.domain.publications.models import Publication, PublicationDeadlineSettings
 from app.domain.publications.routing import PublicationRoutingService
 from app.domain.publications.schemas import (
     LinkPublicationRequest,
     PublicationCountsResponse,
+    PublicationDeadlineSettingsResponse,
     PublicationDetailResponse,
     PublicationExportRequest,
     PublicationFilters,
@@ -31,8 +32,13 @@ from app.domain.publications.schemas import (
     PublicationRecipientResponse,
     PublicationResponse,
     PublicationScope,
+    UpdatePublicationDeadlineSettingsRequest,
 )
-from app.domain.publications.service import PublicationDetail, PublicationService
+from app.domain.publications.service import (
+    PublicationDeadlineSettingsService,
+    PublicationDetail,
+    PublicationService,
+)
 from app.domain.users.models import User
 from app.integrations.djen.parser import DjenParseError, parse_communication
 from app.integrations.messaging.base import MessagingChannel
@@ -261,6 +267,53 @@ async def export_publications(
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def _deadline_settings_response(
+    settings: PublicationDeadlineSettings | None,
+) -> PublicationDeadlineSettingsResponse:
+    """Escritório que nunca configurou responde 200 com os campos vazios, não 404: a
+    ausência de prazo padrão é um estado do escritório, não um recurso inexistente."""
+    if settings is None:
+        return PublicationDeadlineSettingsResponse(
+            default_deadline_days=None,
+            count_in_business_days=True,
+            updated_by=None,
+            updated_at=None,
+        )
+    return PublicationDeadlineSettingsResponse(
+        default_deadline_days=settings.default_deadline_days,
+        count_in_business_days=settings.count_in_business_days,
+        updated_by=settings.updated_by,
+        updated_at=settings.updated_at,
+    )
+
+
+@router.get("/deadline-settings")
+async def get_deadline_settings(
+    current_user: User = Depends(require_role(UserRole.COLABORADOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> PublicationDeadlineSettingsResponse:
+    """Spec 126, §5: o prazo padrão que o escritório declarou para as intimações."""
+    service = PublicationDeadlineSettingsService(session=session, tenant_id=current_user.tenant_id)
+    return _deadline_settings_response(await service.get())
+
+
+@router.put("/deadline-settings")
+async def update_deadline_settings(
+    payload: UpdatePublicationDeadlineSettingsRequest,
+    current_user: User = Depends(require_role(UserRole.GESTOR)),
+    session: AsyncSession = Depends(get_session_for_current_user),
+) -> PublicationDeadlineSettingsResponse:
+    """Regra 5: quem declara prazo é GESTOR ou acima — o número passa a valer para toda
+    intimação que o escritório receber, e o nome de quem gravou fica na linha."""
+    service = PublicationDeadlineSettingsService(session=session, tenant_id=current_user.tenant_id)
+    settings = await service.update(
+        days=payload.default_deadline_days,
+        count_in_business_days=payload.count_in_business_days,
+        user_id=current_user.id,
+    )
+    return _deadline_settings_response(settings)
 
 
 @router.get("/{publication_id}")

@@ -2,7 +2,17 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    ForeignKey,
+    Index,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -119,3 +129,40 @@ class PublicationRead(Base, TenantMixin):
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )
     read_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM)
+
+
+class PublicationDeadlineSettings(Base, TenantMixin):
+    """Prazo padrão que o ESCRITÓRIO declara para as intimações roteadas (spec 126 §4).
+
+    Uma linha por tenant, e nenhuma por padrão. **Não é** a tabela de prazos por
+    classe/assunto do CNJ — essa não existe neste projeto e não se inventa (126 §3): é o
+    número que o gestor assume, com nome e hora de quem gravou, e por isso é auditável.
+
+    `default_deadline_days` nulo (ou linha ausente) significa "o escritório não declarou",
+    e a tarefa da intimação nasce com `deadline_date` NULL. Essa ausência é a resposta
+    honesta de quem não sabe; um número adivinhado seria pior, porque prazo preenchido é
+    prazo em que se confia.
+    """
+
+    __tablename__ = "publication_deadline_settings"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_pub_deadline_settings_tenant"),
+        CheckConstraint(
+            "default_deadline_days IS NULL OR default_deadline_days BETWEEN 1 AND 365",
+            name="ck_pub_deadline_days_range",
+        ),
+        # Regra 4 da 098: FK sem índice trava o DELETE do lado pai.
+        Index("ix_pub_deadline_settings_updated_by", "updated_by"),
+    )
+
+    default_deadline_days: Mapped[int | None] = mapped_column(SmallInteger())
+    # Dias úteis é o padrão porque é o do art. 219 do CPC; corridos existe para a
+    # intimação administrativa, que o levantamento ADVBOX também prevê ("após dias úteis
+    # ou corridos", docs §7).
+    count_in_business_days: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id")
+    )
+    updated_at: Mapped[datetime] = mapped_column(server_default=CRIADO_EM, onupdate=CRIADO_EM)

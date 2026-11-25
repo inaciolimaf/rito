@@ -21,6 +21,8 @@ from sqlalchemy import CTE, ColumnElement, Date, Row, Select, and_, case, func, 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dates import next_month_start
+from app.core.listing import Column
+from app.domain.account.models import DEFAULT_TIMEZONE
 from app.domain.action_groups.models import ActionGroup, LawsuitType
 from app.domain.bi.models import (
     ConversionGroupRow,
@@ -678,6 +680,20 @@ def _stage_aggregate(days: Any, cost: Any) -> CostStageAggregateRow:
     )
 
 
+def _office_month(column: Column, timezone: str) -> ColumnElement[date]:
+    """O 1º dia do mês em que um instante cai, **no fuso do escritório** (dívida 32).
+
+    Mesma função de `reports/tabular_repository.py::_office_date` (spec 124), um mês
+    acima em vez de um dia: `completed_at`/`created_at` são `timestamptz` — instante
+    absoluto —, e cortar o mês sem converter corta em UTC. Uma tarefa concluída às 22h30
+    de 31/01 em São Paulo saía de janeiro e caía em fevereiro.
+
+    A varredura da 124 parou nos relatórios tabulares. Aqui o mesmo erro decidia dinheiro:
+    o denominador do CAC e o custo por ponto que rateia o custo de CADA processo.
+    """
+    return func.date_trunc("month", func.timezone(timezone, column)).cast(Date)
+
+
 class BiCostsRepository:
     """Agregações do BI de Custos (spec 077).
 
@@ -693,8 +709,12 @@ class BiCostsRepository:
     o join do rateio casa só pela competência.
     """
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, timezone: str = DEFAULT_TIMEZONE) -> None:
         self.session = session
+        # Spec 136: o fuso do escritório entra por parâmetro, como em
+        # `TabularReportRepository` (124). O default existe para o worker e para o teste
+        # que não têm requisição — nunca para cair no fuso do servidor.
+        self.timezone = timezone
 
     # ---- view materializada (custo fixo/marketing/pontos por competência) ----------
 
@@ -739,11 +759,15 @@ class BiCostsRepository:
         Não é um `<=`: com timestamp, `<= 2026-08-31` continuaria cortando as 23h59 do
         dia. Quem compara data-a-data (`Lawsuit.closure_date`, `bi_pipeline_monthly.month`)
         segue usando `month_end` inclusivo, o que está certo para aqueles casos.
+
+        Spec 136: todo o cuidado acima era com a borda do DIA e nenhum com a da HORA.
+        `created_at` é `timestamptz` e `month_start` é uma data pensada no fuso do
+        escritório — sem converter, o contato cadastrado às 23h47 de 31/08 em São Paulo
+        contava em setembro. O CAC é `marketing ÷ novos clientes`: um contato que troca de
+        mês muda o CAC dos dois meses.
         """
-        stmt = select(func.count()).where(
-            Customer.created_at >= month_start,
-            Customer.created_at < next_month_start(month_start),
-        )
+        mes = _office_month(Customer.created_at, self.timezone)
+        stmt = select(func.count()).where(mes >= month_start, mes < next_month_start(month_start))
         return int(await self.session.scalar(stmt) or 0)
 
     def _direct_costs_cte(self) -> CTE:
@@ -770,7 +794,13 @@ class BiCostsRepository:
         # Mesma expressão (mesmo objeto) no SELECT e no GROUP BY — duas instâncias
         # geram dois bind params ($4/$5) e o PG não reconhece a igualdade ("must
         # appear in the GROUP BY clause"); mesmo padrão do month_expr da 074/076.
-        month_expr = func.date_trunc("month", PostUser.completed_at).cast(Date)
+        #
+        # Spec 136: a competência é a do escritório, e precisa ser a MESMA da matview
+        # `bi_cost_allocation` (migration 136) — o join abaixo casa por competência, e
+        # `points × cost_per_point` é uma divisão cujos dois lados estavam medindo meses
+        # diferentes: os custos por `t.competence` (DATE de escritório) e os pontos por
+        # `date_trunc('month', completed_at)` em UTC.
+        month_expr = _office_month(PostUser.completed_at, self.timezone)
         monthly_points = (
             select(
                 Post.lawsuit_id.label("lawsuit_id"),

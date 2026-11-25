@@ -4,7 +4,7 @@ previsto × realizado, atrasados, saldo por conta (view materializada), fatura d
 cartão, refresh da view e orçamento de queries do dashboard."""
 
 from collections.abc import Awaitable, Callable
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -12,6 +12,7 @@ from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
+from app.core.dates import card_cycle_range
 from app.core.rls import set_tenant_context
 from app.domain.financial.dashboard import get_dashboard_stats
 from app.workers.financial_dashboard import refresh_account_daily_balances
@@ -24,6 +25,12 @@ from tests.perf import e_plumbing
 def _despesa_payload(
     *, category_id: str, cost_center_id: str, account_id: str, **extra: object
 ) -> dict[str, object]:
+    """O vencimento padrão é literal de propósito, e continua certo depois da dívida 41.
+
+    Ele é ÂNCORA, não afirmação sobre o presente: quem o usa consulta um mês explícito
+    (`?month=2026-08`) ou paga numa data também literal. Um literal no passado que fica
+    no passado para sempre não vence — o que vencia era compará-lo com «hoje».
+    """
     payload: dict[str, object] = {
         "kind": "DESPESA",
         "debit_account_id": account_id,
@@ -72,6 +79,37 @@ async def _create_card_account(
     assert response.status_code == 201, response.text
     result: str = response.json()["id"]
     return result
+
+
+def _vencimento_na_fatura(cycle_day: int, today: date) -> date:
+    """Um vencimento que cai na fatura corrente do cartão, seja qual for o «hoje».
+
+    Existe por causa da dívida 41. A versão anterior deste arquivo escrevia
+    `due_date="2026-08-20"` à mão e contava com o mês corrente ser agosto de 2026: o
+    teste passou até 5 de setembro e virou vermelho **permanente** depois, sem que uma
+    linha de produção tivesse mudado. Um teste assim não avisa de regressão — ele mente
+    duas vezes, primeiro passando por sorte e depois falhando por calendário.
+
+    A janela vem de `card_cycle_range`, a mesma que a aplicação usa em
+    `FinancialDashboardRepository.card_invoice`, alimentada com o «hoje» do escritório
+    (`tests.clock.hoje()`, spec 114) — que é o mesmo que o router passa via `Clock`.
+
+    Devolve o MEIO da janela, não uma das pontas: quem afirma que as bordas do ciclo
+    entram é `tests/unit/test_card_cycle.py`. Aqui o assunto é «cartão mostra fatura, não
+    saldo», e um vencimento no miolo mantém os dois testes falando de coisas diferentes.
+    """
+    start, end = card_cycle_range(cycle_day, today)
+    return start + (end - start) // 2
+
+
+def _vencimento_fora_da_fatura(cycle_day: int, today: date) -> date:
+    """O primeiro dia DEPOIS da fatura corrente — o lançamento que não pode entrar na soma.
+
+    É o contra-exemplo que faz o teste valer alguma coisa: sem ele, uma fatura que
+    somasse *tudo* do cartão, ignorando o ciclo, passaria igual.
+    """
+    _start, end = card_cycle_range(cycle_day, today)
+    return end + timedelta(days=1)
 
 
 async def _pay(
@@ -253,6 +291,103 @@ async def test_atrasados_excluem_interno(
     assert body["overdue"] == 150
 
 
+async def test_transferencia_vencida_nao_entra_no_card_atrasados(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 136: «atrasado» é RECEITA vencida em aberto — a definição única do produto
+    (`financial/dashboard.py::overdue_conditions`).
+
+    Uma transferência entre duas contas do próprio escritório, agendada e ainda não
+    efetivada, levava o card «Atrasados» de R$ 0,00 a R$ 5.000,00 sem mexer em receita nem
+    em despesa — o que impedia alguém de perceber somando as colunas ao lado. É valor alto
+    e ninguém "baixa" uma transferência, então o número inflava e ficava.
+    """
+    _gestor, headers = await _make_gestor_full(make_user)
+    _r, _d, _cc, conta_a, conta_b = await _fixtures(client, headers)
+    ontem = (hoje() - timedelta(days=1)).isoformat()
+    mes = hoje().strftime("%Y-%m")
+
+    antes = await _stats(client, headers, regime="due", month=mes)
+
+    transferencia = await client.post(
+        "/api/v1/transactions",
+        json={
+            "kind": "TRANSFERENCIA",
+            "debit_account_id": conta_a,
+            "credit_account_id": conta_b,
+            "amount": "5000.00",
+            "due_date": ontem,
+        },
+        headers=headers,
+    )
+    assert transferencia.status_code == 201, transferencia.text
+
+    depois = await _stats(client, headers, regime="due", month=mes)
+    assert depois["overdue"] == antes["overdue"]
+    assert depois["income_expected"] == antes["income_expected"]
+    assert depois["expense_expected"] == antes["expense_expected"]
+
+
+async def test_card_atrasados_e_o_painel_de_inadimplencia_dao_o_mesmo_numero(
+    client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """Spec 136: as duas telas mostram a mesma palavra ao mesmo usuário, então precisam
+    mostrar o mesmo número.
+
+    O card do dashboard (059) e o total da aba «Inadimplência» (060) respondiam «o que
+    está atrasado» com condições diferentes — e não havia como reconciliar os dois olhando
+    a tela. Aqui há uma receita vencida (entra nos dois), uma despesa vencida e uma
+    transferência vencida (não entram em nenhum).
+    """
+    _gestor, headers = await _make_gestor_full(make_user)
+    receita_id, despesa_id, cost_center_id, conta_a, conta_b = await _fixtures(client, headers)
+    ontem = (hoje() - timedelta(days=1)).isoformat()
+
+    receita = await client.post(
+        "/api/v1/transactions",
+        json=_receita_payload(
+            category_id=receita_id,
+            cost_center_id=cost_center_id,
+            account_id=conta_a,
+            amount="150.00",
+            due_date=ontem,
+        ),
+        headers=headers,
+    )
+    assert receita.status_code == 201, receita.text
+    despesa = await client.post(
+        "/api/v1/transactions",
+        json=_despesa_payload(
+            category_id=despesa_id,
+            cost_center_id=cost_center_id,
+            account_id=conta_a,
+            amount="70.00",
+            due_date=ontem,
+        ),
+        headers=headers,
+    )
+    assert despesa.status_code == 201, despesa.text
+    transferencia = await client.post(
+        "/api/v1/transactions",
+        json={
+            "kind": "TRANSFERENCIA",
+            "debit_account_id": conta_a,
+            "credit_account_id": conta_b,
+            "amount": "5000.00",
+            "due_date": ontem,
+        },
+        headers=headers,
+    )
+    assert transferencia.status_code == 201, transferencia.text
+
+    card = await _stats(client, headers, regime="due", month=hoje().strftime("%Y-%m"))
+    painel = await client.get("/api/v1/transactions/overdue/summary", headers=headers)
+    assert painel.status_code == 200, painel.text
+
+    assert card["overdue"] == 150.00
+    assert painel.json()["total"] == 150.00
+
+
 @pytest.mark.commits
 async def test_saldo_por_conta_bate_com_a_view(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
@@ -310,25 +445,88 @@ async def test_view_e_estatica_ate_o_refresh(
     assert row_after["balance"] == 80
 
 
+CICLO_DO_CARTAO = 5
+
+# As bordas que a dívida 41 mostrou importarem. Nenhuma delas é "hoje": o ponto é
+# justamente que a data do teste não pode depender de quando ele roda.
+DIAS_DE_BORDA = [
+    date(2026, 9, 1),  # dia 1 — antes do fechamento: a fatura corrente abriu no mês anterior
+    date(2026, 9, 4),  # véspera do fechamento — o último dia da fatura que está acabando
+    date(2026, 9, 5),  # o próprio dia do fechamento — o ciclo novo já começou (regra 5)
+    date(2026, 2, 28),  # fim de fevereiro, mês curto — onde o clamp do dia 31 age
+    date(2026, 12, 31),  # dia 31 de dezembro — a janela atravessa o ano
+]
+
+
+@pytest.mark.parametrize("cycle_day", [CICLO_DO_CARTAO, 31])
+@pytest.mark.parametrize("today", DIAS_DE_BORDA)
+def test_vencimento_calculado_cai_na_fatura_em_qualquer_data(cycle_day: int, today: date) -> None:
+    """A prova de que a dívida 41 não volta, sem precisar congelar o relógio.
+
+    O projeto não tem `freezegun` — e não vai passar a ter por causa deste teste, porque
+    a coisa que precisa ser determinística é a **função de posicionamento**, não o
+    processo inteiro. Então o relógio entra por parâmetro: são estas cinco datas de borda
+    (dia 1, véspera e dia do fechamento, fim de mês curto, virada de ano) contra os dois
+    `cycle_day` que exercitam o clamp da regra 5.
+    """
+    inicio, fim = card_cycle_range(cycle_day, today)
+    assert inicio <= _vencimento_na_fatura(cycle_day, today) <= fim
+    assert _vencimento_fora_da_fatura(cycle_day, today) > fim
+
+
+def test_vencimento_calculado_cai_na_fatura_em_qualquer_dia_do_ano() -> None:
+    """O mesmo invariante varrido dia a dia: 366 dias × 31 fechamentos possíveis.
+
+    Cinco bordas escolhidas a dedo provam que quem escreveu o teste pensou nelas; a
+    varredura prova que não sobrou nenhuma. É aritmética pura de data, sem banco.
+    """
+    for offset in range(366):
+        today = date(2026, 1, 1) + timedelta(days=offset)
+        for cycle_day in range(1, 32):
+            inicio, fim = card_cycle_range(cycle_day, today)
+            assert inicio <= _vencimento_na_fatura(cycle_day, today) <= fim
+            assert _vencimento_fora_da_fatura(cycle_day, today) > fim
+
+
 async def test_cartao_mostra_fatura_nao_saldo(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:
+    """Regra 10 (spec 101): cartão de crédito não tem saldo, tem fatura do ciclo corrente.
+
+    As duas datas saem de `hoje()` e do ciclo do próprio cartão — ver `_vencimento_na_fatura`
+    e a dívida 41 para o porquê de não haver literal de data aqui.
+    """
     _gestor, headers = await _make_gestor_full(make_user)
     _r, despesa_id, cost_center_id, _account_a, _b = await _fixtures(client, headers)
-    card_id = await _create_card_account(client, headers, cycle_day=5, due_day=15)
+    card_id = await _create_card_account(client, headers, cycle_day=CICLO_DO_CARTAO, due_day=15)
+    hoje_do_escritorio = hoje()
 
-    expense = await client.post(
+    dentro = await client.post(
         "/api/v1/transactions",
         json=_despesa_payload(
             category_id=despesa_id,
             cost_center_id=cost_center_id,
             account_id=card_id,
             amount="220.00",
-            due_date="2026-08-20",
+            due_date=_vencimento_na_fatura(CICLO_DO_CARTAO, hoje_do_escritorio).isoformat(),
         ),
         headers=headers,
     )
-    assert expense.status_code == 201, expense.text
+    assert dentro.status_code == 201, dentro.text
+
+    # Já é da PRÓXIMA fatura: entra no cartão, não entra nesta soma.
+    fora = await client.post(
+        "/api/v1/transactions",
+        json=_despesa_payload(
+            category_id=despesa_id,
+            cost_center_id=cost_center_id,
+            account_id=card_id,
+            amount="900.00",
+            due_date=_vencimento_fora_da_fatura(CICLO_DO_CARTAO, hoje_do_escritorio).isoformat(),
+        ),
+        headers=headers,
+    )
+    assert fora.status_code == 201, fora.text
 
     balances = await client.get("/api/v1/bank-accounts/balances", headers=headers)
     row = next(item for item in balances.json()["items"] if item["account_id"] == card_id)

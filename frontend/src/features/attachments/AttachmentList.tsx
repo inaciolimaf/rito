@@ -5,6 +5,7 @@ import {
   getAttachmentDownloadUrl,
   type AttachmentData,
 } from "@/features/attachments/api";
+import { openExternal } from "@/lib/urls";
 
 export interface AttachmentListProps {
   attachments: AttachmentData[];
@@ -28,7 +29,8 @@ export function AttachmentList({
     setBusyId(attachment.id);
     try {
       const url = await getAttachmentDownloadUrl(attachment.id);
-      window.open(url, "_blank", "noopener");
+      // Spec 138, regra 2: mesmo guarda de esquema dos demais links externos.
+      openExternal(url);
     } finally {
       setBusyId(null);
     }

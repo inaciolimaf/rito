@@ -5,7 +5,9 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { mapApiErrorToFields } from "@/components/domain/FormModal";
+import { describeApiErrors } from "@/components/domain/apiErrors";
+import { MoneyField } from "@/components/domain/MoneyField";
+import { ServerErrorAlert } from "@/components/domain/ServerErrorAlert";
 import type { Occupation } from "@/features/users/api";
 import { userFormSchema, type UserFormValues } from "@/features/users/schema";
 import { durationInputToApi, timeInputToApi } from "@/features/users/timeFormat";
@@ -32,6 +34,7 @@ export function UserForm({
 }: UserFormProps): JSX.Element {
   const {
     register,
+    control,
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
@@ -42,7 +45,7 @@ export function UserForm({
 
   React.useEffect(() => {
     if (!serverError) return;
-    for (const { field, message } of mapApiErrorToFields(serverError)) {
+    for (const { field, message } of describeApiErrors(serverError).fields) {
       setError(field as keyof UserFormValues, { type: "server", message });
     }
   }, [serverError, setError]);
@@ -166,10 +169,18 @@ export function UserForm({
           <Input id="phone" disabled={disabled} {...register("phone")} />
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="salary">Salário</Label>
-          <Input id="salary" disabled={disabled} {...register("salary")} />
-        </div>
+        {/* Spec 138, regra 5: era um `Input` cru, sem máscara e sem `{errors.salary}`.
+            O backend tipa `salary` como `Decimal`, então "3.500,00" — o formato que
+            qualquer brasileiro digita — voltava `decimal_parsing`… e o erro não tinha
+            onde aparecer. O `MoneyField` do design system existe exatamente para isto:
+            exibe em pt-BR e guarda o cru com ponto. */}
+        <MoneyField
+          control={control}
+          name="salary"
+          label="Salário"
+          id="salary"
+          disabled={disabled}
+        />
 
         <div className="space-y-1">
           <Label htmlFor="points_goal">Meta de pontos</Label>
@@ -217,11 +228,7 @@ export function UserForm({
         </label>
       </div>
 
-      {serverError && !serverError.errors?.length && (
-        <p role="alert" className="text-sm text-danger">
-          {serverError.message}
-        </p>
-      )}
+      <ServerErrorAlert error={serverError} />
 
       {!disabled && (
         <Button type="submit" disabled={isSubmitting}>

@@ -43,3 +43,26 @@ async def test_upload_cria_o_bucket_se_ainda_nao_existir() -> None:
     async with httpx.AsyncClient() as http_client:
         response = await http_client.get(storage.public_url("probe.txt"))
     assert response.status_code == 200
+
+
+async def test_public_url_dura_uma_sessao_e_nao_uma_semana() -> None:
+    """Spec 135, regra 7.
+
+    `public_url` é o link do avatar, do logo do escritório e da foto de contato — uma URL
+    pré-assinada, ou seja, um bearer token de leitura embutido no `src=` de um `<img>`.
+    Valia SETE DIAS: o que vazasse por histórico, log de proxy, `Referer` ou print de tela
+    servia por uma semana, sem sessão e sem login. Foto de contato é dado pessoal de
+    cliente do escritório.
+
+    A janela nova é a do token de acesso — o link não sobrevive à sessão que o produziu. É
+    por isso que a asserção é contra `access_token_ttl_minutes` e não contra o número 900:
+    se alguém mudar o TTL da sessão, a decisão desta spec é que os dois andem juntos.
+    """
+    settings = get_settings()
+    storage = create_file_storage()
+
+    url = storage.public_url("qualquer/chave.png")
+
+    esperado = settings.access_token_ttl_minutes * 60
+    assert f"X-Amz-Expires={esperado}" in url
+    assert esperado == 15 * 60

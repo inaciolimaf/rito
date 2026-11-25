@@ -50,7 +50,7 @@ export function CashFlowChart({ data, title }: CashFlowChartProps): JSX.Element 
                   title={`Despesas: ${point.expense}`}
                 />
               </div>
-              <span className="max-w-12 truncate text-[10px] text-muted">{point.label}</span>
+              <span className="max-w-12 truncate text-micro text-muted">{point.label}</span>
             </div>
           ))}
         </div>

@@ -43,6 +43,7 @@ import {
 } from "@/features/financial/schema";
 import { formatBrl } from "@/lib/money";
 import { useAuth } from "@/providers/AuthProvider";
+import { formatBrDate } from "@/lib/format";
 
 type Tab = "lancamentos" | "overdue" | "reports";
 
@@ -85,12 +86,6 @@ const FILTER_FIELDS: FilterFieldDef[] = [
     ],
   },
 ];
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const [year, month, day] = value.split("-");
-  return `${day}/${month}/${year}`;
-}
 
 function toPayload(values: TransactionFormValues): TransactionFormPayload {
   const isTransfer = values.kind === "TRANSFERENCIA";
@@ -266,11 +261,11 @@ export function TransactionsListPage(): JSX.Element {
         </>
       ),
     },
-    { id: "due_date", header: "Vencimento", cell: (row) => formatDate(row.due_date) },
+    { id: "due_date", header: "Vencimento", cell: (row) => formatBrDate(row.due_date) },
     {
       id: "payment_date",
       header: "Situação",
-      cell: (row) => (row.payment_date ? `Pago em ${formatDate(row.payment_date)}` : "Em aberto"),
+      cell: (row) => (row.payment_date ? `Pago em ${formatBrDate(row.payment_date)}` : "Em aberto"),
     },
     { id: "amount", header: "Valor", cell: (row) => formatBrl(row.amount) },
   ];

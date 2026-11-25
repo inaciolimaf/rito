@@ -10,6 +10,7 @@ E nada do que sai daqui é prazo do escritório enquanto um humano não confirma
 
 import json
 import logging
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -72,6 +73,55 @@ class AnalysisNotFoundError(Exception):
     """Revisar algo que ninguém analisou → 404."""
 
 
+# Regra 8 da spec 086: o prazo lido vem em dias, e não em séculos. Fora da faixa é erro de
+# leitura do modelo, não um prazo exótico — e um `deadline_days` de 4.000 vira uma data que
+# ninguém confere.
+MIN_DEADLINE_DAYS = 1
+MAX_DEADLINE_DAYS = 365
+
+
+def _deadline_days(bruto: Any) -> int | None:
+    """Os dias de prazo que o modelo leu, ou `None` quando não dá para saber.
+
+    Spec 133: a versão anterior exigia `str(dias).isdigit()`, o que descartava `15.0` — uma
+    forma perfeitamente válida em JSON, e a que qualquer serializador produz para um número
+    inteiro que passou por float. O prazo sumia inteiro, sem registro. Agora a leitura é
+    numérica de verdade, com a faixa explícita: o que não couber nela volta `None`, que é a
+    resposta honesta de quem não entendeu.
+    """
+    if isinstance(bruto, bool) or not isinstance(bruto, int | float | str):
+        return None
+    try:
+        dias = int(float(str(bruto).strip().replace(",", ".")))
+    except (TypeError, ValueError):
+        return None
+    return dias if MIN_DEADLINE_DAYS <= dias <= MAX_DEADLINE_DAYS else None
+
+
+def _deadline_kind(bruto: Any) -> str | None:
+    """`'uteis'`, `'corridos'` ou `None` — normalizando a grafia do modelo.
+
+    Spec 133: só os dois literais exatos eram aceitos. `"úteis"` com acento e `"dias
+    corridos"` — as duas formas mais naturais para um modelo que responde em português —
+    viravam `None`, e `compute_deadline` traduzia `None` em dias ÚTEIS, que é a contagem
+    mais longa. Medido: um prazo de 15 dias corridos descrito como `"dias corridos"` era
+    apresentado com vencimento seis dias depois do real.
+
+    O reconhecimento é pelo radical sem acento, e não por igualdade: é o mínimo que cobre
+    "úteis", "dias úteis", "UTEIS" e "corridos" sem virar adivinhação — o que não contiver
+    nenhum dos dois radicais continua `None`, e `None` agora significa "não sei", não
+    "conte como úteis" (ver `PublicationAnalysisService._deadline_for`).
+    """
+    if not isinstance(bruto, str):
+        return None
+    texto = unicodedata.normalize("NFKD", bruto).encode("ascii", "ignore").decode().lower()
+    if "util" in texto or "uteis" in texto:
+        return "uteis"
+    if "corrid" in texto:
+        return "corridos"
+    return None
+
+
 def parse_model_output(raw: str | None) -> ParsedAnalysis:
     """Lê o JSON do modelo com desconfiança.
 
@@ -101,10 +151,8 @@ def parse_model_output(raw: str | None) -> ParsedAnalysis:
         summary="\n\n".join(paragrafos) or resumo,
         act_type=str(payload["act_type"]) if payload.get("act_type") else None,
         requires_action=bool(payload.get("requires_action", False)),
-        deadline_days=(
-            int(dias) if isinstance(dias, int | float | str) and str(dias).isdigit() else None
-        ),
-        deadline_kind=str(especie) if especie in ("uteis", "corridos") else None,
+        deadline_days=_deadline_days(dias),
+        deadline_kind=_deadline_kind(especie),
         confidence=float(confianca) if isinstance(confianca, int | float) else None,
         reasoning=str(payload["reasoning"]) if payload.get("reasoning") else None,
     )
@@ -181,13 +229,23 @@ class PublicationAnalysisService:
         Os feriados NACIONAIS entram na contagem; os estaduais e municipais não, e essa é uma
         limitação conhecida — o prazo sugerido é ponto de partida para o advogado conferir,
         nunca a palavra final sobre o vencimento.
+
+        Spec 133: **sem espécie, não há data.** `compute_deadline` traduz `kind=None` em
+        dias úteis, e essa é a escolha certa para a spec 126 (o prazo que o GESTOR declarou
+        é processual por definição) e a errada para aqui: quando o modelo não disse se o
+        prazo é útil ou corrido, escolher a contagem mais longa e mostrar a data é o mesmo
+        erro que a regra 5 da 086 proíbe no campo vizinho — «devolver "hoje + 15" seria pior
+        do que não responder, porque parece uma resposta». O número dos dias continua na
+        tela; a data é que não se inventa.
         """
+        if parsed.deadline_kind is None:
+            return None
         feriados = await self.holidays.national_dates()
         return compute_deadline(
             availability_date=publication.availability_date,
             days=parsed.deadline_days,
-            # `parse_model_output` valida o literal na saída do modelo; o tipo de retorno é
-            # `str` porque quem valida é o parser, não a anotação.
+            # `_deadline_kind` só devolve os dois literais do `DeadlineKind`; o campo é `str`
+            # no dataclass porque quem valida é o parser, não a anotação.
             kind=parsed.deadline_kind,  # type: ignore[arg-type]
             holidays=feriados,
         )

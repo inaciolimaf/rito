@@ -10,8 +10,12 @@ Os 4 regimes (regra 1) só mudam **qual coluna de data filtra o período** — `
 `due`/`competence` filtram direto; `cash_flow` é híbrido: pago conta por `payment_date`,
 em aberto conta por `due_date` (projeção). Lançamento interno nunca entra (regra 2,
 mesmo filtro `NOT is_internal` de `ix_tx_effective`/`lawsuit_financial_totals`) e
-transferência nunca conta como receita/despesa (regra 3 — o filtro por `kind` já
-exclui `TRANSFERENCIA` dos agregados de receita/despesa/atrasados)."""
+transferência nunca conta como receita/despesa (regra 3 — os agregados filtram por
+`kind` explicitamente, e o card de atrasados também, desde a spec 136).
+
+Até a 136 a última frase era falsa exatamente onde mais custava: `overdue_total` não
+filtrava `kind` nenhum. Ver `overdue_conditions`, que é hoje a única definição de
+«atrasado» do produto."""
 
 import uuid
 from collections.abc import Sequence
@@ -101,6 +105,40 @@ def _period_filter(regime: Regime, start: date, end_exclusive: date) -> ColumnEl
     return and_(Transaction.competence >= start, Transaction.competence < end_exclusive)
 
 
+def overdue_conditions(today: date) -> list[ColumnElement[bool]]:
+    """«Atrasado», a definição única do produto (spec 136).
+
+    Vencido, em aberto, não interno e **RECEITA**. Este arquivo e
+    `app/domain/dunning/repository.py` respondiam a mesma pergunta com dois conjuntos de
+    condições diferentes: a cobrança exigia `kind == RECEITA` desde a spec 060, o card
+    "Atrasados" do dashboard não exigia `kind` nenhum. Uma transferência de R$ 5.000,00
+    entre a conta corrente e a poupança do próprio escritório, agendada e nunca
+    "baixada" porque não é cobrança de ninguém, levava o card de R$ 0,00 a R$ 5.000,00 —
+    sem mexer em receita nem em despesa, que é o que impedia alguém de perceber somando
+    as colunas ao lado.
+
+    **Por que RECEITA e não `!= TRANSFERENCIA`.** As duas telas mostram o mesmo nome ao
+    mesmo usuário: o card "Atrasados" do dashboard e o total da aba "Inadimplência" (a
+    régua de cobrança da spec 060). Enquanto uma somava despesa a pagar e a outra não,
+    os dois números não fechavam e não havia como reconciliá-los pela tela. E "Atrasados"
+    é lista de trabalho — o escritório age sobre ela ligando para quem deve. Somar num
+    número só o que o escritório tem a receber com o que ele tem a pagar produz um total
+    sobre o qual não se pode agir.
+
+    A conta a pagar vencida não desapareceu do produto: ela continua em "Despesas
+    previstas" do mês e na listagem de lançamentos com filtro de vencimento. O que ela
+    deixou de fazer é entrar num total de inadimplência de terceiros.
+
+    `today` é sempre o dia do escritório (spec 114), nunca `func.current_date()`.
+    """
+    return [
+        Transaction.due_date < today,
+        Transaction.payment_date.is_(None),
+        Transaction.is_internal.is_(False),
+        Transaction.kind == TransactionKind.RECEITA,
+    ]
+
+
 class FinancialDashboardRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -136,18 +174,14 @@ class FinancialDashboardRepository:
         )
 
     async def overdue_total(self, *, account_id: uuid.UUID | None, today: date) -> Decimal:
-        """Regra 5: due_date < hoje e payment_date nulo, excluindo internos —
+        """Regra 5: o total atrasado do escritório — `overdue_conditions`, e nada mais,
         independente do regime escolhido (atrasado é sempre por vencimento).
 
         `today` é o do escritório (spec 114): "atrasado" é a pergunta em que o fuso mais
         custa dinheiro — uma parcela que vence hoje aparecia como vencida durante as
         horas em que o servidor já tinha virado o dia e o escritório não.
         """
-        conditions: list[ColumnElement[bool]] = [
-            Transaction.is_internal.is_(False),
-            Transaction.due_date < today,
-            Transaction.payment_date.is_(None),
-        ]
+        conditions: list[ColumnElement[bool]] = list(overdue_conditions(today))
         if account_id is not None:
             conditions.append(Transaction.debit_account_id == account_id)
         value = await self.session.scalar(

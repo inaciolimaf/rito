@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dates import month_end, previous_month_start, shift_month
 from app.core.materialized_view import MATERIALIZED_VIEWS, MaterializedViewSpec
 from app.core.ratios import safe_percentage, safe_ratio
+from app.domain.account.models import DEFAULT_TIMEZONE
 from app.domain.aggregates.schemas import AggregateMeta
 from app.domain.aggregates.service import realtime_meta, view_meta
 from app.domain.bi.models import SuccessMonthRow, VintageYearRow
@@ -583,8 +584,12 @@ def _cost_item(row: Any) -> CostLawsuitItem:
 
 
 class BiCostsService:
-    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID) -> None:
-        self.repo = BiCostsRepository(session)
+    def __init__(
+        self, session: AsyncSession, tenant_id: uuid.UUID, timezone: str = DEFAULT_TIMEZONE
+    ) -> None:
+        # Spec 136: o fuso vem da rota (`Clock.timezone_name`) e decide em que mês caem os
+        # pontos do rateio e os contatos do denominador do CAC.
+        self.repo = BiCostsRepository(session, timezone)
         self.tenant_id = tenant_id
 
     async def costs(

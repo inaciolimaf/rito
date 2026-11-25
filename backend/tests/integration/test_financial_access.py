@@ -73,3 +73,26 @@ async def test_gestor_with_no_financial_access_is_blocked(
     )
 
     assert response.status_code == 403
+
+
+async def test_o_403_do_financeiro_diz_qual_acesso_falta(
+    rbac_client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
+) -> None:
+    """A mensagem é o produto do 403, não um detalhe (spec 132).
+
+    Os testes acima conferem só o código de status, e a medição de mutação da 132 mostrou o
+    efeito: apagar os dois pedaços literais da frase de `require_financial` deixava a suíte
+    verde. Quem toma o 403 é um usuário do escritório, e "403" sozinho não diz o que pedir
+    ao gestor.
+    """
+    seeded = await make_user(financial_access=FinancialAccess.READ_ONLY)
+
+    response = await rbac_client.post(
+        "/api/v1/rbac-test/financial-write", headers=_auth_header(seeded)
+    )
+
+    assert response.status_code == 403
+    assert (
+        response.json()["detail"]
+        == f"Exige acesso financeiro {FinancialAccess.FULL.value} ou superior."
+    )

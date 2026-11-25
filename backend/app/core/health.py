@@ -14,11 +14,12 @@ saudável:
 
 import asyncio
 import logging
+import secrets
 from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
+from sqlalchemy import literal, select
 
 from app import __version__
 from app.core.config import get_settings
@@ -53,7 +54,7 @@ async def _probe(name: str, coro_factory: Callable[[], Awaitable[object]]) -> tu
 async def health_ready(request: Request) -> JSONResponse:
     async def postgres() -> object:
         async with request.app.state.session_factory() as session:
-            return await session.execute(text("SELECT 1"))
+            return await session.execute(select(literal(1)))
 
     async def redis() -> object:
         return await request.app.state.redis.ping()
@@ -81,10 +82,23 @@ async def prometheus_metrics(
     gastou de LLM — é inventário da operação, não dado público. Com `METRICS_TOKEN`
     configurado ele exige o bearer; sem, fica aberto para o caso em que a rede já
     isola (scrape por rede interna), que é o arranjo mais comum.
+
+    Duas correções da spec 135 (regra 4). A primeira é onde o "sem token fica aberto"
+    deixou de valer: `METRICS_TOKEN` passou a ser **obrigatório em produção**
+    (`bootstrap.REQUIRED_IN_PRODUCTION`), e o processo recusa subir sem ele. Antes, o
+    `.env.production.example` trazia a variável vazia na seção de opcionais — o padrão de
+    produção era, portanto, a rota aberta, e ninguém precisava fazer nada de errado para
+    chegar lá. Deixar a rota aberta em desenvolvimento continua sendo de propósito; o que
+    não pode existir é o arranjo em que produção sobe assim sem que ninguém decida.
+
+    A segunda é a comparação: `!=` sobre string sai no primeiro byte diferente, e o tempo
+    da resposta conta quantos bytes do token já estão certos. `compare_digest` compara em
+    tempo constante. O token é o que dá acesso ao inventário; não é lugar de economizar
+    ciclo.
     """
     settings = get_settings()
     esperado = settings.metrics_token
-    if esperado and authorization != f"Bearer {esperado}":
+    if esperado and not secrets.compare_digest(authorization or "", f"Bearer {esperado}"):
         raise HTTPException(status_code=401, detail="Métricas exigem token interno.")
 
     await metrics.observe_queue_depths(request.app.state.redis)

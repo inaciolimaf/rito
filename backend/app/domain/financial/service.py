@@ -1,7 +1,7 @@
 import uuid
 from calendar import monthrange
 from datetime import date
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -567,16 +567,41 @@ class TransactionService:
         return due_date.replace(day=1)
 
 
+_CENT = Decimal("0.01")
+
+
 def _split_amount(total: Decimal, count: int) -> list[Decimal]:
-    """Regra 2 (spec 057): divide `total` em `count` parcelas de 2 casas, com a
-    diferença de arredondamento inteira na ÚLTIMA parcela — a soma bate sempre.
-    100,00 ÷ 3 = 33,33 + 33,33 + 33,34."""
-    share = (total / count).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    shares = [share] * count
-    remainder = total - (share * count)
-    if remainder != 0:
-        shares[-1] = shares[-1] + remainder
-    return shares
+    """Regra 2 (spec 057): divide `total` em `count` parcelas de 2 casas — a soma bate
+    sempre, e nenhuma parcela é zero ou negativa. 100,00 ÷ 3 = 33,33 + 33,33 + 33,34.
+
+    A conta é em CENTAVOS, com divisão inteira: `count` parcelas de `total // count`
+    centavos e um centavo a mais nas `total % count` ÚLTIMAS. O resultado visível é o
+    mesmo de antes para todo valor que já funcionava (o resto continua caindo no fim da
+    série, que é o que o extrato do ADVBOX mostra), e a diferença entre a maior e a menor
+    parcela passa a ser de um centavo — nunca mais que isso.
+
+    **O que isso conserta (spec 136).** A versão anterior arredondava a parcela com
+    `ROUND_HALF_UP` e jogava TODA a diferença na última. Quando o quociente arredondava
+    para cima, a diferença era negativa: R$ 0,50 em 100× produzia uma última parcela de
+    **−0,49**, e R$ 0,01 em 2× produzia **0,00**. Os dois violam o CHECK
+    `ck_tx_amount_positive` (`financial/models.py`), e como não há handler de
+    `IntegrityError` em `app/main.py`, o `POST /api/v1/transactions` respondia **500** a
+    uma entrada que o usuário digitou. A faixa era `total < parcelas² / 200`: até R$ 0,66
+    em 12×, R$ 11,28 em 48×, R$ 49,50 em 100×. A soma sempre fechou — verificado nos 2
+    milhões de pares da auditoria —, o que faltava era a guarda de sinal.
+
+    O parcelamento impossível (menos de um centavo por parcela) é recusado antes, com 422,
+    por `TransactionCreateRequest`. O `ValueError` daqui é invariante, não caminho de
+    usuário: se ele disparar, alguém criou uma série sem passar pelo schema.
+    """
+    if total < count * _CENT:
+        raise ValueError(
+            f"{total} não se divide em {count} parcelas de pelo menos R$ 0,01 — "
+            "recusado no schema (TransactionCreateRequest), nunca aqui."
+        )
+    centavos_totais = int((total / _CENT).to_integral_value())
+    base, resto = divmod(centavos_totais, count)
+    return [(base + (1 if i >= count - resto else 0)) * _CENT for i in range(count)]
 
 
 def _installment_due_dates(base_due_date: date, count: int) -> list[date]:

@@ -193,6 +193,16 @@ def _accepted_or_fallback(
 
     Um resultado que JÁ veio em fallback passa direto: ele carrega o motivo original, e
     reescrevê-lo aqui apagaria a causa real (provider fora do ar, resposta ilegível).
+
+    Regra 3 (spec 133): **confiança ausente não é confiança suficiente.** `parse_decision`
+    devolve `None` para campo faltando, `null` e para qualquer texto não numérico — e
+    `"alta"`/`"baixa"` são exatamente o que um modelo respondendo em português escreve.
+    Aceitar `None` invertia o incentivo: o modelo que confessava 0,30 caía no ramo padrão e
+    o que respondia `"baixa"` decidia. O escritório que pediu 90% de certeza pediu um
+    NÚMERO acima de 0,9, não a ausência de um.
+
+    O `minima > 0` é o que preserva quem desligou a exigência de propósito: com o mínimo em
+    zero, não há confiança a exigir, e o `None` volta a passar.
     """
     if resultado.fell_back:
         return resultado
@@ -200,6 +210,13 @@ def _accepted_or_fallback(
         return _fallback(
             padrao,
             f"O modelo respondeu um ramo fora da lista ({resultado.branch!r}).",
+            resultado,
+        )
+    if minima > 0 and resultado.confidence is None:
+        return _fallback(
+            padrao,
+            "O modelo não declarou confiança, e o mínimo configurado é "
+            f"{minima:.2f} — confiança ausente não é confiança suficiente.",
             resultado,
         )
     if resultado.confidence is not None and resultado.confidence < minima:

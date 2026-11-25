@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 
+import { QueryStateGate } from "@/components/domain/QueryStateGate";
+import { ServerErrorAlert } from "@/components/domain/ServerErrorAlert";
 import { StatCard } from "@/components/domain/StatCard";
 import { getAiBudget, saveAiBudget, type BudgetData } from "@/features/ai/api";
-
-function formatUsd(value: number): string {
-  return `US$ ${value.toFixed(2)}`;
-}
+import { ApiError } from "@/lib/errors";
+import { formatUsd } from "@/lib/format";
 
 /** Barra de consumo do mês. A cor é informação, não enfeite: verde até o alerta,
  * âmbar entre alerta e teto, vermelho estourado. */
@@ -34,7 +34,10 @@ function ConsumptionBar({ budget }: { budget: BudgetData }): JSX.Element | null 
  * mês, e o que acontece quando o teto chegar. */
 export function AiBudgetPanel(): JSX.Element {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ["ai-budget"], queryFn: getAiBudget });
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["ai-budget"],
+    queryFn: getAiBudget,
+  });
   const [limite, setLimite] = React.useState<string | null>(null);
   const [alerta, setAlerta] = React.useState<number | null>(null);
   const [bloqueia, setBloqueia] = React.useState<boolean | null>(null);
@@ -45,10 +48,62 @@ export function AiBudgetPanel(): JSX.Element {
       queryClient.invalidateQueries({ queryKey: ["ai-budget"] }).then(() => undefined),
   });
 
-  if (isLoading || !data) {
-    return <p className="text-sm text-muted">Carregando orçamento…</p>;
-  }
+  return (
+    <QueryStateGate
+      isLoading={isLoading}
+      error={error}
+      data={data}
+      loadingLabel="Carregando orçamento…"
+      className=""
+      onRetry={() => void refetch()}
+    >
+      {(budget) => (
+        <BudgetForm
+          budget={budget}
+          limite={limite}
+          alerta={alerta}
+          bloqueia={bloqueia}
+          onLimite={setLimite}
+          onAlerta={setAlerta}
+          onBloqueia={setBloqueia}
+          onSave={(payload) => salvar.mutate(payload)}
+          isSaving={salvar.isPending}
+          saveError={salvar.error instanceof ApiError ? salvar.error : null}
+        />
+      )}
+    </QueryStateGate>
+  );
+}
 
+interface BudgetFormProps {
+  budget: BudgetData;
+  limite: string | null;
+  alerta: number | null;
+  bloqueia: boolean | null;
+  onLimite: (value: string) => void;
+  onAlerta: (value: number) => void;
+  onBloqueia: (value: boolean) => void;
+  onSave: (payload: {
+    monthly_limit_usd: string | null;
+    alert_pct: number;
+    is_blocking: boolean;
+  }) => void;
+  isSaving: boolean;
+  saveError: ApiError | null;
+}
+
+function BudgetForm({
+  budget: data,
+  limite,
+  alerta,
+  bloqueia,
+  onLimite,
+  onAlerta,
+  onBloqueia,
+  onSave,
+  isSaving,
+  saveError,
+}: BudgetFormProps): JSX.Element {
   const limiteAtual =
     limite ?? (data.monthly_limit_usd === null ? "" : String(data.monthly_limit_usd));
   const alertaAtual = alerta ?? data.alert_pct;
@@ -98,7 +153,10 @@ export function AiBudgetPanel(): JSX.Element {
         className="flex flex-wrap items-end gap-3"
         onSubmit={(event) => {
           event.preventDefault();
-          void salvar.mutateAsync({
+          // Spec 138, regra 5: `void mutateAsync(...)` descartava a rejeição e o
+          // componente nunca lia `salvar.isError` — o teto recusado pelo servidor sumia
+          // sem uma palavra. `mutate` + `ServerErrorAlert` põem o 422 na tela.
+          onSave({
             monthly_limit_usd: limiteAtual.trim() === "" ? null : limiteAtual.trim(),
             alert_pct: alertaAtual,
             is_blocking: bloqueiaAtual,
@@ -112,7 +170,7 @@ export function AiBudgetPanel(): JSX.Element {
             inputMode="decimal"
             placeholder="sem teto"
             value={limiteAtual}
-            onChange={(event) => setLimite(event.target.value)}
+            onChange={(event) => onLimite(event.target.value)}
           />
         </label>
         <label className="flex flex-col text-xs text-muted">
@@ -123,25 +181,26 @@ export function AiBudgetPanel(): JSX.Element {
             min={1}
             max={100}
             value={alertaAtual}
-            onChange={(event) => setAlerta(Number(event.target.value))}
+            onChange={(event) => onAlerta(Number(event.target.value))}
           />
         </label>
         <label className="flex items-center gap-2 text-xs text-muted">
           <input
             type="checkbox"
             checked={bloqueiaAtual}
-            onChange={(event) => setBloqueia(event.target.checked)}
+            onChange={(event) => onBloqueia(event.target.checked)}
           />
           Bloquear ao atingir o teto
         </label>
         <button
           type="submit"
           className="rounded bg-primary px-3 py-1 text-sm text-on-primary"
-          disabled={salvar.isPending}
+          disabled={isSaving}
         >
           Salvar orçamento
         </button>
       </form>
+      <ServerErrorAlert error={saveError} />
       <p className="text-xs text-muted">
         Desligar o bloqueio mantém o alerta: há escritório que prefere estourar o teto a parar no
         meio de um prazo.

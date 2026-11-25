@@ -141,8 +141,10 @@ async def test_analise_gera_resumo_tipo_e_prazo_calculado(
     corpo = resposta.json()
     assert corpo["act_type"] == "intimacao_prazo"
     assert corpo["deadline_days"] == 15
-    # 5/8/2026 (quarta) + 15 dias úteis = 26/8/2026.
-    assert corpo["deadline_date"] == "2026-08-26"
+    # Disponibilizado em 5/8/2026 (quarta) → publicado em 6/8 (art. 224 §2) → 15 dias
+    # úteis a partir do dia 7 = 27/8/2026. A data andou um dia útil na spec 126, que
+    # acrescentou o passo disponibilização → publicação que faltava.
+    assert corpo["deadline_date"] == "2026-08-27"
     assert corpo["deadline_confidence"] == 0.93
     assert corpo["should_prefill_deadline"] is True
     assert "15 dias úteis" in corpo["reasoning"]
@@ -189,7 +191,7 @@ async def test_revisao_humana_aplica_o_prazo_na_tarefa(
         await set_tenant_context(session, user.tenant_id)
         tarefa = (await session.scalars(select(Post))).one()
         analise = (await session.scalars(select(PublicationAnalysis))).one()
-    assert tarefa.deadline_date == date(2026, 8, 26)
+    assert tarefa.deadline_date == date(2026, 8, 27)
     assert str(tarefa.lawsuit_id) == lawsuit_id
     assert analise.reviewed_by == user.user_id
     assert analise.reviewed_at is not None
@@ -211,7 +213,7 @@ async def test_confianca_baixa_nao_pre_preenche(
     )
 
     corpo = resposta.json()
-    assert corpo["deadline_date"] == "2026-08-26"  # a conta é feita
+    assert corpo["deadline_date"] == "2026-08-27"  # a conta é feita
     assert corpo["should_prefill_deadline"] is False  # mas o campo não nasce preenchido
 
 
@@ -320,7 +322,7 @@ async def test_correcao_humana_e_gravada(
 
     analise = await _analysis(app_session_factory, user)
     assert analise.human_correction == {
-        "deadline_date": {"suggested": "2026-08-26", "corrected": "2026-08-20"}
+        "deadline_date": {"suggested": "2026-08-27", "corrected": "2026-08-20"}
     }
     async with app_session_factory() as session, session.begin():
         await set_tenant_context(session, user.tenant_id)
@@ -449,8 +451,9 @@ async def test_prazo_atravessa_feriado_nacional_cadastrado(
         )
     ).json()
 
-    # 5 dias úteis a partir de 5/8 seriam 12/8; com o feriado, escorrega para 13/8.
-    assert corpo["deadline_date"] == "2026-08-13"
+    # Publicação em 6/8; 5 dias úteis seriam 13/8, e com o feriado de 12/8 no meio
+    # escorregam para 14/8.
+    assert corpo["deadline_date"] == "2026-08-14"
 
     async with admin_engine.begin() as conn:
         from sqlalchemy import text as sql_text
@@ -467,3 +470,67 @@ def _reset_overrides() -> Any:
 
     yield
     app.dependency_overrides.pop(get_llm_provider, None)
+
+
+async def test_prazo_escrito_em_dias_corridos_conta_dias_corridos(
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Spec 133: `"dias corridos"` não era o literal `"corridos"`, e virava dias ÚTEIS.
+
+    O prompt pede `'uteis'`/`'corridos'` e nada obriga o modelo a obedecer — "dias
+    corridos" é o que um modelo respondendo em português escreve. Disponibilizado em
+    05/08/2026, 15 dias corridos: a resposta certa é 21/08. Contado como útil dava 27/08,
+    e o advogado revisava uma data plausível seis dias adiante do vencimento legal.
+    """
+    user, publication_id, _lawsuit = await _setup(client, make_user, app_session_factory)
+    _use(
+        ScriptedProvider(
+            script=[_model_answer({**_DEFAULT_PAYLOAD, "deadline_kind": "dias corridos"})]
+        )
+    )
+
+    corpo = (
+        await client.post(
+            f"/api/v1/publications/{publication_id}/analyze", headers=auth_header(user)
+        )
+    ).json()
+
+    assert corpo["deadline_kind"] == "corridos"
+    assert corpo["deadline_date"] == "2026-08-21"
+
+
+async def test_sem_especie_de_prazo_mostra_o_numero_e_nao_a_data(
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Spec 133: espécie desconhecida com dias presentes não vira data.
+
+    `compute_deadline` traduz `kind=None` em dias úteis, e para a spec 126 essa é a
+    escolha certa — o prazo que o GESTOR declarou é processual por definição. Aqui não é:
+    quando o modelo não disse se o prazo é útil ou corrido, escolher a contagem mais longa
+    e mostrar a data comete o erro que a regra 5 da 086 proíbe no campo vizinho — «devolver
+    "hoje + 15" seria pior do que não responder, porque parece uma resposta».
+
+    O número dos dias continua na tela: ele é informação que o modelo leu de verdade. A
+    data é que não se inventa.
+    """
+    user, publication_id, _lawsuit = await _setup(client, make_user, app_session_factory)
+    _use(
+        ScriptedProvider(
+            script=[_model_answer({**_DEFAULT_PAYLOAD, "deadline_kind": "não sei dizer"})]
+        )
+    )
+
+    corpo = (
+        await client.post(
+            f"/api/v1/publications/{publication_id}/analyze", headers=auth_header(user)
+        )
+    ).json()
+
+    assert corpo["deadline_days"] == 15, "o número lido continua sendo mostrado"
+    assert corpo["deadline_kind"] is None
+    assert corpo["deadline_date"] is None
+    assert corpo["should_prefill_deadline"] is False

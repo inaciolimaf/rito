@@ -190,8 +190,6 @@ export function previewOccurrences({
   return dates;
 }
 
-/** DD/MM/AAAA (CLAUDE.md §9 — data na UI é brasileira). */
-export function formatBrDate(iso: string): string {
-  const { year, month, day } = parse(iso);
-  return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
-}
+/** DD/MM/AAAA (CLAUDE.md §9 — data na UI é brasileira). Reexportado de `lib/format`
+ * para não quebrar quem já importava daqui: a implementação é uma só. */
+export { formatBrDate } from "@/lib/format";

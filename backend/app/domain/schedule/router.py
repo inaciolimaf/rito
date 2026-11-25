@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from datetime import date, time
 
@@ -48,6 +49,10 @@ class ScheduleEventResponse(BaseModel):
 
 class ScheduleListResponse(BaseModel):
     items: list[ScheduleEventResponse]
+    # Spec 137: `true` quando o teto de linhas cortou o intervalo. Campo NOVO e com
+    # padrão, então nenhum cliente antigo quebra; quem souber lê, avisa na tela que a
+    # janela tem mais compromissos do que os que vieram.
+    truncated: bool = False
 
 
 class ICalStatusResponse(BaseModel):
@@ -103,7 +108,7 @@ async def list_schedule(
         raise HTTPException(status_code=422, detail="Data final anterior à inicial.")
     service = ScheduleService(session)
     try:
-        events = await service.list_events(
+        pagina = await service.list_events(
             viewer=current_user.id,
             start=from_,
             end=to,
@@ -114,7 +119,10 @@ async def list_schedule(
         )
     except RangeTooLongError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return ScheduleListResponse(items=[_to_response(event) for event in events])
+    return ScheduleListResponse(
+        items=[_to_response(event) for event in pagina.events],
+        truncated=pagina.truncated,
+    )
 
 
 @router.get("/schedule/ical", response_model=ICalStatusResponse)
@@ -176,8 +184,34 @@ async def ical_feed(token: str, request: Request) -> Response:
             timezone_name=timezone_name,
             calendar_name=f"Rito — {user.name}",
         )
-    return Response(
-        content=content,
-        media_type="text/calendar",
-        headers={"Content-Disposition": 'inline; filename="rito.ics"'},
-    )
+    return _ical_response(content, request)
+
+
+def _ical_response(content: str, request: Request) -> Response:
+    """O `.ics` com validador de cache — `200` com `ETag`, ou `304` se o cliente já o tem.
+
+    Spec 137: o cliente de calendário faz polling de 15 em 15 minutos POR USUÁRIO, e a
+    agenda de um advogado não muda a cada 15 minutos. Sem validador, cada consulta paga a
+    montagem inteira do `.ics` e o tráfego inteiro dele — medido em 19,8 MB e 2,5 s numa
+    base de 200 mil tarefas. O corpo é determinístico (mesma agenda, mesmo texto), então
+    o hash do conteúdo é o validador certo: forte, e sem estado nenhum para guardar.
+    """
+    etag = f'"{hashlib.sha256(content.encode()).hexdigest()}"'
+    cabecalhos = {
+        "Content-Disposition": 'inline; filename="rito.ics"',
+        "ETag": etag,
+        "Cache-Control": "private, max-age=900",
+    }
+    if _if_none_match(request, etag):
+        return Response(status_code=304, headers=cabecalhos)
+    return Response(content=content, media_type="text/calendar", headers=cabecalhos)
+
+
+def _if_none_match(request: Request, etag: str) -> bool:
+    """RFC 9110 §13.1.2: a comparação é fraca e a lista aceita vários validadores.
+    `*` casa com qualquer representação existente."""
+    enviado = request.headers.get("if-none-match")
+    if not enviado:
+        return False
+    candidatos = {valor.strip().removeprefix("W/") for valor in enviado.split(",")}
+    return "*" in candidatos or etag in candidatos

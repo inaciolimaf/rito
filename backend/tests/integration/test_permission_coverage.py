@@ -7,11 +7,23 @@ from fastapi.routing import APIRoute, iter_route_contexts
 from app.core.permissions import is_permission_dependency, require_role
 from app.domain.users.models import UserRole
 from app.main import app
+from app.public.deps import declared_scope, require_scope
 
 # Prefixos isentos: /health não passa por /api/v1; /auth é pré-JWT (spec 004, ver Descobertas).
 # /invitations/accept também é pré-JWT (spec 012) — só exige X-Tenant-Id, igual /auth,
 # mas vive fora do prefixo /auth porque a spec declara a rota como recurso próprio.
 _EXEMPT_PREFIXES = ("/api/v1/auth", "/api/v1/invitations/accept")
+
+# Spec 134. A API pública era ponto cego deste gate: ele varre `/api/v1`, e as 22 rotas de
+# `/api/public/v1` não declaram `require_role` (não há usuário de sessão ali) — declaram
+# `require_scope`, que era uma dependência anônima. Rota pública nova sem escopo é rota
+# aberta a qualquer token de qualquer integração, e agora reprova aqui.
+PUBLIC_PREFIX = "/api/public/v1"
+
+# O contrato da 095 §5. O número está escrito porque a lição do comentário de
+# `_routes_missing_permission` vale em dobro aqui: um scanner que deixa de achar rota
+# nenhuma passa vazio para sempre, e ninguém percebe.
+ROTAS_PUBLICAS = 22
 
 
 def _iter_dependant_calls(dependant: Any) -> Iterator[Any]:
@@ -44,6 +56,56 @@ def _routes_missing_permission(candidate_app: FastAPI) -> list[str]:
         if not any(is_permission_dependency(call) for call in calls):
             missing.append(f"{sorted(route_context.methods or [])} {path}")
     return missing
+
+
+def _public_routes(candidate_app: FastAPI) -> list[tuple[str, str | None]]:
+    """(rota, escopo declarado) de cada operação sob `/api/public/v1`.
+
+    `openapi.json` fica de fora: ele vive noutro router, sem token, porque exigir escopo
+    para LER a documentação impediria gerar cliente antes de pedir acesso (095, §9).
+    """
+    encontradas = []
+    for route_context in iter_route_contexts(candidate_app.routes):
+        route = route_context.original_route
+        path = route_context.path
+        if not isinstance(route, APIRoute) or path is None:
+            continue
+        if not path.startswith(PUBLIC_PREFIX) or path.endswith("/openapi.json"):
+            continue
+        escopos = [declared_scope(call) for call in _iter_dependant_calls(route.dependant)]
+        declarado = next((escopo for escopo in escopos if escopo is not None), None)
+        encontradas.append((f"{sorted(route_context.methods or [])} {path}", declarado))
+    return encontradas
+
+
+def test_toda_rota_da_api_publica_declara_um_escopo() -> None:
+    """Spec 134: o gate passa a cobrir a superfície pública, que era o ponto cego dele."""
+    rotas = _public_routes(app)
+
+    assert len(rotas) == ROTAS_PUBLICAS, f"o scanner achou {len(rotas)} rotas públicas"
+    assert [rota for rota, escopo in rotas if escopo is None] == []
+
+
+def test_o_scanner_publico_pega_a_rota_sem_escopo() -> None:
+    """Prova que ele morde — sem isto, "zero rotas sem escopo" seria indistinguível de
+    "zero rotas encontradas"."""
+    probe_router = APIRouter()
+
+    @probe_router.get("/sem-escopo")
+    async def sem_escopo() -> dict[str, bool]:
+        return {"ok": True}
+
+    @probe_router.get("/com-escopo", dependencies=[Depends(require_scope("read:customers"))])
+    async def com_escopo() -> dict[str, bool]:
+        return {"ok": True}
+
+    probe_app = FastAPI()
+    probe_app.include_router(probe_router, prefix=PUBLIC_PREFIX)
+
+    rotas = dict(_public_routes(probe_app))
+
+    assert rotas[f"['GET'] {PUBLIC_PREFIX}/sem-escopo"] is None
+    assert rotas[f"['GET'] {PUBLIC_PREFIX}/com-escopo"] == "read:customers"
 
 
 def test_every_domain_route_declares_a_permission() -> None:

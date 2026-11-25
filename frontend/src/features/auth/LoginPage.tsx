@@ -14,7 +14,7 @@ import { useAuth } from "@/providers/AuthProvider";
 // (UUID) — o backend exige X-Tenant-Id como UUID desde a spec 004. Até a 011 (Escritório)
 // trazer essa resolução, o próprio usuário informa o ID aqui.
 const loginSchema = z.object({
-  tenantId: z.string().uuid("Informe o ID do escritório (UUID)."),
+  tenantId: z.guid("Informe o ID do escritório (UUID)."),
   email: z.string().email("E-mail inválido."),
   password: z.string().min(1, "Informe a senha."),
 });
@@ -45,7 +45,7 @@ export function LoginPage(): JSX.Element {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface">
+    <div className="flex min-h-dvh items-center justify-center bg-surface">
       <form
         onSubmit={(event) => void handleSubmit(onSubmit)(event)}
         noValidate

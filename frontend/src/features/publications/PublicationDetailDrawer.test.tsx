@@ -61,4 +61,40 @@ describe("PublicationDetailDrawer", () => {
     expect(screen.getByText("Fulano de Tal")).toBeInTheDocument();
     expect(screen.getByText("12345678920268260100")).toBeInTheDocument();
   });
+
+  it("link com esquema javascript: não vira link (spec 138, regra 2)", async () => {
+    // O `link` vem verbatim do DJEN (`integrations/djen/parser.py`) e o payload de
+    // sincronização é aceito de qualquer COLABORADOR.
+    server.use(
+      http.get(`${BASE_URL}/api/v1/publications/pub-1`, () =>
+        HttpResponse.json({ ...PUBLICATION, link: "javascript:alert(document.cookie)" }),
+      ),
+      http.post(`${BASE_URL}/api/v1/publications/pub-1/read`, () =>
+        HttpResponse.json({ ...PUBLICATION, is_read: true }),
+      ),
+    );
+
+    renderDrawer();
+
+    await screen.findByText("Texto do inteiro teor da publicação de teste.");
+    expect(
+      screen.queryByRole("link", { name: "Abrir no site do tribunal" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("link http do tribunal continua abrindo", async () => {
+    server.use(
+      http.get(`${BASE_URL}/api/v1/publications/pub-1`, () =>
+        HttpResponse.json({ ...PUBLICATION, link: "https://comunica.pje.jus.br/pub-1" }),
+      ),
+      http.post(`${BASE_URL}/api/v1/publications/pub-1/read`, () =>
+        HttpResponse.json({ ...PUBLICATION, is_read: true }),
+      ),
+    );
+
+    renderDrawer();
+
+    const link = await screen.findByRole("link", { name: "Abrir no site do tribunal" });
+    expect(link).toHaveAttribute("href", "https://comunica.pje.jus.br/pub-1");
+  });
 });

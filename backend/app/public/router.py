@@ -27,12 +27,29 @@ from app.domain.customers.repository import CustomerQuery, CustomerRepository
 from app.domain.customers.schemas import CustomerCreateRequest
 from app.domain.customers.service import CustomerService
 from app.domain.documents.models import Document
+from app.domain.financial.exceptions import (
+    FuturePaymentDateError,
+    PaidTransactionCannotBecomeInternalError,
+    TransactionAccountNotFoundError,
+    TransactionCategoryNotFoundError,
+    TransactionCategoryTypeMismatchError,
+    TransactionCostCenterNotFoundError,
+    TransactionCustomerNotFoundError,
+    TransactionLawsuitNotFoundError,
+)
 from app.domain.financial.models import Transaction
+from app.domain.lawsuits.exceptions import (
+    CourtSystemIncompatibleError,
+    LawsuitTypeNotFoundError,
+    ResponsibleNotActiveError,
+    StageNotFoundError,
+)
 from app.domain.lawsuits.models import Lawsuit, LawsuitMovement, LawsuitStageHistory
 from app.domain.lawsuits.movements_service import MovementsService
 from app.domain.lawsuits.schemas import LawsuitCreateRequest, MovementCreateRequest
 from app.domain.lawsuits.service import LawsuitService
 from app.domain.posts.creation import CreatePostUseCase
+from app.domain.posts.listing import visible_to
 from app.domain.posts.models import Post
 from app.domain.posts.schemas import PostCreateRequest
 from app.domain.publications.models import Publication
@@ -65,6 +82,7 @@ from app.public.schemas import (
     PublicTransactionPage,
     PublicTransactionUpdate,
 )
+from app.public.writes import lawsuit_update_request, transaction_update_request
 
 router = APIRouter(
     prefix="/api/public/v1",
@@ -76,6 +94,48 @@ router = APIRouter(
 
 _DOWNLOAD_EXPIRY_SECONDS = 5 * 60
 PUBLIC_PREFIX = "/api/public/v1"
+
+# Erro de domínio → resposta pública (spec 134). Uma tabela só, para processos e
+# lançamentos, e escrita aqui em vez de importada dos routers internos: estas mensagens
+# são parte do CONTRATO v1 (regra 12 da 095), e um texto de tela reescrito amanhã não
+# pode mudar o que o script de terceiro lê. O status é o mesmo da API interna, porque
+# distinguir "não pode" de "não existe" é a informação que o integrador precisa.
+_WRITE_ERRORS: dict[type[Exception], tuple[int, str]] = {
+    FuturePaymentDateError: (422, "Data de pagamento não pode ser no futuro."),
+    TransactionCategoryNotFoundError: (422, "Categoria não encontrada."),
+    TransactionCostCenterNotFoundError: (422, "Centro de custo não encontrado."),
+    TransactionAccountNotFoundError: (422, "Conta não encontrada."),
+    TransactionCustomerNotFoundError: (422, "Cliente não encontrado."),
+    TransactionLawsuitNotFoundError: (422, "Processo vinculado não encontrado."),
+    PaidTransactionCannotBecomeInternalError: (
+        409,
+        "Lançamento pago não pode virar interno — estorne antes.",
+    ),
+    LawsuitTypeNotFoundError: (422, "Tipo de ação não encontrado."),
+    StageNotFoundError: (422, "Etapa não encontrada."),
+    ResponsibleNotActiveError: (422, "Responsável precisa ser um usuário ativo do escritório."),
+    CourtSystemIncompatibleError: (422, "Sistema processual não pertence ao tribunal escolhido."),
+}
+_WRITE_ERROR_TYPES: tuple[type[Exception], ...] = (
+    *_WRITE_ERRORS,
+    TransactionCategoryTypeMismatchError,
+)
+
+
+def _write_error(exc: Exception) -> HTTPException:
+    """O mismatch de tipo é o único que compõe a mensagem com dado do próprio erro — sem
+    dizer QUAL tipo a categoria tem, o integrador não sabe se troca a categoria ou o
+    lançamento."""
+    if isinstance(exc, TransactionCategoryTypeMismatchError):
+        return HTTPException(
+            status_code=422,
+            detail=(
+                f"A categoria escolhida é do tipo {exc.category_type}, "
+                "incompatível com o lançamento."
+            ),
+        )
+    status, mensagem = _WRITE_ERRORS[type(exc)]
+    return HTTPException(status_code=status, detail=mensagem)
 
 
 async def _acting_user(session: AsyncSession, caller: ApiCaller) -> User:
@@ -203,6 +263,13 @@ async def get_settings_reference(
         linhas = (await session.scalars(select(model))).all()
         return [PublicReference(id=item.id, name=str(getattr(item, label))) for item in linhas]
 
+    async def _refs_financeiras(model: Any) -> list[PublicReference]:
+        """Spec 134, regra 3: nome de conta bancária, centro de custo e categoria são
+        dado financeiro — a mesma coisa que `/api/v1/bank-accounts` esconde de quem tem
+        `financial_access=NONE`. Vazia, e não 403: o resto de `/settings` continua útil
+        para quem integra só o cadastro."""
+        return await _refs(model) if caller.can("financial.read") else []
+
     return PublicSettings(
         tenant_id=caller.tenant_id,
         users=await _refs(User),
@@ -210,9 +277,9 @@ async def get_settings_reference(
         task_types=await _refs(TaskType),
         stages=await _refs(Stage),
         lawsuit_types=await _refs(LawsuitType),
-        financial_categories=await _refs(FinancialCategory),
-        cost_centers=await _refs(CostCenter),
-        bank_accounts=await _refs(BankAccount),
+        financial_categories=await _refs_financeiras(FinancialCategory),
+        cost_centers=await _refs_financeiras(CostCenter),
+        bank_accounts=await _refs_financeiras(BankAccount),
     )
 
 
@@ -417,25 +484,24 @@ async def update_lawsuit(
 ) -> PublicLawsuit:
     """Atualização parcial dos campos que fazem sentido por integração.
 
-    A mudança de etapa passa pelo `BoardService` — o único caminho que grava histórico e
-    dispara automação (specs 051 e 092). Escrever `stage_id` direto pareceria funcionar e
-    deixaria o histórico do processo com um buraco.
+    Spec 134: passa pelo `LawsuitService.update`, e não por `setattr` no modelo. Era o
+    último caminho de escrita do Rito que escapava do service — e com ele escapavam a
+    validação de referências, o histórico de etapa (`BoardService`, specs 051/092) e o
+    `updated_at` explícito de `_assign_editable`.
     """
-    from app.domain.lawsuits.board_service import BoardService
-
-    lawsuit = await session.get(Lawsuit, lawsuit_id)
+    service = LawsuitService(session=session, tenant_id=caller.tenant_id)
+    lawsuit = await service.get_lawsuit(lawsuit_id)
     if lawsuit is None:
         raise HTTPException(status_code=404, detail="Processo não encontrado.")
-    dados = payload.model_dump(exclude_unset=True)
-    destino = dados.pop("stage_id", None)
-    for campo, valor in dados.items():
-        setattr(lawsuit, campo, valor)
-    if destino is not None:
-        await BoardService(session, caller.tenant_id).change_stage(
-            lawsuit, to_stage_id=destino, changed_by=caller.acting_user_id
+    try:
+        detalhe = await service.update(
+            lawsuit,
+            lawsuit_update_request(lawsuit, payload),
+            changed_by=caller.acting_user_id,
         )
-    await session.flush()
-    return _to_lawsuit(lawsuit)
+    except _WRITE_ERROR_TYPES as exc:
+        raise _write_error(exc) from exc
+    return _to_lawsuit(detalhe.lawsuit)
 
 
 @router.get("/lawsuits/{lawsuit_id}/history", response_model=list[PublicStageChange])
@@ -532,7 +598,16 @@ async def list_posts(
     caller: ApiCaller = Depends(require_scope("read:posts")),
     session: AsyncSession = Depends(get_public_session),
 ) -> PublicPostPage:
-    stmt = select(Post).order_by(Post.created_at.desc(), Post.id.desc()).limit(limit)
+    # Spec 134, regra 1: a MESMA cláusula da tela (`visible_to`, spec 033 regra 8 — "nem o
+    # GESTOR a vê"), com o viewer sendo quem emitiu o token. Sem ela, um `read:posts` lia
+    # `comments` de toda tarefa privada do escritório, e o controle desenhado para ser
+    # inviolável até por Gestor virava opcional para quem tem um token.
+    stmt = (
+        select(Post)
+        .where(visible_to(caller.acting_user_id))
+        .order_by(Post.created_at.desc(), Post.id.desc())
+        .limit(limit)
+    )
     if lawsuit_id is not None:
         stmt = stmt.where(Post.lawsuit_id == lawsuit_id)
     decodificado = _decode(cursor)
@@ -674,13 +749,28 @@ async def update_transaction(
     caller: ApiCaller = Depends(require_scope("write:transactions")),
     session: AsyncSession = Depends(get_public_session),
 ) -> PublicTransaction:
-    transaction = await session.get(Transaction, transaction_id)
-    if transaction is None:
+    """Regra 10 da 095, finalmente cumprida (spec 134).
+
+    Antes daqui, a mesma `payment_date` no mesmo lançamento era 422 pela tela e 200 por
+    esta rota: a regra "baixa não se lança para o futuro" (spec 024) mora no service, e o
+    service não era chamado. O `today` é o do escritório, como no PUT interno.
+    """
+    from app.domain.financial.service import TransactionService
+
+    service = TransactionService(session=session, tenant_id=caller.tenant_id)
+    linha = await service.get(transaction_id)
+    if linha is None:
         raise HTTPException(status_code=404, detail="Lançamento não encontrado.")
-    for campo, valor in payload.model_dump(exclude_unset=True).items():
-        setattr(transaction, campo, valor)
-    await session.flush()
-    return _to_transaction(transaction)
+    try:
+        atualizada = await service.update(
+            linha.transaction,
+            transaction_update_request(linha.transaction, payload),
+            await _acting_user(session, caller),
+            today=Clock(await AccountRepository(session).timezone()).today(),
+        )
+    except _WRITE_ERROR_TYPES as exc:
+        raise _write_error(exc) from exc
+    return _to_transaction(atualizada.transaction)
 
 
 # ----------------------------------------------------------------- documents

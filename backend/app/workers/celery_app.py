@@ -130,6 +130,14 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.timesheet.purge_access_logs",
         "schedule": crontab(day_of_month=1, hour=4, minute=0),
     },
+    # Spec 137: as cinco tabelas de log que nasceram sem horizonte — `api_requests`,
+    # `notifications`, `ai_usage`, `search_history` e `automation_runs` (com os passos
+    # por cascata). Diário, às 4h50, depois das outras purgas da madrugada; os horizontes
+    # e o motivo de cada um estão em `workers/retention.py`.
+    "retention-purge": {
+        "task": "app.workers.retention.purge_expired",
+        "schedule": crontab(hour=4, minute=50),
+    },
 }
 
 # Garante que o worker registra as tasks declaradas fora deste módulo.
@@ -151,4 +159,5 @@ celery_app.conf.imports = (
     "app.workers.bi_vintage",
     "app.workers.bi_cycles",
     "app.workers.bi_costs",
+    "app.workers.retention",
 )

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 
+import { QueryStateGate } from "@/components/domain/QueryStateGate";
 import { ConfirmDialog } from "@/components/domain/ConfirmDialog";
 import { FilterBar } from "@/components/domain/FilterBar";
 import { KanbanBoard, type KanbanColumnDef } from "@/components/domain/KanbanBoard";
@@ -68,7 +69,12 @@ export function CrmPage(): JSX.Element {
     stageId: string;
   } | null>(null);
 
-  const { data: board, isLoading } = useQuery({
+  const {
+    data: board,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: boardKey,
     queryFn: () => getBoard(filters),
   });
@@ -193,116 +199,124 @@ export function CrmPage(): JSX.Element {
   });
   const bulkTargetStageName = stagesPage?.items.find((stage) => stage.id === bulkTargetStage);
 
-  if (isLoading || !board) {
-    return <p className="p-6 text-sm text-muted">Carregando board…</p>;
-  }
-
-  const columns: KanbanColumnDef[] = board.columns.map((column) => ({
-    id: String(column.step_id),
-    label: column.step_name,
-    total: column.total,
-  }));
-
-  const itemsByColumn: Record<string, BoardCard[]> = {};
-  const hasMoreByColumn: Record<string, boolean> = {};
-  for (const column of board.columns) {
-    const columnId = String(column.step_id);
-    itemsByColumn[columnId] = [...column.items, ...(extraColumnItems[columnId] ?? [])];
-    hasMoreByColumn[columnId] = Boolean(nextCursorByColumn[columnId]);
-  }
-
   return (
-    <div className="space-y-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-primary">CRM</h1>
-        {selected.size > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted">{selected.size} selecionado(s)</span>
-            <select
-              aria-label="Mover selecionados para"
-              className="h-9 rounded border border-default bg-surface px-2 text-sm"
-              value={bulkTargetStage}
-              onChange={(event) => setBulkTargetStage(event.target.value)}
-            >
-              <option value="">Mover para…</option>
-              {(stagesPage?.items ?? []).map((stage) => (
-                <option key={stage.id} value={stage.id}>
-                  {stage.step_name} — {stage.name}
-                </option>
-              ))}
-            </select>
-            <Button
-              size="sm"
-              disabled={!bulkTargetStage || bulkMove.isPending}
-              onClick={() => setConfirmingBulkMove(true)}
-            >
-              Aplicar
-            </Button>
-          </div>
-        )}
-      </div>
+    <QueryStateGate
+      isLoading={isLoading}
+      error={error}
+      data={board}
+      loadingLabel="Carregando board…"
+      onRetry={() => void refetch()}
+    >
+      {(boardData) => {
+        const columns: KanbanColumnDef[] = boardData.columns.map((column) => ({
+          id: String(column.step_id),
+          label: column.step_name,
+          total: column.total,
+        }));
 
-      <CrmStatsBar stats={stats} isLoading={statsLoading} />
+        const itemsByColumn: Record<string, BoardCard[]> = {};
+        const hasMoreByColumn: Record<string, boolean> = {};
+        for (const column of boardData.columns) {
+          const columnId = String(column.step_id);
+          itemsByColumn[columnId] = [...column.items, ...(extraColumnItems[columnId] ?? [])];
+          hasMoreByColumn[columnId] = Boolean(nextCursorByColumn[columnId]);
+        }
 
-      {board.suggest_refine_filters && (
-        <p
-          role="status"
-          className="rounded border border-warning bg-warning/10 p-2 text-sm text-warning"
-        >
-          Mais de 2.000 processos no board — refine os filtros para uma visão mais rápida.
-        </p>
-      )}
+        return (
+          <div className="space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <h1 className="text-lg font-semibold text-primary">CRM</h1>
+              {selected.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted">{selected.size} selecionado(s)</span>
+                  <select
+                    aria-label="Mover selecionados para"
+                    className="h-9 rounded border border-default bg-surface px-2 text-sm"
+                    value={bulkTargetStage}
+                    onChange={(event) => setBulkTargetStage(event.target.value)}
+                  >
+                    <option value="">Mover para…</option>
+                    {(stagesPage?.items ?? []).map((stage) => (
+                      <option key={stage.id} value={stage.id}>
+                        {stage.step_name} — {stage.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    disabled={!bulkTargetStage || bulkMove.isPending}
+                    onClick={() => setConfirmingBulkMove(true)}
+                  >
+                    Aplicar
+                  </Button>
+                </div>
+              )}
+            </div>
 
-      <FilterBar fields={FILTER_FIELDS} />
+            <CrmStatsBar stats={stats} isLoading={statsLoading} />
 
-      <KanbanBoard
-        columns={columns}
-        itemsByColumn={itemsByColumn}
-        getItemId={(item) => item.id}
-        onMove={handleMove}
-        onLoadMore={(columnId) => void handleLoadMore(columnId)}
-        hasMoreByColumn={hasMoreByColumn}
-        loadingColumnId={loadingColumnId}
-        emptyColumnMessage="Nenhum processo"
-        emptyBoardTitle="Nenhuma fase configurada"
-        emptyBoardDescription="Configure as fases do funil."
-        renderCard={(item) => (
-          <div>
-            <label className="mb-1 flex items-center gap-1 text-xs text-muted">
-              <input
-                type="checkbox"
-                checked={selected.has(item.id)}
-                onChange={() => toggleSelected(item.id)}
+            {boardData.suggest_refine_filters && (
+              <p
+                role="status"
+                className="rounded border border-warning bg-warning/10 p-2 text-sm text-warning"
+              >
+                Mais de 2.000 processos no boardData — refine os filtros para uma visão mais rápida.
+              </p>
+            )}
+
+            <FilterBar fields={FILTER_FIELDS} />
+
+            <KanbanBoard
+              columns={columns}
+              itemsByColumn={itemsByColumn}
+              getItemId={(item) => item.id}
+              onMove={handleMove}
+              onLoadMore={(columnId) => void handleLoadMore(columnId)}
+              hasMoreByColumn={hasMoreByColumn}
+              loadingColumnId={loadingColumnId}
+              emptyColumnMessage="Nenhum processo"
+              emptyBoardTitle="Nenhuma fase configurada"
+              emptyBoardDescription="Configure as fases do funil."
+              renderCard={(item) => (
+                <div>
+                  <label className="mb-1 flex items-center gap-1 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(item.id)}
+                      onChange={() => toggleSelected(item.id)}
+                    />
+                    selecionar
+                  </label>
+                  <LawsuitCard card={item} />
+                </div>
+              )}
+            />
+
+            <ConfirmDialog
+              open={confirmingBulkMove}
+              onOpenChange={setConfirmingBulkMove}
+              title="Mover processos selecionados?"
+              description={`${selected.size} processo(s) vão pra "${bulkTargetStageName?.step_name ?? ""} — ${bulkTargetStageName?.name ?? ""}".`}
+              confirmLabel="Mover"
+              onConfirm={() => bulkMove.mutate()}
+            />
+
+            {suggestion && (
+              <SuggestWorkflowDialog
+                open={suggestion !== null}
+                onOpenChange={(open) => {
+                  if (!open) setSuggestion(null);
+                }}
+                workflowId={suggestion.workflowId}
+                workflowName={suggestion.workflowName}
+                lawsuit={suggestion.lawsuit}
+                stageId={suggestion.stageId}
+                onSuppressed={() => setSuggestion(null)}
               />
-              selecionar
-            </label>
-            <LawsuitCard card={item} />
+            )}
           </div>
-        )}
-      />
-
-      <ConfirmDialog
-        open={confirmingBulkMove}
-        onOpenChange={setConfirmingBulkMove}
-        title="Mover processos selecionados?"
-        description={`${selected.size} processo(s) vão pra "${bulkTargetStageName?.step_name ?? ""} — ${bulkTargetStageName?.name ?? ""}".`}
-        confirmLabel="Mover"
-        onConfirm={() => bulkMove.mutate()}
-      />
-
-      {suggestion && (
-        <SuggestWorkflowDialog
-          open={suggestion !== null}
-          onOpenChange={(open) => {
-            if (!open) setSuggestion(null);
-          }}
-          workflowId={suggestion.workflowId}
-          workflowName={suggestion.workflowName}
-          lawsuit={suggestion.lawsuit}
-          stageId={suggestion.stageId}
-          onSuppressed={() => setSuggestion(null)}
-        />
-      )}
-    </div>
+        );
+      }}
+    </QueryStateGate>
   );
 }

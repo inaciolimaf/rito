@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.cache import Cache, cached_json, invalidate, tenant_key
+from app.core.cache import Cache
 from app.core.repository import decode_cursor, encode_cursor
 from app.domain.automations.engine import AutomationEngine
 from app.domain.automations.models import TriggerKind
@@ -53,10 +53,6 @@ class BoardColumnPage:
     total: int
 
 
-def board_counts_cache_key(tenant_id: uuid.UUID) -> str:
-    return tenant_key("crm:board_counts", tenant_id)
-
-
 def _no_filter(filters: LawsuitFilters) -> bool:
     """Board padrão: nenhum filtro ativo. `dataclasses.asdict` não serve porque
     `LawsuitFilters` guarda listas; comparar campo a campo com o vazio é o que diz se
@@ -92,7 +88,8 @@ class BoardService:
     ) -> None:
         self.session = session
         self.tenant_id = tenant_id
-        # Spec 098, regra 9: o contador por fase é agregado de dashboard — cache de 5 min.
+        # `cache` continua na assinatura porque os três chamadores do router de CRM o
+        # passam, mas o board não guarda mais nada: ver `get_board` (spec 137).
         self.cache = cache
         self.listing = LawsuitListingRepository(session)
         self.lawsuits = LawsuitRepository(session)
@@ -104,24 +101,25 @@ class BoardService:
     ) -> BoardData:
         """Regra 1: as 9 fases, sempre todas — `counts_by_step`/`cards_by_step` só têm
         chave pra fase com processo; o chamador (schema/frontend) completa com zero/
-        lista vazia as que faltam, sem uma 3ª query."""
-        # Spec 098, regra 9: só a visão SEM filtro é cacheada — é a que o CRM abre por
-        # padrão, e é uma chave por escritório. Com filtro, o espaço de chaves seria o
-        # produto de todos os filtros possíveis (ver `core/cache.py`).
-        if _no_filter(filters):
-            counts = {
-                int(chave): valor
-                for chave, valor in (
-                    await cached_json(
-                        self.cache,
-                        board_counts_cache_key(self.tenant_id),
-                        lambda: self.listing.board_counts(filters=filters),
-                        decode=dict,
-                    )
-                ).items()
-            }
-        else:
-            counts = await self.listing.board_counts(filters=filters)
+        lista vazia as que faltam, sem uma 3ª query.
+
+        ## O contador não é mais cacheado (spec 137)
+
+        A visão sem filtro guardava `counts_by_step` em `crm:board_counts` por 5 minutos
+        (spec 098, regra 9), e a chave só caía em `_invalidate_board_counts` — isto é, ao
+        ARRASTAR um card. Criar processo, arquivar processo e trocar a etapa pelo PUT do
+        detalhe não derrubavam nada, e o board mostrava o número velho pelo TTL inteiro.
+        Medido: com 1 processo no escritório, criar o segundo mantinha `total = 1`;
+        excluir o único também mantinha `total = 1`.
+
+        A correção não é acrescentar mais um lugar que se lembra de invalidar — é tirar
+        do cache o agregado que depende de escrita de OUTRO agregado. O que se paga por
+        isso está medido: 14,9 ms de `GROUP BY` em 20 mil processos, uma vez por abertura
+        do quadro, contra um contador que ficava errado por cinco minutos justamente
+        depois da ação que o usuário acabou de fazer. A contagem de queries da rota não
+        muda no caminho frio (5, o teto do §11); o caminho quente sai de 4 para 5.
+        """
+        counts = await self.listing.board_counts(filters=filters)
         cards = await self.listing.board(filters=filters, limit_per_column=limit_per_column)
         total = sum(counts.values())
         return BoardData(
@@ -181,12 +179,6 @@ class BoardService:
             await self.change_stage(lawsuit, to_stage_id=stage_id, changed_by=actor.id)
         return len(lawsuits)
 
-    async def _invalidate_board_counts(self) -> None:
-        """Regra 9: mover processo de etapa muda o contador da coluna. Sem isto, o
-        card sai de uma coluna e o número da outra fica velho por cinco minutos — que
-        é exatamente o tipo de incoerência que faz o usuário desconfiar da tela."""
-        await invalidate(self.cache, board_counts_cache_key(self.tenant_id))
-
     async def _emit_stage_changed(
         self, lawsuit: Lawsuit, to_stage_id: uuid.UUID, from_stage_id: uuid.UUID | None
     ) -> None:
@@ -228,4 +220,3 @@ class BoardService:
         )
         _move_to_stage(lawsuit, to_stage_id)
         await self._emit_stage_changed(lawsuit, to_stage_id, anterior)
-        await self._invalidate_board_counts()

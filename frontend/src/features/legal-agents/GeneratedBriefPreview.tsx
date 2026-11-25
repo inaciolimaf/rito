@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 
+import { SandboxedHtml } from "@/components/domain/SandboxedHtml";
 import { Button } from "@/components/ui/button";
 import type { AgentGenerationData } from "@/features/legal-agents/api";
 
@@ -47,12 +48,15 @@ export function GeneratedBriefPreview({
         </div>
       )}
 
-      <article
+      {/* Spec 138, regra 1: o HTML é escrito por um modelo de linguagem e gravado cru
+          pelo backend — `strip_unsupported_citations` troca números de súmula, não
+          sanitiza nada. Fora do sandbox, um `<img onerror>` numa minuta rodaria na nossa
+          origem, onde mora o refresh token de 30 dias. */}
+      <SandboxedHtml
         data-testid="brief-content"
-        className="prose max-w-none rounded border border-default bg-surface p-4 text-sm"
-        // O HTML vem do próprio backend (mesma origem do editor da 065), já passado
-        // pelo guarda-corpo de citações.
-        dangerouslySetInnerHTML={{ __html: generation.content.html }}
+        html={generation.content.html}
+        title="Minuta gerada"
+        className="w-full rounded border border-default bg-surface"
       />
 
       <div className="flex items-center justify-between text-xs text-muted">

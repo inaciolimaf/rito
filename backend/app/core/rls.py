@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from alembic import op
@@ -35,8 +35,10 @@ async def set_tenant_context(session: AsyncSession, tenant_id: uuid.UUID) -> Non
     Usa `set_config(..., is_local=true)` em vez de `SET LOCAL` porque asyncpg não
     aceita parâmetros ligados (bind params) dentro de comandos SET — `set_config`
     é uma função regular e aceita `$1` normalmente, evitando concatenar o UUID na SQL.
+
+    Spec 127: montado pelo query builder (`select(func.set_config(...))`). Os três
+    argumentos viajam ligados; o statement é o mesmo que o `text()` anterior produzia,
+    com a diferença de que agora entra no cache de compilação do SQLAlchemy — e esta é a
+    consulta mais executada do sistema, uma por request.
     """
-    await session.execute(
-        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
-        {"tenant_id": str(tenant_id)},
-    )
+    await session.execute(select(func.set_config("app.tenant_id", str(tenant_id), True)))

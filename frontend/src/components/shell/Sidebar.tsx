@@ -59,7 +59,11 @@ export function Sidebar({ onNavigate, onOpenPlaceholderModal }: SidebarProps): J
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {!collapsed && <span>{item.label}</span>}
+                  {collapsed ? (
+                    <span className="sr-only">{item.label}</span>
+                  ) : (
+                    <span>{item.label}</span>
+                  )}
                 </Link>
               ) : (
                 <button
@@ -68,7 +72,11 @@ export function Sidebar({ onNavigate, onOpenPlaceholderModal }: SidebarProps): J
                   className="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-sm text-primary hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {!collapsed && <span>{item.label}</span>}
+                  {collapsed ? (
+                    <span className="sr-only">{item.label}</span>
+                  ) : (
+                    <span>{item.label}</span>
+                  )}
                 </button>
               )}
             </li>

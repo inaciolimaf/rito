@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import FinancialAccess, has_financial_access
 from app.domain.attachments.models import Attachment
 from app.domain.attachments.repository import AttachmentRepository
 from app.domain.attachments.rules import validate_attachment
@@ -81,18 +82,42 @@ class AttachmentService:
             return await self.posts.get_by_id(comment.post_id)
         return None
 
-    async def _validate_target(
-        self, attached_to_type: str, attached_to_id: uuid.UUID, user: User
+    async def _validate_transaction_target(
+        self, attached_to_id: uuid.UUID, user: User, financial_minimum: FinancialAccess
     ) -> None:
-        """Confirma que o alvo existe e é acessível. Lançamentos (spec 058) não têm
-        regra de visibilidade própria de anexo — quem chega até aqui já passou pelo
-        `require_financial` do endpoint; só falta confirmar que o id existe no tenant
-        (RLS garante que não vaza de outro)."""
+        """Lançamento: o eixo financeiro É a regra de visibilidade do anexo (spec 135)."""
+        if not has_financial_access(user, financial_minimum):
+            raise AttachmentTargetNotFoundError
+        if await self.transactions.get_by_id(attached_to_id) is None:
+            raise AttachmentTargetNotFoundError
+
+    async def _validate_target(
+        self,
+        attached_to_type: str,
+        attached_to_id: uuid.UUID,
+        user: User,
+        *,
+        financial_minimum: FinancialAccess = FinancialAccess.READ_ONLY,
+    ) -> None:
+        """Confirma que o alvo existe e é acessível.
+
+        A premissa antiga era "quem chega até aqui já passou pelo `require_financial` do
+        endpoint" — e ela só valia para as rotas de `financial/router.py`. A rota genérica
+        `/attachments` aceita `attached_to_type="transaction"` e não passa por gate nenhum:
+        um usuário com `financial_access=NONE` listava, baixava e subia comprovante e nota
+        fiscal de lançamento (spec 135, regra 3). Agora o eixo financeiro é conferido AQUI,
+        onde ele vale para todo caminho que chega ao anexo.
+
+        `financial_minimum` é READ_ONLY por padrão (listar, baixar) e FULL nas escritas
+        (subir, remover) — a mesma régua do módulo financeiro. E o 404, não 403, é
+        deliberado: é o mesmo tratamento da tarefa privada logo abaixo, "para quem não tem
+        acesso, o alvo simplesmente não existe" — responder 403 confirmaria que o
+        lançamento existe.
+        """
         if attached_to_type not in _KNOWN_TARGET_TYPES:
             raise AttachmentTargetNotFoundError
         if attached_to_type == "transaction":
-            if await self.transactions.get_by_id(attached_to_id) is None:
-                raise AttachmentTargetNotFoundError
+            await self._validate_transaction_target(attached_to_id, user, financial_minimum)
             return
         post = await self._post_for_target(attached_to_type, attached_to_id)
         if post is None:
@@ -115,7 +140,10 @@ class AttachmentService:
     ) -> Attachment:
         # Regra 5: tamanho e tipo antes de qualquer IO de storage.
         validate_attachment(filename=filename, content_type=content_type, size_bytes=len(content))
-        await self._validate_target(attached_to_type, attached_to_id, user)
+        # Subir anexo em lançamento é escrita no financeiro: exige FULL (spec 135, regra 3).
+        await self._validate_target(
+            attached_to_type, attached_to_id, user, financial_minimum=FinancialAccess.FULL
+        )
         if attached_to_type == "transaction":
             # Regra 7 (spec 058): no máximo 20 anexos por lançamento.
             existing = await self.attachments.list_for(attached_to_type, attached_to_id)
@@ -136,27 +164,47 @@ class AttachmentService:
             )
         )
 
-    async def _get_accessible(self, attachment_id: uuid.UUID, user: User) -> Attachment:
+    async def get_accessible(
+        self,
+        attachment_id: uuid.UUID,
+        user: User,
+        *,
+        financial_minimum: FinancialAccess = FinancialAccess.READ_ONLY,
+    ) -> Attachment:
+        """O anexo, se este usuário puder vê-lo. É o ÚNICO caminho legítimo até um anexo.
+
+        Público desde a spec 135 (regra 3) porque havia um segundo caminho: a extração de
+        documento (`POST /documents/extract?attachment_id=`) buscava o anexo direto no
+        repositório e devolvia o conteúdo dentro do OCR — sem a regra de tarefa privada e
+        sem o eixo financeiro. Uma autorização que existe em um caminho e não no outro não
+        é uma autorização; é uma preferência.
+        """
         attachment = await self.attachments.get_by_id(attachment_id)
         if attachment is None:
             raise AttachmentNotFoundError
         try:
             await self._validate_target(
-                attachment.attached_to_type, attachment.attached_to_id, user
+                attachment.attached_to_type,
+                attachment.attached_to_id,
+                user,
+                financial_minimum=financial_minimum,
             )
         except AttachmentTargetNotFoundError as exc:
             raise AttachmentNotFoundError from exc
         return attachment
 
     async def download_url(self, attachment_id: uuid.UUID, user: User) -> str:
-        attachment = await self._get_accessible(attachment_id, user)
+        attachment = await self.get_accessible(attachment_id, user)
         # Regra 6: URL assinada com validade de 5 minutos.
         return self.storage.signed_url(
             attachment.storage_key, expires_in_seconds=_DOWNLOAD_URL_EXPIRY_SECONDS
         )
 
     async def delete(self, attachment_id: uuid.UUID, user: User) -> None:
-        attachment = await self._get_accessible(attachment_id, user)
+        # Remover anexo de lançamento é escrita no financeiro (spec 135, regra 3).
+        attachment = await self.get_accessible(
+            attachment_id, user, financial_minimum=FinancialAccess.FULL
+        )
         if attachment.uploaded_by != user.id and user.role not in _ADMIN_OR_ABOVE:
             raise AttachmentDeleteForbiddenError
         await self.session.delete(attachment)

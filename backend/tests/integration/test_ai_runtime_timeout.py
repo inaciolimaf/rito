@@ -332,7 +332,8 @@ class _ConfiguredProvider:
 
     async def stream(self, **kwargs: Any) -> AsyncIterator[LLMChunk]:  # pragma: no cover
         raise AssertionError("nenhum turno roda neste teste")
-        yield LLMChunk(kind="done")
+        # O yield é inalcançável de propósito: torna `stream` um gerador assíncrono.
+        yield LLMChunk(kind="done")  # type: ignore[unreachable]
 
     async def models(self) -> list[ModelInfo]:  # pragma: no cover
         return []

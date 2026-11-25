@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 
+import { useClickOutside } from "@/components/domain/useClickOutside";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -19,18 +20,11 @@ export interface QuickAddMenuProps {
 
 export function QuickAddMenu({ onNewTask }: QuickAddMenuProps): JSX.Element {
   const [isOpen, setIsOpen] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  // Spec 138, regra 10: clicar fora **e** Esc, num hook só. Os três menus do shell
+  // anunciam `role="menu"` e nenhum fechava com Esc — quem navega por teclado abria o
+  // menu e só saía dele tabulando para fora.
+  const containerRef = useClickOutside<HTMLDivElement>(isOpen, () => setIsOpen(false));
   const navigate = useNavigate();
-
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent): void {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   return (
     <div ref={containerRef} className="relative">

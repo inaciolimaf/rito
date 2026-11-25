@@ -15,13 +15,16 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
 from typing import Any, NoReturn
 
-from sqlalchemy import select, text
+from sqlalchemy import Date, Numeric, cast, func, literal, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.selectable import ScalarSelect, Select
 
 from app.ai.prompts import load_prompt
 from app.core.repository import BaseRepository
+from app.domain.action_groups.models import ActionGroup, LawsuitType
 from app.domain.ai.models import AiInsight, AiSqlQuery
 from app.domain.ai.service import AiRunner
 from app.domain.ai.sql_guard import (
@@ -31,6 +34,10 @@ from app.domain.ai.sql_guard import (
     SqlRejected,
     check_sql,
 )
+from app.domain.financial.models import Transaction, TransactionKind
+from app.domain.lawsuits.models import Lawsuit
+from app.domain.posts.models import Post, PostUser
+from app.domain.stages.models import Stage
 from app.domain.users.models import FinancialAccess, User
 from app.integrations.openrouter.types import Message
 
@@ -50,34 +57,129 @@ _SQL_SYSTEM = load_prompt("analytics_sql")
 
 CLARIFICATION_PREFIX = "PRECISO_DE_ESCLARECIMENTO:"
 
+# Spec 133: o papel de banco em que a consulta do MODELO roda. Criado na migration
+# 133_papel_de_leitura_da_ia — sem `EXECUTE` em `set_config`, com `SELECT` só nas 9
+# relações da `ALLOWED_RELATIONS`. Ver `_run_readonly`.
+AI_QUERY_ROLE = "rito_ai"
+
 
 # Uma consulta só, com subqueries correlacionadas, e não seis: o orçamento de queries do
 # CLAUDE.md §11 conta statements, e o painel de sinais é lido dentro do detalhe do processo,
-# que tem 5 no total. Fora do corpo da função porque SQL de 25 linhas dentro de um método
-# esconde o que o método faz — aqui ele é um dado nomeado, não lógica.
-_SINAIS_SQL = """
-    SELECT s.name AS stage,
-           l.last_movement_at,
-           l.is_stagnant,
-           (SELECT count(*) FROM posts p
-             JOIN post_users pu ON pu.post_id = p.id
-            WHERE p.lawsuit_id = l.id AND pu.completed_at IS NULL) AS open_tasks,
-           (SELECT count(*) FROM posts p
-             JOIN post_users pu ON pu.post_id = p.id
-            WHERE p.lawsuit_id = l.id AND pu.completed_at IS NULL
-              AND p.deadline_date < :hoje) AS overdue_tasks,
-           (SELECT min(p.deadline_date) FROM posts p
-             JOIN post_users pu ON pu.post_id = p.id
-            WHERE p.lawsuit_id = l.id AND pu.completed_at IS NULL
-              AND p.deadline_date >= :hoje) AS next_deadline,
-           (SELECT coalesce(sum(t.amount), 0) FROM transactions t
-            WHERE t.lawsuit_id = l.id AND t.kind = 'RECEITA'
-              AND t.payment_date IS NULL AND t.due_date < :hoje
-              AND NOT t.is_internal) AS overdue_amount
-    FROM lawsuits l
-    JOIN stages s ON s.id = l.stage_id
-    WHERE l.id = :lawsuit_id
-"""
+# que tem 5 no total. Fora do corpo do método porque uma consulta de 25 linhas dentro dele
+# esconde o que o método faz — aqui ela é um dado nomeado, não lógica.
+#
+# Spec 127: era uma string de SQL; agora é o mesmo desenho montado pelo query builder. As
+# quatro subqueries continuam CORRELACIONADAS (referenciam `Lawsuit.id` da consulta de
+# fora, e o SQLAlchemy tira `lawsuits` do FROM delas sozinho) — se alguma deixasse de ser,
+# o resultado mudaria de "deste processo" para "de todos", e o gate de orçamento de
+# queries não pegaria isso porque o número de statements continuaria 1.
+
+
+def _tarefas_abertas(*extra: Any) -> ScalarSelect[int]:
+    """`count(*)` das tarefas do processo ainda não concluídas, com filtros extras."""
+    return (
+        select(func.count())
+        .select_from(Post)
+        .join(PostUser, PostUser.post_id == Post.id)
+        .where(Post.lawsuit_id == Lawsuit.id, PostUser.completed_at.is_(None), *extra)
+        .scalar_subquery()
+    )
+
+
+def _proximo_prazo(dia: Any) -> ScalarSelect[date | None]:
+    """A menor data de prazo ainda por vencer entre as tarefas abertas do processo."""
+    return (
+        select(func.min(Post.deadline_date))
+        .select_from(Post)
+        .join(PostUser, PostUser.post_id == Post.id)
+        .where(
+            Post.lawsuit_id == Lawsuit.id,
+            PostUser.completed_at.is_(None),
+            Post.deadline_date >= dia,
+        )
+        .scalar_subquery()
+    )
+
+
+def _inadimplencia(dia: Any) -> ScalarSelect[Decimal]:
+    """Receita vencida e não paga do processo — só a que é do cliente (regra 6)."""
+    return (
+        select(func.coalesce(func.sum(Transaction.amount), 0))
+        .where(
+            Transaction.lawsuit_id == Lawsuit.id,
+            Transaction.kind == TransactionKind.RECEITA,
+            Transaction.payment_date.is_(None),
+            Transaction.due_date < dia,
+            Transaction.is_internal.is_(False),
+        )
+        .scalar_subquery()
+    )
+
+
+def _sinais_query(lawsuit_id: uuid.UUID, hoje: date) -> Select[Any]:
+    dia = literal(hoje, Date())
+    return (
+        select(
+            Stage.name.label("stage"),
+            Lawsuit.last_movement_at,
+            Lawsuit.is_stagnant,
+            _tarefas_abertas().label("open_tasks"),
+            _tarefas_abertas(Post.deadline_date < dia).label("overdue_tasks"),
+            _proximo_prazo(dia).label("next_deadline"),
+            _inadimplencia(dia).label("overdue_amount"),
+        )
+        .select_from(Lawsuit)
+        .join(Stage, Stage.id == Lawsuit.stage_id)
+        .where(Lawsuit.id == lawsuit_id)
+    )
+
+
+def _inadimplentes_query(hoje: date) -> Select[Any]:
+    """Receita vencida por CLIENTE (não por processo) — o insight é sobre a cobrança."""
+    return (
+        select(
+            Transaction.customer_id,
+            func.sum(Transaction.amount).label("total"),
+            func.count().label("lancamentos"),
+        )
+        .where(
+            Transaction.kind == TransactionKind.RECEITA,
+            Transaction.payment_date.is_(None),
+            Transaction.due_date < hoje,
+            Transaction.is_internal.is_(False),
+            Transaction.customer_id.is_not(None),
+        )
+        .group_by(Transaction.customer_id)
+        .having(func.sum(Transaction.amount) > 0)
+        .limit(50)
+    )
+
+
+def _carteira_query() -> Select[Any]:
+    """Processos ativos por grupo de ação, com o percentual sobre o total.
+
+    `100.0` como NUMERIC, não como inteiro: `100 * count(*) / total` seria divisão
+    inteira e toda concentração abaixo de 100% viraria 0. Era o que o `100.0` da versão
+    em string comprava, e é o que `cast(..., Numeric)` compra aqui.
+    """
+    processos = func.count()
+    pct = func.round(
+        cast(
+            literal(Decimal("100.0"), Numeric)
+            * processos
+            / func.nullif(func.sum(processos).over(), 0),
+            Numeric,
+        ),
+        1,
+    )
+    return (
+        select(ActionGroup.id, ActionGroup.name, processos.label("processos"), pct.label("pct"))
+        .select_from(Lawsuit)
+        .join(LawsuitType, LawsuitType.id == Lawsuit.lawsuit_type_id)
+        .join(ActionGroup, ActionGroup.id == LawsuitType.action_group_id)
+        .where(Lawsuit.is_archived.is_(False))
+        .group_by(ActionGroup.id, ActionGroup.name)
+    )
 
 
 class ClarificationNeeded(Exception):
@@ -302,12 +404,37 @@ class AnalyticsService:
     async def _run_readonly(self, sql: str) -> tuple[list[str], list[dict[str, Any]]]:
         """A consulta dentro do savepoint somente-leitura, com timeout.
 
+        Os únicos `text()` que a spec 127 deixou no domínio estão aqui, e por dois motivos
+        que não têm conserto: `SET LOCAL` e `SAVEPOINT`/`ROLLBACK TO` são comandos de
+        SESSÃO, que o query builder não monta porque não são consultas; e `sql` é a
+        consulta que o MODELO escreveu — é o produto desta feature, e passar por um
+        builder mudaria o que o usuário vê no preview e o que o guardrail acabou de
+        aprovar. A defesa dela não é a montagem, é o `check_sql` + a transação
+        somente-leitura (§5).
+
         `SET LOCAL` vale até o fim da subtransação, e é isso que torna o modo reversível:
         o Postgres NÃO deixa voltar de read-only para read-write dentro da mesma
         transação, mas desfaz o `SET LOCAL` ao abortar o savepoint.
+
+        **Spec 133 — o `SET LOCAL ROLE`.** `transaction_read_only` fecha a escrita e não
+        fecha a LEITURA do escritório vizinho: `set_config('app.tenant_id', <outro tenant>,
+        true)` não é escrita, e dentro de uma subconsulta em `OFFSET` ela vira um InitPlan
+        que o Postgres avalia ANTES de varrer a relação — as views barreira leem o GUC
+        depois, e devolvem as linhas do outro. Medido no HEAD, ponta a ponta.
+
+        `rito_ai` (migration 133) é um papel sem `EXECUTE` em `set_config` e com `SELECT`
+        só nas 9 relações do catálogo. Enquanto ele é o papel corrente, o `app.tenant_id`
+        da sessão é IMUTÁVEL — não por convenção, por privilégio: a tentativa morre com
+        *permission denied for function set_config* antes de ler uma linha. E o
+        `ROLLBACK TO SAVEPOINT` devolve `rito_app` junto com o resto, o que mantém a
+        gravação do log de auditoria logo depois no papel de sempre.
+
+        Isto **não** é a fuga do RLS que o gate de `SET ROLE` proíbe: é o contrário dela —
+        o papel assumido pode estritamente menos que `rito_app`, e some com o savepoint.
         """
         await self.session.execute(text(f"SET LOCAL statement_timeout = {STATEMENT_TIMEOUT_MS}"))
         await self.session.execute(text("SET LOCAL transaction_read_only = on"))
+        await self.session.execute(text(f"SET LOCAL ROLE {AI_QUERY_ROLE}"))
         resultado = await self.session.execute(text(sql))
         colunas = list(resultado.keys())
         return colunas, [dict(zip(colunas, row, strict=True)) for row in resultado.fetchall()]
@@ -421,9 +548,7 @@ class AnalyticsService:
         return _recommendation(sinais, lawsuit_id)
 
     async def _signals(self, lawsuit_id: uuid.UUID, hoje: date) -> dict[str, Any]:
-        row = (
-            await self.session.execute(text(_SINAIS_SQL), {"lawsuit_id": lawsuit_id, "hoje": hoje})
-        ).first()
+        row = (await self.session.execute(_sinais_query(lawsuit_id, hoje))).first()
         if row is None:
             raise LookupError("Processo não encontrado neste escritório.")
         sem_movimento = (hoje - row.last_movement_at.date()).days if row.last_movement_at else None
@@ -496,18 +621,22 @@ class AnalyticsService:
         return insight
 
     async def _deadline_rows(self, hoje: date) -> list[dict[str, Any]]:
-        rows = (
-            await self.session.execute(
-                text("""
-                    SELECT p.lawsuit_id, min(p.deadline_date) AS prazo, count(*) AS tarefas
-                    FROM posts p JOIN post_users pu ON pu.post_id = p.id
-                    WHERE pu.completed_at IS NULL AND p.deadline_date IS NOT NULL
-                      AND p.deadline_date BETWEEN :hoje AND :limite
-                    GROUP BY p.lawsuit_id
-                    """),
-                {"hoje": hoje, "limite": hoje + timedelta(days=DEADLINE_RISK_DAYS)},
+        consulta = (
+            select(
+                Post.lawsuit_id,
+                func.min(Post.deadline_date).label("prazo"),
+                func.count().label("tarefas"),
             )
-        ).all()
+            .select_from(Post)
+            .join(PostUser, PostUser.post_id == Post.id)
+            .where(
+                PostUser.completed_at.is_(None),
+                Post.deadline_date.is_not(None),
+                Post.deadline_date.between(hoje, hoje + timedelta(days=DEADLINE_RISK_DAYS)),
+            )
+            .group_by(Post.lawsuit_id)
+        )
+        rows = (await self.session.execute(consulta)).all()
         return [
             {
                 "severity": "critical",
@@ -523,19 +652,23 @@ class AnalyticsService:
         ]
 
     async def _stagnation_rows(self, hoje: date) -> list[dict[str, Any]]:
-        rows = (
-            await self.session.execute(
-                text("""
-                    SELECT l.id, s.name AS stage, l.last_movement_at
-                    FROM lawsuits l JOIN stages s ON s.id = l.stage_id
-                    WHERE NOT l.is_archived
-                      AND (l.last_movement_at IS NULL OR l.last_movement_at < :cutoff)
-                      AND l.created_at < :cutoff
-                    LIMIT 50
-                    """),
-                {"cutoff": hoje - timedelta(days=STAGNATION_DAYS)},
+        # `literal(..., Date())` e não o `date` cru: sem o tipo, o parâmetro chega ao
+        # asyncpg sem nada que diga o que ele é, e a comparação com uma coluna
+        # `timestamptz` fica dependendo de inferência. Com o tipo, é o Postgres que
+        # promove a data — exatamente o que a versão em string fazia.
+        cutoff = literal(hoje - timedelta(days=STAGNATION_DAYS), Date())
+        consulta = (
+            select(Lawsuit.id, Stage.name.label("stage"), Lawsuit.last_movement_at)
+            .select_from(Lawsuit)
+            .join(Stage, Stage.id == Lawsuit.stage_id)
+            .where(
+                Lawsuit.is_archived.is_(False),
+                or_(Lawsuit.last_movement_at.is_(None), Lawsuit.last_movement_at < cutoff),
+                Lawsuit.created_at < cutoff,
             )
-        ).all()
+            .limit(50)
+        )
+        rows = (await self.session.execute(consulta)).all()
         return [
             {
                 "severity": "warning",
@@ -551,21 +684,7 @@ class AnalyticsService:
         ]
 
     async def _overdue_rows(self, hoje: date) -> list[dict[str, Any]]:
-        rows = (
-            await self.session.execute(
-                text("""
-                    SELECT t.customer_id, sum(t.amount) AS total, count(*) AS lancamentos
-                    FROM transactions t
-                    WHERE t.kind = 'RECEITA' AND t.payment_date IS NULL
-                      AND t.due_date < :hoje AND NOT t.is_internal
-                      AND t.customer_id IS NOT NULL
-                    GROUP BY t.customer_id
-                    HAVING sum(t.amount) > 0
-                    LIMIT 50
-                    """),
-                {"hoje": hoje},
-            )
-        ).all()
+        rows = (await self.session.execute(_inadimplentes_query(hoje))).all()
         return [
             {
                 "severity": "warning",
@@ -582,16 +701,7 @@ class AnalyticsService:
         ]
 
     async def _portfolio_rows(self) -> list[dict[str, Any]]:
-        rows = (await self.session.execute(text("""
-                    SELECT ag.id, ag.name,
-                           count(*) AS processos,
-                           round(100.0 * count(*) / NULLIF(sum(count(*)) OVER (), 0), 1) AS pct
-                    FROM lawsuits l
-                    JOIN lawsuit_types lt ON lt.id = l.lawsuit_type_id
-                    JOIN action_groups ag ON ag.id = lt.action_group_id
-                    WHERE NOT l.is_archived
-                    GROUP BY ag.id, ag.name
-                    """))).all()
+        rows = (await self.session.execute(_carteira_query())).all()
         return [
             {
                 "severity": "info",

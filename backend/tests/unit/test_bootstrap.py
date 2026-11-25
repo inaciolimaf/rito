@@ -31,6 +31,9 @@ def _producao(**overrides: object) -> Settings:
         "s3_bucket": "rito",
         "s3_region": "us-east-1",
         "cors_allowed_origins": "https://app.exemplo.com.br",
+        # Obrigatória desde a spec 135 (regra 4): sem ela o `/metrics` responde a qualquer
+        # um, e o `.env.production.example` a trazia vazia — o padrão era a rota aberta.
+        "metrics_token": "b" * 32,
     }
     return Settings.model_construct(**(base | overrides))  # type: ignore[arg-type]  # ver comentário acima
 
@@ -93,3 +96,48 @@ def test_desenvolvimento_nao_e_barrado_por_nada_disso() -> None:
     )
 
     assert validate(dev) == []
+
+
+def test_metrics_token_faltando_em_producao_recusa_subir() -> None:
+    """Spec 135, regra 4 — e a decisão que ela tomou.
+
+    Havia duas saídas para "`/metrics` aberto por padrão": negar a rota quando não há token,
+    ou recusar o boot. A escolha foi recusar o boot, pelo precedente da regra 6 (o
+    `SECRET_KEY` de exemplo) e por um motivo prático: negar a rota transforma um problema de
+    segurança em um painel de observabilidade que para de funcionar sem dizer por quê, e o
+    operador descobre no dia em que precisa dele. Recusar o boot avisa no deploy, junto com
+    todo o resto que falta, e ninguém precisa adivinhar.
+    """
+    problemas = validate(_producao(metrics_token=None))
+
+    assert [p.variavel for p in problemas] == ["metrics_token"]
+    assert "/metrics" in problemas[0].motivo
+
+
+def test_metrics_token_vazio_conta_como_faltando() -> None:
+    """`METRICS_TOKEN=` no arquivo é exatamente o estado que abria a rota."""
+    assert [p.variavel for p in validate(_producao(metrics_token=""))] == ["metrics_token"]
+
+
+def test_cors_coringa_em_producao_recusa_subir() -> None:
+    """Spec 135, regra 5. `allow_origins=["*"]` com `allow_credentials=True` é a combinação
+    que o navegador deveria recusar — e «deveria» não é garantia que se leva para produção.
+    O checador antigo só olhava para "localhost" e deixava o coringa passar inteiro."""
+    problemas = validate(_producao(cors_allowed_origins="*"))
+
+    assert [p.variavel for p in problemas] == ["cors_allowed_origins"]
+    assert "coringa" in problemas[0].motivo
+
+
+def test_cors_coringa_no_meio_da_lista_tambem_recusa() -> None:
+    """Uma origem legítima ao lado não desfaz o coringa — basta ele estar na lista."""
+    problemas = validate(_producao(cors_allowed_origins="https://app.exemplo.com.br, *"))
+
+    assert [p.variavel for p in problemas] == ["cors_allowed_origins"]
+
+
+def test_origem_que_apenas_CONTEM_asterisco_nao_e_coringa() -> None:
+    """A comparação é por origem inteira, não por substring: um subdomínio curinga escrito
+    à mão (`https://*.exemplo.com.br`) é outro problema — inútil, porque o middleware não o
+    expande — e não é ESTE. Confundir os dois faria a mensagem mentir sobre a causa."""
+    assert validate(_producao(cors_allowed_origins="https://*.exemplo.com.br")) == []

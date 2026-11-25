@@ -109,19 +109,34 @@ class ToolDef:
         return ToolSpec(name=self.name, description=self.description, parameters=self.json_schema())
 
     def check_permission(self, user: User) -> None:
-        if _ROLE_ORDER[user.role] < _ROLE_ORDER[self.requires_role]:
-            raise ToolError(
-                "forbidden",
-                f"O usuário não tem perfil {self.requires_role.value} para usar {self.name}.",
-            )
-        if _FINANCIAL_ORDER[user.financial_access] < _FINANCIAL_ORDER[self.requires_financial]:
-            raise ToolError(
-                "forbidden_financial",
-                (
-                    f"O usuário não tem acesso financeiro para usar {self.name}. "
-                    "Explique isso a ele em vez de tentar outra ferramenta financeira."
-                ),
-            )
+        recusa = permission_refusal(
+            self.name, user, role=self.requires_role, financial=self.requires_financial
+        )
+        if recusa is not None:
+            raise ToolError(*recusa)
+
+
+def permission_refusal(
+    nome: str, user: User, *, role: UserRole, financial: FinancialAccess
+) -> tuple[str, str] | None:
+    """`(código, motivo)` da recusa, ou `None` quando o usuário pode usar a ferramenta.
+
+    Spec 133: a mesma comparação de perfil e de acesso financeiro estava escrita em três
+    lugares (aqui, em `AiActionService._permission_error` e, por omissão, em lugar nenhum
+    para o catálogo de ESCRITA — que era o defeito). Uma resposta, um lugar; as tabelas de
+    ordem continuam vindo de `app/core/permissions.py`, que é onde a hierarquia mora.
+    """
+    if _ROLE_ORDER[user.role] < _ROLE_ORDER[role]:
+        return ("forbidden", f"O usuário não tem perfil {role.value} para usar {nome}.")
+    if _FINANCIAL_ORDER[user.financial_access] < _FINANCIAL_ORDER[financial]:
+        return (
+            "forbidden_financial",
+            (
+                f"O usuário não tem acesso financeiro para usar {nome}. "
+                "Explique isso a ele em vez de tentar outra ferramenta financeira."
+            ),
+        )
+    return None
 
 
 _REGISTRY: dict[str, ToolDef] = {}
@@ -183,6 +198,11 @@ def tool_specs(user: User, *, include_write: bool = True) -> list[ToolSpec]:
 
     As de escrita (084) entram com a mesma descrição que a UI vai mostrar — e todas
     dizem "exige confirmação", porque é isso que acontece quando o modelo as chama.
+
+    Spec 133: elas passam pelo MESMO filtro. Antes só as de leitura passavam, e o resultado
+    era o agente anunciando ao usuário um lançamento financeiro que o `propose` ia recusar
+    meio segundo depois — o motivo escrito duas linhas acima, aplicado a metade do catálogo.
+    Não era vazamento (a ação nascia rejeitada); era token gasto e promessa quebrada.
     """
     specs = []
     for definition in all_tools():
@@ -196,11 +216,12 @@ def tool_specs(user: User, *, include_write: bool = True) -> list[ToolSpec]:
 
         specs.extend(
             ToolSpec(
-                name=definition.name,
-                description=definition.description,
-                parameters=definition.json_schema(),
+                name=escrita.name,
+                description=escrita.description,
+                parameters=escrita.json_schema(),
             )
-            for definition in all_write_tools()
+            for escrita in all_write_tools()
+            if escrita.permission_error(user) is None
         )
     return specs
 

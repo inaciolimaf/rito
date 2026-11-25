@@ -62,6 +62,56 @@ check "wall-clock acima do orçamento derruba o gate mesmo com tudo verde" 1 "$?
 )
 check "tudo verde e dentro do orçamento passa o gate" 0 "$?"
 
+# ---------------------------------------------------------------------------
+# Spec 139 — os cenários do `run_e2e`, que o teste não cobria.
+#
+# Os três acima sobrescrevem run_e2e e nunca o executam; o `else` do original —
+# "e2e: nenhuma jornada ainda — pulando", com exit 0 — era o quarto caminho por
+# onde a suíte de e2e inteira sumia sem vermelho. É a mesma assinatura do achado
+# da spec 131: um gate que via três de quatro casos.
+#
+# Os dois cenários rodam num diretório temporário porque `run_e2e` procura em
+# `e2e/tests` relativo ao diretório corrente.
+# ---------------------------------------------------------------------------
+
+sandbox="$(mktemp -d)"
+trap 'mv "$REPO_ROOT/test-timing.json.bak" "$REPO_ROOT/test-timing.json"; rm -rf "$sandbox"' EXIT
+mkdir -p "$sandbox/e2e/tests/meta"
+
+# Cenário D: e2e/tests sem nenhuma jornada (só o gate de contagem) -> tem que FALHAR.
+(
+	source "$REPO_ROOT/scripts/run-tests.sh"
+	_e2e_runner() { return 0; }
+	echo 'test("conta", () => {});' >"$sandbox/e2e/tests/meta/journey-count.spec.ts"
+	cd "$sandbox" && run_e2e >/dev/null 2>&1
+)
+check "e2e sem nenhuma jornada derruba o gate (não 'pulando')" 1 "$?"
+
+# Cenário E: diretório inexistente -> mesma falha, sem ruído de `find` no stderr.
+(
+	source "$REPO_ROOT/scripts/run-tests.sh"
+	_e2e_runner() { return 0; }
+	cd "$(mktemp -d)" && run_e2e >/dev/null 2>&1
+)
+check "e2e/tests inexistente derruba o gate" 1 "$?"
+
+# Cenário F: controle — com jornada, run_e2e chega no runner e devolve o que ele devolve.
+(
+	source "$REPO_ROOT/scripts/run-tests.sh"
+	_e2e_runner() { return 0; }
+	echo 'test("jornada", async ({ page }) => {});' >"$sandbox/e2e/tests/auth.spec.ts"
+	cd "$sandbox" && run_e2e >/dev/null 2>&1
+)
+check "com jornada, run_e2e delega ao runner (controle)" 0 "$?"
+
+# Cenário G: e o controle não vira falso negativo — runner vermelho continua vermelho.
+(
+	source "$REPO_ROOT/scripts/run-tests.sh"
+	_e2e_runner() { return 1; }
+	cd "$sandbox" && run_e2e >/dev/null 2>&1
+)
+check "runner de e2e falhando derruba o gate" 1 "$?"
+
 if [ "$failures" -gt 0 ]; then
 	echo "$failures cenário(s) falharam"
 	exit 1

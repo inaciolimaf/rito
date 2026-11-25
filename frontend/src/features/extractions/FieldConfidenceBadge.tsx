@@ -18,7 +18,7 @@ export function FieldConfidenceBadge({
   return (
     <span className="flex items-center gap-1">
       <span
-        className={`rounded px-1.5 py-0.5 text-[11px] ${
+        className={`rounded px-1.5 py-0.5 text-caption ${
           baixa ? "bg-warning/20 text-warning" : "bg-success/20 text-success"
         }`}
         title={baixa ? "Leitura incerta — confira no documento" : "Leitura confiável"}
@@ -27,7 +27,7 @@ export function FieldConfidenceBadge({
       </span>
       {!isValid && (
         <span
-          className="rounded bg-danger/20 px-1.5 py-0.5 text-[11px] text-danger"
+          className="rounded bg-danger/20 px-1.5 py-0.5 text-caption text-danger"
           title="O dígito verificador não fecha — pode ser erro de leitura"
         >
           inválido

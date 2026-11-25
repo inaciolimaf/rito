@@ -14,6 +14,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     css: true,
+    // Medido em 2 pares intercalados (maxWorkers=1, 126 arquivos): threads 153 s e 171 s de
+    // parede contra 208 s e 183 s do forks; CPU 204 s e 224 s contra 235 s e 237 s.
+    // Só os testes sem isolamento de processo precisariam de forks (nenhum existe hoje).
+    pool: "threads",
     setupFiles: ["./src/test/setup.ts"],
     coverage: {
       provider: "v8",
@@ -32,9 +36,11 @@ export default defineConfig({
       // Branches (75,21%) e functions (51,56%) são medidos e publicados no resumo do
       // CI, mas não são gate: §6 da spec deixa fora — ligar dois números novos ao
       // mesmo tempo é um a mais do que dá para defender.
+      // Remedido no Vitest 5 (25/11/2026): a régua mudou de linhas para statements da AST —
+      // mesmo código, 60,17% no Vitest 3 contra 49,65% no 5. Ver coverage.json.
       thresholds: {
-        statements: 53,
-        lines: 53,
+        statements: 49,
+        lines: 51,
       },
     },
   },

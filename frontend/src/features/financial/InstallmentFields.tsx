@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import type { TransactionFormValues } from "@/features/financial/schema";
 import { installmentDueDates, splitInstallmentAmounts } from "@/lib/installments";
 import { formatBrl } from "@/lib/money";
+import { formatBrDate } from "@/lib/format";
 
 export interface InstallmentFieldsProps {
   form: UseFormReturn<TransactionFormValues>;
@@ -46,7 +47,7 @@ export function InstallmentFields({ form }: InstallmentFieldsProps): JSX.Element
           {preview.map((item) => (
             <li key={item.number} className="flex justify-between text-primary">
               <span>
-                {item.number}/{count} — {item.due_date.split("-").reverse().join("/")}
+                {item.number}/{count} — {formatBrDate(item.due_date)}
               </span>
               <span>{formatBrl(item.amount)}</span>
             </li>

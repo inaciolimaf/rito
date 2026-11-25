@@ -7,17 +7,36 @@
     --surface: 0 0% 100%;
     --surface-muted: 210 20% 96%;
     --text-primary: 222 47% 11%;
-    --text-muted: 215 16% 47%;
+    --text-muted: 215 16% 45%;
     --border-default: 214 32% 91%;
     --accent: 221 83% 53%;
     --accent-foreground: 210 40% 98%;
-    --danger: 0 84% 60%;
+    --danger: 0 84% 47%;
     --danger-foreground: 210 40% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 20 14% 4%;
-    --success: 142 71% 45%;
+    --warning: 38 92% 33%;
+    --warning-foreground: 0 0% 0%;
+    --success: 142 71% 30%;
     --success-foreground: 210 40% 98%;
     --radius: 0.5rem;
+    --overlay: 222 47% 11%;
+
+    /* Cores de gráfico: conteúdo, não tema. Fixas nas duas temas (ver docs/frontend-identity.md). */
+    --chart-1: var(--accent);
+    --chart-2: 220 70% 55%;
+    --chart-3: 160 60% 45%;
+    --chart-4: 30 90% 55%;
+    --chart-5: 280 60% 55%;
+    --chart-6: 0 70% 55%;
+    --chart-7: 190 70% 45%;
+    --chart-8: 50 80% 50%;
+    --chart-9: 320 60% 55%;
+    --chart-10: 100 50% 45%;
+    --chart-muted: var(--text-muted);
+    --chart-neutral: 220 9% 46%;
+    --chart-prospecting: 142 76% 36%;
+    --chart-production: 198 93% 60%;
+    --chart-execution: 224 64% 33%;
+    --chart-full-cycle: 0 72% 51%;
   }
 
   .dark {
@@ -26,14 +45,15 @@
     --text-primary: 210 40% 98%;
     --text-muted: 215 20% 65%;
     --border-default: 217 33% 24%;
-    --accent: 217 91% 60%;
+    --accent: 217 91% 63%;
     --accent-foreground: 222 47% 11%;
-    --danger: 0 63% 51%;
-    --danger-foreground: 210 40% 98%;
+    --danger: 0 63% 65%;
+    --danger-foreground: 222 47% 11%;
     --warning: 38 92% 50%;
     --warning-foreground: 20 14% 4%;
     --success: 142 71% 45%;
     --success-foreground: 144 61% 10%;
+    --overlay: 0 0% 0%;
   }
 
   * {
@@ -42,5 +62,21 @@
 
   body {
     @apply bg-surface text-primary;
+  }
+}
+
+/* Movimento: quem pede menos movimento recebe a troca imediata (transições e pulsos).
+ * O giro do Loader2 é indicador de carregamento e continua girando de propósito. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-pulse {
+    animation: none;
   }
 }

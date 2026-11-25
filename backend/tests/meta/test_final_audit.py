@@ -8,6 +8,7 @@ próxima spec não precisar redescobrir o mesmo problema.
 import ast
 import re
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 
@@ -138,15 +139,86 @@ def test_nenhum_teste_e_pulado_sem_justificativa() -> None:
     assert ofensores == [], "teste pulado sem justificativa:\n  " + "\n  ".join(ofensores)
 
 
-def test_e2e_dentro_do_teto_de_25_jornadas() -> None:
-    """CLAUDE.md §3. O e2e é a suíte mais cara por caso; sem teto ela cresce até ser o
-    único poste que importa, e aí ninguém mais roda a suíte inteira localmente."""
-    jornadas = sum(
+# O teto é o do CLAUDE.md §3. O PISO é a spec 139.
+#
+# Até ela, os dois gates de jornada do projeto — este e
+# `e2e/tests/meta/journey-count.spec.ts` — afirmavam só `<= 25`, e **zero satisfaz os
+# dois**. Apagar as nove jornadas deixava `make test` verde e mais RÁPIDO, porque o
+# wall-clock do §11 melhorava junto; apagar o diretório inteiro nem subia o Playwright,
+# porque o `run_e2e` do `scripts/run-tests.sh` pulava a suíte com exit 0. O teto nunca
+# foi o risco: o piso é que não existia.
+#
+# O piso é o valor MEDIDO hoje, no molde do piso de cobertura da spec 117 — sobe quando a
+# medição sobe, e descer exige spec própria, como todo número do `docs/GATES.md`.
+TETO_DE_JORNADAS = 25
+PISO_DE_JORNADAS = 9
+
+
+def _jornadas_em(raiz: Path) -> int:
+    """Jornadas de e2e sob `raiz`, ignorando `meta/`.
+
+    `meta/` guarda gates SOBRE as jornadas (a contagem, por exemplo), não jornadas — e
+    contá-los é o que faria um e2e esvaziado, com só o contador sobrando, parecer que
+    ainda tem uma jornada. É a mesma exclusão que o `journey-count.spec.ts` faz do outro
+    lado, e agora os dois gates contam o mesmo número.
+    """
+    return sum(
         len(re.findall(r"^\s*test\(", caminho.read_text(), flags=re.M))
-        for caminho in arquivos(E2E, ".spec.ts")
+        for caminho in arquivos(raiz, ".spec.ts")
+        if "meta" not in caminho.relative_to(raiz).parts
     )
 
-    assert jornadas <= 25, f"{jornadas} jornadas e2e — o teto é 25"
+
+def _conferir_jornadas(jornadas: int) -> None:
+    assert jornadas <= TETO_DE_JORNADAS, (
+        f"{jornadas} jornadas e2e — o teto é {TETO_DE_JORNADAS}. Não coube? Vira teste "
+        "de integração (CLAUDE.md §3)."
+    )
+    assert jornadas >= PISO_DE_JORNADAS, (
+        f"{jornadas} jornadas e2e — o piso é {PISO_DE_JORNADAS}. Jornada não se apaga "
+        "para o wall-clock caber: ou o piso desce numa spec própria, com o motivo "
+        "escrito, ou a jornada volta."
+    )
+
+
+def test_e2e_entre_o_piso_e_o_teto_de_jornadas() -> None:
+    """CLAUDE.md §3, nos dois sentidos.
+
+    O e2e é a suíte mais cara por caso; sem teto ela cresce até ser o único poste que
+    importa, e aí ninguém mais roda a suíte inteira localmente. Sem PISO ela encolhe até
+    zero, e o gate de wall-clock aplaude.
+    """
+    _conferir_jornadas(_jornadas_em(E2E))
+
+
+def test_o_piso_reprova_um_e2e_esvaziado(tmp_path: Path) -> None:
+    """O gate provado mordendo, nos dois lados (spec 139).
+
+    O caso plantado é exatamente o cenário medido pela auditoria: apagar as nove jornadas
+    e deixar só `meta/journey-count.spec.ts`. Antes da 139 isso dava verde nos dois gates.
+    """
+    (tmp_path / "meta").mkdir()
+    (tmp_path / "meta" / "journey-count.spec.ts").write_text(
+        'test("máximo de 25 jornadas", () => {});\n', encoding="utf-8"
+    )
+
+    assert _jornadas_em(tmp_path) == 0, "o contador de jornadas passou a contar o gate meta"
+    with pytest.raises(AssertionError, match="o piso é"):
+        _conferir_jornadas(_jornadas_em(tmp_path))
+
+    # Controle: com as jornadas de volta, o mesmo contador e a mesma checagem passam.
+    (tmp_path / "jornadas.spec.ts").write_text(
+        "".join(f'test("jornada {i}", async ({{ page }}) => {{}});\n' for i in range(9)),
+        encoding="utf-8",
+    )
+    assert _jornadas_em(tmp_path) == PISO_DE_JORNADAS
+    _conferir_jornadas(_jornadas_em(tmp_path))
+
+
+def test_o_teto_reprova_um_e2e_inchado() -> None:
+    """O outro lado do mesmo gate — teto e piso saem da mesma checagem."""
+    with pytest.raises(AssertionError, match="o teto é"):
+        _conferir_jornadas(TETO_DE_JORNADAS + 1)
 
 
 def test_toda_rota_declara_permissao() -> None:
@@ -353,23 +425,78 @@ def test_nenhum_comentario_adia_para_spec_ja_concluida() -> None:
 
 
 def test_toda_divida_aberta_tem_numero_e_alvo_no_futuro() -> None:
-    """Regra 24 da spec 101. O `DIVIDA-TECNICA.md` abre dizendo que "se uma spec-alvo já
-    passou e o item continua aqui, a próxima refatoração decide" — isso é uma regra, e
-    regra sem teste é intenção.
+    r"""Regra 24 da spec 101, com o ponto cego que a spec 131 fechou.
 
-    Duas formas de escapar, as duas fechadas aqui:
+    O `DIVIDA-TECNICA.md` abre dizendo que "se uma spec-alvo já passou e o item continua
+    aqui, a próxima refatoração decide" — isso é uma regra, e regra sem teste é intenção.
+
+    Três formas de escapar, as três fechadas aqui:
+
     - **sem número:** foi como a dívida do SAVEPOINT sobreviveu à 100, cuja tabela de
       fechamento contava itens numerados;
-    - **alvo vencido:** o item continua aberto apontando para uma spec que já entregou.
+    - **alvo vencido:** o item continua aberto apontando para uma spec que já entregou;
+    - **alvo que o gate não sabia LER.** Até a 131 a leitura era
+      `**Spec-alvo:**\s*(\d{3})`, que exige o número colado no marcador — e o alvo de
+      uma dívida re-atribuída vem depois do tachado (`~~123~~ → **125**`). Das quatro
+      dívidas abertas do arquivo, o gate enxergava **uma**. As duas invisíveis eram
+      justamente as que tinham sido re-atribuídas duas vezes cada, por este mesmo
+      acidente. É a lição da dívida 40: verificação mecânica prova o que ela mede, e o
+      que ela mede precisa ser conferido contra o universo — aqui, contra TODAS as
+      formas que o arquivo usa, não contra a que a regex conhecia.
+
+    Por isso a leitura de hoje reprova a forma que não souber ler, em vez de devolver
+    "este item não tem alvo": alvo ilegível e alvo ausente são indistinguíveis para quem
+    lê o resultado, e foi essa indistinção que deixou 122, 123 e 125 serem gastas em
+    trabalho que nenhuma dívida tinha pedido.
+
+    **O que este teste NÃO faz:** julgar se o alvo é o alvo CERTO, nem se a dívida ainda
+    faz sentido. Ele confere que existe alvo, que dá para lê-lo e que ele ainda não
+    passou. Alvo textual — "spec própria", "nenhuma — aceito", "a spec que trouxer
+    e-mail" — é legítimo e não reprova: dívida sem número reservado é decisão registrada,
+    não esquecimento. E ele não olha para o `specs/`; quem faz esse cruzamento é o
+    `test_nenhuma_spec_ocupa_numero_que_uma_divida_aberta_reserva`, abaixo.
     """
     texto = DIVIDA.read_text(encoding="utf-8")
     problemas = _itens_sem_numero(texto) + _alvos_ja_entregues(texto, _specs_concluidas())
     assert not problemas, "DIVIDA-TECNICA.md fora da própria regra:\n" + "\n".join(problemas)
 
 
-def _e_item_resolvido(cabecalho: str) -> bool:
-    """Resolvido vem com ~~tachado~~ ou com "RESOLVIDO" no próprio título."""
-    return "RESOLVIDO" in cabecalho or cabecalho.startswith("~~")
+# As palavras com que o registro fecha um item, todas em uso hoje: `RESOLVIDO na spec N`,
+# `RECLASSIFICADO como produto` (itens 4 e 5), `FECHADA na spec 101, com o número medido`
+# (item 16). O tachado conta sozinho porque é a marca visual do fechamento — e ele aparece
+# no MEIO do título (`## 4. ~~texto~~ — ...`), nunca no começo, que era o que a versão
+# anterior deste helper procurava com `startswith("~~")`.
+_FECHAMENTO_NO_TITULO = re.compile(r"~~|RESOLVIDO|RECLASSIFICAD[AO]|FECHAD[AO]|REMOVID[AO]")
+
+# E o item 19 fechou só no CORPO: o `### ✅ RESOLVIDO na spec 100` foi escrito e o título
+# ficou como estava. Reconhecer as duas formas é o que impede um item já morto de ser
+# cobrado como aberto — e cobrado com razão, porque o alvo dele venceu há vinte specs.
+_FECHAMENTO_NO_CORPO = re.compile(r"^###\s*✅?\s*resolvid[ao]\b", re.MULTILINE | re.IGNORECASE)
+
+
+def _e_item_resolvido(bloco: str) -> bool:
+    """O item já fechou, por qualquer das formas que o registro usa?
+
+    Recebe o BLOCO inteiro, não só o título, porque uma das formas mora no corpo. O
+    título é o primeiro parágrafo (não a primeira linha: o item 1 tem título quebrado em
+    duas, e o `~~` de fechamento está na segunda).
+
+    **O que este helper NÃO faz:** distinguir "resolvido" de "reclassificado" ou de
+    "aposentado". Para o gate as três são a mesma coisa — item que não cobra mais
+    trabalho —, e é só isso que ele precisa decidir.
+    """
+    titulo = bloco.split("\n\n")[0]
+    return bool(_FECHAMENTO_NO_TITULO.search(titulo) or _FECHAMENTO_NO_CORPO.search(bloco))
+
+
+def _itens(texto: str) -> list[tuple[str, str]]:
+    """(título, bloco) de cada `## ` do registro, fora as seções de estado de fechamento."""
+    itens: list[tuple[str, str]] = []
+    for bloco in re.split(r"^## ", texto, flags=re.MULTILINE)[1:]:
+        titulo = bloco.split("\n\n")[0]
+        if not titulo.startswith(("Estado no fechamento", "Dívida técnica")):
+            itens.append((titulo, bloco))
+    return itens
 
 
 def _itens_sem_numero(texto: str) -> list[str]:
@@ -379,27 +506,285 @@ def _itens_sem_numero(texto: str) -> list[str]:
     contava itens numerados.
     """
     return [
-        f"item sem número: {titulo!r}"
-        for titulo in re.findall(r"^## (.+)$", texto, re.MULTILINE)
-        if not titulo.startswith(("Estado no fechamento", "Dívida técnica"))
-        and not _e_item_resolvido(titulo)
-        and not re.match(r"^\d+\.\s", titulo)
+        f"item sem número: {titulo.splitlines()[0]!r}"
+        for titulo, bloco in _itens(texto)
+        if not _e_item_resolvido(bloco) and not re.match(r"^\d+\.\s", titulo)
     ]
 
 
+# `**Spec-alvo:**`, `**Spec-alvo original:**` e `**Spec-alvo (original):**` — as três
+# grafias do arquivo. As duas com "original" são HISTÓRIA (o alvo de antes de uma
+# re-atribuição, preservado de propósito) e só valem quando o item não declara alvo
+# corrente nenhum.
+_LINHA_DE_ALVO = re.compile(
+    r"^\*\*Spec-alvo(?P<historico>\s*\(?original\)?)?:\*\*[ \t]*(?P<resto>.*)$",
+    re.MULTILINE,
+)
+
+# `~~123~~ → **125**`: a re-atribuição preserva o alvo velho tachado, e o que vale é o que
+# vem DEPOIS da seta. Consumido em laço porque nada impede uma segunda re-atribuição —
+# duas já aconteceram nas dívidas 25 e 26, e a terceira não vai avisar.
+_REATRIBUICAO = re.compile(r"^~~[^~]*~~[ \t]*(?:→|->)[ \t]*")
+
+# O alvo numérico, com ou sem os asteriscos do negrito, e a única forma em prosa que
+# ainda nomeia um número: "reavaliar na NNN".
+_ALVO_COM_NUMERO = re.compile(r"^(?:reavaliar na[ \t]+)?\*{0,2}(\d{3})(?!\d)")
+
+# Alvo textual: legítimo, e é a diferença entre "ninguém decidiu" e "decidiu-se não
+# reservar número". Esta lista é fechada de propósito — forma nova reprova até alguém
+# classificá-la, que é o oposto do que a regex anterior fazia (ignorava em silêncio).
+_ALVO_SEM_NUMERO = re.compile(
+    r"^(?:nenhum[ao]|alguma spec|a spec que|a próxima spec|próxima spec|spec própria|própria)\b",
+    re.IGNORECASE,
+)
+
+
+class Alvo(NamedTuple):
+    """O alvo efetivo de um item: o número (se houver), a forma como veio, e se o gate
+    conseguiu classificá-la."""
+
+    numero: str | None
+    texto: str
+    reconhecido: bool
+
+
+def _ler_alvo(resto: str) -> Alvo:
+    """O que sobra de uma linha `**Spec-alvo:**`, reduzido ao alvo EFETIVO.
+
+    `~~123~~ → **125**` vale 125, `126 (prazo processual…)` vale 126, `reavaliar na 020`
+    vale 020, `spec própria de correção` não vale número nenhum e está certo assim.
+
+    **O que este helper NÃO faz:** procurar números no resto da linha. O texto do item 18
+    cita a 122 e a 123 na própria linha do alvo, ao contar a história das re-atribuições;
+    um `findall` sobre a linha inteira acharia três alvos onde há um. Só o começo da
+    linha é alvo.
+    """
+    while (corte := _REATRIBUICAO.match(resto)) is not None:
+        resto = resto[corte.end() :]
+    if (numerado := _ALVO_COM_NUMERO.match(resto)) is not None:
+        return Alvo(numerado.group(1), resto, True)
+    return Alvo(None, resto, _ALVO_SEM_NUMERO.match(resto) is not None)
+
+
+def _alvos_do_bloco(bloco: str) -> list[Alvo]:
+    """Os alvos que um item declara — os correntes, ou os históricos se não houver corrente.
+
+    Um item fechado costuma guardar só `**Spec-alvo original:** NNN`, e esse número quase
+    sempre é de spec já entregue. Lê-lo como alvo corrente transformaria todo item fechado
+    num falso positivo; ignorá-lo sempre deixaria passar o item ABERTO cujo único alvo é o
+    original vencido. Fallback resolve os dois.
+    """
+    correntes: list[Alvo] = []
+    historicos: list[Alvo] = []
+    for achado in _LINHA_DE_ALVO.finditer(bloco):
+        destino = historicos if achado.group("historico") else correntes
+        destino.append(_ler_alvo(achado.group("resto")))
+    return correntes or historicos
+
+
 def _alvos_ja_entregues(texto: str, concluidas: set[str]) -> list[str]:
-    """Spec-alvo de item ainda ABERTO não pode ser uma spec já entregue."""
+    """Spec-alvo de item ainda ABERTO não pode ser uma spec já entregue — nem ilegível."""
     problemas: list[str] = []
-    for bloco in re.split(r"^## ", texto, flags=re.MULTILINE)[1:]:
-        cabecalho = bloco.splitlines()[0]
-        if _e_item_resolvido(bloco.split("\n\n")[0]) or cabecalho.startswith("~~"):
+    for titulo, bloco in _itens(texto):
+        if _e_item_resolvido(bloco):
             continue
-        problemas += [
-            f"item {cabecalho.split('.')[0]!r} aberto com spec-alvo {alvo}, já ✅"
-            for alvo in re.findall(r"\*\*Spec-alvo:\*\*\s*(\d{3})", bloco)
-            if alvo in concluidas
-        ]
+        item = titulo.split(".")[0]
+        for alvo in _alvos_do_bloco(bloco):
+            if not alvo.reconhecido:
+                problemas.append(
+                    f"item {item!r}: forma de Spec-alvo que o gate não sabe ler: "
+                    f"{alvo.texto[:70]!r} — dê um número ao alvo ou escreva-o numa das "
+                    "formas conhecidas (`NNN`, `~~AAA~~ → **NNN**`, `nenhuma — …`, "
+                    "`spec própria …`)"
+                )
+            elif alvo.numero in concluidas:
+                problemas.append(
+                    f"item {item!r} aberto com spec-alvo {alvo.numero}, já ✅ no ROADMAP"
+                )
     return problemas
+
+
+def _reservas_de_divida(texto: str) -> dict[str, list[str]]:
+    """Número de spec → itens ABERTOS que o reservam."""
+    reservas: dict[str, list[str]] = {}
+    for titulo, bloco in _itens(texto):
+        if _e_item_resolvido(bloco):
+            continue
+        for alvo in _alvos_do_bloco(bloco):
+            if alvo.numero is not None:
+                reservas.setdefault(alvo.numero, []).append(titulo.split(".")[0])
+    return reservas
+
+
+def _cita_alguma_divida(texto: str, itens: list[str]) -> bool:
+    """A spec declara, em prosa, que está consumindo uma destas dívidas?
+
+    Aceita as formas em uso no projeto: "dívida 18", "dívida nº 13", "dívidas 25 e 26",
+    "dívidas 18, 25 e 26". A checagem é de CITAÇÃO, não de conteúdo — ver o "o que este
+    teste NÃO faz" de quem a chama.
+    """
+    lista = "|".join(itens)
+    citacao = rf"d[ií]vidas?\s+(?:n[ºo°]\s*)?(?:\d+\s*(?:,|e)\s*)*(?:{lista})\b"
+    return re.search(citacao, texto, re.IGNORECASE) is not None
+
+
+def test_nenhuma_spec_ocupa_numero_que_uma_divida_aberta_reserva() -> None:
+    """A "Nota de método: número de spec é recurso reservado", virada gate (spec 131).
+
+    Três specs seguidas tomaram um número que uma dívida aberta já apontava: a 122 e a
+    123 (degraus do teto de linhas por função) sobre as dívidas 18 e 25, e a que nasceu
+    125 e virou 127. Nos três casos o gate de cima pegou — mas só ao FECHAR, com o
+    trabalho inteiro já feito no número errado. A nota manda rodar
+    `grep -n "Spec-alvo:.*NNN" docs/DIVIDA-TECNICA.md` ao ABRIR a spec, que é o único
+    momento em que renumerar ainda é de graça; recomendação em prosa não é gate.
+
+    Aqui a colisão aparece no instante em que o arquivo `specs/NNN-*.md` nasce. A saída
+    legítima não é uma lista de exceções — gate que aceita exceção por arquivo deixa de
+    morder (spec 110) —, é a spec **citar a dívida** que está consumindo: quem escreve a
+    126 para calcular prazo processual escreve "dívida 18" nela e passa; quem escolheu o
+    126 por ser o próximo número livre não escreve, e renumera antes de trabalhar.
+
+    **O que este teste NÃO faz:** conferir que a spec de fato RESOLVE a dívida citada, ou
+    que a dívida foi marcada como resolvida no fim do ciclo. Isso é revisão humana, e o
+    gate de cima é quem cobra o resto (a dívida que continuar aberta apontando para a
+    spec entregue reprova lá). Este aqui impede só a colisão silenciosa — que é a parte
+    que apodrece sozinha, porque ninguém a percebe até o trabalho estar feito.
+    """
+    texto = DIVIDA.read_text(encoding="utf-8")
+    reservas = _reservas_de_divida(texto)
+
+    # A canária deste teste NÃO pode ser `assert reservas`. Zero reserva é um estado
+    # LEGÍTIMO — foi o estado em que o registro ficou no fim do ciclo 125–132, quando as
+    # dívidas que reservavam número foram todas fechadas e as que sobraram têm alvo
+    # textual ("spec própria de produto", "nenhuma antes de 2037"). Uma canária que
+    # confunde "o parser quebrou" com "não há o que reservar" reprova o arquivo mais
+    # arrumado que ele já esteve, e a correção óbvia — apagar a canária — deixaria o
+    # parser sem vigia nenhum.
+    #
+    # O que se verifica aqui é que a LEITURA continua funcionando: o registro tem itens
+    # abertos, e todo alvo deles foi classificado. Quem confere que cada FORMA de alvo é
+    # legível é o `test_leitura_do_alvo_cobre_todas_as_formas_do_registro`, abaixo.
+    abertos = [titulo for titulo, bloco in _itens(texto) if not _e_item_resolvido(bloco)]
+    assert abertos, "nenhum item ABERTO no registro — leitura do DIVIDA-TECNICA.md quebrou"
+
+    colisoes: list[str] = []
+    for numero, itens in sorted(reservas.items()):
+        for arquivo in sorted((RAIZ / "specs").glob(f"{numero}-*.md")):
+            if not _cita_alguma_divida(arquivo.read_text(encoding="utf-8"), itens):
+                colisoes.append(
+                    f"{arquivo.name} ocupa o número {numero}, reservado pela(s) dívida(s) "
+                    f"{', '.join(itens)} do DIVIDA-TECNICA.md, e não cita nenhuma delas"
+                )
+
+    assert not colisoes, (
+        "spec nova sobre número reservado por dívida aberta — renumere a spec (é de "
+        "graça agora, não depois) ou declare no texto dela qual dívida ela consome:\n  "
+        + "\n  ".join(colisoes)
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Spec 131 — os dois gates acima, provados MORDENDO.
+#
+# Um gate de leitura de texto falha do jeito mais discreto que existe: a regex deixa de
+# casar e ele passa a aprovar tudo, calado. Foi o que aconteceu entre a 101 e a 131 —
+# verde por três specs seguidas enquanto três das quatro dívidas abertas estavam fora do
+# alcance dele. Os casos plantados abaixo são a única prova de que o verde do arquivo
+# real significa alguma coisa.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_CONCLUIDAS_FICTICIAS = {"100", "123", "124"}
+
+_ABERTA_COM_REATRIBUICAO = """## 25. Campo sempre nulo
+
+Texto do item.
+
+**Spec-alvo:** ~~123~~ → **124** — calcular ou remover o campo.
+"""
+
+_ABERTA_COM_ALVO_TEXTUAL = """## 41. Teste com data fixa
+
+Texto do item.
+
+**Spec-alvo:** spec própria de correção, junto do financeiro.
+"""
+
+_ABERTA_COM_FORMA_DESCONHECIDA = """## 42. Item novo
+
+Texto do item.
+
+**Spec-alvo:** quando der.
+"""
+
+_FECHADA_POR_RECLASSIFICACAO = """## 4. ~~Tela pede o UUID cru~~ — RECLASSIFICADO na spec 100
+
+Texto do item.
+
+**Spec-alvo original:** 100 — não cobra mais nada.
+"""
+
+_FECHADA_SO_NO_CORPO = """## 19. Fixtures com dado real
+
+Texto do item.
+
+### ✅ RESOLVIDO na spec 100
+
+**Spec-alvo original:** 100 — resolvido lá.
+"""
+
+
+@pytest.mark.parametrize(
+    ("caso", "trecho"),
+    [
+        # O caso que o gate NÃO via até a 131: o alvo novo vem depois do tachado.
+        ("re-atribuída para spec entregue", _ABERTA_COM_REATRIBUICAO),
+        # E o caso que ele nunca deve ter visto: forma nova, ninguém classificou.
+        ("forma de alvo desconhecida", _ABERTA_COM_FORMA_DESCONHECIDA),
+    ],
+)
+def test_gate_de_divida_morde(caso: str, trecho: str) -> None:
+    """Cada forma de defeito reprova — e a mensagem nomeia o item."""
+    problemas = _alvos_ja_entregues(trecho, _CONCLUIDAS_FICTICIAS)
+    assert problemas, f"o gate não mordeu: {caso}"
+
+
+@pytest.mark.parametrize(
+    ("caso", "trecho"),
+    [
+        # Alvo em prosa é decisão registrada, não esquecimento: não pode reprovar.
+        ("alvo textual", _ABERTA_COM_ALVO_TEXTUAL),
+        # Item fechado não cobra alvo — nem quando o `Spec-alvo original` já venceu.
+        ("fechada por reclassificação", _FECHADA_POR_RECLASSIFICACAO),
+        ("fechada só no corpo", _FECHADA_SO_NO_CORPO),
+    ],
+)
+def test_gate_de_divida_nao_morde_o_que_esta_certo(caso: str, trecho: str) -> None:
+    """O outro lado, que é o que separa um gate de um alarme: falso positivo ensina a
+    ignorar a saída, e um gate ignorado é um gate morto."""
+    assert not _alvos_ja_entregues(trecho, _CONCLUIDAS_FICTICIAS), f"falso positivo: {caso}"
+    assert not _itens_sem_numero(trecho), f"falso positivo (item sem número): {caso}"
+
+
+def test_leitura_do_alvo_cobre_todas_as_formas_do_registro() -> None:
+    """Toda linha `**Spec-alvo…:**` do arquivo real é classificável.
+
+    Este é o teste que faltava em 101: não «o gate passou», e sim «o gate LEU tudo». A
+    regex anterior lia 1 das 5 linhas de alvo das dívidas abertas e passava mesmo assim,
+    porque não ter achado nada é indistinguível de não haver nada a achar.
+    """
+    texto = DIVIDA.read_text(encoding="utf-8")
+    linhas = list(_LINHA_DE_ALVO.finditer(texto))
+    assert len(linhas) >= 25, f"só {len(linhas)} linhas de Spec-alvo — leitura quebrou"
+
+    ilegiveis = [
+        achado.group("resto")[:70]
+        for achado in linhas
+        if not _ler_alvo(achado.group("resto")).reconhecido
+    ]
+    assert ilegiveis == [], (
+        "linha de Spec-alvo que o gate não sabe classificar (nem número, nem alvo textual "
+        "conhecido):\n  " + "\n  ".join(ilegiveis)
+    )
 
 
 def test_toda_rota_do_menu_lateral_existe_em_app_tsx() -> None:

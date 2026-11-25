@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.image_processing import extension_for, process_image
+from app.core.permissions import FinancialAccess, has_financial_access
 from app.core.repository import decode_cursor, encode_cursor
 from app.core.security import hash_password, validate_password_policy
 from app.core.tokens import generate_refresh_token, hash_token
@@ -26,6 +27,78 @@ from app.domain.users.schemas import AcceptInvitationRequest, InviteUserRequest,
 from app.integrations.storage.base import FileStorage
 
 _INVITATION_TTL_DAYS = 7
+
+# ---------------------------------------------------------------------------
+# Quem pode gravar O QUÊ em `PUT /users/{id}` (spec 135, regra 1).
+#
+# Até aqui o `update` fazia `setattr` sobre TUDO que viesse no corpo, com uma única
+# exceção (`role`/`financial_access` para si mesmo). O corpo carrega `salary` — campo cuja
+# LEITURA já exige acesso financeiro — e `points_goal`, que tem endpoint próprio exigindo
+# GESTOR: um Colaborador reescrevia o próprio salário e a própria meta pela rota do perfil.
+# É a classe "outra rota chega ao mesmo estado, driblando a guarda mais estrita", e não há
+# como um teste de cobertura de permissão vê-la: as duas rotas declaram permissão.
+#
+# A lista é explícita e por perfil, e a pergunta que ela responde é sempre a mesma: quem
+# edita a si mesmo não é quem edita um subordinado, e nenhum dos dois é o RH.
+# ---------------------------------------------------------------------------
+
+# Dado pessoal. É a pessoa quem sabe o telefone e o número da própria OAB.
+_SELF_EDITABLE = frozenset(
+    {
+        "name",
+        "identification",
+        "document",
+        "birthdate",
+        "number_ctps",
+        "number_oab",
+        "cellphone",
+        "phone",
+    }
+)
+
+# Dado de vínculo: cargo, jornada, datas de admissão/desligamento, perfil de acesso e as
+# preferências de relatório. Só ADMINISTRADOR+ grava, e nunca em si mesmo — mudar a própria
+# jornada ou o próprio cargo é o mesmo problema de mudar o próprio `role`.
+_MANAGED_EDITABLE = frozenset(
+    {
+        "role",
+        "financial_access",
+        "occupation_id",
+        "admission_date",
+        "resignation_date",
+        "work_start",
+        "work_interval",
+        "work_end",
+        "report_deadline",
+        "report_deleted",
+        "is_responsible",
+    }
+)
+
+# RH. Salário é dinheiro: se a LEITURA exige o eixo financeiro (regra 10 da spec 012), a
+# ESCRITA exige FULL — READ_ONLY que grava não é READ_ONLY. E ninguém grava o próprio.
+_PAYROLL_EDITABLE = frozenset({"salary"})
+
+# Meta de pontos: tem rota própria em `PUT /users/{id}/points-goal`, com `require_role(GESTOR)`
+# e a capacidade `goals.manage`. A rota do perfil não pode ser a porta dos fundos dela.
+_GOALS_EDITABLE = frozenset({"points_goal"})
+
+_ADMIN_OR_ABOVE = frozenset({UserRole.ADMINISTRADOR, UserRole.GESTOR})
+
+
+def editable_fields(actor: User, target: User) -> frozenset[str]:
+    """Os campos que `actor` pode gravar em `target`. Nada fora daqui é aplicado."""
+    if actor.id == target.id:
+        campos = _SELF_EDITABLE
+    elif actor.role in _ADMIN_OR_ABOVE:
+        campos = _SELF_EDITABLE | _MANAGED_EDITABLE
+        if has_financial_access(actor, FinancialAccess.FULL):
+            campos |= _PAYROLL_EDITABLE
+    else:  # o router já barrou com 403; a lista vazia é a rede de baixo
+        campos = frozenset()
+    if actor.role == UserRole.GESTOR:
+        campos |= _GOALS_EDITABLE
+    return campos
 
 
 class OccupationService:
@@ -91,8 +164,15 @@ class UserService:
             ):
                 raise OabRequiredError("OAB é obrigatória para o cargo selecionado.")
 
+        # Regra 1 (spec 135): grava só o que este ator pode gravar neste alvo. O que ele
+        # não pode fica como está — silenciosamente, e não com 403, porque o corpo do PUT
+        # é o objeto INTEIRO: o formulário devolve `salary` e `points_goal` que ele acabou
+        # de receber, e recusar a requisição por causa deles quebraria a edição de nome.
+        # A resposta é montada a partir do estado real, então quem tentou vê que não mudou.
+        permitidos = editable_fields(actor, target)
         for field, value in payload.model_dump().items():
-            setattr(target, field, value)
+            if field in permitidos:
+                setattr(target, field, value)
         return target
 
     async def deactivate(self, target: User) -> User:

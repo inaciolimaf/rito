@@ -11,6 +11,7 @@ from app.core.repository import BaseRepository
 from app.domain.lawsuits.models import LawsuitParty
 from app.domain.publications.models import (
     Publication,
+    PublicationDeadlineSettings,
     PublicationLawyer,
     PublicationRead,
     PublicationRecipient,
@@ -251,3 +252,17 @@ class PublicationReadRepository(BaseRepository[PublicationRead]):
             PublicationRead.publication_id.in_(publication_ids),
         )
         return set((await self.session.scalars(stmt)).all())
+
+
+class PublicationDeadlineSettingsRepository(BaseRepository[PublicationDeadlineSettings]):
+    """A configuração de prazo do escritório (spec 126) — 1:1 por tenant."""
+
+    model = PublicationDeadlineSettings
+
+    async def get_current(self) -> PublicationDeadlineSettings | None:
+        """A linha do tenant, ou `None` quando o escritório nunca configurou.
+
+        Mesmo padrão de `AccountRepository.get_current`: o RLS já restringe a no máximo
+        uma linha visível, então não há filtro de tenant escrito aqui (CLAUDE.md §4).
+        """
+        return (await self.session.scalars(select(PublicationDeadlineSettings))).first()

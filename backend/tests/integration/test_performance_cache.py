@@ -119,8 +119,13 @@ async def test_dashboard_de_contatos_nao_vai_ao_banco_na_segunda_leitura(
 
     assert primeira.status_code == segunda.status_code == 200
     assert primeira.json() == segunda.json()
-    # Só a query da autenticação: as seis agregações vieram do cache.
-    assert log.count == 1, f"o dashboard recalculou apesar do cache:\n{log.resumo()}"
+    # Autenticação + `with_active_lawsuit`: as CINCO agregações sobre `customers` vieram
+    # do cache; a sexta saiu dele na spec 137 porque muda por escrita de PROCESSO, e
+    # nenhuma escrita de processo passa pelo `CustomerService` para derrubar a chave.
+    # Este número era 1 e passou a 2 de propósito: o que o teste afirma continua sendo
+    # "a segunda leitura não recalcula o painel", só que agora sem mentir sobre o único
+    # número que o cache não tinha como manter certo.
+    assert log.count == 2, f"o dashboard recalculou apesar do cache:\n{log.resumo()}"
 
 
 async def test_cadastrar_contato_derruba_o_dashboard(

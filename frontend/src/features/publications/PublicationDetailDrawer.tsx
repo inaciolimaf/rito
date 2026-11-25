@@ -11,6 +11,7 @@ import {
 } from "@/features/publications/analysis";
 import { PublicationAnalysisCard } from "@/features/publications/PublicationAnalysisCard";
 import { getPublication, markPublicationRead } from "@/features/publications/api";
+import { safeExternalHref } from "@/lib/urls";
 
 export interface PublicationDetailDrawerProps {
   publicationId: string | null;
@@ -124,9 +125,14 @@ export function PublicationDetailDrawer({
               <p className="whitespace-pre-wrap text-primary">{publication.body}</p>
             </div>
 
-            {publication.link && (
+            {/* Spec 138, regra 2: o endereço vem verbatim do DJEN e o payload de
+                sincronização é aceito de qualquer COLABORADOR. `href="javascript:…"` é
+                renderizado pelo React sem reclamar; `safeExternalHref` devolve
+                `undefined` para qualquer esquema que não seja http/https, e o link
+                simplesmente não existe. */}
+            {safeExternalHref(publication.link) && (
               <a
-                href={publication.link}
+                href={safeExternalHref(publication.link)}
                 target="_blank"
                 rel="noreferrer"
                 className="text-accent underline"

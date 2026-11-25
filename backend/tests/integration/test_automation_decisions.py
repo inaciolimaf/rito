@@ -161,10 +161,10 @@ async def _notificacoes(
         return list((await session.scalars(select(Notification))).all())
 
 
-def _cenario_dois_ramos(cena: Cena) -> list[dict[str, Any]]:
+def _cenario_dois_ramos(cena: Cena, *, min_confidence: float = 0.7) -> list[dict[str, Any]]:
     """Decisão na posição 0; ramo `urgente` na 1, ramo `normal` na 2."""
     return [
-        _acao_de_decisao(branches={"urgente": [1], "normal": [2]}),
+        _acao_de_decisao(branches={"urgente": [1], "normal": [2]}, min_confidence=min_confidence),
         {
             "action_kind": "create_task",
             "action_config": {"task_type_id": cena.task_type_id},
@@ -494,3 +494,76 @@ async def test_decisoes_de_outro_escritorio_nao_aparecem(
     )
 
     assert resposta.status_code == 404
+
+
+def _decisao_crua(payload: dict[str, Any]) -> LLMResponse:
+    """A resposta do modelo exatamente como ele a escreveu — sem o `confidence` numérico
+    que `_decisao` injeta."""
+    return LLMResponse(
+        content=json.dumps(payload, ensure_ascii=False),
+        usage=Usage(prompt_tokens=400, completion_tokens=60, cost_usd=0.002),
+        model="fabricante-x/modelo-y",
+        finish_reason="stop",
+    )
+
+
+@pytest.mark.parametrize(
+    ("payload", "forma"),
+    [
+        ({"branch": "urgente", "reasoning": "sim"}, "campo ausente"),
+        ({"branch": "urgente", "confidence": None, "reasoning": "sim"}, "confiança nula"),
+        ({"branch": "urgente", "confidence": "alta", "reasoning": "sim"}, "confiança em palavra"),
+        ({"branch": "urgente", "confidence": "baixa", "reasoning": "sim"}, "a palavra oposta"),
+    ],
+)
+async def test_confianca_ausente_nao_e_confianca_suficiente(
+    payload: dict[str, Any],
+    forma: str,
+    cena: Cena,
+    client: AsyncClient,
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Spec 133: o `min_confidence` do escritório era ignorado quando o modelo não devolvia
+    um NÚMERO.
+
+    `_accepted_or_fallback` só comparava `if confidence is not None`, e `parse_decision`
+    devolve `None` para campo ausente, `null` e qualquer texto não numérico — inclusive
+    `"alta"` e `"baixa"`, que são o que um modelo respondendo em português naturalmente
+    escreve. Medido com `min_confidence=0.9`: `{"confidence": "baixa"}` decidia pelo ramo
+    `urgente`; `{"confidence": 0.30}` caía no padrão. O incentivo estava invertido — o
+    modelo mais honesto era o único punido.
+
+    A docstring de `_accepted_or_fallback` já dizia o que devia acontecer: «aceitar um
+    palpite de 0,3 seria trocar uma decisão humana pensada por um sorteio». Um palpite sem
+    número declarado não é mais confiável que 0,3; é menos, porque nem dá para medir.
+    """
+    await _criar(client, cena.user, _cenario_dois_ramos(cena, min_confidence=0.9))
+
+    await _emitir(app_session_factory, cena, ScriptedProvider(script=[_decisao_crua(payload)]))
+
+    decisao = (await _decisoes(app_session_factory, cena.user))[0]
+    assert decisao.chosen_branch == "normal", forma
+    assert decisao.fell_back is True
+    assert "não declarou confiança" in (decisao.fallback_reason or "")
+
+
+async def test_escritorio_que_zerou_a_exigencia_continua_aceitando_sem_numero(
+    cena: Cena, client: AsyncClient, app_session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    """A correção não podia virar "confiança agora é obrigatória para todo mundo".
+
+    Com `min_confidence` em zero o escritório declarou, por escrito, que não exige certeza
+    nenhuma — e nesse caso não há mínimo a comparar. Exigir o número mesmo assim seria
+    trocar a decisão dele pela nossa.
+    """
+    await _criar(client, cena.user, _cenario_dois_ramos(cena, min_confidence=0.0))
+
+    await _emitir(
+        app_session_factory,
+        cena,
+        ScriptedProvider(script=[_decisao_crua({"branch": "urgente", "reasoning": "sim"})]),
+    )
+
+    decisao = (await _decisoes(app_session_factory, cena.user))[0]
+    assert decisao.chosen_branch == "urgente"
+    assert decisao.fell_back is False

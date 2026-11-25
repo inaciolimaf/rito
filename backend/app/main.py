@@ -264,6 +264,11 @@ def _register_middlewares(app: FastAPI) -> None:
     cliente precisa delas para exibir a mensagem em vez de um erro de origem.
     """
     settings = get_settings()
+    # Com `allow_credentials=True` a lista de origens não pode conter `*`: a dupla
+    # coringa+credenciais é a que dá a qualquer site do mundo uma requisição autenticada em
+    # nome de quem está logado. Quem recusa a dupla é o `bootstrap._cors_problems`
+    # (spec 135, regra 5) — no boot e só em produção, porque aqui não há como recusar sem
+    # derrubar o desenvolvimento junto.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[origin.strip() for origin in settings.cors_allowed_origins.split(",")],

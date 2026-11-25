@@ -39,8 +39,8 @@ describe("ModelSelect", () => {
 
     const option = screen.getByRole("option", { name: /Modelo Y/ });
     // Preço do OpenRouter é por token; a UI mostra por milhão, que é como se compara.
-    expect(option).toHaveTextContent("entrada US$ 1.50/1M");
-    expect(option).toHaveTextContent("saída US$ 6.00/1M");
+    expect(option).toHaveTextContent("entrada US$ 1,50/1M");
+    expect(option).toHaveTextContent("saída US$ 6,00/1M");
     expect(option).toHaveTextContent("128k de contexto");
 
     await user.selectOptions(screen.getByLabelText("Modelo"), "fabricante-z/modelo-w");
@@ -62,7 +62,7 @@ describe("ModelSelect", () => {
   });
 
   it("converte preço por token em preço por milhão", () => {
-    expect(formatPricePerMillion(0.0000015)).toBe("US$ 1.50/1M");
-    expect(formatPricePerMillion(0)).toBe("US$ 0.00/1M");
+    expect(formatPricePerMillion(0.0000015)).toBe("US$ 1,50/1M");
+    expect(formatPricePerMillion(0)).toBe("US$ 0,00/1M");
   });
 });

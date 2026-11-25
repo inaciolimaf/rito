@@ -17,6 +17,10 @@ export default {
           DEFAULT: "hsl(var(--text-primary) / <alpha-value>)",
           foreground: "hsl(var(--surface) / <alpha-value>)",
         },
+        // Texto sobre `bg-primary`: segue o tema sem inverter (ver docs/frontend-identity.md).
+        "on-primary": "hsl(var(--surface) / <alpha-value>)",
+        // Véu atrás de diálogos e gavetas: preto no claro e no escuro, nunca a cor do texto.
+        overlay: "hsl(var(--overlay) / <alpha-value>)",
         muted: "hsl(var(--text-muted) / <alpha-value>)",
         default: "hsl(var(--border-default) / <alpha-value>)",
         accent: {
@@ -38,6 +42,12 @@ export default {
       },
       borderRadius: {
         DEFAULT: "var(--radius)",
+      },
+      // Escala tipográfica: só estes dois tamanhos extras. Os demais vêm do padrão do Tailwind.
+      // Sem `text-[NNpx]` no componente (docs/frontend-identity.md, seção de tipografia).
+      fontSize: {
+        micro: "10px",
+        caption: "11px",
       },
     },
   },

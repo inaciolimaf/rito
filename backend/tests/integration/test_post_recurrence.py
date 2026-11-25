@@ -43,6 +43,7 @@ async def _create_recurring_post(
     scheduled_date: str = _ANCHOR,
     user_ids: list[str] | None = None,
     recurrence: dict[str, Any] | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     lawsuit_id = await factory.create()
     task_type_id = await _create_task_type(client, factory.headers, reward=8)
@@ -51,6 +52,7 @@ async def _create_recurring_post(
         "task_type_id": task_type_id,
         "user_ids": user_ids or [str(factory.gestor.user_id)],
         "scheduled_date": scheduled_date,
+        **(extra or {}),
     }
     if recurrence is not None:
         payload["recurrence"] = recurrence
@@ -337,3 +339,102 @@ async def test_tenant_b_nao_enxerga_serie_do_tenant_a(
             {"id": post["recurrence_id"]},
         )
         assert rows.scalar_one() == 1
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Spec 139 — o que a medição de mutação da spec 132 expôs em `recurrence_service.py`
+#
+# Escore de 81,8% (44 mutantes, 08/09/2026), e dois sobreviventes que são o mesmo
+# defeito: `recurrence_service.py:134` (`end_date + delta`) e `:137`
+# (`deadline_date + delta`) sobreviviam à troca de `+` por `-`. O terceiro, `:167`
+# (`candidate > until_date` → `>=`), é a borda que nenhum teste posicionava.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+async def test_a_ocorrencia_nova_preserva_o_ciclo_de_prazos(
+    client: AsyncClient, factory: LawsuitFactory
+) -> None:
+    """Regra 9 da spec 034, escrita na docstring de `_occurrence_from` e sem teste até aqui:
+
+        «Os campos relativos (término, prazo fatal) andam pelo MESMO delta da data do
+        compromisso — o ciclo da tarefa se preserva entre ocorrências: se o prazo fatal
+        era três dias depois do compromisso, continua sendo.»
+
+    O que existia cobria o lado `None` (os mutantes `is not → is` das duas linhas morriam,
+    porque há teste com os campos preenchidos) — mas nenhum teste olhava o VALOR, só a
+    presença. Com o sinal invertido, cada ocorrência nasce com término e prazo fatal
+    ANTES da data do compromisso, e o desvio cresce a cada repetição, porque o delta é a
+    distância entre ocorrências. Prazo processual calculado para trás continua parecendo
+    uma data plausível — é a mesma classe de consequência da dívida 42.
+    """
+    # Modelo: compromisso 10/08, término +2 dias, prazo fatal +5 dias.
+    post = await _create_recurring_post(
+        client,
+        factory,
+        recurrence={"period": "SEMANAL"},
+        extra={"end_date": "2026-08-12", "deadline_date": "2026-08-15"},
+    )
+    assert post["end_date"] == "2026-08-12"
+    assert post["deadline_date"] == "2026-08-15"
+
+    await _complete(client, factory, str(post["id"]))
+    proxima = _by_date(await _posts_of_lawsuit(client, factory, post), "2026-08-17")
+
+    # O delta é +7 (semanal): os dois campos relativos andam junto, para FRENTE.
+    assert proxima["end_date"] == "2026-08-19"
+    assert proxima["deadline_date"] == "2026-08-22"
+    # E o ciclo é o mesmo do modelo: +2 e +5 dias do compromisso, nunca antes dele.
+    assert proxima["scheduled_date"] < proxima["end_date"] < proxima["deadline_date"]
+
+
+async def test_a_terceira_ocorrencia_nao_acumula_desvio_no_prazo(
+    client: AsyncClient, factory: LawsuitFactory
+) -> None:
+    """O desvio do sinal invertido CRESCE a cada repetição — a segunda ocorrência erra por
+    uma semana, a terceira por duas. Conferir a terceira é o que separa «o delta está
+    certo» de «o delta acertou uma vez»."""
+    post = await _create_recurring_post(
+        client,
+        factory,
+        recurrence={"period": "SEMANAL"},
+        extra={"end_date": "2026-08-12", "deadline_date": "2026-08-15"},
+    )
+    await _complete(client, factory, str(post["id"]))
+    posts = await _posts_of_lawsuit(client, factory, post)
+    await _complete(client, factory, str(_by_date(posts, "2026-08-17")["id"]))
+
+    terceira = _by_date(await _posts_of_lawsuit(client, factory, post), "2026-08-24")
+    assert terceira["end_date"] == "2026-08-26"
+    assert terceira["deadline_date"] == "2026-08-29"
+
+
+async def test_a_ocorrencia_que_cai_exatamente_no_until_date_e_gerada(
+    client: AsyncClient, factory: LawsuitFactory
+) -> None:
+    """`until_date` é INCLUSIVO — «repetir até o dia 17» inclui o dia 17.
+
+    Regra 6, lado que não era propriedade de teste nenhum: o
+    `test_until_date_encerra_a_serie` acima põe a data de corte entre duas ocorrências
+    (20/08, com ocorrências em 17 e 24), e nessa posição `>` e `>=` decidem igual. Trocar
+    o comparador por `>=` passava despercebido e transformava «até o dia 20» em «até o
+    dia 13» — é a mesma lacuna que a spec 132 achou nos operadores de ordem de
+    `conditions.py`, onde o único teste usava 1 e 2.
+    """
+    post = await _create_recurring_post(
+        client,
+        factory,
+        recurrence={"period": "SEMANAL", "until_date": "2026-08-17"},
+    )
+    await _complete(client, factory, str(post["id"]))
+
+    posts = await _posts_of_lawsuit(client, factory, post)
+    assert len(posts) == 2, "a ocorrência que cai EM cima do until_date tem de nascer"
+    _by_date(posts, "2026-08-17")
+    recorrencia = await _get_recurrence(client, factory, str(post["id"]))
+    assert recorrencia["occurrences_created"] == 2
+
+    # E o dia SEGUINTE ao until_date encerra a série — o outro lado da mesma borda.
+    await _complete(client, factory, str(_by_date(posts, "2026-08-17")["id"]))
+    assert len(await _posts_of_lawsuit(client, factory, post)) == 2
+    encerrada = await _get_recurrence(client, factory, str(post["id"]))
+    assert encerrada["is_active"] is False

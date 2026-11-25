@@ -1,11 +1,12 @@
 import type { ModelInfoData } from "@/features/ai/api";
+import { formatUsd } from "@/lib/format";
 
 /** Preço do OpenRouter é por token; ninguém raciocina nessa escala — a UI mostra por
  * milhão, que é como os provedores anunciam e como se comparam dois modelos. */
 export function formatPricePerMillion(pricePerToken: number): string {
   const perMillion = pricePerToken * 1_000_000;
   const digits = perMillion >= 100 ? 0 : 2;
-  return `US$ ${perMillion.toFixed(digits)}/1M`;
+  return `${formatUsd(perMillion, digits)}/1M`;
 }
 
 export function formatContextLength(tokens: number): string {

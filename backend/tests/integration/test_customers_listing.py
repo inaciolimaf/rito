@@ -238,6 +238,57 @@ async def test_export_respeita_filtros(
     assert len(pdf_response.content) > 0
 
 
+async def test_planilha_traz_o_dia_do_escritorio_e_nao_o_de_utc(
+    client: AsyncClient,
+    make_user: Callable[..., Awaitable[SeededUser]],
+    app_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Spec 136: a tela mostrava 31/08 e a planilha 01/09 para o MESMO contato.
+
+    `created_at` é `timestamptz`; o export formatava o UTC cru com `strftime`, enquanto a
+    listagem passa por `toLocaleDateString("pt-BR")` no browser, que converte. Exportar é o
+    dado saindo do sistema — vira anexo, vira conferência, vira discussão —, e duas datas
+    para o mesmo registro não são lidas como bug de fuso: são lidas como alguém tendo
+    mexido no cadastro.
+    """
+    from io import BytesIO
+    from zoneinfo import ZoneInfo
+
+    from openpyxl import load_workbook
+
+    from app.domain.account.models import DEFAULT_TIMEZONE
+
+    gestor = await make_user(role=UserRole.GESTOR)
+    headers = _auth_header(gestor)
+    origin_id = await _create_origin(client, headers, "Origem da Planilha")
+    customer_id = await _create_customer(client, headers, origin_id, name="Cliente Das 23H47")
+
+    # 31/08/2026 23h47 em São Paulo é 01/09/2026 02h47 em UTC.
+    instante = datetime(2026, 9, 1, 2, 47, tzinfo=UTC)
+    async with app_session_factory() as session, session.begin():
+        await set_tenant_context(session, gestor.tenant_id)
+        await session.execute(
+            text("UPDATE customers SET created_at = :instante WHERE id = :id"),
+            {"instante": instante, "id": customer_id},
+        )
+
+    resposta = await client.post(
+        "/api/v1/customers/export", json={"format": "xlsx", "filters": {}}, headers=headers
+    )
+    assert resposta.status_code == 200, resposta.text
+
+    planilha = load_workbook(BytesIO(resposta.content)).active
+    assert planilha is not None
+    linha = next(
+        row
+        for row in planilha.iter_rows(min_row=2, values_only=True)
+        if row[0] == "Cliente Das 23H47"
+    )
+    na_tela = instante.astimezone(ZoneInfo(DEFAULT_TIMEZONE)).strftime("%d/%m/%Y")
+    assert na_tela == "31/08/2026"
+    assert linha[3] == na_tela
+
+
 async def test_arquivados_ocultos_por_padrao(
     client: AsyncClient, make_user: Callable[..., Awaitable[SeededUser]]
 ) -> None:

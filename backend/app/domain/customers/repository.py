@@ -2,13 +2,24 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
-from sqlalchemy import Case, ColumnElement, case, func, literal, or_, select
+from sqlalchemy import (
+    Case,
+    ColumnElement,
+    CompoundSelect,
+    Row,
+    case,
+    func,
+    literal,
+    or_,
+    select,
+    union_all,
+)
 from sqlalchemy.orm import InstrumentedAttribute
 
 from app.core.br_documents import strip_document_mask
-from app.core.listing import Page, datetime_range, paginate_keyset
+from app.core.listing import Page, datetime_range, paginate_keyset, unaccented_contains
 from app.core.repository import BaseRepository
 from app.domain.customer_origins.models import CustomerOrigin
 from app.domain.customers.models import Customer, MaritalStatus, PersonType
@@ -23,6 +34,22 @@ _AGE_RANGES = [
     ("65+", 65, None),
 ]
 _TOP_N = 10
+
+# Discriminadores do `UNION ALL` de `dimension_counts`. Constantes, e não strings soltas
+# nas três pernas da união: um erro de digitação aqui devolveria uma dimensão vazia sem
+# erro nenhum, que é a falha mais cara de diagnosticar.
+_ORIGIN = "origin"
+_OCCUPATION = "occupation"
+_AGE = "age"
+
+
+@dataclass(frozen=True, slots=True)
+class DimensionCounts:
+    """As três distribuições do painel de contatos, já ordenadas como a tela as mostra."""
+
+    origins: list[tuple[str, int]]
+    occupations: list[tuple[str, int]]
+    age_ranges: list[tuple[str, int]]
 
 
 def _age_bucket_expression() -> Case[str]:
@@ -88,10 +115,13 @@ def _search_by_name_or_document(query: str) -> ColumnElement[bool]:
     Um filtro só — se `query` não tiver dígitos, a comparação de `identification` nunca
     bate (ele só guarda dígitos), então não é preciso "detectar" a intenção de quem
     digitou.
+
+    Spec 137: o lado do nome era uma quarta cópia do predicado de `unaccented_contains`
+    — e a única que precisava casar com um índice. Agora chama a função, e a expressão
+    passou a ser exatamente a do `ix_customers_name_trgm` reconstruído na migration 137.
     """
-    search_pattern = func.concat("%", func.unaccent(func.lower(literal(query))), "%")
     return or_(
-        func.unaccent(func.lower(Customer.name)).ilike(search_pattern),
+        unaccented_contains(Customer.name, query),
         Customer.identification == strip_document_mask(query),
     )
 
@@ -242,7 +272,7 @@ class CustomerRepository(BaseRepository[Customer]):
 
     async def dashboard_counts(
         self, *, this_month: tuple[date, date], last_month: tuple[date, date]
-    ) -> tuple[int, int, int, int]:
+    ) -> tuple[int, int, int]:
         """Os contadores do dashboard numa varredura só (spec 098, regra 1).
 
         Eram três `SELECT count(*)` sobre a MESMA tabela, com a mesma cláusula de RLS,
@@ -251,54 +281,88 @@ class CustomerRepository(BaseRepository[Customer]):
         dashboard de contatos, e num escritório com 100 mil contatos é a diferença
         entre três varreduras e uma.
 
-        Spec 101, regra 6: `with_active_lawsuit` entra como QUARTO filtro da mesma
-        varredura, não como query nova — o orçamento de queries do endpoint (§11 do
-        CLAUDE.md) não muda por causa dele. `without_active_lawsuit` é derivado no
-        serviço (`total - with`), garantindo que os dois somem `total` por construção.
+        Spec 137: `with_active_lawsuit` SAIU daqui. Ele era o quarto filtro desta
+        varredura (spec 101, regra 6) e, junto com os outros três, ia para o cache de 5
+        minutos de `customers:stats` — que só cai quando alguém escreve um CONTATO. Um
+        processo novo mudava o número e não derrubava nada, e o painel mostrava zero
+        contato com processo ativo pelo tempo do TTL. Ver `active_lawsuit_customers`.
         """
         stmt = select(
             func.count().filter(Customer.is_archived.is_(False)),
             func.count().filter(*datetime_range(Customer.created_at, *this_month)),
             func.count().filter(*datetime_range(Customer.created_at, *last_month)),
-            func.count().filter(Customer.is_archived.is_(False), _has_active_lawsuit_clause(True)),
         ).select_from(Customer)
         row = (await self.session.execute(stmt)).one()
-        return int(row[0]), int(row[1]), int(row[2]), int(row[3])
+        return int(row[0]), int(row[1]), int(row[2])
 
-    async def top_origins(self, limit: int = _TOP_N) -> list[tuple[str, int]]:
+    async def active_lawsuit_customers(self) -> int:
+        """Contatos não arquivados que são parte de ao menos um processo em curso.
+
+        Consulta própria, e de propósito FORA do cache (spec 137): é o único número do
+        painel de contatos que muda por escrita de PROCESSO, e nenhum caminho de escrita
+        de processo passa por `CustomerService`. Cachear por evento aqui exigiria que
+        toda futura escrita de processo se lembrasse de derrubar uma chave de outro
+        domínio — a lista que ninguém mantém.
+
+        A conta é a mesma da regra 5 da spec 101 ("ser parte de processo não arquivado"),
+        virada do avesso: em vez de um `EXISTS` correlacionado por contato (que percorre
+        os 100 mil), conta clientes DISTINTOS a partir de `lawsuit_parties`, que é a
+        tabela pequena. Medido em 100 mil contatos / 20 mil processos: 413 ms no
+        `EXISTS` contra 39 ms aqui.
+        """
+        from app.domain.lawsuits.models import Lawsuit, LawsuitParty
+
         stmt = (
-            select(CustomerOrigin.name, func.count(Customer.id))
+            select(func.count(func.distinct(LawsuitParty.customer_id)))
+            .select_from(LawsuitParty)
+            .join(Lawsuit, Lawsuit.id == LawsuitParty.lawsuit_id)
+            .join(Customer, Customer.id == LawsuitParty.customer_id)
+            .where(Lawsuit.is_archived.is_(False), Customer.is_archived.is_(False))
+        )
+        return int((await self.session.execute(stmt)).scalar_one())
+
+    async def dimension_counts(self, limit: int = _TOP_N) -> DimensionCounts:
+        """Origem, ocupação e faixa etária num único statement (spec 137).
+
+        Eram três `GROUP BY` sobre `customers WHERE NOT is_archived`, cada um num
+        round-trip. São agregações diferentes sobre o mesmo recorte, e `UNION ALL` com
+        uma coluna discriminadora as junta sem misturar: o Postgres ainda faz três
+        agregações, mas o cliente paga uma ida ao banco em vez de três.
+
+        Isso não é maquiagem de gate — é o que abriu espaço no orçamento do §11 para
+        `active_lawsuit_customers` entrar como consulta sempre fresca sem estourar as 5
+        queries de `/api/v1/customers/stats` (medido: 5 antes, 4 depois).
+        """
+        nao_arquivado = Customer.is_archived.is_(False)
+        origens = (
+            select(
+                literal(_ORIGIN).label("dimension"),
+                CustomerOrigin.name.label("label"),
+                func.count(Customer.id).label("total"),
+            )
             .select_from(Customer)
             .join(CustomerOrigin, CustomerOrigin.id == Customer.origin_id)
-            .where(Customer.is_archived.is_(False))
+            .where(nao_arquivado)
             .group_by(CustomerOrigin.name)
-            .order_by(func.count(Customer.id).desc())
         )
-        rows = [(name, count) for name, count in (await self.session.execute(stmt)).all()]
-        return _top_n_with_others(rows, limit)
-
-    async def top_occupations(self, limit: int = _TOP_N) -> list[tuple[str, int]]:
-        stmt = (
-            select(Customer.occupation, func.count(Customer.id))
-            .where(Customer.is_archived.is_(False), Customer.occupation.is_not(None))
+        ocupacoes = (
+            select(
+                literal(_OCCUPATION),
+                Customer.occupation,
+                func.count(Customer.id),
+            )
+            .where(nao_arquivado, Customer.occupation.is_not(None))
             .group_by(Customer.occupation)
-            .order_by(func.count(Customer.id).desc())
         )
-        rows = [(name, count) for name, count in (await self.session.execute(stmt)).all() if name]
-        return _top_n_with_others(rows, limit)
-
-    async def age_ranges(self) -> list[tuple[str, int]]:
         bucket = _age_bucket_expression()
-        stmt = (
-            select(bucket, func.count(Customer.id))
-            .where(Customer.is_archived.is_(False))
+        faixas = (
+            select(literal(_AGE), bucket, func.count(Customer.id))
+            .where(nao_arquivado)
             .group_by(bucket)
         )
-        counts: dict[str, int] = {
-            label: count for label, count in (await self.session.execute(stmt)).all()
-        }
-        ordered_labels = [label for label, _low, _high in _AGE_RANGES] + ["Não informado"]
-        return [(label, counts.get(label, 0)) for label in ordered_labels if counts.get(label, 0)]
+        uniao: CompoundSelect[Any] = union_all(origens, ocupacoes, faixas)
+        linhas: Sequence[Row[Any]] = (await self.session.execute(uniao)).all()
+        return _split_dimensions(linhas, limit)
 
 
 def _top_n_with_others(rows: Sequence[tuple[str, int]], limit: int) -> list[tuple[str, int]]:
@@ -308,3 +372,30 @@ def _top_n_with_others(rows: Sequence[tuple[str, int]], limit: int) -> list[tupl
     if rest > 0:
         top.append(("Outros", rest))
     return top
+
+
+def _by_dimension(linhas: Sequence[Row[Any]], dimensao: str) -> list[tuple[str, int]]:
+    """As linhas de uma dimensão, do maior para o menor, sem rótulo nulo.
+
+    A ordenação vive aqui e não no `ORDER BY`: uma união de três agregações só poderia
+    ordenar o conjunto todo, e cada dimensão tem a sua ordem (as duas primeiras por
+    contagem, a faixa etária pela idade)."""
+    pares = (
+        (rotulo, int(total))
+        for dimension, rotulo, total in linhas
+        if dimension == dimensao and rotulo
+    )
+    return sorted(pares, key=lambda par: par[1], reverse=True)
+
+
+def _split_dimensions(linhas: Sequence[Row[Any]], limit: int) -> DimensionCounts:
+    """Separa o resultado do `UNION ALL` nas três listas, cada uma com a regra que já
+    valia quando eram três consultas: top N + "Outros" para origem e ocupação, ordem
+    fixa das faixas para idade (regra 4)."""
+    faixas = dict(_by_dimension(linhas, _AGE))
+    rotulos = [rotulo for rotulo, _low, _high in _AGE_RANGES] + ["Não informado"]
+    return DimensionCounts(
+        origins=_top_n_with_others(_by_dimension(linhas, _ORIGIN), limit),
+        occupations=_top_n_with_others(_by_dimension(linhas, _OCCUPATION), limit),
+        age_ranges=[(rotulo, faixas[rotulo]) for rotulo in rotulos if faixas.get(rotulo)],
+    )

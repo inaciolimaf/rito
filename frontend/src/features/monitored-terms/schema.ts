@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { isValidCnpj, isValidCpf } from "@/lib/br-documents";
+
 export const monitoredTermFormSchema = z
   .object({
     kind: z.enum(["OAB", "CPF", "CNPJ"]),
@@ -27,18 +29,27 @@ export const monitoredTermFormSchema = z
         });
       }
     }
-    if (values.kind === "CPF" && digits.length !== 11) {
+    // Spec 138, regra 7: o backend valida o dígito verificador
+    // (`monitored_terms/schemas.py` → `core/br_documents.py`). Checar só o comprimento
+    // aqui é pior que não checar nada: a tela diz "11 dígitos", o usuário digita 11
+    // dígitos, e o servidor responde "CPF inválido." contradizendo o que a tela acabou
+    // de afirmar. `lib/br-documents.ts` é o mesmo algoritmo, espelhado.
+    if (values.kind === "CPF" && !isValidCpf(digits)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["value"],
-        message: "CPF deve ter 11 dígitos.",
+        message:
+          digits.length !== 11 ? "CPF deve ter 11 dígitos." : "CPF inválido — confira os números.",
       });
     }
-    if (values.kind === "CNPJ" && digits.length !== 14) {
+    if (values.kind === "CNPJ" && !isValidCnpj(digits)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["value"],
-        message: "CNPJ deve ter 14 dígitos.",
+        message:
+          digits.length !== 14
+            ? "CNPJ deve ter 14 dígitos."
+            : "CNPJ inválido — confira os números.",
       });
     }
   });

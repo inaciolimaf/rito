@@ -91,9 +91,12 @@ run_backend() {
 	# thrashing custa CPU de verdade, e três jornadas e2e estouravam o timeout de 30 s
 	# por inanição, não por defeito.
 	#
-	# O teto continua 3; o que muda é que ele agora ENCOLHE em máquina pequena. Em 4 ou
-	# mais núcleos o comportamento é idêntico ao medido nas specs 035/097.
-	workers="${PYTEST_WORKERS:-$(_cap 3)}"
+	# O teto subiu de 3 para 6 (medido em docs/test-speed.md, seção Backend): no host de 12
+	# núcleos a suíte do backend caiu de ~104 s para ~63 s com CPU quase igual (≈215 s →
+	# ≈250 s de user). O teto sempre passou pelo `_cap`, que devolve o MENOR entre o teto e
+	# `núcleos - 1`: em 2 e 4 núcleos o valor resultante é o mesmo de antes (1 e 3); só
+	# máquinas com 7 núcleos ou mais recebem mais workers.
+	workers="${PYTEST_WORKERS:-$(_cap 6)}"
 	if [ -n "${PYTEST_ALLOW_HOSTS:-}" ]; then
 		uv run pytest -n "$workers" --allow-hosts="$PYTEST_ALLOW_HOSTS"
 	else
@@ -109,12 +112,35 @@ run_frontend() {
 	cd frontend && npm run test -- --maxWorkers="${VITEST_MAX_WORKERS:-1}"
 }
 
+# Extraído para que o teste do runner possa exercitar o `run_e2e` de verdade sem subir o
+# Playwright (tests/meta/test_runner.sh sobrescreve só isto).
+_e2e_runner() {
+	cd e2e && npm test
+}
+
 run_e2e() {
-	if find e2e/tests -type f -name '*.spec.ts' | grep -q .; then
-		cd e2e && npm test
-	else
-		echo "e2e: nenhuma jornada ainda — pulando"
+	# Spec 139: este `if` tinha um `else` que imprimia "e2e: nenhuma jornada ainda —
+	# pulando" e saía com **exit 0**. Fazia sentido na spec 009, quando não havia jornada
+	# nenhuma; hoje são nove, e o que sobrou foi uma porta aberta — apagar `e2e/tests`
+	# fazia a suíte inteira desaparecer sem uma linha vermelha, e ainda MELHORAVA o
+	# wall-clock do CLAUDE.md §11. Os dois gates de contagem (`journey-count.spec.ts` e
+	# `test_final_audit.py`) não pegavam porque só tinham teto, e `0 <= 25` passa.
+	#
+	# Diretório sem jornada agora é FALHA. Um projeto que voltar a não ter e2e derruba
+	# este gate de propósito: a decisão de não ter jornada é grande demais para ser
+	# tomada por um `find` que não achou arquivo.
+	# `-not -path '*/meta/*'`: `e2e/tests/meta/` guarda gates SOBRE as jornadas (a
+	# contagem), não jornadas. Sem esta exclusão, apagar as nove e deixar só o contador
+	# continuaria achando um `.spec.ts` — que é exatamente o cenário que a auditoria
+	# reproduziu. Os dois lados contam a mesma coisa: aqui, no `journey-count.spec.ts` e
+	# no `test_final_audit.py`.
+	if ! find e2e/tests -type f -name '*.spec.ts' -not -path '*/meta/*' 2>/dev/null |
+		grep -q .; then
+		echo "e2e: NENHUMA jornada encontrada em e2e/tests — o projeto tem 9 (piso do"
+		echo "     journey-count.spec.ts). Suíte de e2e ausente é falha, não 'pulando'."
+		return 1
 	fi
+	_e2e_runner
 }
 
 main() {

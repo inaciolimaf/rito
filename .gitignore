@@ -1,6 +1,9 @@
 # Ambiente
+# Segredos ficam fora do git: `.env.*` pega .env.production etc. Os modelos são versionados.
 .env
-.env.local
+.env.*
+!.env.example
+!.env.production.example
 *.local
 
 # Python
@@ -19,8 +22,13 @@ coverage.xml
 node_modules/
 dist/
 build/
+coverage/
 .vite/
 *.tsbuildinfo
+
+# Artefatos gerados
+# openapi.json é gerado por `make openapi` a partir do código; não se versiona.
+openapi.json
 
 # Testes
 playwright-report/
@@ -42,3 +50,9 @@ minio-data/
 # Claude Code local
 .claude/settings.local.json
 .claude/*.tmp.*
+
+# Auditoria de segurança: ambiente do gerador de PDF (spec 133-139)
+docs/security-audit/.venv/
+# Mutation testing (backend/tools/mutation.py)
+backend/mutants/
+backend/mutants-survivors.md

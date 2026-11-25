@@ -6,7 +6,20 @@ from botocore.exceptions import ClientError
 from app.core.bootstrap import ConfigurationError
 from app.core.config import get_settings
 
-_PRESIGNED_URL_EXPIRY_SECONDS = 7 * 24 * 60 * 60
+# Janela do `public_url` — avatar, logo do escritório e foto de contato (spec 135, regra 7).
+#
+# Eram SETE DIAS. Uma URL pré-assinada é um bearer token de leitura embutido no `src=` de
+# um `<img>`: ela vaza por histórico de navegador, log de proxy/CDN, `Referer` e print de
+# tela, e valia uma semana depois disso — sem sessão, sem login, para quem quer que a
+# tivesse. Foto de contato é dado pessoal de cliente do escritório.
+#
+# 15 minutos é o TTL do token de acesso (`access_token_ttl_minutes`), e a escolha é essa de
+# propósito: o link para a imagem não sobrevive à sessão que o produziu. A tela renderiza a
+# imagem no primeiro segundo e o navegador a mantém em cache; o que muda é que o link
+# copiado dali morre junto com a sessão, como todo o resto. Compare com os 5 min do download
+# de anexo e os 10 min do documento — a mesma família de prazo, não mais uma ordem de
+# grandeza fora dela.
+_PRESIGNED_URL_EXPIRY_SECONDS = 15 * 60
 
 
 class S3FileStorage:

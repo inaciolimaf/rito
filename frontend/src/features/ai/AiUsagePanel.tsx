@@ -5,18 +5,18 @@ import { DataTable } from "@/components/domain/DataTable";
 import { StatCard } from "@/components/domain/StatCard";
 import type { DataTableColumn } from "@/components/domain/types";
 import { getAiUsage, type UsageGroupData } from "@/features/ai/api";
+import { formatUsd } from "@/lib/format";
+
+/** Uma chamada de LLM custa frações de centavo: quatro casas, vírgula decimal. */
+const formatUsd4 = (value: number): string => formatUsd(value, 4);
 
 type GroupBy = "feature" | "model" | "status";
-
-function formatUsd(value: number): string {
-  return `US$ ${value.toFixed(4)}`;
-}
 
 const COLUMNS: DataTableColumn<UsageGroupData>[] = [
   { id: "key", header: "Chave", cell: (row) => row.key },
   { id: "calls", header: "Chamadas", cell: (row) => row.calls },
   { id: "tokens", header: "Tokens", cell: (row) => row.prompt_tokens + row.completion_tokens },
-  { id: "cost", header: "Custo", cell: (row) => formatUsd(row.cost_usd) },
+  { id: "cost", header: "Custo", cell: (row) => formatUsd4(row.cost_usd) },
   { id: "errors", header: "Erros", cell: (row) => row.errors },
 ];
 
@@ -48,7 +48,7 @@ export function AiUsagePanel(): JSX.Element {
         <StatCard label="Chamadas" value={data?.totals.calls ?? 0} isLoading={isLoading} />
         <StatCard
           label="Custo total"
-          value={formatUsd(data?.totals.cost_usd ?? 0)}
+          value={formatUsd4(data?.totals.cost_usd ?? 0)}
           isLoading={isLoading}
         />
         <StatCard label="Erros" value={data?.totals.errors ?? 0} isLoading={isLoading} />

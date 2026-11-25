@@ -11,13 +11,29 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from sqlalchemy import ColumnElement, Row, Select, and_, func, literal, or_, select, text
+from sqlalchemy import (
+    TIMESTAMP,
+    ColumnElement,
+    Date,
+    DateTime,
+    Interval,
+    Row,
+    Select,
+    and_,
+    false,
+    func,
+    literal,
+    or_,
+    select,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.selectable import ScalarSelect, Subquery
 
-from app.core.listing import QuickViews, date_range, datetime_range, paginate_keyset
+from app.core.listing import Column, QuickViews, date_range, datetime_range, paginate_keyset
+from app.core.sql import days_interval
+from app.domain.account.models import DEFAULT_TIMEZONE, Account
 from app.domain.action_groups.models import ActionGroup, LawsuitType
 from app.domain.customers.models import Customer
 from app.domain.lawsuits.models import (
@@ -31,11 +47,78 @@ from app.domain.stages.models import Stage
 from app.domain.users.models import User
 
 
+def _office_timezone() -> ColumnElement[str]:
+    """O fuso do escritório (spec 011), lido de dentro do SQL.
+
+    `accounts` tem `tenant_id` UNIQUE — uma linha por escritório —, e o RLS já restringe a
+    subconsulta ao tenant da sessão: o `LIMIT 1` é sobre um conjunto que tem no máximo um
+    elemento, não um desempate. Ela é **não correlacionada**, então o Postgres a resolve
+    uma vez por statement (InitPlan) e nenhum orçamento de queries do `CLAUDE.md` §11
+    muda: subconsulta não é statement.
+
+    O `coalesce` cobre o escritório sem linha de conta — mesmo padrão do `Clock`, que cai
+    em `DEFAULT_TIMEZONE` e nunca no fuso do servidor.
+    """
+    return func.coalesce(select(Account.timezone).limit(1).scalar_subquery(), DEFAULT_TIMEZONE)
+
+
+def _office_today() -> ColumnElement[date]:
+    """«Hoje» no fuso do escritório, escrito em SQL (spec 136).
+
+    É o `Clock.today()` da spec 114 do outro lado da fronteira. A 114 tirou
+    `date.today()` do Python e passou o dia por parâmetro; o que ela não varreu foi o
+    SQL, e `func.current_date()` continuou respondendo o dia do **servidor**, que roda em
+    UTC. Entre 21h e a meia-noite em Brasília (até cinco horas em Rio Branco) os dois
+    discordam, e um processo encerrado hoje já contava no mês seguinte.
+
+    Aqui o dia vem do banco e não do `Clock` por um motivo estrutural: a listagem de
+    processos, o quadro do CRM e os cards do CRM não recebem `Clock` — quem os chama é
+    `service.py`/`board_service.py`, e o dia teria de atravessar quatro assinaturas para
+    chegar numa lambda de visão rápida. Onde o `Clock` já chega (atividades, financeiro,
+    BI), ele continua sendo o caminho: uma consulta a menos e um parâmetro explícito.
+    """
+    return func.timezone(_office_timezone(), func.statement_timestamp()).cast(Date)
+
+
+def _office_month_start() -> ColumnElement[date]:
+    """O 1º dia do mês corrente, no fuso do escritório."""
+    return func.date_trunc("month", _office_today()).cast(Date)
+
+
+def _office_instant(day: ColumnElement[date]) -> ColumnElement[datetime]:
+    """A meia-noite de um dia do escritório, como instante absoluto.
+
+    `timezone(fuso, timestamp)` é a volta de `timezone(fuso, timestamptz)`: interpreta a
+    hora local naquele fuso e devolve `timestamptz`. É o que permite comparar uma coluna
+    de instante (`last_movement_at`, `created_at`) com uma fronteira de DIA do escritório
+    sem transformar a coluna — o índice continua servindo.
+    """
+    return func.timezone(_office_timezone(), day.cast(TIMESTAMP), type_=DateTime(timezone=True))
+
+
+def _this_month(column: Column) -> ColumnElement[bool]:
+    """Coluna de data dentro do mês corrente do escritório — piso **e** teto.
+
+    O teto faltava (spec 027): as três visões «deste mês» eram só
+    `coluna >= date_trunc('month', current_date)`. Um processo com `closure_date` em
+    15/06/2027 — o erro de digitação mais comum que existe num campo de data, e a API o
+    aceita com 201 — contava como «encerrado este mês» em setembro de 2026, e voltaria a
+    contar em outubro, novembro e em todos os meses até junho de 2027. É número de
+    produtividade: vai para reunião, para meta e para bônus.
+    """
+    start = _office_month_start()
+    # `make_interval(0, 1)` = um mês, com o número LIGADO — mesma razão do
+    # `days_interval` da spec 127: o builder não tem literal de intervalo.
+    proximo_mes = func.make_interval(0, 1, type_=Interval())
+    end = (func.date_trunc("month", _office_today()) + proximo_mes).cast(Date)
+    return and_(column >= start, column < end)
+
+
 def _idle(days: int) -> ColumnElement[bool]:
     # Regra 3: parado há N dias ou nunca movimentado.
     return or_(
         Lawsuit.last_movement_at.is_(None),
-        Lawsuit.last_movement_at < func.now() - text(f"interval '{days} days'"),
+        Lawsuit.last_movement_at < func.now() - days_interval(days),
     )
 
 
@@ -47,19 +130,18 @@ LAWSUIT_VIEWS = QuickViews(
         "all": lambda: None,
         # Regra 2: ativo = não arquivado (visibilidade) E sem data de arquivamento (fato).
         "active": lambda: and_(Lawsuit.is_archived.is_(False), Lawsuit.archived_date.is_(None)),
-        "moved_30d": lambda: Lawsuit.last_movement_at >= func.now() - text("interval '30 days'"),
-        "moved_7d": lambda: Lawsuit.last_movement_at >= func.now() - text("interval '7 days'"),
-        "moved_today": lambda: Lawsuit.last_movement_at >= func.date_trunc("day", func.now()),
+        "moved_30d": lambda: Lawsuit.last_movement_at >= func.now() - days_interval(30),
+        "moved_7d": lambda: Lawsuit.last_movement_at >= func.now() - days_interval(7),
+        # Spec 136: "hoje" e "este mês" são os do escritório (`_office_today`), não os do
+        # servidor — e as três visões «deste mês» ganharam o teto que nunca tiveram.
+        "moved_today": lambda: Lawsuit.last_movement_at >= _office_instant(_office_today()),
         "never_captured": lambda: Lawsuit.last_movement_at.is_(None),
         "idle_30d": lambda: _idle(30),
         "idle_45d": lambda: _idle(45),
         "idle_90d": lambda: _idle(90),
-        "closed_this_month": lambda: Lawsuit.closure_date
-        >= func.date_trunc("month", func.current_date()),
-        "filed_this_month": lambda: Lawsuit.process_date
-        >= func.date_trunc("month", func.current_date()),
-        "archived_this_month": lambda: Lawsuit.archived_date
-        >= func.date_trunc("month", func.current_date()),
+        "closed_this_month": lambda: _this_month(Lawsuit.closure_date),
+        "filed_this_month": lambda: _this_month(Lawsuit.process_date),
+        "archived_this_month": lambda: _this_month(Lawsuit.archived_date),
     },
 )
 
@@ -248,7 +330,7 @@ def _text_search(q: str) -> ColumnElement[bool]:
         _party_exists(func.unaccent(func.lower(Customer.name)).ilike(party_pattern)),
         Lawsuit.protocol_number.ilike(pattern),
         Lawsuit.folder.ilike(pattern),
-        Lawsuit.process_number.ilike(f"%{digits}%") if digits else text("false"),
+        Lawsuit.process_number.ilike(f"%{digits}%") if digits else false(),
     )
 
 
@@ -686,10 +768,13 @@ class LawsuitListingRepository:
         return [self._row_to_board_card(row) for row in rows], total
 
     async def crm_stats(self, *, filters: LawsuitFilters) -> CrmStatsRow:
-        """§5: cards de topo do CRM — 2 statements (totais + quebra por fase)."""
-        base = _crm_base(_build_conditions(filters))
+        """§5: cards de topo do CRM — 2 statements (totais + quebra por fase).
 
-        received_this_month = Lawsuit.created_at >= func.date_trunc("month", func.now())
+        Spec 136: «este mês» é o do escritório. `date_trunc('month', now())` cortava o mês
+        em UTC, e às 21h30 de 31/08 o card "recebidos este mês" já era o de setembro.
+        """
+        base = _crm_base(_build_conditions(filters))
+        received_this_month = Lawsuit.created_at >= _office_instant(_office_month_start())
         totals_stmt = base(
             func.count(),
             func.count().filter(received_this_month),

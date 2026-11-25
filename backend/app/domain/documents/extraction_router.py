@@ -16,7 +16,7 @@ from app.core.permissions import UserRole, require_role
 from app.domain.ai.exceptions import FeatureDisabledError
 from app.domain.ai.router import get_llm_provider
 from app.domain.ai.service import AiRunner
-from app.domain.attachments.repository import AttachmentRepository
+from app.domain.attachments.service import AttachmentNotFoundError, AttachmentService
 from app.domain.auth.deps import get_session_for_current_user
 from app.domain.documents.extraction import (
     DocumentExtractionService,
@@ -119,27 +119,34 @@ async def _resolve_input(
     *,
     session: AsyncSession,
     storage: FileStorage,
-    tenant_id: uuid.UUID,
+    current_user: User,
 ) -> tuple[bytes, str, str, str, uuid.UUID | None]:
     """As duas origens do documento a extrair: upload novo ou anexo já existente.
 
     Devolve `(conteúdo, nome, tipo, chave, id do anexo de origem)`. O `origem` é `None`
     no upload porque não há anexo a que se ligar — é a extração que passa a existir
     primeiro, e ligá-la a um anexo inventado seria mentir na auditoria.
+
+    O anexo vem por `AttachmentService.get_accessible`, e não mais pelo repositório
+    (spec 135, regra 3): este era o único caminho de leitura de anexo que pulava a
+    visibilidade de tarefa privada e o eixo financeiro — e ele devolve o CONTEÚDO do
+    arquivo dentro do texto extraído. Ler por aqui precisa custar o mesmo que baixar.
     """
     if file is not None:
         content = await file.read()
         content_type = file.content_type or "application/octet-stream"
-        storage_key = f"{tenant_id}/extractions/{uuid.uuid4()}"
+        storage_key = f"{current_user.tenant_id}/extractions/{uuid.uuid4()}"
         await storage.upload(key=storage_key, content=content, content_type=content_type)
         return content, file.filename or "documento", content_type, storage_key, None
     if attachment_id is None:
         raise HTTPException(
             status_code=422, detail="Envie um arquivo ou o id de um anexo existente."
         )
-    anexo = await AttachmentRepository(session).get_by_id(attachment_id)
-    if anexo is None:
-        raise HTTPException(status_code=404, detail="Anexo não encontrado.")
+    anexos = AttachmentService(session=session, storage=storage, tenant_id=current_user.tenant_id)
+    try:
+        anexo = await anexos.get_accessible(attachment_id, current_user)
+    except AttachmentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Anexo não encontrado.") from exc
     content = await storage.download(key=anexo.storage_key)
     return content, anexo.filename, anexo.content_type, anexo.storage_key, anexo.id
 
@@ -157,7 +164,7 @@ async def extract_document(
 ) -> ExtractionResponse:
     service = _service(session, current_user, provider, storage, ocr)
     entrada = await _resolve_input(
-        file, attachment_id, session=session, storage=storage, tenant_id=current_user.tenant_id
+        file, attachment_id, session=session, storage=storage, current_user=current_user
     )
     content, filename, content_type, storage_key, origem = entrada
 

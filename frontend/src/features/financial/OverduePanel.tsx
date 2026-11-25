@@ -26,6 +26,7 @@ import { TemplateEditor } from "@/features/financial/TemplateEditor";
 import { formatBrl } from "@/lib/money";
 import { ApiError } from "@/lib/errors";
 import { useAuth } from "@/providers/AuthProvider";
+import { formatBrDate } from "@/lib/format";
 
 const AGING_FILTER_FIELDS: FilterFieldDef[] = [
   {
@@ -41,11 +42,6 @@ const AGING_FILTER_FIELDS: FilterFieldDef[] = [
     ],
   },
 ];
-
-function formatDate(value: string): string {
-  const [year, month, day] = value.split("-");
-  return `${day}/${month}/${year}`;
-}
 
 /** Painel de inadimplência (spec 061) — atrasados com aging, resumo, envio manual de
  * cobrança e histórico por lançamento. `DunningRulesForm` (a régua automática) fica na
@@ -96,7 +92,7 @@ export function OverduePanel(): JSX.Element {
     { id: "customer_name", header: "Cliente", cell: (row) => row.customer_name ?? "—" },
     { id: "process_number", header: "Processo", cell: (row) => row.process_number ?? "—" },
     { id: "amount", header: "Valor", cell: (row) => formatBrl(row.amount) },
-    { id: "due_date", header: "Vencimento", cell: (row) => formatDate(row.due_date) },
+    { id: "due_date", header: "Vencimento", cell: (row) => formatBrDate(row.due_date) },
     { id: "days_overdue", header: "Dias em atraso", cell: (row) => String(row.days_overdue) },
   ];
 

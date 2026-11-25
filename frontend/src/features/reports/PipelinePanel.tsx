@@ -158,7 +158,7 @@ export function PipelinePanel(): JSX.Element {
           </div>
         </div>
         {portfolio?.group_by === "step" && (
-          <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
             <DataTable
               columns={STEP_COLUMNS}
               data={portfolio.items}

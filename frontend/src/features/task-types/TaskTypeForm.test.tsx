@@ -8,6 +8,7 @@ import { listSteps } from "@/features/stages/api";
 import { suggestTaskReward } from "@/features/task-types/api";
 import {
   DEFAULT_TASK_TYPE_FORM_VALUES,
+  taskTypeEditSchema,
   taskTypeFormSchema,
   type TaskTypeFormValues,
 } from "@/features/task-types/schema";
@@ -69,5 +70,27 @@ describe("TaskTypeForm — calculadora ao vivo", () => {
     await user.selectOptions(screen.getByLabelText("Tempo médio"), "MIN_30");
     await waitFor(() => expect(suggestMock).toHaveBeenCalledWith("SIMPLES", "MIN_30"));
     expect(reward).toHaveValue(42);
+  });
+});
+
+describe("schema de edição (spec 138, regra 7)", () => {
+  it("na criação, Pontuação vazia é válida — significa 'aceitar a sugestão da matriz'", () => {
+    const result = taskTypeFormSchema.safeParse({ ...DEFAULT_TASK_TYPE_FORM_VALUES, name: "X" });
+    expect(result.success).toBe(true);
+  });
+
+  it("na edição, Pontuação vazia é recusada — `TaskTypeUpdateRequest.reward` é int obrigatório", () => {
+    const result = taskTypeEditSchema.safeParse({ ...DEFAULT_TASK_TYPE_FORM_VALUES, name: "X" });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toContain("Pontuação é obrigatória ao editar");
+  });
+
+  it("na edição, zero continua valendo (regra 8 da spec 031)", () => {
+    const result = taskTypeEditSchema.safeParse({
+      ...DEFAULT_TASK_TYPE_FORM_VALUES,
+      name: "X",
+      reward: "0",
+    });
+    expect(result.success).toBe(true);
   });
 });

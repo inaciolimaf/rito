@@ -1,0 +1,11 @@
+# Contexto da imagem do frontend (docker/compose: context ./frontend).
+.git
+node_modules
+dist
+coverage
+playwright-report
+test-results
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

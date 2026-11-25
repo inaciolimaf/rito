@@ -38,6 +38,7 @@ import {
 } from "@/features/customers/schema";
 import { listStates } from "@/features/locations/api";
 import { ApiError } from "@/lib/errors";
+import { safeExternalHref } from "@/lib/urls";
 import { useAuth } from "@/providers/AuthProvider";
 
 function toPayload(values: CustomerFormValues): CustomerFormPayload {
@@ -289,9 +290,9 @@ export function CustomerListPage(): JSX.Element {
       id: "cellphone",
       header: "Celular",
       cell: (row) =>
-        row.whatsapp_link ? (
+        safeExternalHref(row.whatsapp_link) ? (
           <a
-            href={row.whatsapp_link}
+            href={safeExternalHref(row.whatsapp_link)}
             target="_blank"
             rel="noreferrer"
             className="text-accent underline"

@@ -34,6 +34,10 @@ ORCAMENTOS: list[tuple[str, str, int]] = [
     ("listagem de contatos", "/api/v1/customers", 3),
     ("listagem de processos", "/api/v1/lawsuits", 3),
     ("listagem de tarefas", "/api/v1/lawsuits/{lawsuit}/posts", 3),
+    # A tela de Atividades (spec 128): usuário + página (com o total por janela) + rótulos.
+    # O caso COM dados — onde um N+1 de responsáveis apareceria — mora em
+    # `test_posts.py::test_atividades_dentro_do_orcamento_de_queries`; aqui vale a forma.
+    ("listagem de atividades", "/api/v1/posts", 3),
     ("listagem de lançamentos", "/api/v1/transactions", 3),
     ("listagem de notificações", "/api/v1/notifications", 3),
     # Detalhe com relações.

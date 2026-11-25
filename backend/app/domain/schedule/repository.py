@@ -47,11 +47,19 @@ class ScheduleRepository:
         end: date,
         date_field: str,
         user_id: uuid.UUID | None,
+        limit: int,
         exclude_ids: set[uuid.UUID] | None = None,
     ) -> Sequence[tuple[Post, str]]:
         """Posts com `show_in_schedule` cujo eixo (compromisso ou prazo fatal — regra 2)
         cai em [start, end]. `user_id` restringe aos posts em que ele é responsável
-        (regra 1: filtro por usuário). RLS já garante o tenant."""
+        (regra 1: filtro por usuário). RLS já garante o tenant.
+
+        `limit` é obrigatório desde a spec 137, e sem valor padrão de propósito: esta
+        consulta não tinha teto nenhum, e as duas rotas que a usam devolviam o que o
+        escritório inteiro tivesse na janela — 20.070 eventos (9,6 MB) na agenda de 90
+        dias e 115.196 eventos (19,8 MB, 1,9 s) no feed iCal de ±12 meses, medidos em
+        200 mil tarefas. Um padrão aqui só faria o próximo chamador esquecer de novo.
+        """
         axis = Post.scheduled_date if date_field == "scheduled" else Post.deadline_date
         stmt = (
             select(Post, TaskType.name)
@@ -60,6 +68,7 @@ class ScheduleRepository:
             .where(axis.is_not(None))
             .where(axis.between(start, end))
             .order_by(axis, Post.scheduled_time.nulls_first(), Post.id)
+            .limit(limit)
         )
         if user_id is not None:
             stmt = stmt.join(PostUser, PostUser.post_id == Post.id).where(

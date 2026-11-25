@@ -112,7 +112,7 @@ docs: ## Documentação de docs/system/ cobre o código e não cita o que sumiu
 	cd backend && uv run python -m tools.docs_coverage
 
 coverage: ## Backend com cobertura: falha abaixo do piso de backend/pyproject.toml
-	cd backend && uv run pytest -n auto -q --cov
+	cd backend && COVERAGE_CORE=sysmon uv run pytest -n auto -q --cov
 
 types: ## Checagem de tipos estrita (mypy) do backend
 	cd backend && uv run mypy .
@@ -152,7 +152,7 @@ e2e-browsers: ## Chromium do Playwright com as bibliotecas de sistema
 coverage-backend: ## Cobertura do backend (passo de CI): falha abaixo do piso do pyproject.toml
 	@mkdir -p $(COV_DIR)
 	cd backend && MIGRATIONS_DATABASE_URL="$${TEST_MIGRATIONS_DATABASE_URL:-$$MIGRATIONS_DATABASE_URL}" uv run alembic upgrade head
-	cd backend && uv run pytest -n $(COVERAGE_WORKERS) --cov=app --cov-report=term --cov-report=json:$(COV_DIR)/backend.json
+	cd backend && COVERAGE_CORE=sysmon uv run pytest -n $(COVERAGE_WORKERS) --cov=app --cov-report=term --cov-report=json:$(COV_DIR)/backend.json
 
 coverage-frontend: ## Cobertura do frontend (passo de CI): falha abaixo do piso do vite.config.ts
 	@mkdir -p $(COV_DIR)

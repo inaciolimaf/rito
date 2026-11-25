@@ -91,9 +91,12 @@ run_backend() {
 	# thrashing custa CPU de verdade, e três jornadas e2e estouravam o timeout de 30 s
 	# por inanição, não por defeito.
 	#
-	# O teto continua 3; o que muda é que ele agora ENCOLHE em máquina pequena. Em 4 ou
-	# mais núcleos o comportamento é idêntico ao medido nas specs 035/097.
-	workers="${PYTEST_WORKERS:-$(_cap 3)}"
+	# O teto subiu de 3 para 6 (medido em docs/test-speed.md, seção Backend): no host de 12
+	# núcleos a suíte do backend caiu de ~104 s para ~63 s com CPU quase igual (≈215 s →
+	# ≈250 s de user). O teto sempre passou pelo `_cap`, que devolve o MENOR entre o teto e
+	# `núcleos - 1`: em 2 e 4 núcleos o valor resultante é o mesmo de antes (1 e 3); só
+	# máquinas com 7 núcleos ou mais recebem mais workers.
+	workers="${PYTEST_WORKERS:-$(_cap 6)}"
 	if [ -n "${PYTEST_ALLOW_HOSTS:-}" ]; then
 		uv run pytest -n "$workers" --allow-hosts="$PYTEST_ALLOW_HOSTS"
 	else

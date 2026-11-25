@@ -66,7 +66,9 @@ As exceções (parceria entre escritórios, biblioteca pública de modelos, cat�
 - PostgreSQL 16, SQLAlchemy 2.0 assíncrono, migrações Alembic em `backend/alembic/`.
 - Em produção `RUN_MIGRATIONS_ON_BOOT` aplica as migrações ao subir a API (o worker não aplica).
 - Cada teste roda numa transação com rollback; um banco-modelo é criado uma vez por sessão
-  (`backend/tests/conftest.py`).
+  (`backend/tests/conftest.py`). `scripts/run-tests.sh` usa até 6 workers do xdist (menos
+  `núcleos - 1` em máquina pequena); a cobertura roda com `COVERAGE_CORE=sysmon`. Medições em
+  `docs/test-speed.md`.
 
 ## IA
 

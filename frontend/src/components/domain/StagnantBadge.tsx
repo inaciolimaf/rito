@@ -1,3 +1,5 @@
+import * as React from "react";
+
 import { StagnationTooltip } from "@/components/domain/StagnationTooltip";
 
 export interface StagnantBadgeProps {
@@ -12,11 +14,13 @@ export function StagnantBadge({ daysInStage, stagnantDays }: StagnantBadgeProps)
     stagnantDays === null
       ? "Estagnado."
       : `Esta etapa marca como estagnado após ${stagnantDays} dia${stagnantDays === 1 ? "" : "s"} sem mudar de etapa.`;
+  const tooltipId = React.useId();
   return (
-    <StagnationTooltip message={message}>
+    <StagnationTooltip message={message} id={tooltipId}>
       <span
         data-testid="stagnant-badge"
         tabIndex={0}
+        aria-describedby={tooltipId}
         className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2 py-0.5 text-xs font-medium text-danger"
       >
         Estagnado há {daysInStage} dia{daysInStage === 1 ? "" : "s"}

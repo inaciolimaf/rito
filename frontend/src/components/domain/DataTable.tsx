@@ -156,7 +156,7 @@ export function DataTable<T>({
         }
         data-virtualized={virtualizada || undefined}
       >
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" aria-busy={isLoading || undefined}>
           <thead>
             <tr className="border-b border-default bg-surface-muted">
               {selectable && (
@@ -172,6 +172,7 @@ export function DataTable<T>({
                 <th
                   key={column.id}
                   scope="col"
+                  aria-sort={ariaSortFor(column.sortable && onSortChange ? column.id : null, sort)}
                   className={cn("px-3 py-2 text-left font-medium text-muted", column.className)}
                 >
                   {column.sortable && onSortChange ? (
@@ -270,6 +271,14 @@ export function DataTable<T>({
       )}
     </div>
   );
+}
+
+function ariaSortFor(
+  columnId: string | null,
+  sort: DataTableSort | null | undefined,
+): "ascending" | "descending" | undefined {
+  if (columnId === null || sort?.field !== columnId) return undefined;
+  return sort.order === "asc" ? "ascending" : "descending";
 }
 
 function SortIcon({ active, order }: { active?: boolean; order?: "asc" | "desc" }): JSX.Element {

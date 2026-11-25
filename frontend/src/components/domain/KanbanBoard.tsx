@@ -104,6 +104,23 @@ export function KanbanBoard<T>({
                       className="cursor-grab rounded border border-default bg-surface p-2 shadow-sm"
                     >
                       {renderCard(item)}
+                      <select
+                        aria-label="Mover card para outra coluna"
+                        className="mt-2 h-8 w-full rounded border border-default bg-surface px-2 text-xs text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        value=""
+                        onChange={(event) => {
+                          if (event.target.value) onMove(itemId, column.id, event.target.value);
+                        }}
+                      >
+                        <option value="">Mover para…</option>
+                        {columns
+                          .filter((target) => target.id !== column.id)
+                          .map((target) => (
+                            <option key={target.id} value={target.id}>
+                              {target.label}
+                            </option>
+                          ))}
+                      </select>
                     </div>
                   );
                 })

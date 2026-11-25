@@ -1,6 +1,9 @@
 # Ambiente
+# Segredos ficam fora do git: `.env.*` pega .env.production etc. Os modelos são versionados.
 .env
-.env.local
+.env.*
+!.env.example
+!.env.production.example
 *.local
 
 # Python
@@ -19,8 +22,13 @@ coverage.xml
 node_modules/
 dist/
 build/
+coverage/
 .vite/
 *.tsbuildinfo
+
+# Artefatos gerados
+# openapi.json é gerado por `make openapi` a partir do código; não se versiona.
+openapi.json
 
 # Testes
 playwright-report/

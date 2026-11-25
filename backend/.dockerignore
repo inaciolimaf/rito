@@ -1,0 +1,15 @@
+# Contexto da imagem da API (docker/compose: context ./backend). Só entra o que o Dockerfile copia.
+.git
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+tests
+openapi.json
+.env
+.env.*
+!.env.example

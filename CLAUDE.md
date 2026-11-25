@@ -226,6 +226,8 @@ make test-nightly  # perfilamento com 1,95 milhão de linhas — semeia, mede e 
 make docs          # docs/system/ cobre as pastas de domínio e não cita caminho que sumiu
 make types         # mypy estrito sozinho
 make openapi       # gera backend/openapi.json (contrato da API)
+make mutation      # mutação nas funções alteradas desde origin/main (falha abaixo da faixa)
+make mutation-all  # mutação de todos os módulos puros de [tool.mutation].paths (até 40 min)
 make help          # lista todos os comandos (é o padrão de `make` sem alvo)
 make test-backend  # só o backend (make test-frontend / make test-e2e: idem)
 make test-e2e E2E_ARGS="--shard=1/2"   # e2e por fatia, como o CI

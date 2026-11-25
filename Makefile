@@ -93,6 +93,15 @@ test-mutation: ## Mutação sob demanda: MODULE= e TESTS= obrigatórios
 			$(if $(CONFIRM_TESTS),--confirm-tests $(CONFIRM_TESTS)) ); \
 		status=$$?; rm -rf "$$work"; exit $$status
 
+# Teste de mutação (backend/tools/mutation.py, docs/mutation-testing.md): só as funções que o
+# diff tocou, nos módulos de [tool.mutation].paths. Falha abaixo do mínimo da faixa ou com
+# os testes do mutmut passando de 5 s. `make mutation-all` cobre todos os arquivos (até 40 min).
+mutation: ## Mutação das funções alteradas desde origin/main; falha abaixo do mínimo da faixa
+	cd backend && timeout 600 uv run python -m tools.mutation
+
+mutation-all: ## Mutação de todos os arquivos de [tool.mutation].paths (no máximo 40 min)
+	cd backend && timeout 2400 uv run python -m tools.mutation --all --survivors mutants-survivors.md
+
 lint: ## Lint e formatação do backend e do frontend, com tamanho e fronteiras
 	cd backend && uv run ruff check . && uv run black --check . && uv run mypy .
 	cd backend && uv run python -m tools.function_size && uv run lint-imports

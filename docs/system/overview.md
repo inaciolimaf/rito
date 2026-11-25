@@ -88,6 +88,7 @@ RBAC. Escrita sempre passa por preview e confirmação humana. Nenhum teste cham
 | Duplicação e auditoria | `make dup` (jscpd) e `make audit` (pip-audit, npm audit) no job `check` | duplicação acima do teto de `.jscpd.json`, ou dependência com vulnerabilidade alta |
 | Imagem de produção | `make docker-image` e `make image-smoke` (job `image`) | imagem roda como root, tem gcc, ou `rito health` reprova em modo produção |
 | Cobertura | `backend/pyproject.toml` `fail_under` (`make coverage-backend`) e `frontend/vite.config.ts` (`make coverage-frontend`), jobs `back` e `web` | medição abaixo do piso |
+| Mutação (sob demanda) | `make mutation`, `backend/tools/mutation.py`, `docs/mutation-testing.md` | função alterada sobrevive aos testes unitários abaixo da faixa (domínio 80%, heurística 65%) ou seleção de testes passa de 5 s |
 | Registro | `docs/GATES.md`, `backend/tests/meta/test_registro_de_gates.py` | gate existe e não está listado |
 
 Os gates e seus tetos estão no registro `docs/GATES.md`. Teto só desce.

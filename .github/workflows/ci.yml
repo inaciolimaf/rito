@@ -162,6 +162,11 @@ jobs:
       - name: make lint
         run: make lint
 
+      # Documentação: cada pasta de domínio é citada em docs/system/ e nenhum caminho citado
+      # sumiu (tools/docs_coverage.py). Passo próprio, depois do lint, como no padrão.
+      - name: make docs
+        run: make docs
+
       - name: make test
         run: make test
 

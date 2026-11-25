@@ -1,6 +1,6 @@
 # Rito — comandos principais. `make` sem alvo lista os comandos.
 .DEFAULT_GOAL := help
-.PHONY: help up down migrate seed dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-nightly test-mutation seed-volume drop-volume lint docs coverage types openapi
+.PHONY: help up down migrate seed dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-nightly test-mutation seed-volume drop-volume lint docs coverage types openapi api-types api-types-check bundle
 
 help: ## Lista os comandos disponíveis
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -99,3 +99,13 @@ types: ## Checagem de tipos estrita (mypy) do backend
 
 openapi: ## Gera backend/openapi.json (contrato da API)
 	cd backend && uv run python -m tools.openapi
+
+# Tipos do frontend a partir do contrato da API (frontend-standard). Gerado, não editado.
+api-types: openapi ## Gera frontend/generated/api-schema.ts a partir de backend/openapi.json
+	cd frontend && npm run types:api
+
+api-types-check: api-types ## Falha se o tipo gerado não bate com o commit (CI)
+	git diff --exit-code -- frontend/generated/api-schema.ts
+
+bundle: ## Build de produção e gate do bundle inicial (teto 250 KB gzip)
+	cd frontend && npm run bundle

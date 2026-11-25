@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { Navigate, Route, BrowserRouter, Routes } from "react-router-dom";
 
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorBoundary, RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/shell/AppLayout";
 import { ModulePlaceholderPage } from "@/components/shell/ModulePlaceholderPage";
@@ -149,89 +149,94 @@ export function App(): JSX.Element {
         <ThemeProvider>
           <BrowserRouter>
             <AuthProvider>
-              <Suspense fallback={<CarregandoRota />}>
-                <Routes>
-                  <Route path="/login" element={<LoginPage />} />
-                  {/* Público: quem aceita o convite ainda não tem conta (spec 102). */}
-                  <Route path="/accept-invite" element={<AcceptInvitePage />} />
-                  {import.meta.env.DEV && (
-                    <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
-                  )}
-                  <Route element={<ProtectedRoute />}>
-                    <Route element={<AppLayout />}>
-                      <Route path="/" element={<Navigate to="/home" replace />} />
-                      <Route path="/home" element={<InboxPage />} />
-                      <Route path="/subscription/account" element={<AccountPage />} />
+              <RouteErrorBoundary>
+                <Suspense fallback={<CarregandoRota />}>
+                  <Routes>
+                    <Route path="/login" element={<LoginPage />} />
+                    {/* Público: quem aceita o convite ainda não tem conta (spec 102). */}
+                    <Route path="/accept-invite" element={<AcceptInvitePage />} />
+                    {import.meta.env.DEV && (
+                      <Route path="/kitchen-sink" element={<KitchenSinkPage />} />
+                    )}
+                    <Route element={<ProtectedRoute />}>
+                      <Route element={<AppLayout />}>
+                        <Route path="/" element={<Navigate to="/home" replace />} />
+                        <Route path="/home" element={<InboxPage />} />
+                        <Route path="/subscription/account" element={<AccountPage />} />
 
-                      <Route path="/settings" element={<SettingsHubPage />} />
-                      <Route path="/settings/users" element={<UsersSettingsPage />} />
-                      <Route path="/settings/users/:id" element={<UserDetailPage />} />
-                      <Route path="/settings/action-groups" element={<ActionGroupsListPage />} />
-                      <Route path="/settings/lawsuit-types" element={<LawsuitTypesListPage />} />
-                      <Route path="/settings/stages" element={<StagesListPage />} />
-                      <Route path="/settings/task-types" element={<TaskTypesListPage />} />
-                      <Route path="/settings/workflows" element={<WorkflowsListPage />} />
-                      <Route path="/settings/automations" element={<AutomationsSettingsPage />} />
-                      <Route path="/settings/webhooks" element={<WebhooksSettingsPage />} />
-                      <Route path="/settings/api" element={<ApiTokensPage />} />
-                      <Route path="/settings/goals" element={<GoalsSettingsPage />} />
-                      {/* Atalho legado do widget de meta (spec 028 aponta para /goals). */}
-                      <Route path="/goals" element={<Navigate to="/settings/goals" replace />} />
-                      <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
-                      <Route
-                        path="/settings/monitored-terms"
-                        element={<MonitoredTermsListPage />}
-                      />
-                      <Route path="/settings/integrations" element={<IntegrationsSettingsPage />} />
-                      <Route path="/settings/ai" element={<AiSettingsPage />} />
-                      <Route path="/settings/financial" element={<FinancialSettingsPage />} />
-                      <Route
-                        path="/settings/notifications"
-                        element={<NotificationSettingsPage />}
-                      />
-                      <Route path="/customers" element={<CustomerListPage />} />
-                      <Route path="/lawsuits" element={<LawsuitsPage />} />
-                      <Route path="/lawsuits/:id" element={<LawsuitDetailPage />} />
-                      {/* Spec 128: a listagem de atividades passou a existir e a rota é
+                        <Route path="/settings" element={<SettingsHubPage />} />
+                        <Route path="/settings/users" element={<UsersSettingsPage />} />
+                        <Route path="/settings/users/:id" element={<UserDetailPage />} />
+                        <Route path="/settings/action-groups" element={<ActionGroupsListPage />} />
+                        <Route path="/settings/lawsuit-types" element={<LawsuitTypesListPage />} />
+                        <Route path="/settings/stages" element={<StagesListPage />} />
+                        <Route path="/settings/task-types" element={<TaskTypesListPage />} />
+                        <Route path="/settings/workflows" element={<WorkflowsListPage />} />
+                        <Route path="/settings/automations" element={<AutomationsSettingsPage />} />
+                        <Route path="/settings/webhooks" element={<WebhooksSettingsPage />} />
+                        <Route path="/settings/api" element={<ApiTokensPage />} />
+                        <Route path="/settings/goals" element={<GoalsSettingsPage />} />
+                        {/* Atalho legado do widget de meta (spec 028 aponta para /goals). */}
+                        <Route path="/goals" element={<Navigate to="/settings/goals" replace />} />
+                        <Route path="/settings/origins" element={<CustomerOriginsListPage />} />
+                        <Route
+                          path="/settings/monitored-terms"
+                          element={<MonitoredTermsListPage />}
+                        />
+                        <Route
+                          path="/settings/integrations"
+                          element={<IntegrationsSettingsPage />}
+                        />
+                        <Route path="/settings/ai" element={<AiSettingsPage />} />
+                        <Route path="/settings/financial" element={<FinancialSettingsPage />} />
+                        <Route
+                          path="/settings/notifications"
+                          element={<NotificationSettingsPage />}
+                        />
+                        <Route path="/customers" element={<CustomerListPage />} />
+                        <Route path="/lawsuits" element={<LawsuitsPage />} />
+                        <Route path="/lawsuits/:id" element={<LawsuitDetailPage />} />
+                        {/* Spec 128: a listagem de atividades passou a existir e a rota é
                           real. O redirect para /home que a 102 pôs aqui era o contorno da
                           dívida nº 26 — "Atividades" apontava para /posts desde a spec 008
                           e a tela nunca tinha sido especificada. */}
-                      <Route path="/posts" element={<PostListPage />} />
-                      <Route path="/posts/:id" element={<PostDetailPage />} />
-                      <Route path="/schedules" element={<CalendarPage />} />
-                      <Route path="/publications" element={<PublicationListPage />} />
-                      <Route path="/crm" element={<CrmPage />} />
-                      <Route path="/partners" element={<PartnersPage />} />
-                      <Route path="/transactions" element={<TransactionsListPage />} />
-                      <Route path="/library" element={<TemplatesListPage />} />
-                      <Route path="/library/:id" element={<TemplateEditorPage />} />
-                      <Route path="/reports" element={<ReportsPage />} />
-                      {ROUTABLE_NAV_ITEMS.filter(
-                        (item) =>
-                          item.path !== "/home" &&
-                          item.path !== "/subscription/account" &&
-                          item.path !== "/customers" &&
-                          item.path !== "/lawsuits" &&
-                          item.path !== "/posts" &&
-                          item.path !== "/schedules" &&
-                          item.path !== "/publications" &&
-                          item.path !== "/crm" &&
-                          item.path !== "/partners" &&
-                          item.path !== "/transactions" &&
-                          item.path !== "/library" &&
-                          item.path !== "/reports",
-                      ).map((item) => (
-                        <Route
-                          key={item.path}
-                          path={item.path}
-                          element={<ModulePlaceholderPage title={item.label} />}
-                        />
-                      ))}
-                      <Route path="*" element={<NotFoundPage />} />
+                        <Route path="/posts" element={<PostListPage />} />
+                        <Route path="/posts/:id" element={<PostDetailPage />} />
+                        <Route path="/schedules" element={<CalendarPage />} />
+                        <Route path="/publications" element={<PublicationListPage />} />
+                        <Route path="/crm" element={<CrmPage />} />
+                        <Route path="/partners" element={<PartnersPage />} />
+                        <Route path="/transactions" element={<TransactionsListPage />} />
+                        <Route path="/library" element={<TemplatesListPage />} />
+                        <Route path="/library/:id" element={<TemplateEditorPage />} />
+                        <Route path="/reports" element={<ReportsPage />} />
+                        {ROUTABLE_NAV_ITEMS.filter(
+                          (item) =>
+                            item.path !== "/home" &&
+                            item.path !== "/subscription/account" &&
+                            item.path !== "/customers" &&
+                            item.path !== "/lawsuits" &&
+                            item.path !== "/posts" &&
+                            item.path !== "/schedules" &&
+                            item.path !== "/publications" &&
+                            item.path !== "/crm" &&
+                            item.path !== "/partners" &&
+                            item.path !== "/transactions" &&
+                            item.path !== "/library" &&
+                            item.path !== "/reports",
+                        ).map((item) => (
+                          <Route
+                            key={item.path}
+                            path={item.path}
+                            element={<ModulePlaceholderPage title={item.label} />}
+                          />
+                        ))}
+                        <Route path="*" element={<NotFoundPage />} />
+                      </Route>
                     </Route>
-                  </Route>
-                </Routes>
-              </Suspense>
+                  </Routes>
+                </Suspense>
+              </RouteErrorBoundary>
             </AuthProvider>
           </BrowserRouter>
         </ThemeProvider>

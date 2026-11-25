@@ -8,3 +8,4 @@ build
 # responsabilidade do gerador, e tests/meta/test_enum_mirror.py compara byte a byte —
 # deixar o prettier reescrever quebraria o teste a cada `npm run lint`.
 src/lib/domainEnums.generated.ts
+generated/api-schema.ts

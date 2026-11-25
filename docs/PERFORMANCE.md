@@ -152,7 +152,7 @@ editor de modelos (TipTap, 153 KB gzip) e os relatórios saíram do caminho crí
 telas que a maioria das sessões nunca abre. A tela de login continua estática: é a
 primeira coisa que todo mundo vê.
 
-Gate: `npm run bundle:check` depois do build, no CI. A propriedade estrutural que
+Gate: `make bundle` (build e `npm run bundle:check`), no CI. Teto de 250 KB gzip sobre o que o `index.html` carrega. A propriedade estrutural que
 sustenta o número (nenhuma página de feature importada estaticamente pelo `App.tsx`) tem
 teste na suíte de unidade.
 

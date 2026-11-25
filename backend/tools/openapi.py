@@ -14,6 +14,7 @@ def main() -> int:
     # Placeholder values only so the settings load; nothing here opens a connection.
     os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://x:x@localhost/x")
     os.environ.setdefault("SECRET_KEY", "openapi-placeholder-not-a-secret")
+    os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
     from app.main import create_app
 
     target = ROOT / "openapi.json"

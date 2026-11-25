@@ -86,6 +86,10 @@ jobs:
       - name: make build (production build and bundle gate)
         run: make build
 
+      # Generated API types must match the backend contract (frontend-standard).
+      - name: make api-types-check
+        run: make api-types-check
+
       # Spec 119: duplication ceiling per language, thresholds in .jscpd.json.
       - name: make dup
         run: make dup

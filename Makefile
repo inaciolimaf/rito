@@ -10,7 +10,8 @@ CI_WALL_CLOCK_BUDGET ?= 300
 .PHONY: help up down migrate seed dev dev-backend dev-frontend test test-backend test-frontend test-e2e test-nightly test-mutation seed-volume drop-volume lint docs coverage types openapi \
 	build dup audit install-backend install-frontend install-e2e e2e-browsers \
 	coverage-backend coverage-frontend coverage-summary-backend coverage-summary-frontend \
-	docker-image image-smoke ci-db ci-minio ci-gate
+	docker-image image-smoke ci-db ci-minio ci-gate \
+	api-types api-types-check bundle
 
 help: ## Lista os comandos disponíveis
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -198,3 +199,13 @@ ci-minio: ## (CI) Sobe o MinIO e espera o health endpoint responder
 
 ci-gate: ## (CI) Falha se o run inteiro passou de CI_WALL_CLOCK_BUDGET segundos
 	CI_WALL_CLOCK_BUDGET=$(CI_WALL_CLOCK_BUDGET) bash scripts/ci_gate.sh
+
+# Tipos do frontend a partir do contrato da API (frontend-standard). Gerado, não editado.
+api-types: openapi ## Gera frontend/generated/api-schema.ts a partir de backend/openapi.json
+	cd frontend && npm run types:api
+
+api-types-check: api-types ## Falha se o tipo gerado não bate com o commit (CI)
+	git diff --exit-code -- frontend/generated/api-schema.ts
+
+bundle: ## Build de produção e gate do bundle inicial (teto 250 KB gzip)
+	cd frontend && npm run bundle

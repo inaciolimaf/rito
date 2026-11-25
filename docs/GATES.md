@@ -163,7 +163,7 @@ estoura.
 | Cobertura do backend | piso **83%** de statements em `app/` sem `app/workers/`, medido em Python 3.12 | **proxy** |
 | Cobertura do frontend | piso **53%** de statements e linhas | **proxy** |
 | Duplicação (jscpd) | Python ≤ **0,75%**, TSX ≤ **1,3%** | **proxy** |
-| Tamanho do bundle | inicial abaixo de **300 KB** gzip, com chunks obrigatórios separados | programático |
+| Tamanho do bundle | inicial (JS, CSS e preloads do `index.html`) abaixo de **250 KB** gzip, com chunks obrigatórios separados (`make bundle`) | programático |
 | Auditoria de dependências | `pip-audit` e `npm audit` | programático |
 | Imagem de produção | constrói e sobe | programático |
 
@@ -188,7 +188,7 @@ Fonte única de verdade de cada teto, para não haver dois lugares dizendo coisa
 - tetos do Ruff, `mypy`, `black`, cobertura do backend → `backend/pyproject.toml`
 - cobertura do frontend → `frontend/vite.config.ts`
 - duplicação → `.jscpd.json` (raiz)
-- bundle → `frontend/scripts/check-bundle.mjs`
+- bundle → `frontend/scripts/check-bundle.mjs`; regras de lint do frontend (tamanho, `exhaustive-deps`, formatação, teclado, camadas) → `frontend/eslint.config.js`, com as dívidas em listas `DEBT_*`
 - wall-clock → `scripts/run-tests.sh`
 - tetos de silenciamento e de marcadores → os próprios meta-testes
 - **registro histórico** (não é gate): `coverage.json` e `test-timing.json`

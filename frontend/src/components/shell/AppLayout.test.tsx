@@ -70,4 +70,31 @@ describe("AppLayout", () => {
     // O shell continua: quem não pode ver esta tela precisa conseguir ir para outra.
     expect(screen.getByRole("navigation", { name: "Navegação principal" })).toBeInTheDocument();
   });
+
+  it("Escape fecha o drawer mobile", async () => {
+    const user = userEvent.setup();
+    renderApp("/home");
+
+    await user.click(screen.getByRole("button", { name: "Abrir menu de navegação" }));
+    expect(screen.getAllByRole("link", { name: /contatos/i }).length).toBeGreaterThan(1);
+
+    await user.keyboard("{Escape}");
+    expect(screen.getAllByRole("link", { name: /contatos/i })).toHaveLength(1);
+  });
+
+  it("tem link de pular para o conteúdo, título por tela e foco no main ao navegar", async () => {
+    const user = userEvent.setup();
+    renderApp("/home");
+
+    expect(screen.getByRole("link", { name: "Pular para o conteúdo" })).toHaveAttribute(
+      "href",
+      "#conteudo",
+    );
+    expect(document.title).toBe("Meu Painel · Rito");
+
+    await user.click(screen.getAllByRole("link", { name: /contatos/i })[0]!);
+
+    expect(screen.getByRole("main")).toHaveFocus();
+    expect(document.title).toMatch(/^Contatos · Rito$/);
+  });
 });

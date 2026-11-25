@@ -6,14 +6,17 @@ import type * as React from "react";
 export function StagnationTooltip({
   message,
   children,
+  id,
 }: {
   message: string;
   children: React.ReactNode;
+  id: string;
 }): JSX.Element {
   return (
     <span className="group relative inline-block">
       {children}
       <span
+        id={id}
         role="tooltip"
         className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden w-max max-w-[16rem] -translate-x-1/2 rounded bg-primary px-2 py-1 text-xs text-primary-foreground group-hover:block group-focus-within:block"
       >

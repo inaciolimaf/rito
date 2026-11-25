@@ -11,17 +11,18 @@
     "nota_remedicao": "Remedido em 01/09/2026 sobre a árvore com 107, 108, 118 e 119 já integradas: 91,16% — o mesmo valor da árvore limpa. A refatoração router→service da 118 moveu código entre camadas sem deixar buraco de cobertura."
   },
   "frontend": {
-    "floor_percent": 53,
+    "floor_percent": 49,
     "metric": "statements",
     "scope": "src/**/*.{ts,tsx} sem testes, mocks e src/test/ (include/exclude do vite.config.ts)",
-    "last_measured_percent": 53.98,
-    "last_measured_at": "2026-09-01",
-    "statements": 26899,
-    "covered": 14521,
-    "branches_percent": 75.21,
-    "functions_percent": 51.56,
+    "last_measured_percent": 49.65,
+    "last_measured_at": "2026-11-25",
+    "statements": 6572,
+    "covered": 3263,
+    "branches_percent": 43.72,
+    "functions_percent": 41.93,
     "nota": "Branches e functions são medidos e publicados, mas NÃO são gate (spec 117 §6: dois números novos ao mesmo tempo é um a mais do que se consegue defender).",
-    "nota_remedicao": "Remedido depois da 119: 53,37% → 53,98%. Subiu porque as extrações de <CrudListPage>/<ImageUploader> apagaram statements duplicados não cobertos e os componentes novos entraram com teste. O piso continua 53 (medido, arredondado para baixo)."
+    "nota_remedicao": "Remedido em 25/11/2026 na troca do Vitest 3 para o 5 (CVE no vitest/tinypool), mesmo código e mesmos testes: o Vitest 3 contava cada LINHA como statement (60,17% de 25.395); o 5 remapeia pela AST e conta statements reais (49,65% de 6.572; linhas 51,36%). A cobertura não mudou, mudou a régua. Piso = medido arredondado para baixo: statements 49, lines 51 — mesmo critério da remedição do backend no Python 3.12 (319c2af).",
+    "lines_percent": 51.36
   },
   "specs": {
     "117": {

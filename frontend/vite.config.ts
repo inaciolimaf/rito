@@ -36,9 +36,11 @@ export default defineConfig({
       // Branches (75,21%) e functions (51,56%) são medidos e publicados no resumo do
       // CI, mas não são gate: §6 da spec deixa fora — ligar dois números novos ao
       // mesmo tempo é um a mais do que dá para defender.
+      // Remedido no Vitest 5 (25/11/2026): a régua mudou de linhas para statements da AST —
+      // mesmo código, 60,17% no Vitest 3 contra 49,65% no 5. Ver coverage.json.
       thresholds: {
-        statements: 53,
-        lines: 53,
+        statements: 49,
+        lines: 51,
       },
     },
   },

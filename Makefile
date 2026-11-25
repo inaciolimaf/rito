@@ -170,6 +170,10 @@ docker-image: ## Constrói a imagem de produção do backend (rito-backend:ci)
 image-smoke: ## Confere a imagem: não roda como root, sem gcc, `rito health` passa em produção
 	@if [ "$$(docker run --rm rito-backend:ci id -u)" = "0" ]; then echo "a imagem roda como root" >&2; exit 1; fi
 	@if docker run --rm rito-backend:ci sh -c 'command -v gcc >/dev/null 2>&1'; then echo "gcc sobreviveu na imagem final" >&2; exit 1; fi
+	@# Fresh MinIO in this job: the bucket is provisioned out of band in production, and
+	@# `rito health` only checks that it exists. Created with the image's own boto3.
+	docker run --rm --network host rito-backend:ci python -c \
+		"import boto3; c = boto3.client('s3', endpoint_url='$$S3_ENDPOINT_URL', aws_access_key_id='$$S3_ACCESS_KEY', aws_secret_access_key='$$S3_SECRET_KEY', region_name='$$S3_REGION'); c.create_bucket(Bucket='$$S3_BUCKET')"
 	docker run --rm --network host \
 		-e APP_ENV=production \
 		-e SECRET_KEY="$$(openssl rand -hex 32)" \

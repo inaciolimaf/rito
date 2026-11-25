@@ -57,12 +57,12 @@ item do checklist, marcado como "fora do escopo" ou "frontend-standard".
 | Regra | Status | O que fazer |
 |---|---|---|
 | Vite + React + TS `strict`, `noUnusedLocals/Parameters`, `noFallthroughCasesInSwitch` | ok | `frontend/tsconfig.app.json`. |
-| eslint flat com `js`, `typescript-eslint`, `react-hooks` com `exhaustive-deps: error` | partial | Falta `exhaustive-deps` como erro (hoje aviso). Regras próprias existem em `frontend/eslint-rules/`. Frontend-standard. |
-| `max-lines-per-function` 100, `max-lines` 300, regras de reuso (cor, número, sombra, teclado) | missing | frontend-standard. |
+| eslint flat com `js`, `typescript-eslint`, `react-hooks` com `exhaustive-deps: error` | ok | `exhaustive-deps` é erro desde o frontend-standard. Dívidas de tamanho e reuso em `docs/frontend-standard-audit-guarantees.md`. |
+| `max-lines-per-function` 100, `max-lines` 300, regras de reuso (cor, número, teclado, camadas) | partial | Regras ativas com baseline por arquivo; ver `docs/frontend-standard-audit-guarantees.md`. |
 | prettier + `eslint-config-prettier` | partial | Prettier ok; `eslint-config-prettier` não está instalado. frontend-standard. |
 | `QueryView`, `Card`, `Button`, `formatting.ts`, `useShortcuts`, `palettes.ts` | partial | Há parte dos componentes; estrutura `features/<ctx>/` em vez de `modules/<domínio>/`. frontend-standard. |
-| Router com `defaultErrorComponent` e `defaultPendingComponent` | missing | frontend-standard. |
-| Tipos da API gerados do OpenAPI (`openapi-typescript`) | missing | O backend já gera `backend/openapi.json` (`make openapi`), mas o frontend não gera tipos a partir dele (`src/lib/domainEnums.generated.ts` é o único gerado). Próximo passo: frontend-standard. |
+| Router com `defaultErrorComponent` e `defaultPendingComponent` | partial | `RouteErrorBoundary` rearma a cada navegação; pendência é o `Suspense` fallback. Ver `docs/frontend-standard-audit-guarantees.md`. |
+| Tipos da API gerados do OpenAPI (`openapi-typescript`) | partial | `make api-types` gera `frontend/generated/api-schema.ts`; `make api-types-check` para CI. O cliente ainda escreve tipos à mão (dívida). |
 | Vitest + Testing Library, cobertura ≥ 60% | partial | Vitest ok (357 testes). Limite atual em `frontend/vite.config.ts` é 53% (linhas e statements). Conflito: padrão 60%. Ver seção 6. |
 | Playwright com fluxos e smoke das rotas | partial | `e2e/` com 11 jornadas (teto 25). Uma falha pré-existente: `navigation.spec.ts` jornada 2 (ver seção 5). |
 | `*.tsbuildinfo` e `coverage/` no `.gitignore` | ok | `coverage/` adicionado nesta rodada. |
@@ -81,7 +81,7 @@ item do checklist, marcado como "fora do escopo" ou "frontend-standard".
 | `.dockerignore` | missing → ok | aplicado: `backend/.dockerignore` e `frontend/.dockerignore` (os contextos são `backend/` e `frontend/`; o padrão previa um na raiz). |
 | `make` com `help` como alvo padrão | missing → ok | aplicado: `help` com descrição em todos os alvos e `.DEFAULT_GOAL := help`. **Mudança de comportamento:** `make` sozinho antes rodava `up`; agora lista os comandos. Para subir os serviços, usar `make up`. |
 | CI com jobs `check`, `back`, `web`, `e2e` e `gate` com 180 s | partial | CI tem um job `test` (30 min de teto) com `make lint`, `make docs` (aplicado), `make test` (300 s, o teto do `CLAUDE.md`), build, cobertura, auditoria e build da imagem. Dívida: dividir em jobs (test-speed) e decidir o teto (ver seção 6). |
-| Todo passo do CI tem alvo no Makefile | partial | `lint`, `docs`, `test` e `coverage` têm alvo. Build do frontend, `dup:check`, `bundle:check`, auditoria de dependências e build da imagem não têm. Dívida: criar alvos com os mesmos comandos. |
+| Todo passo do CI tem alvo no Makefile | partial | `lint`, `docs`, `test`, `coverage`, `bundle` e `api-types-check` têm alvo. `dup:check`, auditoria de dependências e build da imagem não têm. Dívida: criar alvos com os mesmos comandos. |
 | `make docs` no CI, depois do lint | ok | aplicado: passo `make docs` em `.github/workflows/ci.yml`. |
 | Mutação nos métodos alterados | partial | Fora do escopo (`mutation-testing`). Existe `make test-mutation` (spec 132). |
 
